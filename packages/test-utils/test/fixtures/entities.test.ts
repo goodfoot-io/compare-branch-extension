@@ -10,13 +10,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  createAdaptiveCard,
-  createAdaptiveCardFrontmatter,
   createCard,
   createCardMetadata,
   createComment,
   createCompleteCard,
-  createMultipleAdaptiveCards,
   createMultipleCards,
   createMultipleComments,
   createMultipleNotes,
@@ -82,50 +79,6 @@ describe('Entity Fixtures', () => {
     });
   });
 
-  describe('createAdaptiveCardFrontmatter()', () => {
-    it('creates frontmatter with default values', () => {
-      const frontmatter = createAdaptiveCardFrontmatter();
-
-      expect(frontmatter.id).toBeTruthy();
-      expect(frontmatter.summary).toContain('Test Adaptive Card');
-      expect(frontmatter.author).toBe('test-author');
-      expect(frontmatter.status).toBe('active');
-    });
-
-    it('applies overrides', () => {
-      const frontmatter = createAdaptiveCardFrontmatter({
-        summary: 'Custom Card',
-        author: 'custom-author',
-        status: 'completed'
-      });
-
-      expect(frontmatter.summary).toBe('Custom Card');
-      expect(frontmatter.author).toBe('custom-author');
-      expect(frontmatter.status).toBe('completed');
-    });
-  });
-
-  describe('createAdaptiveCard()', () => {
-    it('creates adaptive card with default values', () => {
-      const card = createAdaptiveCard();
-
-      expect(card.id).toBeTruthy();
-      expect(card.summary).toContain('Test Adaptive Card');
-      expect(card.payload).toEqual({});
-      expect(card.output).toBeUndefined();
-    });
-
-    it('applies overrides', () => {
-      const card = createAdaptiveCard({
-        payload: { type: 'test' },
-        output: { result: 'success' }
-      });
-
-      expect(card.payload).toEqual({ type: 'test' });
-      expect(card.output).toEqual({ result: 'success' });
-    });
-  });
-
   describe('createComment()', () => {
     it('creates comment with default values', () => {
       const comment = createComment();
@@ -170,17 +123,14 @@ describe('Entity Fixtures', () => {
       const result = createCompleteCard();
 
       expect(result.card).toBeDefined();
-      expect(result.adaptiveCards).toEqual([]);
       expect(result.comments).toEqual([]);
     });
 
-    it('creates card with adaptive cards and comments', () => {
+    it('creates card with comments', () => {
       const result = createCompleteCard({
-        adaptiveCards: [{ summary: 'Card 1' }],
         comments: [{ content: 'Comment 1' }]
       });
 
-      expect(result.adaptiveCards.length).toBe(1);
       expect(result.comments.length).toBe(1);
     });
   });
@@ -190,11 +140,6 @@ describe('Entity Fixtures', () => {
       const cards = createMultipleCards(5);
       expect(cards.length).toBe(5);
       expect(cards.every((i) => i.id)).toBe(true);
-    });
-
-    it('createMultipleAdaptiveCards creates specified count', () => {
-      const cards = createMultipleAdaptiveCards(2);
-      expect(cards.length).toBe(2);
     });
 
     it('createMultipleComments creates specified count', () => {

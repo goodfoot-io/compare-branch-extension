@@ -24,23 +24,6 @@ import type { Card, CardMetadata } from '@cards/sdk/protocol';
 import { DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
 import { now } from './time.js';
 
-/** Lifecycle stages for adaptive cards. Defined locally to avoid coupling to @cards/protocol. */
-export type AdaptiveCardStatus = 'active' | 'completed';
-
-/** Frontmatter metadata for an adaptive card. Defined locally. */
-export interface AdaptiveCardFrontmatter {
-  id: string;
-  summary: string;
-  author: string;
-  status: AdaptiveCardStatus;
-}
-
-/** Full adaptive card representation. Defined locally. */
-export interface AdaptiveCard extends AdaptiveCardFrontmatter {
-  payload: Record<string, unknown>;
-  output?: Record<string, unknown>;
-}
-
 // --- Card Factories ---
 
 /**
@@ -90,46 +73,6 @@ export function createCard(overrides: Partial<Card> = {}): Card {
     hasStaleMerge: overrides.hasStaleMerge ?? true,
     hasUnread: overrides.hasUnread ?? false,
     repositoryPath: overrides.repositoryPath ?? `/tmp/cards/${metadata.id}`
-  };
-}
-
-// --- Adaptive Card Factories ---
-
-/**
- * Creates an AdaptiveCardFrontmatter with sensible defaults.
- *
- * Behavior: uses a synthetic author and `active` status unless overridden.
- *
- * @param overrides Partial fields to override
- * @returns A complete AdaptiveCardFrontmatter
- */
-export function createAdaptiveCardFrontmatter(
-  overrides: Partial<AdaptiveCardFrontmatter> = {}
-): AdaptiveCardFrontmatter {
-  const id = overrides.id ?? randomUUID();
-  return {
-    id,
-    summary: overrides.summary ?? `Test Adaptive Card ${id.slice(0, 8)}`,
-    author: overrides.author ?? 'test-author',
-    status: overrides.status ?? 'active'
-  };
-}
-
-/**
- * Creates an AdaptiveCard with sensible defaults.
- *
- * Behavior: defaults `payload` to an empty object and only includes `output`
- * when explicitly supplied.
- *
- * @param overrides Partial fields to override
- * @returns A complete AdaptiveCard
- */
-export function createAdaptiveCard(overrides: Partial<AdaptiveCard> = {}): AdaptiveCard {
-  const frontmatter = createAdaptiveCardFrontmatter(overrides);
-  return {
-    ...frontmatter,
-    payload: overrides.payload ?? {},
-    output: overrides.output
   };
 }
 
@@ -207,7 +150,6 @@ export function createNote(overrides: Partial<Note> = {}): Note {
  */
 export interface CreateCompleteCardOptions {
   card?: Partial<Card>;
-  adaptiveCards?: Array<Partial<AdaptiveCard>>;
   comments?: Array<Partial<Comment>>;
 }
 
@@ -218,7 +160,6 @@ export interface CreateCompleteCardOptions {
  */
 export interface CompleteCard {
   card: Card;
-  adaptiveCards: AdaptiveCard[];
   comments: Comment[];
 }
 
@@ -234,7 +175,6 @@ export interface CompleteCard {
  * ```typescript
  * const bundle = createCompleteCard({
  *   card: { title: 'Pinned card', isPinned: true },
- *   adaptiveCards: [{ summary: 'Adaptive 1' }],
  *   comments: [{ content: 'First comment' }]
  * });
  * ```
@@ -244,10 +184,9 @@ export interface CompleteCard {
  */
 export function createCompleteCard(options: CreateCompleteCardOptions = {}): CompleteCard {
   const card = createCard(options.card);
-  const adaptiveCards = (options.adaptiveCards ?? []).map((c) => createAdaptiveCard(c));
   const comments = (options.comments ?? []).map((c) => createComment(c));
 
-  return { card, adaptiveCards, comments };
+  return { card, comments };
 }
 
 // --- Multiple Entity Helpers ---
@@ -269,19 +208,6 @@ export function createCompleteCard(options: CreateCompleteCardOptions = {}): Com
  */
 export function createMultipleCards(count: number, overrides: Partial<Card> = {}): Card[] {
   return Array.from({ length: count }, () => createCard(overrides));
-}
-
-/**
- * Creates multiple adaptive cards with sensible defaults.
- *
- * Behavior: each adaptive card gets its own ID unless overridden.
- *
- * @param count Number of adaptive cards to create
- * @param overrides Partial fields to apply to all adaptive cards
- * @returns Array of adaptive cards
- */
-export function createMultipleAdaptiveCards(count: number, overrides: Partial<AdaptiveCard> = {}): AdaptiveCard[] {
-  return Array.from({ length: count }, () => createAdaptiveCard(overrides));
 }
 
 /**
