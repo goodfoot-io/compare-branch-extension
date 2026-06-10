@@ -21,6 +21,12 @@ import { resolveScaffoldDirFromSource } from '@cards/sdk';
  * Constructs a {@link HybridStore} for tests, defaulting `scaffoldDir` to the
  * SDK source-resolved scaffold fixture directory.
  *
+ * The background reconciliation sweep is run immediately by defaulting
+ * `reconciliationDelayMs` to `0`, so suites that await `reconciliationReady`
+ * after `initialize()` do not pay the production startup delay. A caller may
+ * still override the delay (e.g. to assert the deferral behavior) by passing
+ * `reconciliationDelayMs` in `base`.
+ *
  * @param base - All {@link HybridStoreOptions} except `scaffoldDir`, which is
  *   injected from {@link resolveScaffoldDirFromSource}.
  * @param deps - Optional injectable dependencies forwarded to the constructor.
@@ -30,5 +36,5 @@ export function createHybridStoreForTest(
   base: Omit<HybridStoreOptions, 'scaffoldDir'>,
   deps?: HybridStoreDeps
 ): HybridStore {
-  return new HybridStore({ ...base, scaffoldDir: resolveScaffoldDirFromSource() }, deps);
+  return new HybridStore({ reconciliationDelayMs: 0, ...base, scaffoldDir: resolveScaffoldDirFromSource() }, deps);
 }
