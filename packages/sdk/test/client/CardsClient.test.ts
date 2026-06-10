@@ -559,7 +559,22 @@ describe('CardsClient', () => {
         method: 'POST',
         url: expect.stringContaining('/cards/card-123/actions/launch')
       });
+      expect(httpClient.requests[0]!.body).toBeUndefined();
       expect(result).toEqual(expectedResult);
+    });
+
+    it('executeAction sends the execution mode in the request body when provided', async () => {
+      const httpClient = new TestHttpClient();
+      httpClient.responses.set('http://localhost:3000/cards/card-123/actions/chat', { success: true, exitCode: 0 });
+      const client = new CardsClient(options, httpClient);
+
+      await client.executeAction('card-123', 'chat', 'interactive');
+
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'POST',
+        url: expect.stringContaining('/cards/card-123/actions/chat'),
+        body: { mode: 'interactive' }
+      });
     });
   });
 

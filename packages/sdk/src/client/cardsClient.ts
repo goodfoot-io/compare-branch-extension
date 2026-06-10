@@ -11,6 +11,8 @@ import type {
   Card,
   CompareRequest,
   CompareState,
+  ExecuteActionRequest,
+  ExecutionMode,
   HttpClient,
   StreamMeta,
   TimelineItem
@@ -948,13 +950,16 @@ export class CardsClient {
    *
    * @param cardId - Identifier of the card to execute the action on.
    * @param actionName - Action identifier (e.g., 'launch').
+   * @param mode - Optional execution mode. When omitted, the server derives
+   *   the mode from the action's `supportsBackgroundMode` flag.
    * @returns Promise resolving to the action execution result.
    * @throws ApiError when the server rejects the request.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async executeAction(cardId: string, actionName: string): Promise<ActionResult> {
+  async executeAction(cardId: string, actionName: string, mode?: ExecutionMode): Promise<ActionResult> {
     const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
-    return this.request(() => this.getHttpClient().post<ActionResult>(url, undefined));
+    const body: ExecuteActionRequest | undefined = mode ? { mode } : undefined;
+    return this.request(() => this.getHttpClient().post<ActionResult>(url, body));
   }
 
   // --- Compare Operations ---
