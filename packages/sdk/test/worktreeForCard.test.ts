@@ -34,7 +34,13 @@ vi.mock('../src/worktree.js', () => ({
   removeWorktree: vi.fn(),
   writeCardBoundFile: vi.fn(),
   clearCardBoundFile: vi.fn(),
-  appendWorktreeGitExcludes: vi.fn()
+  appendWorktreeGitExcludes: vi.fn(),
+  // outfit/release internals — stubbed so the composition tests exercise the
+  // orchestration logic without real git or filesystem hook provisioning.
+  findGitRoots: vi.fn(async () => ({ sourceRoot: '/src', repoRoot: '/repo' })),
+  captureOriginalHooksPath: vi.fn(async () => '/repo/.git/hooks'),
+  provisionSharedHooksDir: vi.fn(async () => undefined),
+  resolveHomeDir: vi.fn(() => '/home')
 }));
 
 vi.mock('../src/pendingBind.js', () => ({
@@ -51,12 +57,14 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
   return {
     ...actual,
-    access: vi.fn()
+    access: vi.fn(),
+    readFile: vi.fn(),
+    writeFile: vi.fn(async () => undefined)
   };
 });
 
 import { execFile } from 'node:child_process';
-import { access, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { access, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { clearPendingBind, writePendingBind } from '../src/pendingBind.js';
@@ -126,7 +134,17 @@ describe('createWorktreeForCard', () => {
   let settleResolve!: () => void;
   let earlyResult!: EarlyWorktreeResult;
 
-  beforeEach(() => {
+  // The recomposed orchestrator delegates the disk + API phase to the real
+  // outfitWorktreeForCard, which acquires a cross-process bind lock under the
+  // global Cards config dir. Redirect that dir to an isolated temp dir.
+  let cardsHomeDir: string;
+  let priorCardsHome: string | undefined;
+
+  beforeEach(async () => {
+    priorCardsHome = process.env['CARDS_HOME'];
+    cardsHomeDir = await mkdtemp(join(tmpdir(), 'create-wt-test-'));
+    process.env['CARDS_HOME'] = cardsHomeDir;
+
     const settle = new Promise<unknown>((res) => {
       settleResolve = res as () => void;
     }) as Promise<never>;
@@ -134,33 +152,44 @@ describe('createWorktreeForCard', () => {
 
     vi.mocked(createWorktree).mockResolvedValue(earlyResult);
     vi.mocked(removeWorktree).mockResolvedValue(undefined);
+    // outfit's CARD_ORIGINAL_HOOK_PATH snapshot guard: ENOENT → not yet captured.
+    vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    // git config writes (extensions.worktreeConfig, core.hooksPath) succeed;
+    // rev-parse --abbrev-ref HEAD returns the worktree's branch name.
+    vi.mocked(execFile).mockImplementation((...callArgs: unknown[]) => {
+      const argv = callArgs[1] as string[];
+      const cb = callArgs[callArgs.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
+      const isRevParse = argv.includes('rev-parse');
+      cb(null, { stdout: isRevParse ? 'cards/main-95/1\n' : '', stderr: '' });
+      return {} as ReturnType<typeof execFile>;
+    });
+    vi.mocked(writeCardBoundFile).mockResolvedValue(undefined);
+    vi.mocked(appendWorktreeGitExcludes).mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.clearAllMocks();
+    if (priorCardsHome === undefined) {
+      delete process.env['CARDS_HOME'];
+    } else {
+      process.env['CARDS_HOME'] = priorCardsHome;
+    }
+    await rm(cardsHomeDir, { recursive: true, force: true });
   });
 
-  it('calls createWorktree with ref and card-binding options', async () => {
+  it('calls createWorktree as a pure primitive (cwd only, no card options)', async () => {
     const client = makeClient();
     await createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS);
 
     expect(createWorktree).toHaveBeenCalledOnce();
-    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', {
-      cwd: undefined,
-      cardId: BASE_OPTIONS.cardId,
-      compiledScriptPaths: BASE_OPTIONS.compiledScriptPaths
-    });
+    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', { cwd: undefined });
   });
 
   it('forwards cwd when provided', async () => {
     const client = makeClient();
     await createWorktreeForCard(client, 'cards/main-95/1', { ...BASE_OPTIONS, cwd: '/repo' });
 
-    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', {
-      cwd: '/repo',
-      cardId: BASE_OPTIONS.cardId,
-      compiledScriptPaths: BASE_OPTIONS.compiledScriptPaths
-    });
+    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', { cwd: '/repo' });
   });
 
   it('calls addBranch with the early path, ref, parentBranch, and sessionId', async () => {
@@ -313,7 +342,7 @@ describe('createWorktreeForCard', () => {
     });
 
     await expect(createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS)).rejects.toThrow(
-      /addBranch=API failure; rollback=rollback boom/
+      /outfit=API failure; rollback=rollback boom/
     );
   });
 });
@@ -331,6 +360,17 @@ describe('removeWorktreeForCard', () => {
 
   beforeEach(() => {
     vi.mocked(removeWorktree).mockResolvedValue(undefined);
+    vi.mocked(clearCardBoundFile).mockResolvedValue(undefined);
+    // release derives the branch via rev-parse and reads CARD_ORIGINAL_HOOK_PATH
+    // to restore core.hooksPath; both run against the still-present worktree.
+    vi.mocked(execFile).mockImplementation((...callArgs: unknown[]) => {
+      const argv = callArgs[1] as string[];
+      const cb = callArgs[callArgs.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
+      const isRevParse = argv.includes('rev-parse');
+      cb(null, { stdout: isRevParse ? 'cards/main-95/1\n' : '', stderr: '' });
+      return {} as ReturnType<typeof execFile>;
+    });
+    vi.mocked(readFile).mockResolvedValue('/repo/.git/hooks\n');
   });
 
   afterEach(() => {
@@ -345,7 +385,7 @@ describe('removeWorktreeForCard', () => {
     expect(removeWorktree).toHaveBeenCalledWith(EARLY_PATH);
   });
 
-  it('calls removeBranch with cardId, branchName, and sessionId', async () => {
+  it('calls removeBranch with cardId, the HEAD-derived branch name, and sessionId', async () => {
     const removeBranchArgs: Parameters<CardsClient['removeBranch']>[] = [];
     const client = makeClient({
       removeBranch: async (...args) => {
@@ -362,7 +402,7 @@ describe('removeWorktreeForCard', () => {
     expect(opts).toEqual({ sessionId: 'sess-xyz' });
   });
 
-  it('removes the worktree BEFORE unregistering the branch', async () => {
+  it('releases the binding (removeBranch) BEFORE tearing the worktree down', async () => {
     const callOrder: string[] = [];
 
     vi.mocked(removeWorktree).mockImplementation(async () => {
@@ -377,23 +417,19 @@ describe('removeWorktreeForCard', () => {
 
     await removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS);
 
-    expect(callOrder).toEqual(['removeWorktree', 'removeBranch']);
+    // Release needs the worktree on disk (rev-parse, hook-path snapshot), so it
+    // runs first; teardown follows.
+    expect(callOrder).toEqual(['removeBranch', 'removeWorktree']);
   });
 
   it('propagates the teardown failure untouched (not wrapped) when removeWorktree rejects', async () => {
     const diskError = new Error('disk error');
     vi.mocked(removeWorktree).mockRejectedValue(diskError);
-    const removeBranchArgs: Parameters<CardsClient['removeBranch']>[] = [];
-    const client = makeClient({
-      removeBranch: async (...args) => {
-        removeBranchArgs.push(args as Parameters<CardsClient['removeBranch']>);
-      }
-    });
+    const client = makeClient();
 
     // The teardown-phase error must propagate as-is so callers can apply their
     // teardown stance to it; it is NOT a BranchUnregisterError.
     await expect(removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS)).rejects.toBe(diskError);
-    expect(removeBranchArgs).toHaveLength(0);
   });
 
   it('wraps a removeBranch failure in BranchUnregisterError carrying the cause', async () => {

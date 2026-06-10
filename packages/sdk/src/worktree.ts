@@ -202,14 +202,6 @@ function pathsEqual(a: string, b: string): boolean {
 export interface CreateWorktreeOptions {
   /** Working directory used when locating git roots. Defaults to `process.cwd()`. */
   cwd?: string;
-  /** When set, makes the worktree card-bound (writes `.cards/CARD_ID` and installs hooks). */
-  cardId?: string;
-  /**
-   * Required when `cardId` is provided — map of git hook name to the absolute path of the
-   * compiled `.mjs` script. Omitting it while `cardId` is set installs dispatchers with no
-   * `.mjs` files, re-creating the D10a silent-attribution-loss risk.
-   */
-  compiledScriptPaths?: Record<string, string>;
 }
 
 export interface CreateWorktreeResult {
@@ -243,17 +235,14 @@ export interface EarlyWorktreeResult {
  * it if needed). When `ref` is a tag or commit SHA, the worktree is created
  * in detached HEAD mode.
  *
+ * This is a pure git primitive — it creates and wires the worktree on disk but
+ * knows nothing about cards. Card binding (the `.cards/CARD_ID` marker, hook
+ * installation, branch registration, attribution) is layered on top by
+ * {@link outfitWorktreeForCard} via `createWorktreeForCard`.
+ *
  * @param ref - Branch name, tag name, or commit SHA.
  * @param options - Optional configuration.
  * @param options.cwd - Working directory to use when locating git roots. Defaults to `process.cwd()`.
- * @param options.cardId - When provided, makes the worktree card-bound: writes `<worktree>/.cards/CARD_ID`
- *   so workspace git hooks can attribute commits without an inherited env var, and excludes the file
- *   from `git status` via the per-worktree `info/exclude`. Omitting this option leaves the worktree
- *   unbound — no Cards hooks are installed and no commits are attributed.
- * @param options.compiledScriptPaths - Required when `cardId` is provided. Map of hook name to the
- *   absolute path of the compiled `.mjs` script. Omitting it while `cardId` is set installs
- *   dispatchers with no `.mjs` files, re-creating the D10a silent-attribution-loss risk, so it is
- *   rejected.
  * @returns Early result with `path` available immediately and `settle` resolving when setup completes.
  */
 export async function createWorktree(ref: string, options?: CreateWorktreeOptions): Promise<EarlyWorktreeResult> {
@@ -291,50 +280,6 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     await addDetachedWorktree(repoRoot, worktreeDir, ref);
   }
 
-  // Attribution-critical pre-settle block (A2 race fix). `claude-session.ts`
-  // does NOT await `settle` — it spawns the agent immediately with
-  // `cwd=worktreeDir`, so the agent can `git commit` before `settle` resolves.
-  // The marker and hook config must therefore be in place BEFORE the early
-  // return, on the synchronous path. This runs after `addWorktree` so the
-  // worktree dir exists on disk.
-  if (options?.cardId !== undefined) {
-    if (options.cardId.length === 0) {
-      throw new Error('createWorktree: cardId must be a non-empty string');
-    }
-    // D10a guard: dispatchers without .mjs files silently lose attribution.
-    if (!options.compiledScriptPaths || Object.keys(options.compiledScriptPaths).length === 0) {
-      throw new Error('createWorktree: compiledScriptPaths required when cardId is set');
-    }
-
-    // 1. Write .cards/CARD_ID (writeCardBoundFile mkdir -p's .cards itself).
-    await writeCardBoundFile(worktreeDir, options.cardId);
-
-    // 2. Snapshot the pre-existing hooks dir so the dispatcher can chain to it.
-    const originalHooksDir = await captureOriginalHooksPath(repoRoot);
-
-    // 3. Record it for the dispatcher to read at hook runtime.
-    await fs.writeFile(path.join(worktreeDir, '.cards', 'CARD_ORIGINAL_HOOK_PATH'), originalHooksDir);
-
-    // 4. Provision the shared dispatcher dir (idempotent). It lives at a
-    //    global, flat location (`~/.cards/workspace-hooks`) — the provisioned
-    //    scripts and `.mjs` payloads are byte-identical across all repos and
-    //    worktrees (every repo/worktree-specific value is resolved at runtime),
-    //    so a single global dir is correct and keeps it out of any working tree.
-    //    `$HOME` is the same anchor the dispatcher uses for `$HOME/.cards/VSCODE_NODE`.
-    const sharedHooksDir = path.join(resolveHomeDir(), '.cards', 'workspace-hooks');
-    await provisionSharedHooksDir(sharedHooksDir, options.compiledScriptPaths);
-
-    // 5. Enable per-worktree config — MUST precede the --worktree write (D9).
-    await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], {
-      timeout: 5_000
-    });
-
-    // 6. Point this worktree at the shared dispatcher dir (D9: after step 5).
-    await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', sharedHooksDir], {
-      timeout: 5_000
-    });
-  }
-
   // The worktree directory exists on disk — return early so callers can use
   // the path (e.g. as cwd for spawning processes) while the remaining setup
   // (symlinks, node_modules rerouting, git excludes) runs concurrently.
@@ -353,16 +298,12 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
     const copiedFromInclude = await applyWorktreeInclude({ sourceRoot, worktreeDir });
 
-    // Git-excludes are not attribution-critical (display only) so they stay in settle.
-    const additionalExcludes =
-      options?.cardId !== undefined ? ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH'] : ['.cards/PENDING_BIND'];
     const [, baseSha] = await Promise.all([
       updateGitExclude({
         worktreeDir,
         repoRoot,
         directories: ignored.directories,
-        files: ignored.files,
-        additionalExcludes
+        files: ignored.files
       }),
       resolveHead(worktreeDir)
     ]);
@@ -773,7 +714,7 @@ export async function appendWorktreeGitExcludes(worktreeDir: string, entries: re
  *
  * @returns Absolute path to the home directory.
  */
-function resolveHomeDir(): string {
+export function resolveHomeDir(): string {
   const home = process.env['HOME'];
   if (home !== undefined && home.length > 0) {
     return home;
@@ -791,7 +732,7 @@ function resolveHomeDir(): string {
  * @param repoRoot - Primary repository root.
  * @returns Absolute path to the original hooks directory.
  */
-async function captureOriginalHooksPath(repoRoot: string): Promise<string> {
+export async function captureOriginalHooksPath(repoRoot: string): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', ['-C', repoRoot, 'config', 'core.hooksPath'], {
       timeout: 5_000
@@ -1002,7 +943,7 @@ exit 0
  * @param sharedHooksDir - Absolute path to the shared hooks directory.
  * @param compiledScriptPaths - Map of hook name to compiled `.mjs` source path.
  */
-async function provisionSharedHooksDir(
+export async function provisionSharedHooksDir(
   sharedHooksDir: string,
   compiledScriptPaths: Record<string, string>
 ): Promise<void> {
