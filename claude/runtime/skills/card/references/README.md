@@ -36,4 +36,4 @@ These stay as distinct top-level skills for portability to non-Claude agent syst
 - `runtime:card-plan-failure-mode` — loaded via team dispatch prompt in `contest.md`.
 - `runtime:card-failure-mode` — loaded via team dispatch prompt in `implementation-evaluation.md`.
 - `runtime:card-experience-evaluator` — loaded via team dispatch prompt in `implementation-evaluation.md`.
-- `runtime:card-pre-existing-condition` (skill) — loaded via the `runtime:pre-existing-condition` agent's frontmatter; dispatched from `implementation-with-plan.md` when validation fails on a pre-existing condition. Invoke as agent `runtime:pre-existing-condition`, not by skill name.
+- `runtime:card-pre-existing-condition` (skill) — loaded via the `runtime:card:pre-existing-condition` agent's frontmatter; dispatched from `implementation-with-plan.md` when validation fails on a pre-existing condition. Invoke as agent `runtime:card:pre-existing-condition` (colons), not by the skill name (hyphens).
