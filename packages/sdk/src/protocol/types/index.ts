@@ -27,6 +27,7 @@ export type {
   CreateCommentRequest,
   EnvironmentInfo,
   EnvironmentsResponse,
+  ExecuteActionRequest,
   GateApprovalResponse,
   GateName,
   HasUpdatesResponse,

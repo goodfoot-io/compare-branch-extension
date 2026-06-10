@@ -34,6 +34,7 @@
  */
 
 import type { Card, CardRelation } from './card.js';
+import type { ExecutionMode } from './settings.js';
 import type { CardStatus } from './status.js';
 import type { Comment, TimelineItem } from './timeline.js';
 
@@ -596,6 +597,23 @@ export interface EnvironmentInfo {
  * An array of available environments, each containing its action summaries.
  */
 export type EnvironmentsResponse = EnvironmentInfo[];
+
+/**
+ * Request body for `POST /cards/:id/actions/:name`.
+ *
+ * Controls how the relayed action is executed by the extension client.
+ */
+export interface ExecuteActionRequest {
+  /**
+   * Execution mode for the action.
+   *
+   * When omitted, the server derives the mode from the action definition:
+   * `'background'` when the action declares `supportsBackgroundMode: true`,
+   * otherwise `'interactive'`. An explicit `'background'` request for an
+   * action that does not support background mode is rejected with 400.
+   */
+  mode?: ExecutionMode;
+}
 
 // ============================================================================
 // Health API Types

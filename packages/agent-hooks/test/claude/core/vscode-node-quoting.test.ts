@@ -181,9 +181,14 @@ describe('generated hook commands tolerate spaces in VSCODE_NODE', () => {
       for (const command of commands) {
         rmSync(marker, { force: true });
 
-        const scriptToken = command.trim().split(/\s+/).pop();
-        expect(scriptToken).toBeDefined();
-        const pluginRoot = resolvePluginRoot(scriptToken!, binDir);
+        // claude-code-hooks >= 1.7 shell-quotes $CLAUDE_PLUGIN_ROOT to survive
+        // spaces in the install path. The last whitespace-delimited token is
+        // therefore  "$CLAUDE_PLUGIN_ROOT"/hooks/bin/<name>.mjs — strip the
+        // quotes so resolvePluginRoot can match the expected prefix.
+        const rawToken = command.trim().split(/\s+/).pop();
+        expect(rawToken).toBeDefined();
+        const scriptToken = rawToken!.replace(/"/g, '');
+        const pluginRoot = resolvePluginRoot(scriptToken, binDir);
 
         const result = spawnSync('/bin/sh', ['-c', command], {
           env: { ...process.env, HOME: fakeHome, CLAUDE_PLUGIN_ROOT: pluginRoot },
