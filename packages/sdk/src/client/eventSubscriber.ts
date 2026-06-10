@@ -64,6 +64,26 @@ export class EventSubscriber {
   private readonly logger: EventSubscriberLogger;
   private rawHandlers: Array<(message: Record<string, unknown>) => void> = [];
 
+  // --- Heartbeat state ---
+  /** App-level ping interval timer. Set after a successful connect, cleared on disconnect. */
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Number of consecutive pings that received no pong reply.
+   * Incremented on each ping send, reset to 0 on each pong received.
+   * The socket is closed and reconnection triggered after
+   * {@link MISSED_PONG_LIMIT} consecutive misses.
+   */
+  private missedPongs: number = 0;
+  /**
+   * Number of consecutive missed pongs that triggers a forced disconnect.
+   * Set to 2 so a dead connection is detected within ~60 s (2 × 30 s) even
+   * when one pong response is lost due to throttled background timers in
+   * VS Code webviews.
+   */
+  private static readonly MISSED_PONG_LIMIT = 2;
+  /** Interval between client-initiated app-level ping messages, in ms. */
+  private static readonly HEARTBEAT_INTERVAL_MS = 30_000;
+
   /**
    * Creates a new EventSubscriber instance.
    *
@@ -155,6 +175,17 @@ export class EventSubscriber {
     const accessToken = overrides?.accessToken ?? this.options.accessToken;
     const url = `${wsUrl}?token=${encodeURIComponent(accessToken)}`;
 
+    // Close any existing socket before creating a new one to prevent parallel
+    // reconnect loops from orphaned sockets whose close handler still fires.
+    // Null this.ws BEFORE closing so the close handler's stale-socket guard
+    // (ws !== this.ws) suppresses connectionChange callbacks for the old socket.
+    this._stopHeartbeat();
+    const oldWs = this.ws;
+    this.ws = null;
+    if (oldWs) {
+      oldWs.close();
+    }
+
     this.ws = new globalThis.WebSocket(url);
     this.shouldReconnect = true;
 
@@ -176,6 +207,7 @@ export class EventSubscriber {
         this.hasConnected = true;
         this.reconnectAttempts = 0;
         cleanup();
+        this._startHeartbeat();
         for (const cb of this.connectionChangeCallbacks) {
           cb(true);
         }
@@ -190,7 +222,13 @@ export class EventSubscriber {
       ws.addEventListener('open', onOpen);
       ws.addEventListener('error', onError);
       ws.addEventListener('close', () => {
+        // Ignore events from stale sockets that have already been replaced
+        // (e.g., by a concurrent connect() call). Only the current socket's
+        // close event should trigger state changes and reconnection.
+        if (ws !== this.ws) return;
+
         this.connected = false;
+        this._stopHeartbeat();
         if (this.hasConnected) {
           for (const cb of this.connectionChangeCallbacks) {
             cb(false);
@@ -219,6 +257,8 @@ export class EventSubscriber {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+
+    this._stopHeartbeat();
 
     if (this.ws) {
       this.ws.close();
@@ -328,10 +368,72 @@ export class EventSubscriber {
    *
    * @param event - Browser WebSocket message event containing the serialized payload.
    */
+  /**
+   * Starts the app-level heartbeat. Sends `{ type: 'ping' }` every
+   * {@link HEARTBEAT_INTERVAL_MS} and tracks missed pongs; closes the socket
+   * after {@link MISSED_PONG_LIMIT} consecutive misses to trigger reconnection.
+   *
+   * Protocol-level pings (sent by the server every 30 s) are invisible to
+   * browser JavaScript, so an app-level exchange is required for liveness
+   * detection. Two consecutive misses tolerate one lost response (e.g., due
+   * to throttled timers in a backgrounded VS Code webview).
+   */
+  private _startHeartbeat(): void {
+    this.missedPongs = 0;
+    this.heartbeatInterval = setInterval(() => {
+      if (!this.isConnected()) return;
+      this.missedPongs++;
+      if (this.missedPongs >= EventSubscriber.MISSED_PONG_LIMIT) {
+        this.logger.warn(`[EventSubscriber] Missed ${this.missedPongs} pongs — closing connection for reconnect`);
+        if (this.ws) {
+          this.ws.close();
+          this.ws = null;
+        }
+        this.connected = false;
+        this._stopHeartbeat();
+        if (this.hasConnected) {
+          for (const cb of this.connectionChangeCallbacks) {
+            cb(false);
+          }
+        }
+        if (this.shouldReconnect) {
+          this.scheduleReconnect();
+        }
+        return;
+      }
+      try {
+        this.send({ type: 'ping' });
+      } catch (err) {
+        // send() throws when not connected — possible race between
+        // isConnected() check and a socket close. The missed-pong
+        // counter above will trigger reconnect naturally.
+        this.logger.warn('[EventSubscriber] heartbeat ping failed:', err);
+      }
+    }, EventSubscriber.HEARTBEAT_INTERVAL_MS);
+  }
+
+  /**
+   * Stops the heartbeat interval timer.
+   */
+  private _stopHeartbeat(): void {
+    if (this.heartbeatInterval !== null) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
   private handleMessage(event: MessageEvent): void {
     let message: { type: keyof EventMap; [key: string]: unknown } | undefined;
     try {
       message = JSON.parse(event.data as string);
+
+      // Handle app-level pong — reset missed counter so the heartbeat
+      // timer doesn't force a disconnect.
+      if ((message as { type: string }).type === 'pong') {
+        this.missedPongs = 0;
+        return;
+      }
+
       const callbacks = this.callbacks.get(message!.type);
       if (callbacks) {
         for (const callback of callbacks) {
