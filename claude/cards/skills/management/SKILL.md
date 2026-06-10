@@ -113,8 +113,11 @@ Use `--workspace-path` only if the user explicitly requests creating a card in a
 **Execute an action** — Execute an action on a card via the server relay:
 ```
 card <card-id> action <action-id>
+card <card-id> action <action-id> --execution-mode interactive
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
+
+`--execution-mode <interactive|background>` selects how the action runs. When omitted, the server derives the mode from the action definition: `background` when the action declares `supportsBackgroundMode: true`, otherwise `interactive`. An explicit `background` request for an action that does not support background mode is rejected with a 400 error.
 
 **Watch for commits** — Block until the next unattributed commit on a card's repository:
 ```

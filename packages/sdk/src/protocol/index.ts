@@ -92,6 +92,7 @@ export type {
   EnvironmentInfo,
   EnvironmentsResponse,
   EventMessage,
+  ExecuteActionRequest,
   ExecutionMode,
   ExtensionToWebviewMessage,
   FieldError,

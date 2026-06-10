@@ -29,7 +29,7 @@ import {
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import { clearPendingBind, readPendingBind } from '@cards/sdk/pending-bind';
 import { findAgentPid } from '@cards/sdk/process-tree';
-import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
+import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
 import { resolveSessionId } from '@cards/sdk/session-resolver';
 import { bindWorktreeToCard } from '@cards/sdk/worktree-for-card';
@@ -103,7 +103,7 @@ Commands:
   create                         Create a card from JSON on stdin
   list [options]                 List cards with optional filters
   search [query] [options]       Search cards using #tag @relation text syntax
-  <card-id> action <action-id>  Execute an action on a card
+  <card-id> action <action-id> [options]  Execute an action on a card
   <card-id> watch [glob...]     Wait for next unattributed commit
 
 Get:
@@ -165,8 +165,17 @@ Action:
   Executes an action on a card via the server relay. The action ID is
   the lowercase identifier from the action definition (e.g., "launch").
 
+  Options:
+    --execution-mode <mode>  Execution mode: "interactive" or "background".
+                             When omitted, the server derives the mode from
+                             the action's supportsBackgroundMode flag
+                             (background when true, interactive otherwise).
+                             An explicit "background" request is rejected
+                             when the action does not support background mode.
+
   Examples:
     card <card-id> action launch
+    card <card-id> action chat --execution-mode interactive
 
 Watch:
   Waits for the next unattributed commit on a card's repository. If
@@ -993,10 +1002,26 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
  * @param cardId - The card identifier.
  * @param actionName - The action identifier to execute.
  * @param jsonPath - Optional JSONPath expression to filter the output.
+ * @param executionMode - Optional execution mode from `--execution-mode`.
+ *   Must be `"interactive"` or `"background"` when provided; when omitted,
+ *   the server derives the mode from the action's `supportsBackgroundMode` flag.
+ * @throws Error when `executionMode` is not a valid execution mode.
  */
-export async function executeAction(cardId: string, actionName: string, jsonPath?: string): Promise<void> {
+export async function executeAction(
+  cardId: string,
+  actionName: string,
+  jsonPath?: string,
+  executionMode?: string
+): Promise<void> {
+  let mode: ExecutionMode | undefined;
+  if (executionMode !== undefined) {
+    if (executionMode !== 'interactive' && executionMode !== 'background') {
+      throw new Error(`invalid --execution-mode "${executionMode}": expected "interactive" or "background"`);
+    }
+    mode = executionMode;
+  }
   const client = await connectClient();
-  const result: ActionResult = await client.executeAction(cardId, actionName);
+  const result: ActionResult = await client.executeAction(cardId, actionName, mode);
   console.log(formatOutput(result, jsonPath));
 }
 
@@ -1035,7 +1060,7 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
           process.exit(1);
         }
         const actionFlags = parseFlags(process.argv.slice(5));
-        run = executeAction(command, actionId, actionFlags['jsonpath']?.[0]);
+        run = executeAction(command, actionId, actionFlags['jsonpath']?.[0], actionFlags['execution-mode']?.[0]);
       } else if (verb === 'watch') {
         const watchGlobs = process.argv.slice(4);
         run = watchCard(command, watchGlobs);
