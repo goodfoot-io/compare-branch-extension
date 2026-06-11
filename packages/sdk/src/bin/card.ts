@@ -9,7 +9,7 @@
  */
 
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
@@ -26,6 +26,7 @@ import {
   isBookkeepingCommit
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
+import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards/sdk/context';
 import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
 import { resolveSessionId, resolveTranscriptPath } from '@cards/sdk/session-resolver';
@@ -87,6 +88,7 @@ Commands:
   search [query] [options]       Search cards using #tag @relation text syntax
   <card-id> action <action-id> [options]  Execute an action on a card
   <card-id> watch [glob...]     Wait for next unattributed commit
+  <card-id> bind [options]      Bind an existing card to the current worktree
 
 Get:
   Pass a card identifier as the sole argument. The full Card object is
@@ -176,6 +178,26 @@ Watch:
     card <card-id> watch
     card <card-id> watch "src/auth/**"
     card <card-id> watch "src/**" "tests/**"
+
+Bind:
+  Attaches an existing card to the current worktree. Installs git hooks,
+  registers the branch with the Cards API, and (when a transcript path is
+  available) spawns transcript attribution. Outputs card-repo-log and
+  workspace-repo-log context blocks to stdout so the calling agent receives
+  current card context immediately.
+
+  The command refuses (exits non-zero) when:
+    - Not running inside a linked worktree (must be a "git worktree add" worktree)
+    - The worktree is already bound to a card (shows the existing card id)
+    - The card id does not resolve via the Cards API
+    - No parent branch can be determined (use --parent-branch to supply one)
+
+  Options:
+    --parent-branch <ref>  Explicit parent branch (overrides git config and reflog detection)
+
+  Examples:
+    card main-42 bind
+    card main-42 bind --parent-branch main
 
 Exit codes:
   0  Success
@@ -1022,6 +1044,109 @@ export async function executeAction(
   console.log(formatOutput(result, jsonPath));
 }
 
+/**
+ * Binds an existing card to the current worktree.
+ *
+ * Applies four fail-closed gates before any state change:
+ *
+ * 1. Must be inside a linked worktree (not the main worktree).
+ * 2. The worktree must not already be bound to a card.
+ * 3. The card ID must resolve via the Cards API.
+ * 4. A parent branch must be determinable.
+ *
+ * On pass, calls {@link outfitWorktreeForCard} with the resolved session,
+ * transcript, and parent branch, then outputs card-repo-log and workspace-repo-log
+ * context blocks to stdout so the calling agent receives current card context.
+ *
+ * @param cardId - The card identifier to bind to the current worktree.
+ * @param parentBranchFlag - Optional `--parent-branch` flag value.
+ */
+export async function bindCard(cardId: string, parentBranchFlag?: string): Promise<void> {
+  // Gate 1: must be inside a linked worktree.
+  const worktreeDir = await resolveLinkedWorktreeDir();
+  if (!worktreeDir) {
+    console.error(
+      'card bind: not in a linked worktree. Run this command from inside a worktree created with `git worktree add`.'
+    );
+    process.exit(1);
+  }
+
+  // Gate 2: worktree must not already be bound.
+  const cardIdFile = join(worktreeDir, '.cards', 'CARD_ID');
+  if (existsSync(cardIdFile)) {
+    const existingId = readFileSync(cardIdFile, 'utf-8').trim();
+    console.error(`card bind: this worktree is already bound to card ${existingId}. Unbind it first.`);
+    process.exit(1);
+  }
+
+  // Gate 3: card must resolve via the API.
+  const client = await connectClient();
+  let cardRepoPath: string;
+  try {
+    const card = await client.getCard(cardId);
+    cardRepoPath = card.repositoryPath;
+  } catch {
+    console.error(`card bind: card "${cardId}" not found or inaccessible.`);
+    process.exit(1);
+  }
+
+  // Gate 4: parent branch must be determinable.
+  const parent = await resolveCardsParentBranch(worktreeDir, parentBranchFlag);
+  if (parent.kind === 'refuse') {
+    console.error(`card bind: ${parent.reason}`);
+    process.exit(1);
+  }
+
+  // All gates passed — resolve session identity then outfit.
+  const sessionId = await resolveSessionId();
+  if (sessionId === null) {
+    console.error(
+      'card bind: refusing to bind worktree — no session id could be resolved. ' +
+        'Re-enter the worktree via the EnterWorktree tool, then run `card <id> bind` again.'
+    );
+    process.exit(1);
+  }
+
+  const transcriptPath = await resolveTranscriptPath(sessionId, worktreeDir);
+  if (!transcriptPath) {
+    console.error(
+      'card bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.'
+    );
+  }
+
+  const extensionPath = await resolveExtensionPath();
+  const gitHooksDir = join(extensionPath, 'dist', 'git-hooks');
+  const compiledScriptPaths = {
+    'pre-commit': join(gitHooksDir, 'pre-commit.mjs'),
+    'post-commit': join(gitHooksDir, 'post-commit.mjs'),
+    'post-rewrite': join(gitHooksDir, 'post-rewrite.mjs')
+  };
+
+  await outfitWorktreeForCard(client, worktreeDir, {
+    cardId,
+    parentBranch: parent.parentBranch,
+    sessionId,
+    transcriptPath,
+    compiledScriptPaths
+  });
+
+  // Drop the candidate record so a later `card create` in the same session
+  // does not re-offer this worktree.
+  await removeUnboundCandidate(sessionId, worktreeDir);
+
+  // Output context blocks so the calling agent receives current card context.
+  const repoRoot = getGitRoot() ?? worktreeDir;
+  const logBlock = buildCardRepoLogBlock(cardRepoPath);
+  const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(repoRoot, cardRepoPath);
+
+  const parts: string[] = [];
+  if (logBlock) parts.push(logBlock);
+  parts.push(...workspaceLogBlocks);
+  if (parts.length > 0) {
+    console.log(parts.join('\n\n'));
+  }
+}
+
 if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
   const command = process.argv[2];
 
@@ -1061,6 +1186,9 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
       } else if (verb === 'watch') {
         const watchGlobs = process.argv.slice(4);
         run = watchCard(command, watchGlobs);
+      } else if (verb === 'bind') {
+        const bindFlags = parseFlags(process.argv.slice(4));
+        run = bindCard(command, bindFlags['parent-branch']?.[0]);
       } else if (verb?.startsWith('--')) {
         const getFlags = parseFlags(process.argv.slice(3));
         run = getCard(command, getFlags['jsonpath']?.[0]);
