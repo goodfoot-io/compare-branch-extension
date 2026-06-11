@@ -30,7 +30,7 @@ If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–
 
 If `gates.planApproved` is true, skip to Step 3: Route to Implementation — the plan is already approved, proceed to implementation.
 
-If plan files already exist in `plan/` but are not approved, the minimum tier is 3 — always spawn at least one `$runtime:card-plan-failure-mode` reviewer to evaluate the existing plan. The contest is the mechanism by which that evaluation happens: per `./contest.md`, one planner is seeded with the pre-existing plan as the **incumbent** and defends it through review; the others draft fresh as challengers. This way the prior work is actually graded rather than re-derived in parallel.
+If plan files already exist in `plans/` but are not approved, the minimum tier is 3 — always spawn at least one `$runtime:card-plan-failure-mode` reviewer to evaluate the existing plan. The contest is the mechanism by which that evaluation happens: per `./contest.md`, one planner is seeded with the pre-existing plan as the **incumbent** and defends it through review; the others draft fresh as challengers. This way the prior work is actually graded rather than re-derived in parallel.
 
 ## 2. Dispatch
 
@@ -42,7 +42,7 @@ No plan needed. Skip to Step 3: Route to Implementation.
 
 ### Tier 2 — Orchestrator Self-Plans
 
-Read `./planning.md` and follow its instructions. Set `[PLAN_FILE]` to `plan/initial.md` (or a semantically descriptive slug if the card's nature suggests one, e.g., `plan/phase-2.md` for follow-on work). Do not spawn any children; self-plan inline.
+Read `./planning.md` and follow its instructions. Set `[PLAN_FILE]` to `plans/initial.md` (or a semantically descriptive slug if the card's nature suggests one, e.g., `plans/phase-2.md` for follow-on work). Do not spawn any children; self-plan inline.
 
 After the plan is written, spiked, and committed, proceed to Step 3: Route to Implementation.
 

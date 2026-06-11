@@ -23,6 +23,7 @@
 import { mkdir, unlink } from 'node:fs/promises';
 import { createCardsClient } from '../client/api-discovery.js';
 import type { CardUpdateData } from '../client/types/client.js';
+import { clearUnboundCandidates } from '../unboundWorktreeCandidates.js';
 import { adhocActiveDir, liveActionPresent, liveRefsRemain, removeRef, writeRef } from './adhoc-refs.js';
 import { isProcessAliveWithStartTime, readProcessStartTime, transitionCardStatus } from './process-utils.js';
 
@@ -202,9 +203,17 @@ export async function performTeardown(
       await removeRef(cardId, sessionId);
     }
   } finally {
-    // Release the de-dupe lock. In a `finally` so a rethrow from
-    // transitionCardStatus (API-down + commit-failure) does not leak it.
+    // Session-end teardown. In a `finally` so a rethrow from
+    // transitionCardStatus (API-down + commit-failure) does not leak the lock
+    // or strand the per-session candidate directory.
+    //
+    // Release the de-dupe lock.
     await unlinkIfExists(lockPath);
+    // Remove this session's unbound-worktree candidate directory so per-session
+    // `~/.cards/adhoc-sessions/<sid>/unbound-candidates/` dirs do not leak. The
+    // clear is ENOENT-tolerant (sessions that never created a candidate have no
+    // directory to remove).
+    await clearUnboundCandidates(sessionId);
   }
 }
 

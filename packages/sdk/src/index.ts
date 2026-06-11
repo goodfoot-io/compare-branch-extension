@@ -30,6 +30,14 @@ export {
   PLANS_DIR,
   PLANS_PREFIX
 } from './cardRepoLayout.js';
+// --- cardsParent git config + bind-time resolver ---
+export {
+  type CardsParentRefused,
+  type CardsParentResolved,
+  type CardsParentResult,
+  resolveCardsParentBranch,
+  writeCardsParentConfig
+} from './cardsParentBranch.js';
 // --- Command Types ---
 export type { ActionCommand } from './config/command-types.js';
 // --- Configuration ---
@@ -88,3 +96,11 @@ export { findAgentPid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 export { resolveScaffoldDir, resolveScaffoldDirFromSource } from './scaffold-dir.js';
 // --- Session Resolver ---
 export { resolveSessionId } from './session-resolver.js';
+// --- Unbound-worktree candidate set ---
+export {
+  addUnboundCandidate,
+  clearUnboundCandidates,
+  readUnboundCandidates,
+  removeUnboundCandidate,
+  type UnboundWorktreeCandidate
+} from './unboundWorktreeCandidates.js';

@@ -7,17 +7,19 @@
  *   re-attaches via `spawnAdhocAttribution`. Never nudges. Operator experience
  *   is identical to the previous guarded-spawn behavior.
  *
- * - **UNBOUND** — no `CARD_ID`, but `.cards/PENDING_BIND` present → records
- *   this worker session's `transcriptPath` + `sessionId` into the marker
- *   (atomic read-modify-write) then emits a one-time `additionalContext` nudge
- *   instructing the agent to run `card create`. Re-entering the same unbound
- *   worktree in the **same** session (marker already carries this `sessionId`)
- *   silently no-ops — the nudge is idempotent.
+ * - **UNBOUND** — no `CARD_ID`, but cwd is a *bindable linked worktree* (a
+ *   linked git worktree, `--git-dir` ≠ `--git-common-dir`, with no
+ *   `.cards/CARD_ID`) → adds the worktree to the per-session unbound-candidate
+ *   set (carrying this session's `transcriptPath`) then emits a one-time
+ *   `additionalContext` nudge instructing the agent to run `card create`.
+ *   Re-entering the same unbound worktree in the same session simply overwrites
+ *   the candidate entry — the write is idempotent. This detects hand-made
+ *   worktrees (`git worktree add`) that no WorktreeCreate hook ever fed.
  *
  * - **Neither** → no-op.
  *
- * `CARD_ID` (bound) wins over `PENDING_BIND` when both markers are present
- * (the "both-markers crash state" described in the plan).
+ * `CARD_ID` (bound) wins over the bindable test when a worktree is bound
+ * (the bindable test requires the absence of `.cards/CARD_ID`).
  *
  * This is a `PostToolUse` hook matched to the `EnterWorktree` tool. It fires
  * after the tool switches the session's working directory, so `input.cwd` is
@@ -31,48 +33,66 @@
  * @module enter-worktree
  */
 
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { access } from 'node:fs/promises';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { findAgentPid, resolveGlobalCardsConfigDir } from '@cards/sdk';
-import { MAX_WALK_LEVELS, resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
+import { resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
 import { isKnownAgentComm } from '@cards/sdk/bin/process-utils';
 import { spawnAdhocAttribution } from '@cards/sdk/bin/spawn-adhoc-attribution';
-import { readPendingBind, writePendingBind } from '@cards/sdk/pending-bind';
+import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 
 export { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
 
-/**
- * Walks upward from `cwd` toward `/`, up to {@link MAX_WALK_LEVELS} levels,
- * looking for a `.cards/PENDING_BIND` file. Returns the first directory that
- * contains the marker, or `null` when none is found.
- *
- * Mirrors the walk pattern of `resolveWorktreeCardId` but returns the
- * containing worktree directory rather than the file's contents, because
- * `readPendingBind` / `writePendingBind` take the worktree dir as their
- * parameter.
- *
- * @param cwd - Directory to start the walk from.
- * @returns Absolute path to the worktree directory holding PENDING_BIND, or null.
- */
-async function resolveWorktreePendingBindDir(cwd: string): Promise<string | null> {
-  let dir = cwd;
-  for (let level = 0; level < MAX_WALK_LEVELS; level++) {
-    const markerPath = join(dir, '.cards', 'PENDING_BIND');
-    try {
-      await readFile(markerPath);
-      return dir;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
+const execFileAsync = promisify(execFile);
 
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
+/**
+ * Tests whether `cwd` is a *bindable* linked git worktree: a linked worktree
+ * (`git rev-parse --git-dir` ≠ `--git-common-dir`) that carries no
+ * `.cards/CARD_ID` marker. Returns the worktree's toplevel directory when
+ * bindable, or `null` otherwise.
+ *
+ * Detects any unbound linked worktree, including hand-made ones
+ * (`git worktree add`) that no WorktreeCreate hook ever ran for. The main repository (where
+ * `--git-dir` equals `--git-common-dir`) is not bindable.
+ *
+ * @param cwd - Directory the EnterWorktree tool switched into.
+ * @returns Absolute toplevel path of the bindable worktree, or null.
+ */
+async function resolveBindableWorktreeDir(cwd: string): Promise<string | null> {
+  let gitDir: string;
+  let gitCommonDir: string;
+  let toplevel: string;
+  try {
+    [gitDir, gitCommonDir, toplevel] = await Promise.all([
+      execFileAsync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-dir']).then((r) =>
+        r.stdout.trim()
+      ),
+      execFileAsync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir']).then((r) =>
+        r.stdout.trim()
+      ),
+      execFileAsync('git', ['-C', cwd, 'rev-parse', '--show-toplevel']).then((r) => r.stdout.trim())
+    ]);
+  } catch {
+    // Not a git repository, or git unavailable — nothing bindable here.
+    return null;
   }
-  return null;
+
+  // A linked worktree has a git-dir distinct from the common dir. The main
+  // worktree has them equal and is never a bind target.
+  if (gitDir === gitCommonDir) return null;
+
+  // Already bound — CARD_ID wins; do not feed the candidate set.
+  try {
+    await access(join(toplevel, '.cards', 'CARD_ID'));
+    return null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+
+  return toplevel;
 }
 
 export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { logger }) => {
@@ -119,32 +139,18 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
 
   // ─── UNBOUND PATH ─────────────────────────────────────────────────────────
   //
-  // No CARD_ID — check for a PENDING_BIND marker. Walk up from cwd so a
-  // nested cwd (e.g. a subdirectory of the worktree root) still finds the
-  // marker written by the WorktreeCreate hook at the worktree root.
+  // No CARD_ID — is cwd a bindable linked worktree (linked, no CARD_ID)? This
+  // detects hand-made `git worktree add` worktrees that no WorktreeCreate hook
+  // ever fed, as well as hook-created ones. The main repository is never a bind
+  // target.
 
-  const worktreeDir = await resolveWorktreePendingBindDir(input.cwd);
+  const worktreeDir = await resolveBindableWorktreeDir(input.cwd);
   if (!worktreeDir) return null;
 
-  const marker = await readPendingBind(worktreeDir);
-  if (!marker) return null;
-
-  // Idempotency: skip only when the marker already carries BOTH this
-  // session's id AND a transcriptPath. A marker that has the sessionId but
-  // no transcriptPath is a partially-recorded state (e.g. written before the
-  // transcript was available) — fall through to re-record and re-nudge so
-  // `card create` can bind rather than staying stuck on a dead-end marker.
-  if (marker.sessionId === input.session_id && marker.transcriptPath) {
-    return null;
-  }
-
-  // Atomically record this session's transcript info into the marker so
-  // `card create` can validate it belongs to this session.
-  await writePendingBind(worktreeDir, {
-    ...marker,
-    transcriptPath: input.transcript_path,
-    sessionId: input.session_id
-  });
+  // Feed the per-session unbound-candidate set so `card create` (run from
+  // inside or outside this worktree) can discover and bind it. Idempotent on
+  // re-enter: the hash-keyed entry is simply overwritten with the same data.
+  await addUnboundCandidate(input.session_id, worktreeDir, input.transcript_path);
 
   const message = `You must load the \`cards:management\` skill and create a card for these changes.`;
 

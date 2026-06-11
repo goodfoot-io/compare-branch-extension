@@ -1,27 +1,21 @@
 /**
- * Unit tests for createWorktreeForCard, removeWorktreeForCard, and
- * bindWorktreeToCard orchestrators.
+ * Unit tests for createWorktreeForCard and removeWorktreeForCard orchestrators.
  *
  * The bare createWorktree / removeWorktree primitives are replaced with
  * controllable fakes via vi.mock so no real git or filesystem operations run.
  * CardsClient is injected as a plain object implementing only addBranch /
  * removeBranch — no mocking framework needed for the client half.
  *
- * bindWorktreeToCard mocks the worktree.ts bound-file helpers, pendingBind.ts
- * helpers, and the child_process execFile used to resolve the branch name —
- * again via vi.mock so no real filesystem or git operations run.
- *
- * @summary createWorktreeForCard / removeWorktreeForCard / bindWorktreeToCard unit tests
+ * @summary createWorktreeForCard / removeWorktreeForCard unit tests
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardsClient } from '../src/client/cardsClient.js';
 import type { EarlyWorktreeResult } from '../src/worktree.js';
-import type { BindWorktreeToCardOptions } from '../src/worktreeForCard.js';
 import {
   BranchUnregisterError,
-  bindWorktreeToCard,
   createWorktreeForCard,
+  outfitWorktreeForCard,
   removeWorktreeForCard
 } from '../src/worktreeForCard.js';
 
@@ -34,13 +28,13 @@ vi.mock('../src/worktree.js', () => ({
   removeWorktree: vi.fn(),
   writeCardBoundFile: vi.fn(),
   clearCardBoundFile: vi.fn(),
-  appendWorktreeGitExcludes: vi.fn()
-}));
-
-vi.mock('../src/pendingBind.js', () => ({
-  readPendingBind: vi.fn(),
-  writePendingBind: vi.fn(),
-  clearPendingBind: vi.fn()
+  appendWorktreeGitExcludes: vi.fn(),
+  // outfit/release internals — stubbed so the composition tests exercise the
+  // orchestration logic without real git or filesystem hook provisioning.
+  findGitRoots: vi.fn(async () => ({ sourceRoot: '/src', repoRoot: '/repo' })),
+  captureOriginalHooksPath: vi.fn(async () => '/repo/.git/hooks'),
+  provisionSharedHooksDir: vi.fn(async () => undefined),
+  resolveHomeDir: vi.fn(() => '/home')
 }));
 
 // Override only `execFile` (used for the git rev-parse in the bind path) but
@@ -62,18 +56,20 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
   return {
     ...actual,
-    access: vi.fn()
+    access: vi.fn(),
+    readFile: vi.fn(),
+    writeFile: vi.fn(async () => undefined)
   };
 });
 
 import { execFile } from 'node:child_process';
-import { access, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { clearPendingBind, writePendingBind } from '../src/pendingBind.js';
 // Import after vi.mock so we get the mocked versions.
 import {
   appendWorktreeGitExcludes,
+  captureOriginalHooksPath,
   clearCardBoundFile,
   createWorktree,
   removeWorktree,
@@ -137,7 +133,17 @@ describe('createWorktreeForCard', () => {
   let settleResolve!: () => void;
   let earlyResult!: EarlyWorktreeResult;
 
-  beforeEach(() => {
+  // The recomposed orchestrator delegates the disk + API phase to the real
+  // outfitWorktreeForCard, which acquires a cross-process bind lock under the
+  // global Cards config dir. Redirect that dir to an isolated temp dir.
+  let cardsHomeDir: string;
+  let priorCardsHome: string | undefined;
+
+  beforeEach(async () => {
+    priorCardsHome = process.env['CARDS_HOME'];
+    cardsHomeDir = await mkdtemp(join(tmpdir(), 'create-wt-test-'));
+    process.env['CARDS_HOME'] = cardsHomeDir;
+
     const settle = new Promise<unknown>((res) => {
       settleResolve = res as () => void;
     }) as Promise<never>;
@@ -145,33 +151,44 @@ describe('createWorktreeForCard', () => {
 
     vi.mocked(createWorktree).mockResolvedValue(earlyResult);
     vi.mocked(removeWorktree).mockResolvedValue(undefined);
+    // outfit's CARD_ORIGINAL_HOOK_PATH snapshot guard: ENOENT → not yet captured.
+    vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    // git config writes (extensions.worktreeConfig, core.hooksPath) succeed;
+    // rev-parse --abbrev-ref HEAD returns the worktree's branch name.
+    vi.mocked(execFile).mockImplementation((...callArgs: unknown[]) => {
+      const argv = callArgs[1] as string[];
+      const cb = callArgs[callArgs.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
+      const isRevParse = argv.includes('rev-parse');
+      cb(null, { stdout: isRevParse ? 'cards/main-95/1\n' : '', stderr: '' });
+      return {} as ReturnType<typeof execFile>;
+    });
+    vi.mocked(writeCardBoundFile).mockResolvedValue(undefined);
+    vi.mocked(appendWorktreeGitExcludes).mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.clearAllMocks();
+    if (priorCardsHome === undefined) {
+      delete process.env['CARDS_HOME'];
+    } else {
+      process.env['CARDS_HOME'] = priorCardsHome;
+    }
+    await rm(cardsHomeDir, { recursive: true, force: true });
   });
 
-  it('calls createWorktree with ref and card-binding options', async () => {
+  it('calls createWorktree as a pure primitive (cwd only, no card options)', async () => {
     const client = makeClient();
     await createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS);
 
     expect(createWorktree).toHaveBeenCalledOnce();
-    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', {
-      cwd: undefined,
-      cardId: BASE_OPTIONS.cardId,
-      compiledScriptPaths: BASE_OPTIONS.compiledScriptPaths
-    });
+    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', { cwd: undefined });
   });
 
   it('forwards cwd when provided', async () => {
     const client = makeClient();
     await createWorktreeForCard(client, 'cards/main-95/1', { ...BASE_OPTIONS, cwd: '/repo' });
 
-    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', {
-      cwd: '/repo',
-      cardId: BASE_OPTIONS.cardId,
-      compiledScriptPaths: BASE_OPTIONS.compiledScriptPaths
-    });
+    expect(createWorktree).toHaveBeenCalledWith('cards/main-95/1', { cwd: '/repo' });
   });
 
   it('calls addBranch with the early path, ref, parentBranch, and sessionId', async () => {
@@ -324,7 +341,7 @@ describe('createWorktreeForCard', () => {
     });
 
     await expect(createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS)).rejects.toThrow(
-      /addBranch=API failure; rollback=rollback boom/
+      /outfit=API failure; rollback=rollback boom/
     );
   });
 });
@@ -342,6 +359,17 @@ describe('removeWorktreeForCard', () => {
 
   beforeEach(() => {
     vi.mocked(removeWorktree).mockResolvedValue(undefined);
+    vi.mocked(clearCardBoundFile).mockResolvedValue(undefined);
+    // release derives the branch via rev-parse and reads CARD_ORIGINAL_HOOK_PATH
+    // to restore core.hooksPath; both run against the still-present worktree.
+    vi.mocked(execFile).mockImplementation((...callArgs: unknown[]) => {
+      const argv = callArgs[1] as string[];
+      const cb = callArgs[callArgs.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
+      const isRevParse = argv.includes('rev-parse');
+      cb(null, { stdout: isRevParse ? 'cards/main-95/1\n' : '', stderr: '' });
+      return {} as ReturnType<typeof execFile>;
+    });
+    vi.mocked(readFile).mockResolvedValue('/repo/.git/hooks\n');
   });
 
   afterEach(() => {
@@ -356,7 +384,7 @@ describe('removeWorktreeForCard', () => {
     expect(removeWorktree).toHaveBeenCalledWith(EARLY_PATH);
   });
 
-  it('calls removeBranch with cardId, branchName, and sessionId', async () => {
+  it('calls removeBranch with cardId, the HEAD-derived branch name, and sessionId', async () => {
     const removeBranchArgs: Parameters<CardsClient['removeBranch']>[] = [];
     const client = makeClient({
       removeBranch: async (...args) => {
@@ -373,7 +401,7 @@ describe('removeWorktreeForCard', () => {
     expect(opts).toEqual({ sessionId: 'sess-xyz' });
   });
 
-  it('removes the worktree BEFORE unregistering the branch', async () => {
+  it('releases the binding (removeBranch) BEFORE tearing the worktree down', async () => {
     const callOrder: string[] = [];
 
     vi.mocked(removeWorktree).mockImplementation(async () => {
@@ -388,23 +416,19 @@ describe('removeWorktreeForCard', () => {
 
     await removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS);
 
-    expect(callOrder).toEqual(['removeWorktree', 'removeBranch']);
+    // Release needs the worktree on disk (rev-parse, hook-path snapshot), so it
+    // runs first; teardown follows.
+    expect(callOrder).toEqual(['removeBranch', 'removeWorktree']);
   });
 
   it('propagates the teardown failure untouched (not wrapped) when removeWorktree rejects', async () => {
     const diskError = new Error('disk error');
     vi.mocked(removeWorktree).mockRejectedValue(diskError);
-    const removeBranchArgs: Parameters<CardsClient['removeBranch']>[] = [];
-    const client = makeClient({
-      removeBranch: async (...args) => {
-        removeBranchArgs.push(args as Parameters<CardsClient['removeBranch']>);
-      }
-    });
+    const client = makeClient();
 
     // The teardown-phase error must propagate as-is so callers can apply their
     // teardown stance to it; it is NOT a BranchUnregisterError.
     await expect(removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS)).rejects.toBe(diskError);
-    expect(removeBranchArgs).toHaveLength(0);
   });
 
   it('wraps a removeBranch failure in BranchUnregisterError carrying the cause', async () => {
@@ -427,44 +451,40 @@ describe('removeWorktreeForCard', () => {
 });
 
 // ---------------------------------------------------------------------------
-// bindWorktreeToCard
+// outfitWorktreeForCard — idempotency / snapshot guard
 // ---------------------------------------------------------------------------
 
-describe('bindWorktreeToCard', () => {
-  const WORKTREE_DIR = '/worktrees/cards/main-115/1';
-  const BIND_OPTIONS: BindWorktreeToCardOptions = {
-    cardId: 'main-115',
-    parentBranch: 'main',
-    sessionId: 'sess-bind-abc'
-  };
+describe('outfitWorktreeForCard idempotency', () => {
+  /**
+   * The snapshot guard: when `.cards/CARD_ORIGINAL_HOOK_PATH` already exists on
+   * disk, a re-run of `outfitWorktreeForCard` must NOT call
+   * `captureOriginalHooksPath` again and must NOT overwrite the file. Without
+   * the guard, the second run would capture the cards shared dispatcher dir
+   * (installed by the first run) as the "original" and permanently break hook
+   * chaining.
+   *
+   * Half-outfitted input: CARD_ID written, CARD_ORIGINAL_HOOK_PATH already
+   * present → re-run must skip the snapshot step.
+   */
 
-  // The cross-process bind lock writes a real lock file under the global Cards
-  // config dir. Redirect that dir to an isolated temp dir per run via
-  // CARDS_HOME so the lock primitive exercises real file I/O without touching
-  // the developer's actual ~/.cards.
   let cardsHomeDir: string;
   let priorCardsHome: string | undefined;
 
   beforeEach(async () => {
     priorCardsHome = process.env['CARDS_HOME'];
-    cardsHomeDir = await mkdtemp(join(tmpdir(), 'bind-lock-test-'));
+    cardsHomeDir = await mkdtemp(join(tmpdir(), 'outfit-idem-test-'));
     process.env['CARDS_HOME'] = cardsHomeDir;
 
-    // Default: CARD_ID does not exist (ENOENT → not yet bound).
-    vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
-    // Default: git rev-parse succeeds and returns the branch name.
-    vi.mocked(execFile).mockImplementation((_cmd, _args, cb) => {
-      (cb as (err: null, result: { stdout: string; stderr: string }) => void)(null, {
-        stdout: 'cards/main-115/1\n',
-        stderr: ''
-      });
+    vi.mocked(writeCardBoundFile).mockResolvedValue(undefined);
+    vi.mocked(appendWorktreeGitExcludes).mockResolvedValue(undefined);
+
+    vi.mocked(execFile).mockImplementation((...callArgs: unknown[]) => {
+      const argv = callArgs[1] as string[];
+      const cb = callArgs[callArgs.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
+      const isRevParse = argv.includes('rev-parse');
+      cb(null, { stdout: isRevParse ? 'cards/main-95/1\n' : '', stderr: '' });
       return {} as ReturnType<typeof execFile>;
     });
-    vi.mocked(writeCardBoundFile).mockResolvedValue(undefined);
-    vi.mocked(clearCardBoundFile).mockResolvedValue(undefined);
-    vi.mocked(appendWorktreeGitExcludes).mockResolvedValue(undefined);
-    vi.mocked(writePendingBind).mockResolvedValue(undefined);
-    vi.mocked(clearPendingBind).mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
@@ -477,171 +497,58 @@ describe('bindWorktreeToCard', () => {
     await rm(cardsHomeDir, { recursive: true, force: true });
   });
 
-  it('happy path: returns bound, writes CARD_ID, excludes it from git, calls addBranch, then clears PENDING_BIND', async () => {
-    const addBranchArgs: Parameters<CardsClient['addBranch']>[] = [];
-    const client = makeClient({
-      addBranch: async (...args) => {
-        addBranchArgs.push(args as Parameters<CardsClient['addBranch']>);
-      }
-    });
-
-    const outcome = await bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
-
-    // This call performed the bind.
-    expect(outcome).toBe('bound');
-
-    // CARD_ID written before addBranch.
-    expect(writeCardBoundFile).toHaveBeenCalledOnce();
-    expect(writeCardBoundFile).toHaveBeenCalledWith(WORKTREE_DIR, 'main-115');
-
-    // addBranch called with branch name from git HEAD, worktree path, and parentBranch.
-    expect(addBranchArgs).toHaveLength(1);
-    const [cardId, data, opts] = addBranchArgs[0]!;
-    expect(cardId).toBe('main-115');
-    expect(data).toEqual({ name: 'cards/main-115/1', worktree: WORKTREE_DIR, parentBranch: 'main' });
-    expect(opts).toEqual({ sessionId: 'sess-bind-abc' });
-
-    // The CARD_ID marker this bind wrote is added to the worktree's git
-    // info/exclude so it does not show as untracked/committable.
-    expect(appendWorktreeGitExcludes).toHaveBeenCalledOnce();
-    expect(appendWorktreeGitExcludes).toHaveBeenCalledWith(WORKTREE_DIR, ['.cards/CARD_ID']);
-
-    // PENDING_BIND cleared after successful addBranch.
-    expect(clearPendingBind).toHaveBeenCalledOnce();
-    expect(clearPendingBind).toHaveBeenCalledWith(WORKTREE_DIR);
-  });
-
-  it('addBranch failure: un-writes CARD_ID, leaves PENDING_BIND marker untouched, never removes worktree, rethrows original error', async () => {
-    const apiError = new Error('addBranch API failure');
-    const client = makeClient({
-      addBranch: async () => {
-        throw apiError;
-      }
-    });
-
-    await expect(bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS)).rejects.toBe(apiError);
-
-    // CARD_ID un-written on rollback.
-    expect(clearCardBoundFile).toHaveBeenCalledOnce();
-    expect(clearCardBoundFile).toHaveBeenCalledWith(WORKTREE_DIR);
-
-    // PENDING_BIND is NOT rewritten on the rollback path. The on-disk marker was
-    // never cleared (that only happens on success), so it is still the original
-    // full marker EnterWorktree wrote — with its transcriptPath + sessionId
-    // intact. Rewriting it here would overwrite that valid marker with a
-    // transcriptPath-stripped copy and brick the worktree.
-    expect(writePendingBind).not.toHaveBeenCalled();
-    expect(clearPendingBind).not.toHaveBeenCalled();
-
-    // removeWorktree is NEVER called — the worktree predates the bind.
-    expect(removeWorktree).not.toHaveBeenCalled();
-  });
-
-  it('CARD_ID already present: returns already-bound, clears stale PENDING_BIND, does not call addBranch', async () => {
-    // Simulate CARD_ID already existing on disk.
+  it('skips captureOriginalHooksPath when CARD_ORIGINAL_HOOK_PATH already exists (snapshot guard holds)', async () => {
+    // Simulate a half-outfitted worktree: the snapshot file is already on disk.
+    // `access` resolving (no error) signals the file exists.
     vi.mocked(access).mockResolvedValue(undefined);
-    const addBranchArgs: Parameters<CardsClient['addBranch']>[] = [];
-    const client = makeClient({
-      addBranch: async (...args) => {
-        addBranchArgs.push(args as Parameters<CardsClient['addBranch']>);
-      }
-    });
-
-    const outcome = await bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
-
-    // The reconciliation branch is distinguishable from a successful bind so
-    // the caller does not spawn attribution for the wrong card.
-    expect(outcome).toBe('already-bound');
-
-    // PENDING_BIND drained so the EnterWorktree nag stops.
-    expect(clearPendingBind).toHaveBeenCalledOnce();
-    expect(clearPendingBind).toHaveBeenCalledWith(WORKTREE_DIR);
-
-    // addBranch NOT called — would be a duplicate non-idempotent POST.
-    expect(addBranchArgs).toHaveLength(0);
-
-    // writeCardBoundFile NOT called — it's already there.
-    expect(writeCardBoundFile).not.toHaveBeenCalled();
-  });
-
-  it('acquires and releases a real cross-process lock file under the global cards config dir', async () => {
-    let lockFileSeenDuringCriticalSection = false;
-    const bindLocksDir = join(cardsHomeDir, 'bind-locks');
 
     const client = makeClient();
-
-    // Observe the lock-file state from inside the critical section: by the time
-    // writeCardBoundFile runs, acquireLock must already have created a lock file.
-    vi.mocked(writeCardBoundFile).mockImplementation(async () => {
-      const entries = await readdir(bindLocksDir).catch((): string[] => []);
-      lockFileSeenDuringCriticalSection = entries.some((name) => name.endsWith('.lock'));
+    await outfitWorktreeForCard(client, EARLY_PATH, {
+      cardId: 'main-95',
+      parentBranch: 'main',
+      compiledScriptPaths: { 'post-commit': '/hooks/post-commit.mjs' }
     });
 
-    await bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
-
-    // The lock existed during the bind...
-    expect(lockFileSeenDuringCriticalSection).toBe(true);
-
-    // ...and was released (unlinked) in the finally block once the bind returned.
-    const entriesAfter = await readdir(bindLocksDir).catch((): string[] => []);
-    expect(entriesAfter.filter((name) => name.endsWith('.lock'))).toHaveLength(0);
+    // captureOriginalHooksPath must NOT have been called — the guard prevented it.
+    expect(captureOriginalHooksPath).not.toHaveBeenCalled();
   });
 
-  it('serializes concurrent binds against the same worktree via the file lock', async () => {
-    const callOrder: string[] = [];
-    let resolveFirstStarted!: () => void;
-    const firstStarted = new Promise<void>((res) => {
-      resolveFirstStarted = res;
+  it('does NOT write CARD_ORIGINAL_HOOK_PATH when the snapshot already exists', async () => {
+    vi.mocked(access).mockResolvedValue(undefined);
+
+    const client = makeClient();
+    await outfitWorktreeForCard(client, EARLY_PATH, {
+      cardId: 'main-95',
+      parentBranch: 'main',
+      compiledScriptPaths: { 'post-commit': '/hooks/post-commit.mjs' }
     });
 
-    const client = makeClient({
-      addBranch: async () => {
-        callOrder.push('addBranch');
-      }
-    });
-
-    vi.mocked(writeCardBoundFile).mockImplementation(async () => {
-      callOrder.push('writeCardBoundFile');
-      resolveFirstStarted();
-      // Hold the critical section open long enough for the second call to
-      // contend on the lock file while the first still holds it.
-      await new Promise<void>((res) => setTimeout(res, 30));
-    });
-
-    // Launch both binds concurrently. The second must block on the lock file
-    // until the first releases it.
-    const first = bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
-    await firstStarted; // first is now inside its critical section, holding the lock
-    const second = bindWorktreeToCard(client, WORKTREE_DIR, { ...BIND_OPTIONS, sessionId: 'sess-2' });
-
-    await Promise.all([first, second]);
-
-    // The lock serialized the two binds: each (writeCardBoundFile, addBranch)
-    // pair completed before the next began — not interleaved.
-    expect(callOrder).toEqual(['writeCardBoundFile', 'addBranch', 'writeCardBoundFile', 'addBranch']);
+    // writeFile is the mechanism that writes CARD_ORIGINAL_HOOK_PATH. When the
+    // snapshot guard fires it must not be called for that path.
+    const writeCalls = vi.mocked(writeFile).mock.calls;
+    const snapshotWrite = writeCalls.find(
+      ([p]) => typeof p === 'string' && (p as string).includes('CARD_ORIGINAL_HOOK_PATH')
+    );
+    expect(snapshotWrite).toBeUndefined();
   });
 
-  it('appendWorktreeGitExcludes failure: still returns bound, clears PENDING_BIND, and addBranch was called', async () => {
-    // Simulate a transient git/fs error in the display-only exclude step.
-    vi.mocked(appendWorktreeGitExcludes).mockRejectedValue(new Error('git rev-parse hiccup'));
+  it('calls captureOriginalHooksPath and writes CARD_ORIGINAL_HOOK_PATH on first run (snapshot absent)', async () => {
+    // Snapshot absent: access rejects with ENOENT.
+    vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    vi.mocked(writeFile).mockResolvedValue(undefined);
 
-    const addBranchArgs: Parameters<CardsClient['addBranch']>[] = [];
-    const client = makeClient({
-      addBranch: async (...args) => {
-        addBranchArgs.push(args as Parameters<CardsClient['addBranch']>);
-      }
+    const client = makeClient();
+    await outfitWorktreeForCard(client, EARLY_PATH, {
+      cardId: 'main-95',
+      parentBranch: 'main',
+      compiledScriptPaths: { 'post-commit': '/hooks/post-commit.mjs' }
     });
 
-    // The exclude failure must not propagate — the bind is already durable.
-    const outcome = await bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
-    expect(outcome).toBe('bound');
-
-    // The durable bind step (addBranch) ran exactly once.
-    expect(addBranchArgs).toHaveLength(1);
-
-    // The PENDING_BIND marker was cleared despite the exclude failure (reorder
-    // ensures clearPendingBind runs before appendWorktreeGitExcludes).
-    expect(clearPendingBind).toHaveBeenCalledOnce();
-    expect(clearPendingBind).toHaveBeenCalledWith(WORKTREE_DIR);
+    expect(captureOriginalHooksPath).toHaveBeenCalledOnce();
+    const writeCalls = vi.mocked(writeFile).mock.calls;
+    const snapshotWrite = writeCalls.find(
+      ([p]) => typeof p === 'string' && (p as string).includes('CARD_ORIGINAL_HOOK_PATH')
+    );
+    expect(snapshotWrite).toBeDefined();
   });
 });

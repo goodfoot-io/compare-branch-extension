@@ -8,9 +8,6 @@
 
 import type { CardStatus } from '@cards/sdk/protocol';
 
-/** Lifecycle stages for adaptive cards. Defined locally to avoid coupling to @cards/protocol. */
-type AdaptiveCardStatus = 'active' | 'completed';
-
 /**
  * Common test constants for use across test suites.
  *
@@ -60,21 +57,3 @@ export const CARD_STATUSES = [
   'done',
   'archived'
 ] as const satisfies readonly CardStatus[];
-
-/**
- * All valid adaptive card status values as a readonly array.
- *
- * Why: keep adaptive card tests in sync with protocol status rules.
- *
- * Behavior: a small, stable list intended for loops and snapshot fixtures.
- *
- * @example
- * ```typescript
- * import { ADAPTIVE_CARD_STATUSES } from '@cards/test-utils';
- *
- * for (const status of ADAPTIVE_CARD_STATUSES) {
- *   it(`handles ${status} status`, () => { ... });
- * }
- * ```
- */
-export const ADAPTIVE_CARD_STATUSES = ['active', 'completed'] as const satisfies readonly AdaptiveCardStatus[];

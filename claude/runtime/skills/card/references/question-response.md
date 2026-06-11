@@ -16,10 +16,10 @@ Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-cat <<'EOF' > comment/question-response.md
+cat <<'EOF' > comments/question-response.md
 [answer to the question with fragment links for code references per <markdown-guidelines>]
 EOF
-git add comment/question-response.md
+git add comments/question-response.md
 git commit -m "[single sentence summarizing the answer to the question]"  # <card-repo-commit-style>
 ```
 

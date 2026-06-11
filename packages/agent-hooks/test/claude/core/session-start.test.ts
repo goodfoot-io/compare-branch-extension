@@ -94,6 +94,21 @@ describe('session-start hook', () => {
     expect(hookFn.hookEventName).toBe('SessionStart');
   });
 
+  it('persists session identity env vars unconditionally', async () => {
+    createWrappers(WRAPPER_FILES);
+    await runHook();
+
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_SESSION_ID', baseInput.session_id);
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_TRANSCRIPT_PATH', baseInput.transcript_path);
+  });
+
+  it('persists session env vars even when CLI wrappers are missing', async () => {
+    await runHook();
+
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_SESSION_ID', baseInput.session_id);
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_TRANSCRIPT_PATH', baseInput.transcript_path);
+  });
+
   it('persists all CLI env vars when all wrappers exist', async () => {
     createWrappers(WRAPPER_FILES);
     const result = await runHook();
@@ -101,14 +116,12 @@ describe('session-start hook', () => {
     for (let i = 0; i < WRAPPER_FILES.length; i++) {
       expect(mockPersistEnvVar).toHaveBeenCalledWith(ENV_VARS[i]!, join(binDir, WRAPPER_FILES[i]!));
     }
-    expect(mockPersistEnvVar).toHaveBeenCalledTimes(1);
     expect(result).toBeNull();
   });
 
   it('warns and returns systemMessage when all wrappers are missing', async () => {
     const result = await runHook();
 
-    expect(mockPersistEnvVar).not.toHaveBeenCalled();
     expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledTimes(1);
     expect(result!.stdout.systemMessage).toContain('cards-dev-cli');
   });

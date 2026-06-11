@@ -15,7 +15,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { adhocActiveDir, liveRefsRemain, performTeardown, type TeardownClient } from '../src/bin/adhoc-cleanup.js';
+import { resolveGlobalCardsConfigDir } from '../src/cards-config.js';
 import type { CardUpdateData } from '../src/client/types/client.js';
+import { addUnboundCandidate } from '../src/unboundWorktreeCandidates.js';
 
 const noopLogger = { warn: () => {} };
 
@@ -163,6 +165,21 @@ describe('performTeardown', () => {
     } finally {
       action.kill('SIGKILL');
     }
+  });
+
+  it("clears this session's unbound-candidate directory when the session ends", async () => {
+    const ownRef = join(adhocActiveDir(cardId), `${sessionId}.ref`);
+    await writeFile(ownRef, String(process.pid));
+
+    // Seed a candidate entry for this session; its directory must be gone after
+    // teardown so per-session unbound-candidate dirs do not leak.
+    await addUnboundCandidate(sessionId, repoDir, join(repoDir, 'transcript.jsonl'));
+    const candidatesDir = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', sessionId, 'unbound-candidates');
+    await expect(access(candidatesDir)).resolves.toBeUndefined();
+
+    await performTeardown(new RecordingClient(), teardownArgs(), noopLogger);
+
+    await expect(access(candidatesDir)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('flips to needs_review and removes the ref when nothing else owns the card', async () => {

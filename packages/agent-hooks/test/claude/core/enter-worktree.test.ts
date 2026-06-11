@@ -4,11 +4,10 @@
  * Covers:
  *  - Bound path (CARD_ID on disk or CARD_ID env) → spawnAdhocAttribution called
  *    with correct args; never nudges; action-guard + missing/invalid PID no-op.
- *  - Unbound path (PENDING_BIND present) → writePendingBind records transcript +
- *    sessionId; additionalContext nudge emitted.
- *  - Idempotency: second entry in the same session (marker already has sessionId)
- *    → no second nudge.
- *  - Neither marker → no-op.
+ *  - Unbound path (bindable linked worktree) → addUnboundCandidate feeds the
+ *    per-session candidate set; additionalContext nudge emitted.
+ *  - Re-enter → candidate re-fed (idempotent overwrite), nudge re-emitted.
+ *  - Non-bindable cwd (main worktree / non-repo) → no-op.
  *
  * The three re-exported helpers (acquireLock, resolveCardRepoPath,
  * resolveWorktreeCardId) keep their existing real-filesystem tests below using
@@ -17,7 +16,7 @@
  * @summary EnterWorktree hook tests
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,9 +46,8 @@ vi.mock('@cards/sdk/bin/spawn-adhoc-attribution', () => ({
   spawnAdhocAttribution: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('@cards/sdk/pending-bind', () => ({
-  readPendingBind: vi.fn(),
-  writePendingBind: vi.fn().mockResolvedValue(undefined)
+vi.mock('@cards/sdk/unbound-worktree-candidates', () => ({
+  addUnboundCandidate: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('@cards/sdk', async (importOriginal) => {
@@ -84,14 +82,13 @@ vi.mock('@cards/sdk/adhoc-attribution', async (importOriginal) => {
 
 async function importMocks() {
   const { spawnAdhocAttribution } = await import('@cards/sdk/bin/spawn-adhoc-attribution');
-  const { readPendingBind, writePendingBind } = await import('@cards/sdk/pending-bind');
+  const { addUnboundCandidate } = await import('@cards/sdk/unbound-worktree-candidates');
   const { findAgentPid, resolveGlobalCardsConfigDir } = await import('@cards/sdk');
   const { isKnownAgentComm } = await import('@cards/sdk/bin/process-utils');
   const { resolveCardRepoPath, resolveWorktreeCardId } = await import('@cards/sdk/adhoc-attribution');
   return {
     spawnAdhocAttribution: spawnAdhocAttribution as ReturnType<typeof vi.fn>,
-    readPendingBind: readPendingBind as ReturnType<typeof vi.fn>,
-    writePendingBind: writePendingBind as ReturnType<typeof vi.fn>,
+    addUnboundCandidate: addUnboundCandidate as ReturnType<typeof vi.fn>,
     findAgentPid: findAgentPid as ReturnType<typeof vi.fn>,
     resolveGlobalCardsConfigDir: resolveGlobalCardsConfigDir as ReturnType<typeof vi.fn>,
     isKnownAgentComm: isKnownAgentComm as ReturnType<typeof vi.fn>,
@@ -247,7 +244,26 @@ describe('EnterWorktree hook — bound path', () => {
 // Unbound path
 // ---------------------------------------------------------------------------
 
-describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
+/**
+ * Creates a real git repository plus a linked worktree under it. The linked
+ * worktree has a git-dir distinct from the common dir, which is exactly the
+ * "bindable" condition the EnterWorktree unbound path tests for.
+ *
+ * @param base - Temp directory to host both the main repo and the worktree.
+ * @returns Absolute path to the linked worktree's toplevel directory.
+ */
+function makeLinkedWorktree(base: string): string {
+  const mainRepo = join(base, 'main');
+  const linked = join(base, 'linked');
+  execFileSync('git', ['init', '-q', '-b', 'main', mainRepo]);
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: mainRepo });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: mainRepo });
+  execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: mainRepo });
+  execFileSync('git', ['worktree', 'add', '-q', '-b', 'feature/x', linked], { cwd: mainRepo });
+  return linked;
+}
+
+describe('EnterWorktree hook — unbound path (bindable linked worktree)', () => {
   let tmp: string;
   let mocks: Awaited<ReturnType<typeof importMocks>>;
 
@@ -260,6 +276,7 @@ describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
     mocks.resolveGlobalCardsConfigDir.mockReturnValue('/tmp/cards-config');
     // Disk walk finds no CARD_ID on the unbound path.
     mocks.resolveWorktreeCardId.mockResolvedValue(null);
+    mocks.addUnboundCandidate.mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
@@ -267,35 +284,35 @@ describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
     await rm(tmp, { recursive: true, force: true });
   });
 
-  it('records transcriptPath + sessionId into the marker and emits a nudge', async () => {
-    // Write a real PENDING_BIND file so the walk-up helper finds the dir.
-    await mkdir(join(tmp, '.cards'), { recursive: true });
-    await writeFile(join(tmp, '.cards', 'PENDING_BIND'), JSON.stringify({ version: 1, parentBranch: 'main' }));
-    // readPendingBind is mocked to return the parsed marker.
-    mocks.readPendingBind.mockResolvedValue({ version: 1, parentBranch: 'main' });
-    mocks.writePendingBind.mockResolvedValue(undefined);
+  it('feeds the candidate set and emits a nudge for a bindable linked worktree', async () => {
+    const linked = makeLinkedWorktree(tmp);
 
     const hook = await importHook();
-    const input = makeInput({ cwd: tmp, session_id: 'session-xyz', transcript_path: '/tmp/t/xyz.jsonl' });
+    const input = makeInput({ cwd: linked, session_id: 'session-xyz', transcript_path: '/tmp/t/xyz.jsonl' });
     const result = await hook(input, { logger: mockLogger });
 
-    // writePendingBind called with the merged marker.
-    expect(mocks.writePendingBind).toHaveBeenCalledOnce();
-    const [, written] = mocks.writePendingBind.mock.calls[0]!;
-    expect(written).toMatchObject({
-      version: 1,
-      parentBranch: 'main',
-      transcriptPath: '/tmp/t/xyz.jsonl',
-      sessionId: 'session-xyz'
-    });
+    expect(mocks.addUnboundCandidate).toHaveBeenCalledWith('session-xyz', linked, '/tmp/t/xyz.jsonl');
 
-    // additionalContext nudge present in output.
     const ctx = getAdditionalContext(result);
     expect(typeof ctx).toBe('string');
     expect(ctx).toMatch(/create a card/);
   });
 
-  it('does NOT nudge when CARD_ID is also present (CARD_ID wins over PENDING_BIND)', async () => {
+  it('re-entering the same worktree re-feeds the candidate set (idempotent overwrite) and re-nudges', async () => {
+    const linked = makeLinkedWorktree(tmp);
+
+    const hook = await importHook();
+    const input = makeInput({ cwd: linked, session_id: 'session-abc', transcript_path: '/tmp/t/abc.jsonl' });
+    await hook(input, { logger: mockLogger });
+    const result = await hook(input, { logger: mockLogger });
+
+    // Both entries write the candidate (the on-disk hash file is overwritten).
+    expect(mocks.addUnboundCandidate).toHaveBeenCalledTimes(2);
+    expect(getAdditionalContext(result)).toMatch(/create a card/);
+  });
+
+  it('does NOT feed the candidate set when CARD_ID is also present (CARD_ID wins)', async () => {
+    const linked = makeLinkedWorktree(tmp);
     mocks.resolveWorktreeCardId.mockResolvedValue('main-42');
     mocks.resolveCardRepoPath.mockResolvedValue('/srv/cards-repos/main-42');
     mocks.findAgentPid.mockReturnValue(1234);
@@ -303,97 +320,32 @@ describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
     mocks.spawnAdhocAttribution.mockResolvedValue(undefined);
 
     const hook = await importHook();
-    const result = await hook(makeInput({ cwd: tmp }), { logger: mockLogger });
+    const result = await hook(makeInput({ cwd: linked }), { logger: mockLogger });
 
-    expect(mocks.writePendingBind).not.toHaveBeenCalled();
+    expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
     expect(getAdditionalContext(result)).toBeUndefined();
   });
 
-  it('idempotency: second entry in the same session does not re-nudge (sessionId + transcriptPath both present)', async () => {
-    // Marker already records this session's id AND a transcriptPath — fully
-    // recorded state — so the hook should no-op without re-writing or re-nudging.
-    mocks.readPendingBind.mockResolvedValue({
-      version: 1,
-      parentBranch: 'main',
-      transcriptPath: '/tmp/t/abc.jsonl',
-      sessionId: 'session-abc'
-    });
-    // Place the PENDING_BIND file so the walk-up finds the worktree dir.
-    await mkdir(join(tmp, '.cards'), { recursive: true });
-    await writeFile(
-      join(tmp, '.cards', 'PENDING_BIND'),
-      JSON.stringify({
-        version: 1,
-        parentBranch: 'main',
-        transcriptPath: '/tmp/t/abc.jsonl',
-        sessionId: 'session-abc'
-      })
-    );
+  it('no-ops on a linked worktree that already carries a .cards/CARD_ID marker on disk', async () => {
+    const linked = makeLinkedWorktree(tmp);
+    // Disk walk returns null (no env), but the bindable test reads CARD_ID from
+    // the worktree toplevel directly and must treat it as already-bound.
+    await mkdir(join(linked, '.cards'), { recursive: true });
+    await writeFile(join(linked, '.cards', 'CARD_ID'), 'main-99\n');
 
     const hook = await importHook();
-    const input = makeInput({ cwd: tmp, session_id: 'session-abc', transcript_path: '/tmp/t/abc.jsonl' });
-    const result = await hook(input, { logger: mockLogger });
+    const result = await hook(makeInput({ cwd: linked }), { logger: mockLogger });
 
-    // writePendingBind must NOT be called again.
-    expect(mocks.writePendingBind).not.toHaveBeenCalled();
-    // No nudge emitted.
-    expect(getAdditionalContext(result)).toBeUndefined();
-  });
-
-  it('self-heal: same session but no transcriptPath in marker → re-records and re-nudges', async () => {
-    // Marker carries this session's id but NO transcriptPath — partial state
-    // that must be healed so `card create` can bind.
-    mocks.readPendingBind.mockResolvedValue({
-      version: 1,
-      parentBranch: 'main',
-      sessionId: 'session-abc'
-      // transcriptPath intentionally absent
-    });
-    mocks.writePendingBind.mockResolvedValue(undefined);
-    await mkdir(join(tmp, '.cards'), { recursive: true });
-    await writeFile(
-      join(tmp, '.cards', 'PENDING_BIND'),
-      JSON.stringify({ version: 1, parentBranch: 'main', sessionId: 'session-abc' })
-    );
-
-    const hook = await importHook();
-    const input = makeInput({ cwd: tmp, session_id: 'session-abc', transcript_path: '/tmp/t/abc.jsonl' });
-    const result = await hook(input, { logger: mockLogger });
-
-    // writePendingBind must be called with transcriptPath filled in.
-    expect(mocks.writePendingBind).toHaveBeenCalledOnce();
-    const [, written] = mocks.writePendingBind.mock.calls[0]!;
-    expect(written).toMatchObject({
-      version: 1,
-      parentBranch: 'main',
-      sessionId: 'session-abc',
-      transcriptPath: '/tmp/t/abc.jsonl'
-    });
-
-    // Nudge emitted so the agent is prompted to run `card create`.
-    const ctx = getAdditionalContext(result);
-    expect(typeof ctx).toBe('string');
-    expect(ctx).toMatch(/create a card/);
-  });
-
-  it('no-ops when readPendingBind returns null (malformed marker)', async () => {
-    await mkdir(join(tmp, '.cards'), { recursive: true });
-    await writeFile(join(tmp, '.cards', 'PENDING_BIND'), 'not-json');
-    mocks.readPendingBind.mockResolvedValue(null);
-
-    const hook = await importHook();
-    const result = await hook(makeInput({ cwd: tmp }), { logger: mockLogger });
-
-    expect(mocks.writePendingBind).not.toHaveBeenCalled();
+    expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
     expect(getAdditionalContext(result)).toBeUndefined();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Neither-marker path
+// Non-bindable path: main worktree / non-repo cwd
 // ---------------------------------------------------------------------------
 
-describe('EnterWorktree hook — neither marker', () => {
+describe('EnterWorktree hook — non-bindable cwd', () => {
   let mocks: Awaited<ReturnType<typeof importMocks>>;
 
   beforeEach(async () => {
@@ -403,24 +355,40 @@ describe('EnterWorktree hook — neither marker', () => {
     delete process.env['ACTION_NAME'];
     mocks.resolveGlobalCardsConfigDir.mockReturnValue('/tmp/cards-config');
     mocks.resolveWorktreeCardId.mockResolvedValue(null);
-    mocks.readPendingBind.mockResolvedValue(null);
+    mocks.addUnboundCandidate.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     delete process.env['CARD_ID'];
   });
 
-  it('no-ops silently when cwd has no CARD_ID and no PENDING_BIND', async () => {
+  it('no-ops silently when cwd is not a git repository at all', async () => {
     const empty = await mkdtemp(join(tmpdir(), 'ew-neither-'));
     try {
       const hook = await importHook();
       const result = await hook(makeInput({ cwd: empty }), { logger: mockLogger });
 
       expect(mocks.spawnAdhocAttribution).not.toHaveBeenCalled();
-      expect(mocks.writePendingBind).not.toHaveBeenCalled();
+      expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
       expect(getAdditionalContext(result)).toBeUndefined();
     } finally {
       await rm(empty, { recursive: true, force: true });
+    }
+  });
+
+  it('no-ops on the main worktree (git-dir equals common-dir, never a bind target)', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'ew-main-'));
+    try {
+      const mainRepo = join(base, 'main');
+      execFileSync('git', ['init', '-q', '-b', 'main', mainRepo]);
+
+      const hook = await importHook();
+      const result = await hook(makeInput({ cwd: mainRepo }), { logger: mockLogger });
+
+      expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
+      expect(getAdditionalContext(result)).toBeUndefined();
+    } finally {
+      await rm(base, { recursive: true, force: true });
     }
   });
 });

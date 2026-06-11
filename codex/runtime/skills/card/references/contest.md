@@ -24,9 +24,9 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 
 ## 1. Spawn the Planners
 
-`spawn_agent` `[N_PLANNERS]` planner children in parallel, with `task_name`s `planner_1`, `planner_2`, ... `planner_[N_PLANNERS]`. Each writes its own plan file at `plan/[task_name].md`. Each child's `message` tells it to use `$runtime:card-planner`.
+`spawn_agent` `[N_PLANNERS]` planner children in parallel, with `task_name`s `planner_1`, `planner_2`, ... `planner_[N_PLANNERS]`. Each writes its own plan file at `plans/[task_name].md`. Each child's `message` tells it to use `$runtime:card-planner`.
 
-**Incumbent seeding.** If un-approved plan files already exist in `plan/` (e.g., a tier-2 `plan/initial.md` that never reached approval), pick the most substantive one and seed `planner_1` with it as the **incumbent**: `git mv` the file to `plan/planner_1.md` (and its `.meta.json` sidecar) before spawning, and add an `## Incumbent Role` section to `planner_1`'s message directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
+**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a tier-2 `plans/initial.md` that never reached approval), pick the most substantive one and seed `planner_1` with it as the **incumbent**: `git mv` the file to `plans/planner_1.md` (and its `.meta.json` sidecar) before spawning, and add an `## Incumbent Role` section to `planner_1`'s message directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
 
 Each planner's spawn `message`:
 
@@ -39,7 +39,7 @@ Use the $runtime:card-planner and $cards:notes skills.
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the card from the card repository. Create a plan at `plan/[task_name].md`, investigate uncertainties, and report research findings to me, the orchestrator, as you work — I relay them to the reviewer and the other live planners, and relay theirs to you. Cheating off relayed peer findings and plan files is encouraged.
+Read the card from the card repository. Create a plan at `plans/[task_name].md`, investigate uncertainties, and report research findings to me, the orchestrator, as you work — I relay them to the reviewer and the other live planners, and relay theirs to you. Cheating off relayed peer findings and plan files is encouraged.
 
 Follow the $runtime:card-planner skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` reports, the post-approval revise-or-stay-put choice, and contest-end handling. Your `task_name` is `[task_name]`; report all findings, plan-state updates, and critiques to me.
 ```
@@ -51,7 +51,7 @@ Follow the $runtime:card-planner skill from the top — it is the canonical sour
 ```
 Use the $runtime:card-plan-failure-mode and $cards:notes skills.
 
-[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plan/planner_N.md`. I, the orchestrator, relay each planner's round-numbered `PLAN: READY` updates to you, and relay your findings, verdicts, and winner selection back to the planners.
+[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner_N.md`. I, the orchestrator, relay each planner's round-numbered `PLAN: READY` updates to you, and relay your findings, verdicts, and winner selection back to the planners.
 
 Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner_N` authority you hold over non-progressing planners, the `SELECT_WINNER` handler, and contest-end handling. Report all findings, verdicts, and the winner to me.
 
@@ -142,14 +142,14 @@ If there is a winner, promote the winning plan and delete every other plan file.
 cd $CARD_REPO_PATH
 
 # Promote the winner to a semantic slug
-git mv plan/[WINNING_PLANNER].md plan/[WINNING_SLUG].md
-git mv plan/[WINNING_PLANNER].md.meta.json plan/[WINNING_SLUG].md.meta.json
+git mv plans/[WINNING_PLANNER].md plans/[WINNING_SLUG].md
+git mv plans/[WINNING_PLANNER].md.meta.json plans/[WINNING_SLUG].md.meta.json
 
-# Remove every other tracked file in plan/ — losing planner files AND any pre-existing
-# un-approved plans (e.g., a tier-2 plan/initial.md that never reached approval). Only the
+# Remove every other tracked file in plans/ — losing planner files AND any pre-existing
+# un-approved plans (e.g., a tier-2 plans/initial.md that never reached approval). Only the
 # winner's two files survive.
-git ls-files plan/ \
-  | grep -vE '^plan/[WINNING_SLUG]\.md(\.meta\.json)?$' \
+git ls-files plans/ \
+  | grep -vE '^plans/[WINNING_SLUG]\.md(\.meta\.json)?$' \
   | xargs -r git rm
 
 git commit -m "[single sentence summarizing the winning approach]"

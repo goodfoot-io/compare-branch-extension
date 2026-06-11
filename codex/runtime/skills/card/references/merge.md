@@ -33,7 +33,7 @@ git add <resolved-file-1> <resolved-file-2>
 git rebase --continue
 ```
 
-- **Conflicts cannot be resolved**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write conflict details to `comment/merge-conflict.md` (files involved, manual resolution steps). Commit both files and **STOP** — Awaiting user intervention.
+- **Conflicts cannot be resolved**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write conflict details to `comments/merge-conflict.md` (files involved, manual resolution steps). Commit both files and **STOP** — Awaiting user intervention.
 
 - **Rebase reports branch is already up to date** (no commits moved): Proceed to Step 3.
 
@@ -52,7 +52,7 @@ If rebase moved commits, run linting, type checking, and tests.
 Based on validation result:
 - **All validation passes**: Proceed to Step 3: Fast-Forward Merge.
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
-- **Validation fails and attempts >= 3**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/validation-failed.md` (what failed, what was attempted, what intervention is needed). Commit both files and **STOP** — Awaiting user intervention.
+- **Validation fails and attempts >= 3**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comments/validation-failed.md` (what failed, what was attempted, what intervention is needed). Commit both files and **STOP** — Awaiting user intervention.
 
 ## 3. Fast-Forward Merge
 
@@ -76,8 +76,8 @@ git stash push --include-untracked -m "card-merge: stash before ff-merge" && git
   The `&&` chain ensures the merge only runs if the stash succeeds, and the pop only runs if the merge succeeds — leaving the stash in place if the merge fails so it can be restored manually.
 
   - **Succeeds**: **STOP** — Merge complete. Do not update card status, write comments, or take further action.
-  - **`git stash pop` reports conflicts**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` — stashed changes conflict with the merged branch; user must resolve the stash conflict manually. Commit both files and **STOP**.
-  - **`git merge --ff-only` fails**: Run `git stash pop` to restore uncommitted changes before stopping. Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` — branch is not a fast-forward of `$BASE_BRANCH`; include likely cause and resolution steps. Commit both files and **STOP**.
-- **Merge or apply fails for any other reason**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` — branch is not a fast-forward of `$BASE_BRANCH`; include likely cause and resolution steps. Commit both files and **STOP**.
+  - **`git stash pop` reports conflicts**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comments/merge-failed.md` — stashed changes conflict with the merged branch; user must resolve the stash conflict manually. Commit both files and **STOP**.
+  - **`git merge --ff-only` fails**: Run `git stash pop` to restore uncommitted changes before stopping. Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comments/merge-failed.md` — branch is not a fast-forward of `$BASE_BRANCH`; include likely cause and resolution steps. Commit both files and **STOP**.
+- **Merge or apply fails for any other reason**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comments/merge-failed.md` — branch is not a fast-forward of `$BASE_BRANCH`; include likely cause and resolution steps. Commit both files and **STOP**.
 
 </instructions>

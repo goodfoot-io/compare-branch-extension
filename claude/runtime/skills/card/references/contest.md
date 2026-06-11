@@ -32,9 +32,9 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 
 ## 2. Dispatch the Planners
 
-Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plan/[AGENT_NAME].md`.
+Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plans/[AGENT_NAME].md`.
 
-**Incumbent seeding.** If un-approved plan files already exist in `plan/` (e.g., a tier-2 `plan/initial.md` that never reached approval), pick the most substantive one and seed `planner-1` with it as the **incumbent**: `git mv` the file to `plan/planner-1.md` (and its `.meta.json` sidecar) before dispatch, and add an `## Incumbent Role` section to `planner-1`'s prompt below directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
+**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a tier-2 `plans/initial.md` that never reached approval), pick the most substantive one and seed `planner-1` with it as the **incumbent**: `git mv` the file to `plans/planner-1.md` (and its `.meta.json` sidecar) before dispatch, and add an `## Incumbent Role` section to `planner-1`'s prompt below directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
 
 ```xml
 <invoke name="Agent">
@@ -51,7 +51,7 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the card from the card repository. Create a plan at `plan/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to the team as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.
+Read the card from the card repository. Create a plan at `plans/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to the team as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.
 
 Follow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and shutdown handling.
 
@@ -74,7 +74,7 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plan/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.
+[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.
 
 Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and shutdown handling.
 
@@ -174,14 +174,14 @@ If there is a winner, promote the winning plan and delete every other plan file.
 cd $CARD_REPO_PATH
 
 # Promote the winner to a semantic slug
-git mv plan/[WINNING_PLANNER].md plan/[WINNING_SLUG].md
-git mv plan/[WINNING_PLANNER].md.meta.json plan/[WINNING_SLUG].md.meta.json
+git mv plans/[WINNING_PLANNER].md plans/[WINNING_SLUG].md
+git mv plans/[WINNING_PLANNER].md.meta.json plans/[WINNING_SLUG].md.meta.json
 
-# Remove every other tracked file in plan/ — losing planner files AND any pre-existing
-# un-approved plans (e.g., a tier-2 plan/initial.md that never reached approval). Only the
+# Remove every other tracked file in plans/ — losing planner files AND any pre-existing
+# un-approved plans (e.g., a tier-2 plans/initial.md that never reached approval). Only the
 # winner's two files survive.
-git ls-files plan/ \
-  | grep -vE '^plan/[WINNING_SLUG]\.md(\.meta\.json)?$' \
+git ls-files plans/ \
+  | grep -vE '^plans/[WINNING_SLUG]\.md(\.meta\.json)?$' \
   | xargs -r git rm
 
 git commit -m "[single sentence summarizing the winning approach]"

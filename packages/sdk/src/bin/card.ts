@@ -8,15 +8,15 @@
  * @summary Card CLI for get, create, list, search, watch, and action operations
  */
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve as resolvePath } from 'node:path';
-import { resolveGlobalCardsConfigDir } from '@cards/sdk';
-import { resolveCardRepoPath } from '@cards/sdk/adhoc-attribution';
-import { isKnownAgentComm, requestProcessExit } from '@cards/sdk/bin/process-utils';
-import { spawnAdhocAttribution } from '@cards/sdk/bin/spawn-adhoc-attribution';
+import { join, resolve as resolvePath } from 'node:path';
+import { promisify } from 'node:util';
+import { resolveExtensionPath } from '@cards/sdk';
+import { requestProcessExit } from '@cards/sdk/bin/process-utils';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { toCardListSummaries } from '@cards/sdk/card-summary';
+import { resolveCardsParentBranch } from '@cards/sdk/cards-parent-branch';
 import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
 import {
   CardsClient,
@@ -27,58 +27,41 @@ import {
   isBookkeepingCommit
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import { clearPendingBind, readPendingBind } from '@cards/sdk/pending-bind';
-import { findAgentPid } from '@cards/sdk/process-tree';
 import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
 import { resolveSessionId } from '@cards/sdk/session-resolver';
-import { bindWorktreeToCard } from '@cards/sdk/worktree-for-card';
+import { readUnboundCandidates, removeUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
+import { outfitWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
 
-/** Maximum number of parent directories to walk searching for a `.cards/PENDING_BIND` marker. */
-const MAX_WALK_LEVELS = 20;
+const execFileAsync = promisify(execFile);
 
 /**
- * Minimal stderr-backed logger for the binding side-effects of `card create`.
+ * Resolves the toplevel directory of the linked git worktree `card create` is
+ * running inside, or `null` when cwd is the main worktree or not a git repo.
  *
- * The CLI has no structured logger, but {@link spawnAdhocAttribution} and the
- * adhoc-attribution helpers expect a `warn`/`error` interface. Diagnostics go
- * to stderr so the stdout payload stays exactly the create-result JSON.
+ * A linked worktree has a git-dir distinct from its common dir
+ * (`git rev-parse --git-dir` ≠ `--git-common-dir`); the main worktree has them
+ * equal and is never a bind target. This is the cwd-primary leg of
+ * {@link resolveBindTarget}.
+ *
+ * @returns Absolute toplevel path of the linked worktree, or null.
  */
-const stderrLogger = {
-  warn(message: string, data?: Record<string, unknown>): void {
-    console.error(data ? `${message} ${JSON.stringify(data)}` : message);
-  },
-  error(message: string, data?: Record<string, unknown>): void {
-    console.error(data ? `${message} ${JSON.stringify(data)}` : message);
+async function resolveLinkedWorktreeDir(): Promise<string | null> {
+  try {
+    const [gitDir, gitCommonDir, toplevel] = await Promise.all([
+      execFileAsync('git', ['rev-parse', '--path-format=absolute', '--git-dir']).then((r) => r.stdout.trim()),
+      execFileAsync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir']).then((r) => r.stdout.trim()),
+      execFileAsync('git', ['rev-parse', '--show-toplevel']).then((r) => r.stdout.trim())
+    ]);
+    if (gitDir === gitCommonDir) return null;
+    return toplevel;
+  } catch {
+    // Not a git repository, or git unavailable — no linked worktree to bind.
+    return null;
   }
-};
-
-/**
- * Walks upward from `startDir` toward `/`, up to {@link MAX_WALK_LEVELS} levels,
- * looking for a `.cards/PENDING_BIND` marker. Returns the absolute path of the
- * first worktree directory that holds the marker, or `null` when none is found
- * within the bound.
- *
- * Models {@link resolveWorktreeCardId}'s walk pattern: the marker locates the
- * unbound worktree root that `card create` is being invoked inside.
- *
- * @param startDir - Directory to start the walk from (typically `process.cwd()`).
- * @returns The worktree directory holding `.cards/PENDING_BIND`, or null.
- */
-function findPendingBindWorktreeDir(startDir: string): string | null {
-  let dir = startDir;
-  for (let level = 0; level < MAX_WALK_LEVELS; level++) {
-    if (existsSync(join(dir, '.cards', 'PENDING_BIND'))) {
-      return dir;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
 }
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
@@ -370,20 +353,17 @@ export async function createCard(args: string[]): Promise<void> {
   const { data, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags['workspace-path']?.[0]);
 
-  // Resolve the pending-bind state BEFORE creating the card. Creating a card is
-  // the moment an unbound worktree (one carrying a `.cards/PENDING_BIND` marker)
-  // becomes bound to it — but binding is fail-closed: it requires a same-session
-  // transcript. If the gate would refuse, we must NOT mint a card, or the
-  // printed recovery ("re-enter, run `card create` again") would orphan the
-  // first card and bind to a second on retry. So the gate runs first.
-  const bindContext = await resolvePendingBind();
-  if (bindContext.kind === 'refuse') {
+  // Resolve the bind target BEFORE creating the card. Creating a card is the
+  // moment an unbound worktree becomes bound to it — but binding is fail-closed:
+  // a target whose parent branch cannot be determined refuses rather than
+  // guessing. If the gate would refuse, we must NOT mint a card, or the printed
+  // recovery would orphan the first card and bind to a second on retry. So the
+  // gate runs first.
+  const bindTarget = await resolveBindTarget(flags['parent-branch']?.[0]);
+  if (bindTarget.kind === 'refuse') {
     // Fail-closed: no card is created on a refusal, so a retry creates+binds
     // atomically with no duplicate. Diagnostic only; stdout stays empty.
-    console.error(
-      'card create: refusing to bind worktree — no same-session transcript recorded in PENDING_BIND. ' +
-        'Re-enter the worktree via the EnterWorktree tool so the hook can record a same-session transcript, then run `card create` again.'
-    );
+    console.error(bindTarget.reason);
     process.exitCode = 1;
     return;
   }
@@ -399,163 +379,176 @@ export async function createCard(args: string[]): Promise<void> {
   }
   console.log(formatOutput(filtered, flags['jsonpath']?.[0]));
 
-  // The gate already passed; bind + spawn does not re-run it. A bind/spawn
+  // The gate already passed; outfit + spawn does not re-run it. An outfit
   // failure surfaces on stderr but never corrupts the create-result JSON above.
-  if (bindContext.kind === 'bind') {
+  if (bindTarget.kind === 'bind') {
     const createdId = full['id'];
     if (typeof createdId === 'string' && createdId.length > 0) {
-      await bindCreatedWorktree(client, createdId, bindContext);
+      await outfitCreatedWorktree(client, createdId, bindTarget);
     }
   }
 }
 
 /**
- * Outcome of resolving the pending-bind state for the current `card create`.
+ * Outcome of resolving the bind target for the current `card create`.
  *
- * - `none` — not inside an eligible unbound worktree (no marker found, the
- *   marker file failed fail-closed parsing, or the worktree is already bound
- *   via `.cards/CARD_ID`). The card is created untracked.
- * - `refuse` — a marker was found but the fail-closed gate denied it (no
- *   same-session transcript). The card must NOT be created.
- * - `bind` — the gate passed; the resolved worktree + marker + binder session
- *   are carried forward so {@link bindCreatedWorktree} can bind and spawn.
+ * - `none` — not inside or pointed at an eligible unbound worktree (cwd is the
+ *   main worktree, an already-bound worktree, or no unbound candidate matched
+ *   the binder's session). The card is created untracked.
+ * - `refuse` — a worktree was identified but the fail-closed gate denied it (no
+ *   parent branch could be determined, or 2+ ambiguous candidates). The card
+ *   must NOT be created; `reason` is the actionable stderr message.
+ * - `bind` — the gate passed; the resolved worktree, parent branch, transcript,
+ *   and the binder's own session are carried forward so
+ *   {@link outfitCreatedWorktree} can outfit and spawn.
  */
-type PendingBindContext =
+type BindTarget =
   | { kind: 'none' }
-  | { kind: 'refuse' }
+  | { kind: 'refuse'; reason: string }
   | { kind: 'bind'; worktreeDir: string; parentBranch: string; transcriptPath: string; sessionId: string };
 
 /**
- * Resolves the pending-bind state for the worktree `card create` runs inside,
- * applying the fail-closed same-session-transcript gate WITHOUT creating a card.
+ * Resolves the worktree `card create` should bind, applying the fail-closed
+ * gate WITHOUT creating a card. Two legs, cwd-primary then candidate-set
+ * fallback:
  *
- * 1. Bounded walk-up from `process.cwd()` for a `.cards/PENDING_BIND` marker.
- *    No marker (or a marker that failed fail-closed parsing) → `none`: an
- *    untracked planning card, no bind.
- * 2. CARD_ID precedence: if `.cards/CARD_ID` is already present in the
- *    marker-bearing worktree dir, the worktree is already bound. The stale
- *    PENDING_BIND marker is drained via {@link clearPendingBind} (reconciles
- *    the both-markers state) and the function returns `none` so `card create`
- *    produces an untracked planning card. This mirrors
- *    `bindWorktreeToCard`'s reconciliation and is consistent with
- *    `EnterWorktree`'s CARD_ID-wins-over-PENDING_BIND precedence rule.
- * 3. Fail-closed gate: the marker must carry a `transcriptPath`, and its
- *    recorded `sessionId` must match the binder's own resolved session. A
- *    same-session transcript is required for streaming; if it cannot be
- *    obtained → `refuse`, so the caller declines to create a card and instructs
- *    the operator to re-enter the worktree via the EnterWorktree tool.
- * 4. Otherwise → `bind`, carrying the worktree dir, parent branch, transcript,
- *    and the BINDER's own resolved session forward.
+ * 1. **cwd-derivation (primary)** — if `process.cwd()` is a linked worktree
+ *    (`git rev-parse --git-dir` ≠ `--git-common-dir`):
+ *    - already bound (`.cards/CARD_ID` present) → `none`. Mints an untracked
+ *      card, preserving nested-worktree binding inheritance (main-126).
+ *    - otherwise → resolve the parent branch via {@link resolveCardsParentBranch}
+ *      (git config → reflog → `--parent-branch` flag → refuse). The transcript
+ *      and session come from the binder's own `CARDS_TRANSCRIPT_PATH` /
+ *      `CARDS_SESSION_ID` env (env inheritance guarantees they are this agent's).
  *
- * @returns The resolved pending-bind context.
+ * 2. **candidate-set fallback** (run from outside the worktree) — read the
+ *    per-session unbound-candidate set and keep only entries whose `sessionId`
+ *    matches the binder's resolved session (main-115 SET semantics):
+ *    - 0 → `none` (untracked card).
+ *    - 1 → `bind`, with a LOUD stderr notice naming the worktree.
+ *    - 2+ → `refuse`, listing every candidate; never silently pick most-recent.
+ *
+ * @param parentBranchFlag - Optional `--parent-branch` CLI flag value.
+ * @returns The resolved bind target.
  */
-async function resolvePendingBind(): Promise<PendingBindContext> {
-  const worktreeDir = findPendingBindWorktreeDir(process.cwd());
-  if (!worktreeDir) {
-    // No marker — this is an untracked planning card created outside an unbound
-    // worktree. Nothing to bind.
-    return { kind: 'none' };
+async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget> {
+  // --- Leg 1: cwd-derivation primary ---
+  const cwdWorktree = await resolveLinkedWorktreeDir();
+  if (cwdWorktree) {
+    // CARD_ID precedence: an already-bound worktree mints an untracked card
+    // (nested-worktree inheritance, main-126). No bind.
+    if (existsSync(join(cwdWorktree, '.cards', 'CARD_ID'))) {
+      return { kind: 'none' };
+    }
+
+    const parent = await resolveCardsParentBranch(cwdWorktree, parentBranchFlag);
+    if (parent.kind === 'refuse') {
+      return { kind: 'refuse', reason: `card create: ${parent.reason}` };
+    }
+
+    // The binder's own session/transcript: env inheritance guarantees the
+    // transcript belongs to this agent (the structural-redundancy case noted in
+    // the plan's session-gate). Both must be present for streaming attribution.
+    const sessionId = process.env['CARDS_SESSION_ID']?.trim() ?? '';
+    const transcriptPath = process.env['CARDS_TRANSCRIPT_PATH']?.trim() ?? '';
+    if (!sessionId || !transcriptPath) {
+      return {
+        kind: 'refuse',
+        reason:
+          'card create: refusing to bind worktree — CARDS_SESSION_ID / CARDS_TRANSCRIPT_PATH are not set, so the ' +
+          'agent transcript cannot be streamed. Re-enter the worktree via the EnterWorktree tool, then run `card create` again.'
+      };
+    }
+
+    return { kind: 'bind', worktreeDir: cwdWorktree, parentBranch: parent.parentBranch, transcriptPath, sessionId };
   }
 
-  // CARD_ID precedence: if the worktree is already bound, the PENDING_BIND
-  // marker is stale (crash between writeCardBoundFile and clearPendingBind).
-  // Drain the marker so this both-markers state does not recur, then return
-  // `none` — `card create` mints an untracked card, consistent with running
-  // inside a bound worktree (acceptance signal #3).
-  if (existsSync(join(worktreeDir, '.cards', 'CARD_ID'))) {
-    await clearPendingBind(worktreeDir);
-    return { kind: 'none' };
-  }
-
-  const marker = await readPendingBind(worktreeDir);
-  if (!marker) {
-    // The walk-up found a marker file but it failed fail-closed parsing
-    // (malformed / wrong version). Treat as no usable marker.
-    return { kind: 'none' };
-  }
-
+  // --- Leg 2: candidate-set fallback ---
   const sessionId = await resolveSessionId();
-
-  // Fail-closed gate: a bind that cannot obtain a same-session transcript must
-  // refuse. The marker must carry a transcriptPath recorded by EnterWorktree,
-  // and its sessionId must match the binder's own session — otherwise the
-  // transcript belongs to a different session and would stream the wrong
-  // agent's work.
-  if (!marker.transcriptPath || sessionId === null || marker.sessionId !== sessionId) {
-    return { kind: 'refuse' };
+  if (sessionId === null) {
+    // No session — nothing to bind from the candidate set. Untracked card.
+    return { kind: 'none' };
   }
+
+  const candidates = (await readUnboundCandidates(sessionId)).filter((entry) => entry.sessionId === sessionId);
+
+  if (candidates.length === 0) {
+    return { kind: 'none' };
+  }
+
+  if (candidates.length > 1) {
+    const list = candidates.map((c) => `  - ${c.worktreeDir}`).join('\n');
+    return {
+      kind: 'refuse',
+      reason:
+        `card create: refusing to bind — ${candidates.length} unbound worktrees are registered for this session:\n` +
+        `${list}\n` +
+        'Run `card create` from inside the specific worktree you want to bind so the target is unambiguous.'
+    };
+  }
+
+  const candidate = candidates[0]!;
+  const parent = await resolveCardsParentBranch(candidate.worktreeDir, parentBranchFlag);
+  if (parent.kind === 'refuse') {
+    return { kind: 'refuse', reason: `card create: ${parent.reason}` };
+  }
+
+  // Loud stderr notice: the binder is not inside the worktree it is binding, so
+  // make the target explicit rather than binding silently.
+  console.error(`card create: binding the single unbound worktree for this session: ${candidate.worktreeDir}`);
 
   return {
     kind: 'bind',
-    worktreeDir,
-    parentBranch: marker.parentBranch,
-    transcriptPath: marker.transcriptPath,
+    worktreeDir: candidate.worktreeDir,
+    parentBranch: parent.parentBranch,
+    transcriptPath: candidate.transcriptPath,
     sessionId
   };
 }
 
 /**
- * Binds the worktree `card create` is running inside to the newly-created card,
- * then spawns transcript attribution. Called only after the fail-closed gate in
- * {@link resolvePendingBind} has passed, so it does NOT re-run the gate.
+ * Outfits the resolved worktree as card-bound and spawns transcript
+ * attribution. Called only after {@link resolveBindTarget} has passed the
+ * fail-closed gate, so it does NOT re-run the gate.
  *
- * {@link bindWorktreeToCard} returns `'bound'` when it actually wrote
- * `.cards/CARD_ID`, registered the branch, and cleared the marker; it returns
- * `'already-bound'` when the worktree was already bound to a DIFFERENT card (it
- * cleared the stale marker and did NOT register this card's branch). Attribution
- * is spawned ONLY on `'bound'` — an `'already-bound'` worktree belongs to
- * another card, so the freshly-created card is left untracked/not-activated and
- * a stderr diagnostic explains why.
+ * Delegates the full disk → API → attribution lifecycle to
+ * {@link outfitWorktreeForCard}, the single orchestrator both creation-time and
+ * bind-time paths funnel through (so they cannot drift). On success the worktree
+ * is removed from the per-session unbound-candidate set so a later `card create`
+ * in the same session does not see it again.
  *
- * The watcher uses the BINDER's own resolved session for watcherId / lock / PID
- * — the marker's `sessionId` is only a transcript validation tag.
- *
- * A bind/spawn failure is reported to stderr but never propagates: the create
- * result must remain the sole stdout payload regardless of binding outcome.
+ * An outfit failure is reported to stderr but never propagates: the create
+ * result must remain the sole stdout payload regardless of bind outcome.
  *
  * @param client - Connected CardsClient used to register the branch record.
  * @param cardId - The newly-created card's identifier.
- * @param context - The gate-passed pending-bind context.
+ * @param target - The gate-passed bind target.
  */
-async function bindCreatedWorktree(
+async function outfitCreatedWorktree(
   client: CardsClient,
   cardId: string,
-  context: Extract<PendingBindContext, { kind: 'bind' }>
+  target: Extract<BindTarget, { kind: 'bind' }>
 ): Promise<void> {
-  const { worktreeDir, parentBranch, transcriptPath, sessionId } = context;
+  const { worktreeDir, parentBranch, transcriptPath, sessionId } = target;
   try {
-    // bindWorktreeToCard reports whether it actually bound this worktree
-    // (`'bound'`) or merely reconciled a worktree already bound to a different
-    // card (`'already-bound'`). The reconciliation outcome drives whether
-    // attribution is spawned.
-    const result = await bindWorktreeToCard(client, worktreeDir, {
+    const extensionPath = await resolveExtensionPath();
+    const gitHooksDir = join(extensionPath, 'dist', 'git-hooks');
+    const compiledScriptPaths = {
+      'pre-commit': join(gitHooksDir, 'pre-commit.mjs'),
+      'post-commit': join(gitHooksDir, 'post-commit.mjs'),
+      'post-rewrite': join(gitHooksDir, 'post-rewrite.mjs')
+    };
+
+    await outfitWorktreeForCard(client, worktreeDir, {
       cardId,
       parentBranch,
-      sessionId
+      sessionId,
+      transcriptPath,
+      compiledScriptPaths
     });
 
-    if (result === 'already-bound') {
-      console.error(
-        `card create: worktree ${worktreeDir} is already bound to another card — ` +
-          `the newly-created card ${cardId} was left untracked and not activated.`
-      );
-      return;
-    }
-
-    const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
-    if (!cardRepoPath) {
-      console.error('card create: bound worktree but could not resolve card repository path — watcher not spawned');
-      return;
-    }
-
-    const agentPid = findAgentPid();
-    if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
-      console.error('card create: bound worktree but could not resolve a known agent PID — watcher not spawned');
-      return;
-    }
-
-    const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
-    await spawnAdhocAttribution({ agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath }, stderrLogger);
+    // Bind succeeded — drop the candidate so it is not re-offered this session.
+    await removeUnboundCandidate(sessionId, worktreeDir);
   } catch (error) {
     console.error('card create: failed to bind worktree to card:', error instanceof Error ? error.message : error);
   }

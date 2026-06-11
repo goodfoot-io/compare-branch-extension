@@ -52,7 +52,7 @@ As research subagents return and as the conversation settles pieces of the desti
 - `CARD.meta.json` — title and metadata
 - `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./investigation.md`
 - `notes/` — research findings, evidence-source inventory, rejected framings
-- `plan/` — decision logs and load-bearing assumptions only; do **not** write an investigation plan
+- `plans/` — decision logs and load-bearing assumptions only; do **not** write an investigation plan
 
 Commit frequently so the card improves monotonically. The null result is an acceptable form of arrival.
 

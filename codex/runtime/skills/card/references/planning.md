@@ -3,7 +3,7 @@
 Shared procedure for creating an implementation plan from a card. Loaded by the `card-plan` orchestrator in tier 2 self-planning and referenced by `card-planner` in tiers 3–4.
 
 <placeholder-variables>
-[PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plan/initial.md` for self-planning, `plan/[PLANNER_NAME].md` for a contest planner child)
+[PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plans/initial.md` for self-planning, `plans/[PLANNER_NAME].md` for a contest planner child)
 [CARD_REPO_PATH] — Absolute path to the card repository
 [WORKSPACE_PATH] — Absolute path to the card's workspace worktree
 </placeholder-variables>
@@ -12,16 +12,16 @@ Shared procedure for creating an implementation plan from a card. Loaded by the 
 
 ## 1. Assess Starting State
 
-Read `CARD.md` for goals and constraints. Read CARD.meta.json for current `title`, `gates`, and `tags`. Read the contents of the 5 most recent `comment/*.md` files for context.
+Read `CARD.md` for goals and constraints. Read CARD.meta.json for current `title`, `gates`, and `tags`. Read the contents of the 5 most recent `comments/*.md` files for context.
 
-Check whether any plan files exist in `plan/` in the card repository:
+Check whether any plan files exist in `plans/` in the card repository:
 
-- **`plan/` contains at least one `.md` file**: Go to Step 1.1.
+- **`plans/` contains at least one `.md` file**: Go to Step 1.1.
 - **No plan files exist**: Go to Step 1.2.
 
 ### 1.1 Evaluate Existing Plans
 
-Read all plan files from the `plan/` directory. Compare the plans against the current card state — comments added after a plan was last modified may contain new requirements, feedback, or context.
+Read all plan files from the `plans/` directory. Compare the plans against the current card state — comments added after a plan was last modified may contain new requirements, feedback, or context.
 
 Determine whether prior plans have been implemented by checking for workspace commits on the current branch that correspond to plan tasks.
 
@@ -57,7 +57,7 @@ Write the plan to `[PLAN_FILE]` in the card repository. Create a sidecar at `[PL
 
 ```bash
 cd $CARD_REPO_PATH
-git add plan/
+git add plans/
 git commit -m "[single sentence summarizing the approach and key decisions]"
 ```
 

@@ -13,6 +13,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
+import { persistSessionEnv } from '../../shared/session-env.js';
 
 /**
  * CLI wrapper definitions: env var name and filename in `bin/`.
@@ -33,7 +34,15 @@ export function resolveCliWrapper(filename: string): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), '../../bin', filename);
 }
 
-export default sessionStartHook({}, (_input, { logger, persistEnvVar }) => {
+export default sessionStartHook({}, (input, { logger, persistEnvVar }) => {
+  // Persist session identity vars so CARDS_SESSION_ID and CARDS_TRANSCRIPT_PATH
+  // are available in every plain-interactive session, not just action subprocesses.
+  persistSessionEnv(input.session_id, input.transcript_path, persistEnvVar);
+  logger.info('Persisted session env vars to environment', {
+    sessionId: input.session_id,
+    transcriptPath: input.transcript_path
+  });
+
   const missing: string[] = [];
 
   for (const { envVar, filename } of CLI_WRAPPERS) {

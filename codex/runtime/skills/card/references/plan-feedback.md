@@ -10,7 +10,7 @@
 cd $CARD_REPO_PATH
 ```
 
-Read the plan files from the `plan/` directory and the most recent `comment/*.md` files in the card repository.
+Read the plan files from the `plans/` directory and the most recent `comments/*.md` files in the card repository.
 
 ### 1.2 Analyze User Feedback
 
@@ -47,11 +47,11 @@ Write the plan file per `<markdown-guidelines>`.
 
 ### 2.4 Store Revised Plan
 
-Write the updated plan to the appropriate file in the `plan/` directory in the card repository. Commit to the card repository:
+Write the updated plan to the appropriate file in the `plans/` directory in the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-git add plan/
+git add plans/
 git commit -m "[single sentence summarizing what feedback was incorporated into the plan]"  # <card-repo-commit-style>
 ```
 
@@ -73,10 +73,10 @@ Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-cat <<'EOF' > comment/plan-revised.md
+cat <<'EOF' > comments/plan-revised.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 EOF
-git add comment/plan-revised.md
+git add comments/plan-revised.md
 git commit -m "[single sentence summarizing how feedback was incorporated and key judgment calls]"  # <card-repo-commit-style>
 ```
 

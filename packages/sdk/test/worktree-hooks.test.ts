@@ -1,12 +1,15 @@
 /**
- * Phase 4 tests: per-worktree hook delivery.
+ * Per-worktree hook delivery tests.
  *
- * Covers the createWorktree pre-settle block (A2 race fix / D9 ordering /
- * D10a guard) and the generated dispatcher scripts (D2 stdin classification,
- * D3 exit-code propagation, D11 no-stdin-hang). No mocks — real git worktrees,
- * real bash invocation of the generated dispatcher scripts.
+ * Covers the outfit disk phase (A2 race fix / D9 ordering / D10a guard) layered
+ * on the pure createWorktree primitive, and the generated dispatcher scripts
+ * (D2 stdin classification, D3 exit-code propagation, D11 no-stdin-hang). The
+ * hook-provisioning logic moved out of createWorktree into
+ * outfitWorktreeForCard; createWorktree is now a pure git primitive. No mocks —
+ * real git worktrees, real bash invocation of the generated dispatcher scripts.
+ * A minimal fake CardsClient stands in for the API phase's addBranch.
  *
- * @summary Phase 4 per-worktree hook provisioning + dispatcher script tests
+ * @summary Per-worktree hook provisioning (outfit) + dispatcher script tests
  */
 
 import { execFileSync } from 'node:child_process';
@@ -15,7 +18,9 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { CardsClient } from '../src/client/cardsClient.js';
 import { createWorktree } from '../src/worktree.js';
+import { outfitWorktreeForCard } from '../src/worktreeForCard.js';
 
 const CARDS_WORKTREES_DIR_KEY = 'CARDS_WORKTREES_DIR';
 
@@ -49,6 +54,45 @@ function resolveBash(): string {
   }
   _bash = 'bash';
   return _bash;
+}
+
+/**
+ * Minimal CardsClient fake whose addBranch resolves immediately — outfit's API
+ * phase only needs addBranch to succeed for these on-disk hook tests.
+ *
+ * @returns A CardsClient stand-in with no-op addBranch/removeBranch.
+ */
+function makeFakeClient(): CardsClient {
+  return {
+    addBranch: async () => undefined,
+    removeBranch: async () => undefined
+  } as unknown as CardsClient;
+}
+
+/**
+ * Creates a pure worktree then outfits it as card-bound — the composition that
+ * createWorktreeForCard performs at creation time. Returns the worktree path and
+ * the settle promise from the underlying createWorktree.
+ *
+ * @param ref - Branch ref to create.
+ * @param cardId - Card identifier to bind.
+ * @param cwd - Source repo working directory.
+ * @param compiledScriptPaths - Compiled .mjs map for the dispatcher.
+ * @returns The worktree path and the underlying createWorktree settle promise.
+ */
+async function createAndOutfit(
+  ref: string,
+  cardId: string,
+  cwd: string,
+  compiledScriptPaths: Record<string, string>
+): Promise<{ path: string; settle: Promise<unknown> }> {
+  const result = await createWorktree(ref, { cwd });
+  await outfitWorktreeForCard(makeFakeClient(), result.path, {
+    cardId,
+    parentBranch: 'main',
+    compiledScriptPaths
+  });
+  return { path: result.path, settle: result.settle };
 }
 
 function initGitRepo(dir: string): void {
@@ -122,11 +166,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
   });
 
   it('writes .cards/CARD_ID and .cards/CARD_ORIGINAL_HOOK_PATH before settle resolves (A2)', async () => {
-    const { path: wPath, settle } = await createWorktree('cards/main-1/1', {
-      cwd: repoDir,
-      cardId: 'main-1',
-      compiledScriptPaths
-    });
+    const { path: wPath, settle } = await createAndOutfit('cards/main-1/1', 'main-1', repoDir, compiledScriptPaths);
 
     // Inspect immediately — do NOT await settle. The agent could commit here.
     const cardId = await fs.readFile(path.join(wPath, '.cards', 'CARD_ID'), 'utf8');
@@ -138,11 +178,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
   });
 
   it('sets per-worktree core.hooksPath, with extensions.worktreeConfig set first (D9), before settle resolves', async () => {
-    const { path: wPath, settle } = await createWorktree('cards/main-2/1', {
-      cwd: repoDir,
-      cardId: 'main-2',
-      compiledScriptPaths
-    });
+    const { path: wPath, settle } = await createAndOutfit('cards/main-2/1', 'main-2', repoDir, compiledScriptPaths);
 
     // Both git-config invariants must hold before settle is awaited.
     const worktreeConfigEnabled = execFileSync('git', ['-C', repoDir, 'config', 'extensions.worktreeConfig'], {
@@ -156,11 +192,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
   });
 
   it('writes a dispatcher script for every client-side hook type plus the three Cards .mjs', async () => {
-    const { settle } = await createWorktree('cards/main-3/1', {
-      cwd: repoDir,
-      cardId: 'main-3',
-      compiledScriptPaths
-    });
+    const { settle } = await createAndOutfit('cards/main-3/1', 'main-3', repoDir, compiledScriptPaths);
     await settle;
 
     const entries = (await fs.readdir(sharedHooksDir)).sort();
@@ -196,11 +228,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
   // ELECTRON_RUN_AS_NODE=1, so without the export every commit pops a focus-
   // stealing Electron GUI window (very visible on a macOS host).
   it('exports ELECTRON_RUN_AS_NODE in the Cards-hook dispatchers', async () => {
-    const { settle } = await createWorktree('cards/main-6/1', {
-      cwd: repoDir,
-      cardId: 'main-6',
-      compiledScriptPaths
-    });
+    const { settle } = await createAndOutfit('cards/main-6/1', 'main-6', repoDir, compiledScriptPaths);
     await settle;
 
     for (const hook of ['post-commit', 'pre-commit', 'post-rewrite']) {
@@ -219,16 +247,28 @@ describe('createWorktree per-worktree hook provisioning', () => {
     });
   });
 
-  it('throws the D10a guard when cardId is set without compiledScriptPaths', async () => {
-    await expect(createWorktree('cards/main-4/1', { cwd: repoDir, cardId: 'main-4' })).rejects.toThrow(
-      /compiledScriptPaths required/
-    );
+  it('throws the D10a guard when outfit is given an empty compiledScriptPaths map', async () => {
+    const { path: wPath, settle } = await createWorktree('cards/main-4/1', { cwd: repoDir });
+    await settle;
+    await expect(
+      outfitWorktreeForCard(makeFakeClient(), wPath, {
+        cardId: 'main-4',
+        parentBranch: 'main',
+        compiledScriptPaths: {}
+      })
+    ).rejects.toThrow(/compiledScriptPaths must be non-empty/);
   });
 
   it('rejects an empty cardId', async () => {
-    await expect(createWorktree('cards/main-5/1', { cwd: repoDir, cardId: '', compiledScriptPaths })).rejects.toThrow(
-      /non-empty/
-    );
+    const { path: wPath, settle } = await createWorktree('cards/main-5/1', { cwd: repoDir });
+    await settle;
+    await expect(
+      outfitWorktreeForCard(makeFakeClient(), wPath, {
+        cardId: '',
+        parentBranch: 'main',
+        compiledScriptPaths
+      })
+    ).rejects.toThrow(/non-empty/);
   });
 });
 
@@ -270,14 +310,10 @@ describe('generated dispatcher scripts', () => {
     const homeDir = path.join(tmpBase, 'home');
     await fs.mkdir(homeDir);
     process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir, HOME: homeDir };
-    const { path: wPath, settle } = await createWorktree('cards/main-9/1', {
-      cwd: repoDir,
-      cardId: 'main-9',
-      compiledScriptPaths: {
-        'pre-commit': path.join(mjsDir, 'pre-commit.mjs'),
-        'post-commit': path.join(mjsDir, 'post-commit.mjs'),
-        'post-rewrite': path.join(mjsDir, 'post-rewrite.mjs')
-      }
+    const { path: wPath, settle } = await createAndOutfit('cards/main-9/1', 'main-9', repoDir, {
+      'pre-commit': path.join(mjsDir, 'pre-commit.mjs'),
+      'post-commit': path.join(mjsDir, 'post-commit.mjs'),
+      'post-rewrite': path.join(mjsDir, 'post-rewrite.mjs')
     });
     await settle;
 
