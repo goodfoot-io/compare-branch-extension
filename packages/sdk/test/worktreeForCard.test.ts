@@ -12,7 +12,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardsClient } from '../src/client/cardsClient.js';
 import type { EarlyWorktreeResult } from '../src/worktree.js';
-import { BranchUnregisterError, createWorktreeForCard, removeWorktreeForCard } from '../src/worktreeForCard.js';
+import {
+  BranchUnregisterError,
+  createWorktreeForCard,
+  outfitWorktreeForCard,
+  removeWorktreeForCard
+} from '../src/worktreeForCard.js';
 
 // ---------------------------------------------------------------------------
 // Module-level fake for the worktree primitives
@@ -47,12 +52,13 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 });
 
 import { execFile } from 'node:child_process';
-import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // Import after vi.mock so we get the mocked versions.
 import {
   appendWorktreeGitExcludes,
+  captureOriginalHooksPath,
   clearCardBoundFile,
   createWorktree,
   removeWorktree,
@@ -430,5 +436,108 @@ describe('removeWorktreeForCard', () => {
       expect(error).toBeInstanceOf(BranchUnregisterError);
       expect((error as BranchUnregisterError).cause).toBe(apiError);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// outfitWorktreeForCard — idempotency / snapshot guard
+// ---------------------------------------------------------------------------
+
+describe('outfitWorktreeForCard idempotency', () => {
+  /**
+   * The snapshot guard: when `.cards/CARD_ORIGINAL_HOOK_PATH` already exists on
+   * disk, a re-run of `outfitWorktreeForCard` must NOT call
+   * `captureOriginalHooksPath` again and must NOT overwrite the file. Without
+   * the guard, the second run would capture the cards shared dispatcher dir
+   * (installed by the first run) as the "original" and permanently break hook
+   * chaining.
+   *
+   * Half-outfitted input: CARD_ID written, CARD_ORIGINAL_HOOK_PATH already
+   * present → re-run must skip the snapshot step.
+   */
+
+  let cardsHomeDir: string;
+  let priorCardsHome: string | undefined;
+
+  beforeEach(async () => {
+    priorCardsHome = process.env['CARDS_HOME'];
+    cardsHomeDir = await mkdtemp(join(tmpdir(), 'outfit-idem-test-'));
+    process.env['CARDS_HOME'] = cardsHomeDir;
+
+    vi.mocked(writeCardBoundFile).mockResolvedValue(undefined);
+    vi.mocked(appendWorktreeGitExcludes).mockResolvedValue(undefined);
+
+    vi.mocked(execFile).mockImplementation((...callArgs: unknown[]) => {
+      const argv = callArgs[1] as string[];
+      const cb = callArgs[callArgs.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
+      const isRevParse = argv.includes('rev-parse');
+      cb(null, { stdout: isRevParse ? 'cards/main-95/1\n' : '', stderr: '' });
+      return {} as ReturnType<typeof execFile>;
+    });
+  });
+
+  afterEach(async () => {
+    vi.clearAllMocks();
+    if (priorCardsHome === undefined) {
+      delete process.env['CARDS_HOME'];
+    } else {
+      process.env['CARDS_HOME'] = priorCardsHome;
+    }
+    await rm(cardsHomeDir, { recursive: true, force: true });
+  });
+
+  it('skips captureOriginalHooksPath when CARD_ORIGINAL_HOOK_PATH already exists (snapshot guard holds)', async () => {
+    // Simulate a half-outfitted worktree: the snapshot file is already on disk.
+    // `access` resolving (no error) signals the file exists.
+    vi.mocked(access).mockResolvedValue(undefined);
+
+    const client = makeClient();
+    await outfitWorktreeForCard(client, EARLY_PATH, {
+      cardId: 'main-95',
+      parentBranch: 'main',
+      compiledScriptPaths: { 'post-commit': '/hooks/post-commit.mjs' }
+    });
+
+    // captureOriginalHooksPath must NOT have been called — the guard prevented it.
+    expect(captureOriginalHooksPath).not.toHaveBeenCalled();
+  });
+
+  it('does NOT write CARD_ORIGINAL_HOOK_PATH when the snapshot already exists', async () => {
+    vi.mocked(access).mockResolvedValue(undefined);
+
+    const client = makeClient();
+    await outfitWorktreeForCard(client, EARLY_PATH, {
+      cardId: 'main-95',
+      parentBranch: 'main',
+      compiledScriptPaths: { 'post-commit': '/hooks/post-commit.mjs' }
+    });
+
+    // writeFile is the mechanism that writes CARD_ORIGINAL_HOOK_PATH. When the
+    // snapshot guard fires it must not be called for that path.
+    const writeCalls = vi.mocked(writeFile).mock.calls;
+    const snapshotWrite = writeCalls.find(
+      ([p]) => typeof p === 'string' && (p as string).includes('CARD_ORIGINAL_HOOK_PATH')
+    );
+    expect(snapshotWrite).toBeUndefined();
+  });
+
+  it('calls captureOriginalHooksPath and writes CARD_ORIGINAL_HOOK_PATH on first run (snapshot absent)', async () => {
+    // Snapshot absent: access rejects with ENOENT.
+    vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    vi.mocked(writeFile).mockResolvedValue(undefined);
+
+    const client = makeClient();
+    await outfitWorktreeForCard(client, EARLY_PATH, {
+      cardId: 'main-95',
+      parentBranch: 'main',
+      compiledScriptPaths: { 'post-commit': '/hooks/post-commit.mjs' }
+    });
+
+    expect(captureOriginalHooksPath).toHaveBeenCalledOnce();
+    const writeCalls = vi.mocked(writeFile).mock.calls;
+    const snapshotWrite = writeCalls.find(
+      ([p]) => typeof p === 'string' && (p as string).includes('CARD_ORIGINAL_HOOK_PATH')
+    );
+    expect(snapshotWrite).toBeDefined();
   });
 });

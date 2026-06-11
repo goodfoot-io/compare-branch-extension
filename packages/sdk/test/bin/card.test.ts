@@ -1247,6 +1247,47 @@ describe('card binary', () => {
         }
       });
 
+      it('cwd-primary wins: binds the cwd worktree and ignores the candidate set entirely', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        process.env['CARDS_SESSION_ID'] = 'sess-cwd-primary';
+        process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/binder-transcript.jsonl';
+        try {
+          makeLinkedWorktree();
+          // A DIFFERENT worktree is registered in the candidate set for this
+          // session. The cwd-primary leg must win, so this entry is never read:
+          // the bind targets the cwd worktree and the candidate is left in place.
+          readUnboundCandidates.mockResolvedValue([
+            { worktreeDir: '/wt/other-candidate', sessionId: 'sess-cwd-primary', transcriptPath: '/tmp/other.jsonl' }
+          ]);
+          process.chdir(linkedWorktree);
+          await withStdin(JSON.stringify({ title: 'Cwd-primary card' }), () =>
+            createCard(['--workspace-path', '/tmp/workspace'])
+          );
+
+          expect(outfitWorktreeForCard).toHaveBeenCalledOnce();
+          const [, boundDir, outfitOptions] = outfitWorktreeForCard.mock.calls[0]! as [
+            unknown,
+            string,
+            { parentBranch: string; sessionId: string; transcriptPath: string }
+          ];
+          // The cwd worktree wins, not the candidate-set entry.
+          expect(boundDir).toBe(linkedWorktree);
+          // The cwd-primary leg uses the binder's OWN env transcript, not the
+          // candidate's recorded transcript — proving the candidate was not read.
+          expect(outfitOptions.transcriptPath).toBe('/tmp/binder-transcript.jsonl');
+          expect(outfitOptions.parentBranch).toBe('main');
+          // Post-bind cleanup drops the bound worktree (the cwd one), NEVER the
+          // unrelated candidate-set entry — proving the candidate leg was skipped.
+          expect(removeUnboundCandidate).toHaveBeenCalledWith('sess-cwd-primary', linkedWorktree);
+          const removedDirs = removeUnboundCandidate.mock.calls.map((c) => c[1]);
+          expect(removedDirs).not.toContain('/wt/other-candidate');
+          const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+          expect(output['id']).toBe('test-1');
+        } finally {
+          logSpy.mockRestore();
+        }
+      });
+
       it('candidate-set fallback: single same-session candidate binds with a loud stderr notice', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
