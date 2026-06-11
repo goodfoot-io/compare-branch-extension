@@ -58,7 +58,13 @@ import hookFn from '../../../src/claude/core/worktree-create.js';
 /** A non-null fake client; the hook only checks for null. */
 const fakeClient = {} as unknown as CardsClient;
 
-/** Runs git with the given args in `cwd`. */
+/**
+ * Runs git with the given args in `cwd`.
+ *
+ * @param cwd - Directory to run git in.
+ * @param args - Git arguments.
+ * @returns Trimmed stdout.
+ */
 async function git(cwd: string, ...args: string[]): Promise<string> {
   const { stdout } = await execFileAsync('git', ['-C', cwd, ...args], {
     env: {

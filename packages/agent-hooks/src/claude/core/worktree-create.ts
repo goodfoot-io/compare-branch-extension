@@ -20,7 +20,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
 import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
-import { writeCardsParentConfig } from '@cards/sdk/cards-parent-branch';
+import { resolveCardsParentBranch, writeCardsParentConfig } from '@cards/sdk/cards-parent-branch';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
 import { createWorktree, type EarlyWorktreeResult } from '@cards/sdk/worktree';
@@ -32,9 +32,9 @@ const execFileAsync = promisify(execFile);
 /**
  * Resolves the current branch name of the git repo at `cwd`.
  *
- * Used to derive the `parentBranch` recorded for a card-bound worktree, since
- * the WorktreeCreate hook input carries no base branch. Mirrors the start point
- * `createWorktree` resolves the new branch from (the source repo's HEAD).
+ * Mirrors the start point `createWorktree` resolves the new branch from (the
+ * source repo's HEAD). Only correct as a *parent* branch when `cwd` is the
+ * main working tree — see {@link resolveParentBranch} for the full derivation.
  *
  * @param cwd - Working directory inside the source git repository.
  * @returns The abbreviated current branch name (e.g. `main`).
@@ -51,6 +51,56 @@ async function resolveCurrentBranch(cwd: string): Promise<string> {
     );
   }
   return branch;
+}
+
+/**
+ * Returns `true` when `cwd` sits inside a *linked* git worktree (as opposed to
+ * the main working tree).
+ *
+ * A linked worktree's `--git-dir` (`<repo>/.git/worktrees/<name>`) differs from
+ * its `--git-common-dir` (`<repo>/.git`); in the main working tree the two
+ * resolve to the same directory.
+ *
+ * @param cwd - Working directory inside a git repository.
+ * @returns `true` when `cwd` is in a linked worktree.
+ */
+async function isLinkedWorktree(cwd: string): Promise<boolean> {
+  const { stdout } = await execFileAsync('git', [
+    '-C',
+    cwd,
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-dir',
+    '--git-common-dir'
+  ]);
+  const [gitDir, commonDir] = stdout.trim().split('\n');
+  return gitDir !== commonDir;
+}
+
+/**
+ * Derives the `parentBranch` recorded for a new worktree, since the
+ * WorktreeCreate hook input carries no base branch.
+ *
+ * When `cwd` is the **main working tree**, its current branch is the correct
+ * parent (failing closed on detached HEAD). When `cwd` is a **linked
+ * worktree**, the worktree's own branch is never its own parent — the branch's
+ * own lineage parent is resolved via `resolveCardsParentBranch` (durable
+ * `branch.<name>.cardsParent` config first, then reflog decoration that skips
+ * the worktree's own branch). On a `refuse` result this throws so the create
+ * path fails closed rather than recording a bogus parent.
+ *
+ * @param cwd - Working directory inside the source git repository.
+ * @returns The parent branch name (e.g. `main`).
+ */
+async function resolveParentBranch(cwd: string): Promise<string> {
+  if (!(await isLinkedWorktree(cwd))) {
+    return resolveCurrentBranch(cwd);
+  }
+  const result = await resolveCardsParentBranch(cwd);
+  if (result.kind === 'refuse') {
+    throw new Error(`WorktreeCreate: cannot derive a parent branch from inside a linked worktree: ${result.reason}`);
+  }
+  return result.parentBranch;
 }
 
 export default worktreeCreateHook({}, async (input, { logger }) => {
@@ -98,9 +148,9 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
     }
 
     // The WorktreeCreate hook input carries no base branch, so derive the
-    // parent branch from the source repo's current HEAD — the same start point
-    // createWorktree resolves the new branch from.
-    const parentBranch = await resolveCurrentBranch(input.cwd);
+    // parent branch from the source repo: the current HEAD in the main working
+    // tree, or the worktree branch's own lineage parent in a linked worktree.
+    const parentBranch = await resolveParentBranch(input.cwd);
 
     created = await createWorktreeForCard(client, input.name, {
       cwd: input.cwd,
@@ -112,8 +162,9 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
   } else {
     // Derive parentBranch before creating the worktree — it is the only point
     // at which the source repo HEAD is definitively knowable. Fail closed on
-    // detached HEAD for the same reason as the card-bound path.
-    const parentBranch = await resolveCurrentBranch(input.cwd);
+    // detached HEAD (and on an unresolvable linked-worktree lineage) for the
+    // same reason as the card-bound path.
+    const parentBranch = await resolveParentBranch(input.cwd);
     created = await createWorktree(input.name, { cwd: input.cwd });
 
     // Record the parent branch as durable git config on the new branch, so

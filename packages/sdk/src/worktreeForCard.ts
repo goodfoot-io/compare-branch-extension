@@ -18,6 +18,7 @@ import { resolveCardRepoPath } from './adhocAttribution.js';
 import { isKnownAgentComm } from './bin/process-utils.js';
 import { spawnAdhocAttribution } from './bin/spawnAdhocAttribution.js';
 import { resolveGlobalCardsConfigDir } from './cards-config.js';
+import { writeCardsParentConfig } from './cardsParentBranch.js';
 import type { CardsClient } from './client/cardsClient.js';
 import { findAgentPid } from './process-tree.js';
 import {
@@ -222,6 +223,11 @@ export async function outfitWorktreeForCard(
   await acquireLock(lockPath, BIND_LOCK_TIMEOUT_MS);
   try {
     const branchName = await resolveWorktreeBranchName(worktreeDir);
+    // Record the parent branch as durable `branch.<name>.cardsParent` git
+    // config — the first source resolveCardsParentBranch consults at bind
+    // time — so card-bound worktrees carry the same lineage record as unbound
+    // ones and never depend on fragile reflog decoration. Idempotent overwrite.
+    await writeCardsParentConfig(worktreeDir, branchName, parentBranch);
     await client.addBranch(cardId, { name: branchName, worktree: worktreeDir, parentBranch }, { sessionId });
   } finally {
     releaseLock(lockPath);
