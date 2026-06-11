@@ -170,25 +170,6 @@ describe('TestCardRepository', () => {
     });
   });
 
-  describe('addAdaptiveCard()', () => {
-    let cardId: string;
-
-    beforeEach(async () => {
-      await repo.create();
-      cardId = await repo.createCard({ title: 'Test Card' });
-    });
-
-    it('creates adaptive card JSON file', async () => {
-      const filename = await repo.addAdaptiveCard(cardId, 'my-card', { type: 'test', data: 123 });
-      expect(filename).toBe('my-card.json');
-
-      const content = await repo.readFile(cardId, `adaptive-cards/${filename}`);
-      const parsed = JSON.parse(content) as { type: string; data: number };
-      expect(parsed.type).toBe('test');
-      expect(parsed.data).toBe(123);
-    });
-  });
-
   describe('addAttribution()', () => {
     let cardId: string;
 

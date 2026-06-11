@@ -305,36 +305,6 @@ export class TestCardRepository {
   }
 
   /**
-   * Adds an adaptive card to a card.
-   *
-   * Behavior: writes `adaptive-cards/<adaptiveCardId>.json` with 2-space
-   * indentation and commits the change.
-   *
-   * @param cardId Identifier of the card repository that owns the adaptive card
-   * @param adaptiveCardId Adaptive card identifier
-   * @param content Serializable object persisted as the adaptive card JSON body
-   * @returns The adaptive card filename
-   */
-  async addAdaptiveCard(cardId: string, adaptiveCardId: string, content: object): Promise<string> {
-    if (!this.reposPath) {
-      throw new Error('Repository not created');
-    }
-
-    const cardPath = path.join(this.reposPath, cardId);
-    const adaptiveCardsPath = path.join(cardPath, 'adaptive-cards');
-    const filename = `${adaptiveCardId}.json`;
-
-    await fs.mkdir(adaptiveCardsPath, { recursive: true });
-    await fs.writeFile(path.join(adaptiveCardsPath, filename), JSON.stringify(content, null, 2));
-
-    const git = this.getCardGit(cardId);
-    await git.add('.');
-    await git.commit(`Added adaptive card ${adaptiveCardId}.`);
-
-    return filename;
-  }
-
-  /**
    * Adds an attribution commit SHA to a card.
    *
    * Behavior: appends the SHA to `commits.csv` and commits the file.

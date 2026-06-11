@@ -8,17 +8,13 @@
  */
 
 // --- Constants ---
-export { ADAPTIVE_CARD_STATUSES, CARD_STATUSES, TEST_CONSTANTS } from './constants/index.js';
+export { CARD_STATUSES, TEST_CONSTANTS } from './constants/index.js';
 // --- Fixture Factories ---
 export {
   // Types
-  type AdaptiveCardStatus,
   type Comment,
   type CompleteCard,
   type CreateCompleteCardOptions,
-  // Adaptive Card factories
-  createAdaptiveCard,
-  createAdaptiveCardFrontmatter,
   // Card factories
   createCard,
   createCardMetadata,
@@ -27,7 +23,6 @@ export {
   // Composite builders
   createCompleteCard,
   // Multiple entity helpers
-  createMultipleAdaptiveCards,
   createMultipleCards,
   createMultipleComments,
   createMultipleNotes,

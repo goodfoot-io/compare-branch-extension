@@ -7,18 +7,9 @@
  */
 
 // --- Entity Types ---
-export type {
-  AdaptiveCardStatus,
-  Comment,
-  CompleteCard,
-  CreateCompleteCardOptions,
-  Note
-} from './entities.js';
+export type { Comment, CompleteCard, CreateCompleteCardOptions, Note } from './entities.js';
 // --- Entity Factories ---
 export {
-  // Adaptive Card factories
-  createAdaptiveCard,
-  createAdaptiveCardFrontmatter,
   // Card factories
   createCard,
   createCardMetadata,
@@ -27,7 +18,6 @@ export {
   // Composite builders
   createCompleteCard,
   // Multiple entity helpers
-  createMultipleAdaptiveCards,
   createMultipleCards,
   createMultipleComments,
   createMultipleNotes,
