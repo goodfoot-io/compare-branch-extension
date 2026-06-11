@@ -483,30 +483,42 @@ export class EventSubscriber {
   }
 
   private handleMessage(event: MessageEvent): void {
-    let message: { type: keyof EventMap; [key: string]: unknown } | undefined;
+    let message: { type: keyof EventMap; [key: string]: unknown };
     try {
       message = JSON.parse(event.data as string);
+    } catch (error) {
+      // Parse failures are a distinct path from callback failures: a malformed
+      // payload yields no message to dispatch, so log it accurately and stop.
+      this.logger.warn('Failed to parse WebSocket message:', error);
+      return;
+    }
 
-      // Handle app-level pong — reset missed counter so the heartbeat
-      // timer doesn't force a disconnect.
-      if ((message as { type: string }).type === 'pong') {
-        this.missedPongs = 0;
-        return;
-      }
+    // Handle app-level pong — reset missed counter so the heartbeat
+    // timer doesn't force a disconnect.
+    if ((message as { type: string }).type === 'pong') {
+      this.missedPongs = 0;
+      return;
+    }
 
-      const callbacks = this.callbacks.get(message!.type);
-      if (callbacks) {
-        for (const callback of callbacks) {
+    const callbacks = this.callbacks.get(message.type);
+    if (callbacks) {
+      // Each typed callback is isolated: an exception in one must not starve
+      // sibling callbacks registered for the same event (Set iteration follows
+      // registration order). Log the failure against the event type so the
+      // diagnostic points at the offending handler, not at JSON parsing.
+      for (const callback of callbacks) {
+        try {
           (callback as (event: unknown) => void)(message);
+        } catch (error) {
+          this.logger.warn(`Event callback for '${String(message.type)}' threw:`, error);
         }
       }
-    } catch (error) {
-      this.logger.warn('Failed to parse WebSocket message:', error);
     }
-    if (message !== undefined) {
-      for (const handler of this.rawHandlers) {
-        handler(message as Record<string, unknown>);
-      }
+
+    // Raw handlers fire after typed callbacks and are not suppressed by errors
+    // thrown inside them.
+    for (const handler of this.rawHandlers) {
+      handler(message as Record<string, unknown>);
     }
   }
 }
