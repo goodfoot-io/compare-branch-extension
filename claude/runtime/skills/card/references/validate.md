@@ -116,16 +116,17 @@ Workspace validation passed before this dispatch. Focus on runtime behavior, sem
 
 Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM.
 
-Every branch tears down the team the same way: DM the evaluator a shutdown request, wait for it to exit, then `TeamDelete`. Do this before any branch-specific routing.
+Every branch tears down the team the same way: send the evaluator a `shutdown_request`, wait for it to exit, then `TeamDelete`. Do this before any branch-specific routing. The evaluator's own skill handles its exit:
 
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">failure-mode</parameter>
-  <parameter name="message">{"type": "shutdown_request"}</parameter>
+  <parameter name="summary">Shutdown request</parameter>
+  <parameter name="message">{"type": "shutdown_request", "reason": "Re-validation complete"}</parameter>
 </invoke>
 ```
 
-Wait for the evaluator to shut down, then:
+`TeamDelete` fails while the evaluator is still active, so wait for it to terminate, then:
 
 ```xml
 <invoke name="TeamDelete" />

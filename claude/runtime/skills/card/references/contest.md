@@ -157,16 +157,17 @@ A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for tha
 
 This step runs on every exit path from Step 4 and Step 5 (winner, all-blocked, lone survivor).
 
-Send a shutdown request to every still-running subagent in the team:
+Shut down every still-running subagent in the team — each live `planner-N` and the `plan-failure-mode` reviewer — by sending each a `shutdown_request`. The teammate's own skill handles its exit:
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">[each live planner-N and plan-failure-mode]</parameter>
-  <parameter name="message">{"type": "shutdown_request"}</parameter>
+  <parameter name="to">planner-N</parameter>
+  <parameter name="summary">Shutdown request</parameter>
+  <parameter name="message">{"type": "shutdown_request", "reason": "Contest closed"}</parameter>
 </invoke>
 ```
 
-Wait for all teammates to shut down before proceeding.
+`TeamDelete` fails while any member is still active, so send the request to every teammate and wait for each to terminate before proceeding.
 
 If there is a winner, promote the winning plan and delete every other plan file. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` DM body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:
 
