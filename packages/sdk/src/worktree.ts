@@ -567,7 +567,10 @@ export async function addWorktree(opts: AddWorktreeOptions): Promise<void> {
   const args = opts.branchExists
     ? ['worktree', 'add', opts.worktreeDir, opts.branchName]
     : ['worktree', 'add', '-b', opts.branchName, opts.worktreeDir, opts.startPoint];
-  await execFileAsync('git', args, { cwd: opts.repoRoot, timeout: 30_000 });
+  // `worktree add` materializes the entire working tree on disk, so its runtime
+  // scales with repo size and host load. A short cap kills the checkout mid-way
+  // (SIGTERM) under load, leaving a partial worktree; allow up to 10 minutes.
+  await execFileAsync('git', args, { cwd: opts.repoRoot, timeout: 600_000 });
 }
 
 /**
