@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * Exercises the default cards-assistant handler through focused scenarios.
  *
- * The cases lock in the cross-platform `claude` launch: the Windows shell shim
- * (so the `claude.cmd`/`claude.ps1` PATH shim resolves), the POSIX exec-direct
- * behavior, the cmd-quotable single-line system prompt, the inline marketplace
- * settings, the fail-closed spawn-error path, and the registration-before-spawn
- * ordering. They guard against regressions that would silently break the
- * feature on Windows.
+ * The cases lock in the cross-platform `claude` launch: routing through
+ * cross-spawn (no `shell` option) so the win32 `claude.cmd` PATHEXT shim resolves
+ * and its arguments are escaped for cmd.exe, the multi-line `--append-system-prompt`
+ * surviving intact (cross-spawn escapes embedded newlines — no collapsing needed),
+ * the inline marketplace settings, inherited stdio, the fail-closed spawn-error
+ * path, and the registration-before-spawn ordering. They guard against the win32
+ * regression where a `shell: true` spawn concatenated argv unquoted and cmd.exe
+ * mangled the `--settings '{…JSON…}'` argument.
  *
  * @summary Tests default cards-assistant handler behavior
  */
@@ -107,28 +109,11 @@ afterEach(() => {
 });
 
 describe('cards-assistant handler', () => {
-  it('spawns claude with shell:true on win32 so the .cmd/.ps1 PATH shim resolves', async () => {
-    forcePlatform('win32');
-    const { spawn } = await import('node:child_process');
-    const child = createMockChild();
-    vi.mocked(spawn).mockReturnValue(child);
-
-    const handler = (await import('../src/cards-assistant.js')).default;
-    const promise = handler(baseInput(), createMockContext());
-    await flushMicrotasks();
-
-    expect(vi.mocked(spawn).mock.calls[0][0]).toBe('claude');
-    const opts = vi.mocked(spawn).mock.calls[0][2] as { shell?: boolean };
-    expect(opts.shell).toBe(true);
-
-    child.emit('close', 0);
-    await promise;
-  });
-
   it.each<NodeJS.Platform>([
+    'win32',
     'linux',
     'darwin'
-  ])('spawns claude without a shell on %s so POSIX exec-direct is unchanged', async (platform) => {
+  ])('spawns claude through cross-spawn with no shell option on %s', async (platform) => {
     forcePlatform(platform);
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
@@ -138,8 +123,11 @@ describe('cards-assistant handler', () => {
     const promise = handler(baseInput(), createMockContext());
     await flushMicrotasks();
 
+    expect(vi.mocked(spawn).mock.calls[0][0]).toBe('claude');
+    // cross-spawn owns win32 shim resolution + argv escaping; the caller must NOT
+    // set `shell` (a `shell: true` spawn is what mangled the JSON --settings arg).
     const opts = vi.mocked(spawn).mock.calls[0][2] as { shell?: boolean };
-    expect(opts.shell).toBe(false);
+    expect(opts.shell).toBeUndefined();
 
     child.emit('close', 0);
     await promise;
@@ -163,7 +151,7 @@ describe('cards-assistant handler', () => {
     await promise;
   });
 
-  it('passes a single-line, cmd-quotable system prompt (no embedded newlines)', async () => {
+  it('passes the multi-line interview system prompt intact (cross-spawn escapes it)', async () => {
     forcePlatform('win32');
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
@@ -179,9 +167,11 @@ describe('cards-assistant handler', () => {
 
     const prompt = args[promptIdx + 1];
     expect(prompt).toContain('Load the `cards:management` skill');
-    // Regression guard: cmd.exe (shell:true) cannot safely carry a single
-    // argument with embedded newlines, so the prompt must stay on one line.
-    expect(prompt).not.toContain('\n');
+    // cross-spawn escapes embedded newlines for cmd.exe, so the prompt is passed
+    // verbatim — the previous single-line collapse (a shell:true workaround) is
+    // gone. The multi-line structure must survive to reach the agent unchanged.
+    expect(prompt).toContain('\n');
+    expect(prompt.trimStart().startsWith('<instructions>')).toBe(true);
 
     child.emit('close', 0);
     await promise;

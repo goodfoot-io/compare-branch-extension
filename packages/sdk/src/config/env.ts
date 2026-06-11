@@ -358,6 +358,32 @@ export function getVscodeNodePath(): string {
 }
 
 /**
+ * Returns the shell-expandable `VSCODE_NODE` reference for a generated command
+ * string, double-quoted, for the current host platform.
+ *
+ * This is the single source of truth for the interpreter token embedded in
+ * `settings.json` commands. The wrapper runs those commands through the
+ * platform's default shell (`spawn(…, { shell: true })`): `cmd.exe` on win32
+ * (which expands `%VAR%` and leaves `$VAR` literal) and `/bin/sh` elsewhere
+ * (which expands `$VAR`). Emitting the wrong form leaves the reference
+ * unexpanded and the wrapper tries to run a program literally named
+ * `$VSCODE_NODE` / `%VSCODE_NODE%`.
+ *
+ * The reference is double-quoted because the macOS interpreter path contains
+ * spaces (`/Applications/Visual Studio Code.app/.../Code Helper (Plugin)`); an
+ * unquoted reference word-splits and the shell fails to find the interpreter.
+ *
+ * Consumers that *parse* a generated command rather than shell-expanding it (the
+ * extension's `ProcessLauncher.parseVscodeNodeCommand`) must accept both forms,
+ * because a config built on one platform can be read by an extension on another.
+ *
+ * @returns `"%VSCODE_NODE%"` on win32, `"$VSCODE_NODE"` elsewhere.
+ */
+export function vscodeNodeCommandRef(): string {
+  return process.platform === 'win32' ? '"%VSCODE_NODE%"' : '"$VSCODE_NODE"';
+}
+
+/**
  * Reads the Unix domain socket path for runtime-to-dispatcher communication.
  *
  * @returns Unix socket path used to send runtime control messages.

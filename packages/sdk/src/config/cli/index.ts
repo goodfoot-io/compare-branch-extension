@@ -12,6 +12,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { SettingsConfig, StreamConfigDefinition } from '../config.js';
+import { vscodeNodeCommandRef } from '../env.js';
 import type { Action, Command, Settings, StreamDefinition } from '../schema.js';
 import { type BuildArgs, buildLoaderMap } from './args.js';
 import { compileHandler } from './compiler.js';
@@ -170,8 +171,7 @@ function getBaseName(sourcePath: string): string {
  */
 function generateCommandString(filename: string, binDir: string): string {
   const relativePath = path.posix.join(binDir, filename);
-  const nodeRef = process.platform === 'win32' ? '"%VSCODE_NODE%"' : '"$VSCODE_NODE"';
-  return `${nodeRef} ./${relativePath}`;
+  return `${vscodeNodeCommandRef()} ./${relativePath}`;
 }
 
 // ============================================================================

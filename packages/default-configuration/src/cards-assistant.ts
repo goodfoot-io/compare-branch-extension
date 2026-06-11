@@ -17,7 +17,6 @@
  * @module
  */
 
-import { spawn } from 'node:child_process';
 import { defineCardsAssistant } from '@cards/sdk/config';
 import { updateMarketplaceRegistration } from './lib/claude-session.js';
 import {
@@ -28,6 +27,7 @@ import {
   writeCodexProfileConfig
 } from './lib/codex-session.js';
 import { resolveCodingAgent } from './lib/coding-agent.js';
+import { spawnAgentCli } from './lib/spawn-cli.js';
 
 const INTERVIEW_INSTRUCTIONS = `<instructions>
     Load the \`cards:management\` skill. The user has requested that you interview them about every aspect of their task until you've reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
@@ -75,7 +75,10 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
       profilePath
     });
 
-    const child = spawn('codex', args, {
+    // Route through cross-spawn so the win32 PATHEXT shim (`codex.cmd`) resolves
+    // and its arguments are escaped for cmd.exe; on POSIX it spawns `codex`
+    // directly. A bare `spawn('codex', …)` ENOENTs on the `.cmd` shim on win32.
+    const child = spawnAgentCli('codex', args, {
       cwd: input.repoRoot,
       stdio: 'inherit',
       env: { ...process.env, CODEX_HOME: codexHome }
@@ -103,30 +106,26 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
     }
   });
 
-  // Collapse the system prompt onto a single physical line. On Windows the
-  // spawn below routes through `cmd.exe` (`shell: true`) to resolve the
-  // `claude.cmd`/`claude.ps1` PATH shim, and cmd.exe cannot safely represent a
-  // single argument that contains embedded newlines. The newlines in
-  // INTERVIEW_INSTRUCTIONS are purely cosmetic, so collapsing them keeps the
-  // argument cmd-quotable while remaining identical in meaning on POSIX.
-  const appendSystemPrompt = INTERVIEW_INSTRUCTIONS.replace(/\s*\n\s*/g, ' ');
-
-  const shellArgs = ['--append-system-prompt', appendSystemPrompt, '--settings', settingsJson];
+  const cliArgs = ['--append-system-prompt', INTERVIEW_INSTRUCTIONS, '--settings', settingsJson];
 
   logger.info('Starting cards assistant', {
     cwd: input.repoRoot,
     marketplacePath: input.marketplacePath
   });
 
-  // On Windows the `claude` CLI is an npm-installed `claude.cmd`/`claude.ps1`
-  // PATH shim, and Node refuses to spawn a `.cmd` without a shell (EINVAL), so
-  // route through the shell there. POSIX execs the binary directly, preserving
-  // the existing exec-direct behavior and quoting. Matches the documented
-  // pattern in `@cards/sdk/bin/spawn-adhoc-cleanup`.
-  const child = spawn('claude', shellArgs, {
+  // Route through cross-spawn rather than `spawn('claude', …, { shell: win32 })`.
+  // On win32 the `claude` CLI is a PATHEXT `.cmd` shim: a bare spawn ENOENTs, and
+  // a `shell: true` spawn resolves the shim but concatenates argv into the cmd.exe
+  // command line UNQUOTED — so the `"`/`{`/`}` in `--settings '{…JSON…}'` and the
+  // multi-line `--append-system-prompt` get mangled and claude exits before its
+  // session starts ("The system cannot find the file specified"). cross-spawn
+  // resolves the shim AND escapes each argument for cmd.exe, so complex args
+  // survive intact and the multi-line prompt no longer needs collapsing; on POSIX
+  // it spawns the binary directly. Mirrors the action-path launch in
+  // `claude-session.ts`.
+  const child = spawnAgentCli('claude', cliArgs, {
     cwd: input.repoRoot,
-    stdio: 'inherit',
-    shell: process.platform === 'win32'
+    stdio: 'inherit'
   });
 
   const exitCode = await new Promise<number | null>((resolve) => {

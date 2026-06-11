@@ -83,7 +83,8 @@ export {
   getExecutionMode,
   getWorkspaceBranch,
   getWorkspacePath,
-  readSwitchToInteractiveData
+  readSwitchToInteractiveData,
+  vscodeNodeCommandRef
 } from './env.js';
 
 // ============================================================================
