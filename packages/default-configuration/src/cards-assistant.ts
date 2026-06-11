@@ -85,6 +85,15 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
     });
 
     const exitCode = await new Promise<number | null>((resolve) => {
+      // Fail closed: a spawn failure (e.g. ENOENT when the `codex` shim is
+      // missing) emits `error` but never `close`, which would leave this promise
+      // hung forever. Mirrors the `claude` launch guard below.
+      child.on('error', (error) => {
+        logger.error('Failed to spawn codex', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        resolve(null);
+      });
       child.on('close', resolve);
     });
 

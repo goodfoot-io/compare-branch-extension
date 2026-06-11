@@ -14,7 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * the inline marketplace settings, inherited stdio, the fail-closed spawn-error
  * path, and the registration-before-spawn ordering. They guard against the win32
  * regression where a `shell: true` spawn concatenated argv unquoted and cmd.exe
- * mangled the `--settings '{…JSON…}'` argument.
+ * mangled the `--settings '{…JSON…}'` argument. The codex branch is covered for
+ * the same cross-spawn routing and fail-closed spawn-`error` guard as claude.
  *
  * @summary Tests default cards-assistant handler behavior
  */
@@ -38,6 +39,14 @@ vi.mock('node:child_process', () => ({
 
 vi.mock('../src/lib/claude-session.js', () => ({
   updateMarketplaceRegistration: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('../src/lib/codex-session.js', () => ({
+  CODEX_ASSISTANT_PLUGIN_NAMES: ['cards', 'cards-assistant'],
+  formatDeveloperInstructionsOverride: vi.fn((value: string) => `developer_instructions=${value}`),
+  populateCodexPluginCache: vi.fn().mockResolvedValue({ pluginCachePaths: [] }),
+  resolveDefaultCodexHome: vi.fn(() => '/test/codex-home'),
+  writeCodexProfileConfig: vi.fn().mockResolvedValue('/test/codex-home/config.toml')
 }));
 
 const ORIGINAL_PLATFORM = process.platform;
@@ -226,6 +235,39 @@ describe('cards-assistant handler', () => {
     await promise;
     expect(resolved).toBe(true);
     expect(errorSpy).toHaveBeenCalledWith('Failed to spawn claude', { error: 'spawn claude ENOENT' });
+  });
+
+  it('routes the codex branch through cross-spawn and fails closed on a spawn error', async () => {
+    forcePlatform('win32');
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const context = createMockContext();
+    const errorSpy = vi.spyOn(context.logger, 'error');
+
+    const handler = (await import('../src/cards-assistant.js')).default;
+    let resolved = false;
+    const promise = handler(baseInput({ codingAgent: 'codex-cli' }), context).then(() => {
+      resolved = true;
+    });
+    await flushMicrotasks();
+
+    // The codex branch was taken (not claude) and routed through cross-spawn with
+    // no `shell` option, mirroring the claude launch.
+    expect(vi.mocked(spawn).mock.calls[0][0]).toBe('codex');
+    const opts = vi.mocked(spawn).mock.calls[0][2] as { shell?: boolean };
+    expect(opts.shell).toBeUndefined();
+    expect(resolved).toBe(false);
+
+    // A `codex`/`codex.cmd` shim that cannot spawn emits `error`, never `close`.
+    // Without the codex-branch guard this promise would hang forever.
+    const enoent = Object.assign(new Error('spawn codex ENOENT'), { code: 'ENOENT' });
+    child.emit('error', enoent);
+
+    await promise;
+    expect(resolved).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith('Failed to spawn codex', { error: 'spawn codex ENOENT' });
   });
 
   it('updates marketplace registration before spawning claude', async () => {
