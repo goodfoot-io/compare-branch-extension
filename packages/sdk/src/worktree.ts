@@ -687,9 +687,8 @@ export async function clearCardBoundFile(worktreeDir: string): Promise<void> {
  * Resolves the worktree's git-dir via `git -C <worktreeDir> rev-parse
  * --git-dir`, ensures `<git-dir>/info/` exists, and appends each entry on its
  * own line. Used to exclude per-worktree binding markers (e.g.
- * `.cards/CARD_ID`) written after worktree creation — the unbound creation path
- * only excludes `.cards/PENDING_BIND`, so a later bind must exclude the marker
- * it writes. Fail-closed: a git-dir resolution failure propagates.
+ * `.cards/CARD_ID`) written after worktree creation. Fail-closed: a git-dir
+ * resolution failure propagates.
  *
  * @param worktreeDir - Absolute worktree root.
  * @param entries - Exclude patterns to append (each on its own line).

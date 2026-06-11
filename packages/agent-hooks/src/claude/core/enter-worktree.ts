@@ -54,9 +54,8 @@ const execFileAsync = promisify(execFile);
  * `.cards/CARD_ID` marker. Returns the worktree's toplevel directory when
  * bindable, or `null` otherwise.
  *
- * This replaces the previous `.cards/PENDING_BIND` marker walk: it detects any
- * unbound linked worktree, including hand-made ones (`git worktree add`) that no
- * WorktreeCreate hook ever fed a marker into. The main repository (where
+ * Detects any unbound linked worktree, including hand-made ones
+ * (`git worktree add`) that no WorktreeCreate hook ever ran for. The main repository (where
  * `--git-dir` equals `--git-common-dir`) is not bindable.
  *
  * @param cwd - Directory the EnterWorktree tool switched into.

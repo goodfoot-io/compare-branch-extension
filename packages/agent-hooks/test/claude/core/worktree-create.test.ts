@@ -3,9 +3,8 @@
  *
  * Mocks createWorktree (unbound path) and createWorktreeForCard (card-bound
  * path) to avoid real git operations, plus createCardsClient for client
- * acquisition, writePendingBind for marker writes, and child_process for
- * parent-branch derivation. Verifies CARD_ID forwarding, PENDING_BIND marker
- * writing on the unbound path, fail-closed client acquisition, settle-awaiting,
+ * acquisition and child_process for parent-branch derivation. Verifies
+ * CARD_ID forwarding, fail-closed client acquisition, settle-awaiting,
  * error propagation, and output shape.
  *
  * @summary WorktreeCreate hook handler tests

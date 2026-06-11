@@ -35,7 +35,6 @@
     "./bin/adhoc-refs": "./src/bin/adhoc-refs.ts",
     "./process-tree": "./src/process-tree.ts",
     "./session-resolver": "./src/session-resolver.ts",
-    "./pending-bind": "./src/pendingBind.ts",
     "./cards-parent-branch": "./src/cardsParentBranch.ts",
     "./unbound-worktree-candidates": "./src/unboundWorktreeCandidates.ts",
     "./adhoc-attribution": "./src/adhocAttribution.ts"
