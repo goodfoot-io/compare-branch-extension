@@ -1024,4 +1024,59 @@ describe('EventSubscriber', () => {
       subscriber.disconnect();
     });
   });
+
+  describe('typed-callback error isolation', () => {
+    let mock: ReturnType<typeof installMockWebSocket>;
+    let warnSpy: MockInstance;
+
+    beforeEach(() => {
+      mock = installMockWebSocket();
+      warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      mock.restore();
+      warnSpy.mockRestore();
+    });
+
+    it('should invoke every callback for an event even when an earlier one throws', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+
+      const calls: string[] = [];
+      subscriber.on('card:deleted', () => {
+        calls.push('first');
+        throw new Error('handler boom');
+      });
+      subscriber.on('card:deleted', () => {
+        calls.push('second');
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      mock.instances[0]!.simulateMessage({ type: 'card:deleted', cardId: 'card-123' });
+
+      // The throwing first callback must not starve the second.
+      expect(calls).toEqual(['first', 'second']);
+    });
+
+    it('should log a callback failure rather than a parse failure when a callback throws', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+
+      subscriber.on('card:deleted', () => {
+        throw new Error('handler boom');
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      mock.instances[0]!.simulateMessage({ type: 'card:deleted', cardId: 'card-123' });
+
+      const messages = warnSpy.mock.calls.map((c) => String(c[0]));
+      expect(messages.some((m) => m.includes('Failed to parse WebSocket message'))).toBe(false);
+      expect(messages.some((m) => m.includes('card:deleted'))).toBe(true);
+    });
+  });
 });
