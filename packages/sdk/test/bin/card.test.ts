@@ -1200,27 +1200,76 @@ describe('card binary', () => {
         }
       });
 
-      it('refuses to create the card when the binder env carries no session/transcript', async () => {
+      it('cwd-primary binds with degraded (empty) transcript when no env var and no candidate record', async () => {
+        // Regression: the old code refused when CARDS_SESSION_ID / CARDS_TRANSCRIPT_PATH were
+        // absent. The new code resolves sessionId via the full chain (including PID fallback)
+        // and resolves transcriptPath from CARDS_TRANSCRIPT_PATH → unbound-candidate → ''.
+        // With no env var and no candidate, transcriptPath is '' and outfit is called with it.
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         delete process.env['CARDS_SESSION_ID'];
         delete process.env['CARDS_TRANSCRIPT_PATH'];
+        // No candidate for the cwd worktree: readUnboundCandidates returns [].
+        readUnboundCandidates.mockResolvedValue([]);
         try {
           makeLinkedWorktree();
           process.chdir(linkedWorktree);
-          await withStdin(JSON.stringify({ title: 'Ungated card' }), () =>
+          await withStdin(JSON.stringify({ title: 'Degraded card' }), () =>
             createCard(['--workspace-path', '/tmp/workspace'])
           );
 
-          // Fail-closed: the card is NOT minted, so nothing outfits.
-          expect(cards.size).toBe(0);
-          expect(outfitWorktreeForCard).not.toHaveBeenCalled();
-          expect(process.exitCode).not.toBe(0);
-          expect(logSpy).not.toHaveBeenCalled();
-          const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
-          expect(diagnostic).toContain('EnterWorktree');
+          // Card is minted and outfit is called; transcript streaming is degraded (empty path).
+          expect(outfitWorktreeForCard).toHaveBeenCalledOnce();
+          const [, boundDir, outfitOptions] = outfitWorktreeForCard.mock.calls[0]! as [
+            unknown,
+            string,
+            { transcriptPath: string; sessionId: string }
+          ];
+          expect(boundDir).toBe(linkedWorktree);
+          expect(outfitOptions.transcriptPath).toBe('');
+          // sessionId is still resolved (PID-based fallback).
+          expect(typeof outfitOptions.sessionId).toBe('string');
+          expect(outfitOptions.sessionId.length).toBeGreaterThan(0);
+          const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+          expect(output['id']).toBe('test-1');
         } finally {
-          errSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      });
+
+      it('cwd-primary falls back to candidate record when CARDS_TRANSCRIPT_PATH is absent', async () => {
+        // Regression: previously, absent CARDS_TRANSCRIPT_PATH was a hard refuse. Now Leg 1
+        // calls resolveTranscriptPath() which falls back to the unbound-candidate record.
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        process.env['CARDS_SESSION_ID'] = 'sess-leg1-fallback';
+        delete process.env['CARDS_TRANSCRIPT_PATH'];
+        try {
+          makeLinkedWorktree();
+          // A candidate record for the cwd worktree carries the transcript path.
+          readUnboundCandidates.mockResolvedValue([
+            {
+              worktreeDir: linkedWorktree,
+              sessionId: 'sess-leg1-fallback',
+              transcriptPath: '/tmp/candidate-transcript.jsonl'
+            }
+          ]);
+          process.chdir(linkedWorktree);
+          await withStdin(JSON.stringify({ title: 'Fallback-from-candidate card' }), () =>
+            createCard(['--workspace-path', '/tmp/workspace'])
+          );
+
+          expect(outfitWorktreeForCard).toHaveBeenCalledOnce();
+          const [, boundDir, outfitOptions] = outfitWorktreeForCard.mock.calls[0]! as [
+            unknown,
+            string,
+            { transcriptPath: string; sessionId: string }
+          ];
+          expect(boundDir).toBe(linkedWorktree);
+          // Transcript path comes from the candidate record, not the env var.
+          expect(outfitOptions.transcriptPath).toBe('/tmp/candidate-transcript.jsonl');
+          expect(outfitOptions.sessionId).toBe('sess-leg1-fallback');
+          const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+          expect(output['id']).toBe('test-1');
+        } finally {
           logSpy.mockRestore();
         }
       });
@@ -1292,7 +1341,9 @@ describe('card binary', () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         process.env['CARDS_SESSION_ID'] = 'sess-fallback';
-        process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/binder-transcript.jsonl';
+        // No CARDS_TRANSCRIPT_PATH: resolveTranscriptPath falls through to the
+        // candidate record, which carries the transcript recorded at worktree creation.
+        delete process.env['CARDS_TRANSCRIPT_PATH'];
         try {
           makeLinkedWorktree();
           // The candidate is the linked worktree, but the binder runs from the
@@ -1312,7 +1363,7 @@ describe('card binary', () => {
             { cardId: string; parentBranch: string; sessionId: string; transcriptPath: string }
           ];
           expect(boundDir).toBe(linkedWorktree);
-          // The candidate's own transcript is used (it was recorded at create).
+          // The candidate's own transcript is used (it was recorded at worktree create time).
           expect(outfitOptions.transcriptPath).toBe('/tmp/cand-transcript.jsonl');
           expect(outfitOptions.sessionId).toBe('sess-fallback');
           // Candidate removed on success.

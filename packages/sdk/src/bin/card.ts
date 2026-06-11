@@ -28,7 +28,7 @@ import {
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
-import { resolveSessionId } from '@cards/sdk/session-resolver';
+import { resolveSessionId, resolveTranscriptPath } from '@cards/sdk/session-resolver';
 import { readUnboundCandidates, removeUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
 import { outfitWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
@@ -445,19 +445,22 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
       return { kind: 'refuse', reason: `card create: ${parent.reason}` };
     }
 
-    // The binder's own session/transcript: env inheritance guarantees the
-    // transcript belongs to this agent (the structural-redundancy case noted in
-    // the plan's session-gate). Both must be present for streaming attribution.
-    const sessionId = process.env['CARDS_SESSION_ID']?.trim() ?? '';
-    const transcriptPath = process.env['CARDS_TRANSCRIPT_PATH']?.trim() ?? '';
-    if (!sessionId || !transcriptPath) {
+    // Resolve session identity via the shared resolvers. resolveSessionId()
+    // applies the full five-variable precedence chain with PID fallback;
+    // resolveTranscriptPath() checks CARDS_TRANSCRIPT_PATH first, then falls
+    // back to the unbound-candidate record for this worktree. Either resolver
+    // returning an absent value is a degradation (outfit will warn-and-skip
+    // transcript streaming) but is not a hard refuse.
+    const sessionId = await resolveSessionId();
+    if (sessionId === null) {
       return {
         kind: 'refuse',
         reason:
-          'card create: refusing to bind worktree — CARDS_SESSION_ID / CARDS_TRANSCRIPT_PATH are not set, so the ' +
-          'agent transcript cannot be streamed. Re-enter the worktree via the EnterWorktree tool, then run `card create` again.'
+          'card create: refusing to bind worktree — no session id could be resolved. ' +
+          'Re-enter the worktree via the EnterWorktree tool, then run `card create` again.'
       };
     }
+    const transcriptPath = await resolveTranscriptPath(sessionId, cwdWorktree);
 
     return { kind: 'bind', worktreeDir: cwdWorktree, parentBranch: parent.parentBranch, transcriptPath, sessionId };
   }
@@ -496,11 +499,13 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
   // make the target explicit rather than binding silently.
   console.error(`card create: binding the single unbound worktree for this session: ${candidate.worktreeDir}`);
 
+  const transcriptPath = await resolveTranscriptPath(sessionId, candidate.worktreeDir);
+
   return {
     kind: 'bind',
     worktreeDir: candidate.worktreeDir,
     parentBranch: parent.parentBranch,
-    transcriptPath: candidate.transcriptPath,
+    transcriptPath,
     sessionId
   };
 }
