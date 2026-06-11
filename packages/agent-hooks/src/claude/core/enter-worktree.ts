@@ -33,67 +33,16 @@
  * @module enter-worktree
  */
 
-import { execFile } from 'node:child_process';
-import { access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { findAgentPid, resolveGlobalCardsConfigDir } from '@cards/sdk';
 import { resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
 import { isKnownAgentComm } from '@cards/sdk/bin/process-utils';
 import { spawnAdhocAttribution } from '@cards/sdk/bin/spawn-adhoc-attribution';
 import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
+import { resolveBindableWorktreeDir } from '../../shared/bindable-worktree.js';
 
 export { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
-
-const execFileAsync = promisify(execFile);
-
-/**
- * Tests whether `cwd` is a *bindable* linked git worktree: a linked worktree
- * (`git rev-parse --git-dir` ≠ `--git-common-dir`) that carries no
- * `.cards/CARD_ID` marker. Returns the worktree's toplevel directory when
- * bindable, or `null` otherwise.
- *
- * Detects any unbound linked worktree, including hand-made ones
- * (`git worktree add`) that no WorktreeCreate hook ever ran for. The main repository (where
- * `--git-dir` equals `--git-common-dir`) is not bindable.
- *
- * @param cwd - Directory the EnterWorktree tool switched into.
- * @returns Absolute toplevel path of the bindable worktree, or null.
- */
-async function resolveBindableWorktreeDir(cwd: string): Promise<string | null> {
-  let gitDir: string;
-  let gitCommonDir: string;
-  let toplevel: string;
-  try {
-    [gitDir, gitCommonDir, toplevel] = await Promise.all([
-      execFileAsync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-dir']).then((r) =>
-        r.stdout.trim()
-      ),
-      execFileAsync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir']).then((r) =>
-        r.stdout.trim()
-      ),
-      execFileAsync('git', ['-C', cwd, 'rev-parse', '--show-toplevel']).then((r) => r.stdout.trim())
-    ]);
-  } catch {
-    // Not a git repository, or git unavailable — nothing bindable here.
-    return null;
-  }
-
-  // A linked worktree has a git-dir distinct from the common dir. The main
-  // worktree has them equal and is never a bind target.
-  if (gitDir === gitCommonDir) return null;
-
-  // Already bound — CARD_ID wins; do not feed the candidate set.
-  try {
-    await access(join(toplevel, '.cards', 'CARD_ID'));
-    return null;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-  }
-
-  return toplevel;
-}
 
 export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { logger }) => {
   // ─── BOUND PATH ───────────────────────────────────────────────────────────
