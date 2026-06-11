@@ -210,7 +210,7 @@ describe('card binary', () => {
         const card = cards.get(cardId);
         if (!card) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Not found' }));
+          res.end(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }));
           return;
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1539,8 +1539,7 @@ describe('card binary', () => {
         // 'nonexistent-card' is not in the test server's card map.
         await expect(bindCard('nonexistent-card')).rejects.toThrow('process.exit(1)');
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
-        expect(diagnostic).toContain('nonexistent-card');
-        expect(diagnostic).toContain('not found');
+        expect(diagnostic).toContain('card "nonexistent-card" not found');
         expect(outfitWorktreeForCard).not.toHaveBeenCalled();
       } finally {
         errSpy.mockRestore();

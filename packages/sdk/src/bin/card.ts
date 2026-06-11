@@ -1091,7 +1091,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     const card = await client.getCard(cardId);
     cardRepoPath = card.repositoryPath;
   } catch (error) {
-    if (error instanceof ApiError && error.code === '404') {
+    if (error instanceof ApiError && error.code === 'NOT_FOUND') {
       console.error(`card bind: card "${cardId}" not found.`);
     } else if (error instanceof NetworkError) {
       console.error(
