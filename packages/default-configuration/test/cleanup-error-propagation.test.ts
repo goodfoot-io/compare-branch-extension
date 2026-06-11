@@ -43,6 +43,14 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
+// createWorktreeForCard wraps the pure createWorktree git primitive with the
+// per-card outfit. Mock it as a thin adapter that forwards to the low-level
+// createWorktree mock (see claude-session.test.ts) so these tests keep asserting
+// the pure-primitive call shape without running the real outfit side effects.
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn()
+}));
+
 vi.mock('node:crypto', async () => {
   const actual = await vi.importActual('node:crypto');
   return {
@@ -105,6 +113,18 @@ beforeEach(async () => {
   const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
+
+  // Forward the orchestrator to the low-level createWorktree mock with the
+  // outfit-bearing options, so per-case createWorktree overrides and assertions
+  // keep working against the pure-primitive call shape.
+  const { createWorktreeForCard } = await import('@cards/sdk/worktree-for-card');
+  vi.mocked(createWorktreeForCard).mockImplementation((_client, ref, opts) =>
+    createWorktree(ref, {
+      cwd: opts.cwd,
+      cardId: opts.cardId,
+      compiledScriptPaths: opts.compiledScriptPaths
+    })
+  );
   vi.mocked(createWorktree).mockResolvedValue({
     path: '/test/workspace/.worktrees/cards/card-123/1',
     settle: Promise.resolve({

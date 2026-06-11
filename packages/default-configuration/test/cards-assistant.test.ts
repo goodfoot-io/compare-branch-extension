@@ -26,7 +26,12 @@ vi.mock('cross-spawn', async () => {
   return { default: cp.spawn };
 });
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn()
+  spawn: vi.fn(),
+  // @cards/sdk's index runs `promisify(execFile)` at module load, and execFileSync
+  // is used by the worktree primitives, so both must exist on the mock for the
+  // module graph to import even though these tests only assert on spawn.
+  execFile: vi.fn(),
+  execFileSync: vi.fn()
 }));
 
 vi.mock('../src/lib/claude-session.js', () => ({

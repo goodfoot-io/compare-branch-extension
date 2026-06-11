@@ -41,6 +41,16 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
+// createWorktreeForCard is the orchestrator that wraps the pure `createWorktree`
+// git primitive with the per-card outfit (writeCardBoundFile, hook provisioning,
+// addBranch). Running the real orchestrator here would drive real disk/git work,
+// so mock it as a thin adapter that forwards to the low-level `createWorktree`
+// mock — preserving the "worktree created for <card>/<slot> with these compiled
+// scripts" contract these tests assert on without the outfit side effects.
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn()
+}));
+
 vi.mock('node:crypto', async () => {
   const actual = await vi.importActual('node:crypto');
   return {
@@ -104,6 +114,18 @@ async function setupDefaultMocks(): Promise<void> {
       baseSha: 'abc123'
     })
   });
+
+  // Forward the orchestrator to the low-level createWorktree mock with the
+  // outfit-bearing options, so per-case `createWorktree` overrides and
+  // assertions keep working against the pure-primitive call shape.
+  const { createWorktreeForCard } = await import('@cards/sdk/worktree-for-card');
+  vi.mocked(createWorktreeForCard).mockImplementation((_client, ref, opts) =>
+    createWorktree(ref, {
+      cwd: opts.cwd,
+      cardId: opts.cardId,
+      compiledScriptPaths: opts.compiledScriptPaths
+    })
+  );
 }
 
 beforeEach(async () => {
