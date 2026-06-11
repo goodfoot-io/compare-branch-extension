@@ -138,6 +138,14 @@ export async function resolveCardsParentBranch(
   }
 
   // 3. Try reflog decoration — accept only a real branch name.
+  //
+  // `%D` emits a ref *decoration* string, not a bare branch name: e.g.
+  // `HEAD -> feature`, or `HEAD -> feature, tag: v1, origin/feature` when the
+  // commit carries multiple refs. Tokenize before validating: split on `,`,
+  // strip the `HEAD -> ` arrow prefix, drop `tag:`/non-branch decorations, and
+  // pick the first token that is a real branch name AND is not the worktree's
+  // own current branch (a branch is never its own parent). Recording the raw
+  // composite string would corrupt branches.json.
   try {
     const { stdout } = await execFileAsync('git', [
       '-C',
@@ -147,9 +155,9 @@ export async function resolveCardsParentBranch(
       '--pretty=%D',
       '--simplify-by-decoration'
     ]);
-    const reflogValue = stdout.trim();
-    if (reflogValue && isRealBranchName(reflogValue)) {
-      return { kind: 'resolved', parentBranch: reflogValue };
+    const candidate = pickReflogParentBranch(stdout, checkedOutBranch);
+    if (candidate) {
+      return { kind: 'resolved', parentBranch: candidate };
     }
   } catch (error: unknown) {
     // git log failure due to non-zero exit (e.g. empty repo) is expected.
@@ -170,6 +178,42 @@ export async function resolveCardsParentBranch(
       'was absent or ambiguous, and no --parent-branch flag was provided.\n' +
       'Re-run with --parent-branch <branch> to specify the parent branch explicitly.'
   };
+}
+
+/**
+ * Picks a usable parent branch name out of a `git log --pretty=%D` decoration
+ * string.
+ *
+ * `%D` emits a comma-separated ref decoration, e.g.
+ * `HEAD -> feature, tag: v1, origin/feature`. This tokenizes it and returns the
+ * first token that:
+ * - is a real branch name (not the literal `HEAD`, not a 40-hex SHA), and
+ * - is not the worktree's own current branch (a branch is never its own parent).
+ *
+ * `tag: …` and other non-branch decorations are dropped. The `HEAD -> ` arrow
+ * prefix is stripped from the token it leads. Remote-tracking decorations like
+ * `origin/feature` are left intact and accepted as real branch names.
+ *
+ * @param decoration - Raw stdout from `git log -1 --pretty=%D --simplify-by-decoration`.
+ * @param ownBranch - The worktree's current branch name, or `null` when detached.
+ * @returns The chosen parent branch name, or `null` when no usable token remains.
+ */
+function pickReflogParentBranch(decoration: string, ownBranch: string | null): string | null {
+  for (const rawToken of decoration.split(',')) {
+    let token = rawToken.trim();
+    if (!token) continue;
+    // Strip the `HEAD -> ` arrow prefix that leads the symbolic-ref token.
+    if (token.startsWith('HEAD -> ')) {
+      token = token.slice('HEAD -> '.length).trim();
+    }
+    // Drop `tag:` and any other `<kind>: <name>` non-branch decorations.
+    if (token.includes(':')) continue;
+    if (!isRealBranchName(token)) continue;
+    // A branch is never its own parent.
+    if (ownBranch !== null && token === ownBranch) continue;
+    return token;
+  }
+  return null;
 }
 
 /**

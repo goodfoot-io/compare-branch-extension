@@ -626,16 +626,29 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
  * resolve at runtime to the durable main-repo-root path, so copying them would
  * only produce confusing dead copies.
  *
+ * The card-binding marker files `.cards/CARD_ID` and
+ * `.cards/CARD_ORIGINAL_HOOK_PATH` are also excluded. When the source checkout
+ * is itself card-bound, copying these markers would bleed the SOURCE worktree's
+ * card identity and original-hooks snapshot into the child worktree — causing
+ * wrong-card commit attribution and breaking hook chaining. The child's own
+ * markers are written authoritatively by `outfitWorktreeForCard`, so the
+ * source's must never be copied in.
+ *
  * @param sourceRoot - Source checkout root containing `.cards`.
  * @param worktreeDir - Destination worktree root.
  */
 async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Promise<void> {
   const sourcePath = path.join(sourceRoot, '.cards');
   const logsDir = path.join(sourcePath, 'logs');
+  const cardIdMarker = path.join(sourcePath, 'CARD_ID');
+  const originalHookPathMarker = path.join(sourcePath, 'CARD_ORIGINAL_HOOK_PATH');
   try {
     await fs.cp(sourcePath, path.join(worktreeDir, '.cards'), {
       recursive: true,
-      filter: (src) => !(src.startsWith(logsDir + path.sep) && src.endsWith('.log'))
+      filter: (src) =>
+        !(src.startsWith(logsDir + path.sep) && src.endsWith('.log')) &&
+        src !== cardIdMarker &&
+        src !== originalHookPathMarker
     });
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {

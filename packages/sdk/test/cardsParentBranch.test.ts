@@ -97,15 +97,66 @@ describe('resolveCardsParentBranch', () => {
     }
   });
 
-  it('rejects a 40-char hex SHA: flag resolves when reflog would yield a SHA', async () => {
-    // Set cardsParent config to a 40-char hex string. The config step returns
-    // it directly (the SHA filter only applies to the reflog step). We test the
-    // SHA filter by having NO config set and observing that the flag is reached.
-    //
-    // In this minimal repo the reflog decoration for the feature branch commit
-    // has no additional branch names — the only decoration is a SHA. Removing
-    // the config key ensures step 2 exits without resolving, the reflog step
-    // fires and finds no branch name, then the flag is the next source.
+  // ---------------------------------------------------------------------------
+  // Step 3: reflog `%D` decoration tokenization
+  //
+  // `git log -1 --pretty=%D --simplify-by-decoration` emits a ref *decoration*
+  // string (e.g. `HEAD -> feature, tag: v1, origin/feature`), NOT a bare branch
+  // name. The resolver must tokenize it, strip the `HEAD -> ` arrow, drop
+  // `tag:`/non-branch decorations, reject the worktree's own branch, and never
+  // record the composite string.
+  // ---------------------------------------------------------------------------
+
+  it('resolves a real parent branch from a multi-ref `HEAD -> own, parent` decoration', async () => {
+    // Give the worktree its own commit so --simplify-by-decoration surfaces a
+    // decoration, then plant a sibling branch `parent` at the worktree's HEAD.
+    // The %D decoration becomes `HEAD -> feature/test, parent`. The resolver
+    // must strip `HEAD -> feature/test` (own branch) and pick `parent`.
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'work'], { cwd: linkedWorktree });
+    execFileSync('git', ['branch', 'parent', 'HEAD'], { cwd: linkedWorktree });
+
+    const result = await resolveCardsParentBranch(linkedWorktree);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
+      // Must be a bare branch name, never a composite decoration string.
+      expect(result.parentBranch).not.toContain('->');
+      expect(result.parentBranch).not.toContain(',');
+      expect(result.parentBranch).toBe('parent');
+    }
+  });
+
+  it('ignores tag decorations and picks the real sibling branch', async () => {
+    // Decoration becomes `HEAD -> feature/test, tag: v1, parent`. The `tag: v1`
+    // token must be dropped and `parent` chosen.
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'work'], { cwd: linkedWorktree });
+    execFileSync('git', ['tag', 'v1'], { cwd: linkedWorktree });
+    execFileSync('git', ['branch', 'parent', 'HEAD'], { cwd: linkedWorktree });
+
+    const result = await resolveCardsParentBranch(linkedWorktree);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
+      expect(result.parentBranch).toBe('parent');
+    }
+  });
+
+  it("refuses when the worktree's own branch is the only branch decoration", async () => {
+    // Give the worktree its own commit so its only HEAD-commit decoration is
+    // `HEAD -> feature/test`. A branch is never its own parent, so with no other
+    // real branch and no flag the resolver must refuse rather than self-assign.
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'work'], { cwd: linkedWorktree });
+
+    const result = await resolveCardsParentBranch(linkedWorktree);
+    expect(result.kind).toBe('refuse');
+    if (result.kind === 'refuse') {
+      expect(result.reason).toContain('--parent-branch');
+    }
+  });
+
+  it('rejects own-branch-only decoration but still honors an explicit flag', async () => {
+    // Same setup as above; supplying the flag must win once the reflog token is
+    // rejected for being the worktree's own branch.
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'work'], { cwd: linkedWorktree });
+
     const result = await resolveCardsParentBranch(linkedWorktree, 'flag-parent');
     expect(result.kind).toBe('resolved');
     if (result.kind === 'resolved') {

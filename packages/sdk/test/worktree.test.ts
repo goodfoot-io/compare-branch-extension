@@ -113,19 +113,42 @@ describe('removeWorktree', () => {
   it('copies .cards into a new worktree but excludes stale .cards/logs/*.log', async () => {
     // Seed the source repo's .cards with a normal file and a stale log.
     await fs.mkdir(path.join(repoDir, '.cards', 'logs'), { recursive: true });
-    await fs.writeFile(path.join(repoDir, '.cards', 'CARD_ID'), 'seed-card\n');
+    await fs.writeFile(path.join(repoDir, '.cards', 'config.json'), '{"seed":true}\n');
     await fs.writeFile(path.join(repoDir, '.cards', 'logs', 'git-workspace-repo-hooks.log'), '{"stale":true}\n');
 
     const { path: wPath, settle } = await createWorktree('feature/log-exclusion', { cwd: repoDir });
     await settle;
 
-    // Non-log .cards content is copied.
-    await expect(fs.readFile(path.join(wPath, '.cards', 'CARD_ID'), 'utf8')).resolves.toBe('seed-card\n');
+    // Non-log, non-marker .cards content is copied.
+    await expect(fs.readFile(path.join(wPath, '.cards', 'config.json'), 'utf8')).resolves.toBe('{"seed":true}\n');
 
     // The stale log is NOT copied.
     await expect(fs.access(path.join(wPath, '.cards', 'logs', 'git-workspace-repo-hooks.log'))).rejects.toMatchObject({
       code: 'ENOENT'
     });
+  });
+
+  it('excludes the source .cards/CARD_ID and CARD_ORIGINAL_HOOK_PATH markers from the copy', async () => {
+    // A card-bound source checkout carries CARD_ID and CARD_ORIGINAL_HOOK_PATH.
+    // Copying them into a child worktree would bleed the source's card identity
+    // and original-hooks snapshot in, causing wrong-card attribution and broken
+    // hook chaining. Both markers must be excluded; the child's are written
+    // authoritatively by outfitWorktreeForCard, never inherited here.
+    await fs.mkdir(path.join(repoDir, '.cards'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, '.cards', 'CARD_ID'), 'source-card\n');
+    await fs.writeFile(path.join(repoDir, '.cards', 'CARD_ORIGINAL_HOOK_PATH'), '/source/hooks\n');
+    await fs.writeFile(path.join(repoDir, '.cards', 'config.json'), '{"seed":true}\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/marker-exclusion', { cwd: repoDir });
+    await settle;
+
+    // Markers are NOT copied.
+    await expect(fs.access(path.join(wPath, '.cards', 'CARD_ID'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(fs.access(path.join(wPath, '.cards', 'CARD_ORIGINAL_HOOK_PATH'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // Other .cards content is still copied.
+    await expect(fs.readFile(path.join(wPath, '.cards', 'config.json'), 'utf8')).resolves.toBe('{"seed":true}\n');
   });
 
   it('throws WorktreeScopeError when path equals the worktrees root (not a child)', async () => {
