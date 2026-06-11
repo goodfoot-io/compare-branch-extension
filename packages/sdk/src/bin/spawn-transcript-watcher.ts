@@ -11,6 +11,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import { resolveDetachedNodeInterpreter } from './detached-node.js';
 
 /**
  * Minimal logger interface required by spawnTranscriptWatcher.
@@ -61,28 +62,58 @@ export function transcriptWatcherWrapperName(): string {
 }
 
 /**
- * Probes whether a wrapper command is launchable, platform-correctly.
+ * Probes whether a POSIX wrapper command is launchable.
  *
- * - **Absolute path:** verified with `fs.existsSync` on every platform (the file
- *   either exists at the resolved location or it does not).
- * - **Bare name (PATH lookup), POSIX:** resolved with `sh -c 'command -v "$1"'`,
- *   which exits 0 only when the name is found on PATH.
- * - **Bare name (PATH lookup), win32:** resolved with `where <name>` — there is
- *   no `sh` on Windows, and `where` exits 0 only when the name resolves on PATH.
+ * - **Absolute path:** verified with `fs.existsSync` (the file either exists at
+ *   the resolved location or it does not).
+ * - **Bare name (PATH lookup):** resolved with `sh -c 'command -v "$1"'`, which
+ *   exits 0 only when the name is found on PATH.
+ *
+ * (win32 resolution does not use this — it resolves the interpreter and sibling
+ * `.mjs` directly; see {@link spawnTranscriptWatcher}.)
  *
  * @param command - Absolute path or bare wrapper name to probe.
  * @returns True when the command is launchable.
  */
-function isWrapperAvailable(command: string): boolean {
+function isPosixWrapperAvailable(command: string): boolean {
   if (isAbsolute(command)) {
     return existsSync(command);
   }
-  if (process.platform === 'win32') {
-    const probe = spawnSync('where', [command], { stdio: 'ignore' });
-    return !probe.error && probe.status === 0;
-  }
   const probe = spawnSync('sh', ['-c', 'command -v "$1"', 'sh', command], { stdio: 'ignore' });
   return !probe.error && probe.status === 0;
+}
+
+/**
+ * Resolves the absolute `transcript-watcher.mjs` that the wrapper would exec on
+ * win32, from the wrapper reference the caller passed.
+ *
+ * - **Absolute `.cmd` path (launch mode):** the `.mjs` is the sibling the `.cmd`
+ *   invokes (`%~dp0transcript-watcher.mjs`), i.e. the same path with the `.cmd`
+ *   extension swapped for `.mjs`.
+ * - **Bare name (attach mode):** `where <name>` is run to capture the absolute
+ *   `.cmd` path it resolves to on PATH, then the extension is swapped. `where`'s
+ *   exit status alone is insufficient here — the absolute path is needed to find
+ *   the sibling `.mjs`.
+ *
+ * @param watcher - Absolute `.cmd` path or bare wrapper name.
+ * @returns The absolute `.mjs` path, or `null` when it cannot be resolved or the
+ *   resolved file does not exist.
+ */
+function resolveWin32WatcherMjs(watcher: string): string | null {
+  let cmdPath: string | null = null;
+  if (isAbsolute(watcher)) {
+    cmdPath = watcher;
+  } else {
+    const probe = spawnSync('where', [watcher], { encoding: 'utf-8', windowsHide: true });
+    if (probe.error || probe.status !== 0 || typeof probe.stdout !== 'string') return null;
+    // `where` may print multiple matches (one per line); take the first.
+    cmdPath = probe.stdout.split(/\r?\n/).map((line) => line.trim())[0] || null;
+  }
+  if (!cmdPath) return null;
+
+  const mjsPath = cmdPath.replace(/\.cmd$/i, '.mjs');
+  if (mjsPath === cmdPath) return null;
+  return existsSync(mjsPath) ? mjsPath : null;
 }
 
 /**
@@ -90,6 +121,16 @@ function isWrapperAvailable(command: string): boolean {
  *
  * The watcher monitors the agent PID and uploads the transcript if the process
  * exits without the session-end hook having run (crash/SIGKILL).
+ *
+ * On **win32** the watcher is spawned as `node.exe <transcript-watcher.mjs>
+ * ...args` with **no shell and no `.cmd` hop**: the `.cmd` → `node.exe` hop would
+ * pop a console window inside this detached (console-less) tree once the win32
+ * interpreter is stock `node.exe`. The interpreter is resolved fail-closed
+ * (env `VSCODE_NODE` → `~/.cards/VSCODE_NODE` → PATH `node`, existence-checked)
+ * and the sibling `.mjs` the `.cmd` would have invoked is resolved directly. On
+ * resolution failure the spawn is skipped (logged), never silently routed
+ * through a shell. **POSIX** is unchanged: the extension-less wrapper script is
+ * exec'd directly.
  *
  * @param watcher - Executable to launch: an absolute path (launch mode, where
  *   the `cards` plugin bin is not on PATH) or the bare name `transcript-watcher`
@@ -113,12 +154,51 @@ export function spawnTranscriptWatcher(
   cardRepoPath: string,
   logger: TranscriptWatcherLogger
 ): boolean {
-  // The `transcript-watcher` wrapper exec's the .mjs via VSCODE_NODE; this
-  // helper only needs a way to invoke it. `isWrapperAvailable` covers both call
-  // sites and every platform: an absolute path (launch mode) is checked with
-  // `fs.existsSync`, and a bare name (attach mode) is resolved against PATH with
-  // `where` on win32 or `command -v` on POSIX.
-  if (!isWrapperAvailable(watcher)) {
+  const spawnArgs = [String(pid), sessionId, transcriptPath, cardId, cardRepoPath];
+
+  if (process.platform === 'win32') {
+    // Resolve a console-subsystem interpreter and the sibling .mjs, then spawn
+    // directly — no `.cmd`, no shell — so the detached tree stays windowless.
+    const nodeExe = resolveDetachedNodeInterpreter();
+    if (!nodeExe) {
+      logger.error('transcript-watcher: no usable Node interpreter — skipping spawn', {
+        watcher,
+        pid,
+        sessionId
+      });
+      return false;
+    }
+    const mjs = resolveWin32WatcherMjs(watcher);
+    if (!mjs) {
+      logger.error('transcript-watcher .mjs not resolvable — skipping spawn', {
+        watcher,
+        pid,
+        sessionId
+      });
+      return false;
+    }
+
+    const child = spawn(nodeExe, [mjs, ...spawnArgs], {
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env },
+      windowsHide: true
+    });
+    child.on('error', (err) => {
+      logger.error('transcript-watcher spawn failed', {
+        error: err instanceof Error ? err.message : String(err),
+        spawnArgs: spawnArgs.join(' ')
+      });
+    });
+    child.unref();
+    return true;
+  }
+
+  // POSIX: the wrapper exec's the .mjs via VSCODE_NODE; this helper only needs a
+  // way to invoke it. An absolute path (launch mode) is checked with
+  // `fs.existsSync`; a bare name (attach mode) is resolved against PATH with
+  // `command -v`. The extension-less script is exec'd directly.
+  if (!isPosixWrapperAvailable(watcher)) {
     logger.error('transcript-watcher not resolvable — skipping spawn', {
       watcher,
       pid,
@@ -127,16 +207,10 @@ export function spawnTranscriptWatcher(
     return false;
   }
 
-  const spawnArgs = [String(pid), sessionId, transcriptPath, cardId, cardRepoPath];
-
-  // On Windows the wrapper is a `.cmd`; Node refuses to spawn a `.cmd` without a
-  // shell (EINVAL), so route through the shell there. POSIX execs the script
-  // directly.
   const child = spawn(watcher, spawnArgs, {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env },
-    shell: process.platform === 'win32'
+    env: { ...process.env }
   });
   child.on('error', (err) => {
     logger.error('transcript-watcher spawn failed', {

@@ -1138,6 +1138,43 @@ describe('claude-session shared utilities', () => {
         expect(command).toBe('claude');
         expect(spawnArgs).toContain('session-123');
         expect(spawnOpts['shell']).toBeUndefined();
+        // Interactive mode inherits stdio; R2 — libuv ignores windowsHide when an
+        // fd is inherited — so the session must NOT set it (the console-subsystem
+        // interpreter switch, not windowsHide, fixes the interactive path).
+        expect(spawnOpts['stdio']).toBe('inherit');
+        expect(spawnOpts['windowsHide']).toBeUndefined();
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('passes windowsHide:true on win32 in background mode (no inherited stdio)', async () => {
+        vi.resetModules();
+        await setupDefaultMocks();
+        forcePlatform('win32');
+
+        const { spawn } = await import('node:child_process');
+        const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const promise = spawnClaudeSession(baseInput({ executionMode: 'background' }), createMockContext(), {
+          prompt: 'fix the bug',
+          sessionId: 'session-123',
+          resume: false,
+          supportsSwitchToInteractive: false
+        });
+        await flushMicrotasks();
+
+        const [command, , spawnOpts] = vi.mocked(spawn).mock.calls[0]! as [string, string[], Record<string, unknown>];
+        // Background mode pipes stdio (no inherited fd), so the cross-spawn
+        // `cmd.exe /c claude.cmd` hop would pop a console window under stock node
+        // without windowsHide. libuv honors CREATE_NO_WINDOW here.
+        expect(command).toBe('claude');
+        expect(spawnOpts['stdio']).toEqual(['ignore', 'ignore', 'pipe']);
+        expect(spawnOpts['windowsHide']).toBe(true);
+        expect(spawnOpts['shell']).toBeUndefined();
 
         child.emit('close', 0);
         await promise;

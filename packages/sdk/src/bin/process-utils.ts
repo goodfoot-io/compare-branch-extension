@@ -10,12 +10,16 @@
  * @module
  */
 
-import { execFile, execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { promisify } from 'node:util';
+import { execFileNoWindowAsync, execFileSyncNoWindow } from './childProcess.js';
 
-const execFileAsync = promisify(execFile);
+// These utilities are imported by the detached `adhoc-cleanup` bin (console-less
+// under stock node on win32). Their `tasklist` / `git` invocations force
+// `windowsHide: true` via the SDK no-window helpers so no per-call console
+// window appears; the option is a no-op for the POSIX `cat`/`ps` probes.
+const execFileAsync = execFileNoWindowAsync;
+const execFileSync = execFileSyncNoWindow;
 
 /**
  * Known comm values that identify Claude agent processes.

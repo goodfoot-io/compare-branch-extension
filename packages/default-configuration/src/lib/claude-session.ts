@@ -10,12 +10,12 @@
  * @module
  */
 
-import { type ChildProcess, execFile } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import * as fsSyncNs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS, resolveWorktreeDir } from '@cards/sdk';
+import { execFileNoWindowAsync } from '@cards/sdk/bin/child-process';
 import type { CardsClient } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
@@ -29,7 +29,12 @@ import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { spawnAgentCli } from './spawn-cli.js';
 
-const execFileAsync = promisify(execFile);
+// The branch-cleanup watcher (branch-cleanup-watcher.ts) runs these helpers in a
+// detached, console-less subprocess on win32; the `where`/`which` probe and all
+// `git` calls force `windowsHide: true` via the SDK no-window helper so no
+// per-call console window appears under stock node (no-op on POSIX and in the
+// attached handler path).
+const execFileAsync = execFileNoWindowAsync;
 
 let _cliExecutable: string | undefined;
 
@@ -724,6 +729,14 @@ export async function spawnClaudeSession(
   const child: ChildProcess = spawnAgentCli(cliExecutable, args, {
     cwd,
     stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
+    // Background mode: the handler running this is console-less (spawned from the
+    // GUI extension host via pipes), so cross-spawn's `cmd.exe /c claude.cmd` hop
+    // would pop a console window under stock node on win32. No stdio fd is
+    // inherited here, so `windowsHide: true` is honored by libuv. The interactive
+    // path inherits stdio and must NOT set it — R2: libuv ignores windowsHide
+    // when any fd is inherited, and the correct fix there is the console-subsystem
+    // interpreter switch, not this option.
+    ...(isInteractive ? {} : { windowsHide: true }),
     env: {
       ...process.env,
       WORKSPACE_PATH: cwd,

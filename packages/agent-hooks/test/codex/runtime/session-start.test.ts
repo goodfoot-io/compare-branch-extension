@@ -40,13 +40,41 @@ vi.mock('@cards/sdk/process-tree', () => ({
 
 const logger = new Logger();
 
-// The wrapper is selected by platform: `transcript-watcher.cmd` on win32
-// (Windows cannot exec the extension-less POSIX script) and `transcript-watcher`
-// elsewhere. Tests that assert the resolved watcher path must accept either.
-const WATCHER_PATH_RE =
-  process.platform === 'win32'
-    ? /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher\.cmd$/
-    : /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/;
+const isWin = process.platform === 'win32';
+
+// What the spawn's first argument is, per platform:
+// - POSIX: the wrapper script itself (extension-less `transcript-watcher`),
+//   exec'd directly.
+// - win32: a real `node.exe` interpreter — there is NO `.cmd`/shell hop in the
+//   detached tree (it would pop a console window under stock node). The watcher
+//   is then `node.exe <transcript-watcher.mjs>`, so the `.mjs` is argv[0] of the
+//   args array, and the wrapper-path regex matches that instead.
+const WATCHER_PATH_RE = isWin
+  ? /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher\.mjs$/
+  : /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/;
+
+// On win32 the detached interpreter is resolved fail-closed (VSCODE_NODE env →
+// ~/.cards/VSCODE_NODE → PATH node). Pin it deterministically in tests via the
+// env var so resolution does not depend on the host having a ~/.cards file.
+const WIN32_TEST_NODE = 'C:\\fake\\node.exe';
+
+/**
+ * Returns the spawn first-arg (interpreter on win32, wrapper on POSIX) and the
+ * args array the watcher would receive after it (the positional list, with the
+ * `.mjs` prepended on win32).
+ *
+ * @param call - A recorded `spawn` mock call tuple.
+ * @returns The spawn first argument, the resolved watcher path, and the
+ *   positional argument list passed to the watcher.
+ */
+function watcherSpawnShape(call: unknown[]): { firstArg: string; watcherPath: string; positional: string[] } {
+  const firstArg = call[0] as string;
+  const args = call[1] as string[];
+  if (isWin) {
+    return { firstArg, watcherPath: args[0]!, positional: args.slice(1) };
+  }
+  return { firstArg, watcherPath: firstArg, positional: args };
+}
 
 let testRepo: TestGitWorkspace;
 let repoPath: string;
@@ -96,7 +124,10 @@ describe('SessionStart Hook', () => {
         MARKETPLACE_PATH: '/tmp/extension/dist/marketplace',
         WORKSPACE_PATH: '/workspace',
         BASE_BRANCH: 'main',
-        WORKSPACE_BRANCH: 'cards/main-1/1'
+        WORKSPACE_BRANCH: 'cards/main-1/1',
+        // Pins the win32 detached interpreter resolution (no-op on POSIX). The
+        // path is existence-checked via fs.existsSync, which is mocked → true.
+        VSCODE_NODE: WIN32_TEST_NODE
       };
       for (const [key, value] of Object.entries(ACTION_ENV)) {
         process.env[key] = value;
@@ -253,14 +284,20 @@ describe('SessionStart Hook', () => {
 
       await hook(mockInput, context);
 
-      const watcherArg = vi.mocked(spawn).mock.calls.at(-1)?.[0] as string;
+      const { firstArg, watcherPath } = watcherSpawnShape(vi.mocked(spawn).mock.calls.at(-1)!);
+      // POSIX: the wrapper script is spawned directly. win32: a real node.exe
+      // interpreter is the first arg (no `.cmd`/shell hop), and the sibling
+      // `.mjs` it runs is the resolved watcher path.
+      if (isWin) {
+        expect(firstArg).toBe(WIN32_TEST_NODE);
+      }
       expect(
-        isAbsolute(watcherArg),
-        `expected an absolute watcher path resolved from MARKETPLACE_PATH; got: ${watcherArg}`
+        isAbsolute(watcherPath),
+        `expected an absolute watcher path resolved from MARKETPLACE_PATH; got: ${watcherPath}`
       ).toBe(true);
-      expect(watcherArg).toMatch(WATCHER_PATH_RE);
+      expect(watcherPath).toMatch(WATCHER_PATH_RE);
       // Anchored on the action's MARKETPLACE_PATH (ACTION_ENV).
-      expect(watcherArg).toContain(join('/tmp/extension/dist/marketplace', 'claude', 'cards', 'bin'));
+      expect(watcherPath).toContain(join('/tmp/extension/dist/marketplace', 'claude', 'cards', 'bin'));
     });
 
     // Reproduction (main-98): spawnWatcher logged "Spawned transcript watcher"
@@ -301,11 +338,18 @@ describe('SessionStart Hook', () => {
 
       await hook(mockInput, context);
 
-      expect(vi.mocked(spawn)).toHaveBeenCalledWith(
-        expect.stringMatching(WATCHER_PATH_RE),
-        ['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath],
-        expect.objectContaining({ detached: true, stdio: 'ignore' })
-      );
+      const { firstArg, watcherPath, positional } = watcherSpawnShape(vi.mocked(spawn).mock.calls.at(-1)!);
+      expect(watcherPath).toMatch(WATCHER_PATH_RE);
+      expect(positional).toEqual(['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath]);
+      const opts = vi.mocked(spawn).mock.calls.at(-1)![2] as Record<string, unknown>;
+      expect(opts).toMatchObject({ detached: true, stdio: 'ignore' });
+      // win32: direct node + .mjs, windowsHide on, and NO shell (the whole point —
+      // a `.cmd`/shell hop would pop a console window in this detached tree).
+      if (isWin) {
+        expect(firstArg).toBe(WIN32_TEST_NODE);
+        expect(opts['windowsHide']).toBe(true);
+        expect(opts['shell']).toBeUndefined();
+      }
     });
 
     it('logs structured error when spawn emits error event asynchronously', async () => {

@@ -14,19 +14,21 @@
  * @summary Detached transcript watcher — filesystem-event-driven directory syncer
  */
 
-import { execFile } from 'node:child_process';
 import type { FSWatcher } from 'node:fs';
 import { watch } from 'node:fs';
 import { access, appendFile, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { promisify } from 'node:util';
 import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { createWatcher } from '../config/watcher/createWatcher.js';
+import { execFileNoWindowAsync } from './childProcess.js';
 import { isProcessAlive } from './process-utils.js';
 
 export { isProcessAlive } from './process-utils.js';
 
-const execFileAsync = promisify(execFile);
+// This watcher runs as a detached, console-less subprocess on win32; its `git`
+// commit calls force `windowsHide: true` via the SDK no-window helper so no
+// per-call console window appears under stock node.
+const execFileAsync = execFileNoWindowAsync;
 
 /** Maximum watcher lifetime before forced exit (24 hours). */
 export const MAX_LIFETIME_MS = 24 * 60 * 60 * 1_000;

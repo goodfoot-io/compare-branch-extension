@@ -64,13 +64,22 @@ export const CARDS_ENV_VARS = {
   CODING_AGENT: 'CODING_AGENT',
 
   /**
-   * Path to the VS Code bundled Node.js interpreter.
+   * Path to the Node.js interpreter the extension selected for action launches.
    *
-   * Set by the extension host from `process.execPath` (with
-   * `ELECTRON_RUN_AS_NODE=1`). Commands in settings.json use
-   * `"$VSCODE_NODE" ./bin/...` (double-quoted — the macOS interpreter path
-   * contains spaces) so they work regardless of whether `node` is on the
-   * system PATH.
+   * Set by the extension host. The resolved value is platform-dependent:
+   * - **win32 (desktop):** a real console-subsystem `node.exe` discovered on
+   *   PATH. `Code.exe` is a GUI-subsystem image that cannot attach to a ConPTY
+   *   or run as a console process, so it is deliberately NOT used here.
+   * - **POSIX / remote / dev-container:** `process.execPath` (the Electron
+   *   binary), run as Node via `ELECTRON_RUN_AS_NODE=1`. There is no
+   *   PE-subsystem/console-allocation concept, so the Electron binary works.
+   *
+   * `ELECTRON_RUN_AS_NODE=1` is still exported alongside this everywhere: it is a
+   * no-op for a stock `node.exe` and remains required on POSIX/remote.
+   *
+   * Commands in settings.json use `"$VSCODE_NODE" ./bin/...` (double-quoted — the
+   * macOS interpreter path contains spaces) so they work regardless of whether
+   * `node` is on the system PATH.
    *
    * Available in all actions and type hooks.
    */
@@ -79,8 +88,11 @@ export const CARDS_ENV_VARS = {
   /**
    * Path to the Node.js interpreter running the wrapper process.
    *
-   * Set by the wrapper from `process.execPath`. Use `$NODE` in embedded
-   * bash statements to invoke Node scripts portably.
+   * Set by the wrapper from `process.execPath`. Because the wrapper itself now
+   * runs under the `VSCODE_NODE` interpreter (a real `node.exe` on win32), its
+   * `process.execPath` is that same console-subsystem Node — so `$NODE` is a
+   * valid console interpreter on every platform. Use `$NODE` in embedded bash
+   * statements to invoke Node scripts portably.
    *
    * Available in all actions.
    */

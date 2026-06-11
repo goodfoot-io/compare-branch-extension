@@ -9,8 +9,8 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { execFileSync } from 'node:child_process';
 import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
+import { execFileSyncNoWindow } from '@cards/sdk/bin/child-process';
 import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
@@ -40,7 +40,10 @@ export { buildCardRepoLogBlock, buildEnvBlock, buildWorkspaceRepoLogBlocks, Card
  */
 export function resolveHeadSha(repoPath: string): string | null {
   try {
-    return execFileSync('git', ['rev-parse', 'HEAD'], {
+    // In background mode this hook subprocess is console-less under stock node
+    // on win32; `execFileSyncNoWindow` forces `windowsHide: true` so the `git`
+    // call does not pop a console window (no-op on POSIX).
+    return execFileSyncNoWindow('git', ['rev-parse', 'HEAD'], {
       cwd: repoPath,
       encoding: 'utf-8',
       timeout: 5000,

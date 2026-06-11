@@ -32,6 +32,7 @@
     "./bin/spawn-adhoc-cleanup": "./src/bin/spawn-adhoc-cleanup.ts",
     "./bin/spawn-adhoc-attribution": "./src/bin/spawnAdhocAttribution.ts",
     "./bin/process-utils": "./src/bin/process-utils.ts",
+    "./bin/child-process": "./src/bin/childProcess.ts",
     "./bin/adhoc-refs": "./src/bin/adhoc-refs.ts",
     "./process-tree": "./src/process-tree.ts",
     "./session-resolver": "./src/session-resolver.ts",

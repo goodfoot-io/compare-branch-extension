@@ -12,6 +12,7 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { Logger } from '@cards/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
@@ -41,14 +42,23 @@ export interface BranchCleanupParams {
  * @param params - Parameters for the cleanup run.
  */
 export function spawnBranchCleanupWatcher(params: BranchCleanupParams): void {
-  const selfPath = new URL(import.meta.url).pathname;
+  // `fileURLToPath` (not `new URL(...).pathname`) so the path is a real OS path
+  // on win32: `new URL(import.meta.url).pathname` yields `/C:/Users/…`, which is
+  // not a spawnable script path. Mirrors wrapper.ts's spawnDetachedCleanup.
+  const selfPath = fileURLToPath(import.meta.url);
   const nodeBin = process.execPath;
 
   let child: ChildProcess;
   try {
     child = spawn(nodeBin, [selfPath, '--branch-cleanup'], {
       detached: true,
-      stdio: ['pipe', 'ignore', 'ignore']
+      stdio: ['pipe', 'ignore', 'ignore'],
+      // Detached, console-less root. On win32 the interpreter is now a stock
+      // console-subsystem `node.exe` which does not hide windows by default, so
+      // without `windowsHide: true` the detached child (and its `git`
+      // descendants) would pop console windows. No stdio fd is inherited here, so
+      // libuv honors CREATE_NO_WINDOW. No-op on POSIX.
+      windowsHide: true
     });
   } catch (error) {
     // Fail-open: log and return; cleanup will not run this session

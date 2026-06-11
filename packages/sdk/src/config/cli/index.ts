@@ -138,8 +138,12 @@ function getBaseName(sourcePath: string): string {
 /**
  * Generates the command string for settings.json.
  * Paths are relative to the settings.json file location.
- * References the bundled Node.js interpreter (`VSCODE_NODE`) so it is used
- * regardless of whether `node` is on the system PATH.
+ * References the resolved Node.js interpreter (`VSCODE_NODE`) so it is used
+ * regardless of whether `node` is on the system PATH. On win32-Electron hosts the
+ * extension resolves `VSCODE_NODE` to a console-subsystem PATH `node.exe` (rather
+ * than `Code.exe`); elsewhere it is `process.execPath`. This generator is unchanged
+ * either way — `%VSCODE_NODE%`/`$VSCODE_NODE` simply expand to whatever the
+ * extension recorded.
  * E.g. (POSIX): `"$VSCODE_NODE" ./bin/launch-claude.abc12345.mjs`
  * E.g. (win32): `"%VSCODE_NODE%" ./bin/launch-claude.abc12345.mjs`
  *
