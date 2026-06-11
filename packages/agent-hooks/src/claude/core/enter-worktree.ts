@@ -152,13 +152,14 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
   // re-enter: the hash-keyed entry is simply overwritten with the same data.
   await addUnboundCandidate(input.session_id, worktreeDir, input.transcript_path);
 
-  const message = `You must load the \`cards:management\` skill and create a card for these changes.`;
+  const systemMessage = `If this worktree is associated with an existing card, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:management\` skill to create a new card for these changes.`;
+  const additionalContext = `If this worktree is associated with an existing card, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:management\` skill to create a new card for these changes.`;
 
   // Emit the one-time nudge.
   return postToolUseOutput({
-    systemMessage: message,
+    systemMessage,
     hookSpecificOutput: {
-      additionalContext: message
+      additionalContext
     }
   });
 });
