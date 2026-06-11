@@ -260,7 +260,11 @@ function makeLinkedWorktree(base: string): string {
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: mainRepo });
   execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: mainRepo });
   execFileSync('git', ['worktree', 'add', '-q', '-b', 'feature/x', linked], { cwd: mainRepo });
-  return linked;
+  // Return the git-canonical toplevel — the exact string the hook records as the
+  // candidate (it resolves the worktree via `git rev-parse --show-toplevel`). On
+  // Windows that is forward-slashed and differs from `join`'s native separators,
+  // so deriving it the same way keeps the candidate-path assertions cross-platform.
+  return execFileSync('git', ['-C', linked, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 }
 
 describe('EnterWorktree hook — unbound path (bindable linked worktree)', () => {
@@ -281,7 +285,7 @@ describe('EnterWorktree hook — unbound path (bindable linked worktree)', () =>
 
   afterEach(async () => {
     delete process.env['CARD_ID'];
-    await rm(tmp, { recursive: true, force: true });
+    await rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('feeds the candidate set and emits a nudge for a bindable linked worktree', async () => {
@@ -372,7 +376,7 @@ describe('EnterWorktree hook — non-bindable cwd', () => {
       expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
       expect(getAdditionalContext(result)).toBeUndefined();
     } finally {
-      await rm(empty, { recursive: true, force: true });
+      await rm(empty, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -388,7 +392,7 @@ describe('EnterWorktree hook — non-bindable cwd', () => {
       expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
       expect(getAdditionalContext(result)).toBeUndefined();
     } finally {
-      await rm(base, { recursive: true, force: true });
+      await rm(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 });
@@ -420,7 +424,7 @@ describe('resolveWorktreeCardId', () => {
   });
 
   afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('finds CARD_ID in the worktree root', async () => {
@@ -460,7 +464,7 @@ describe('resolveCardRepoPath', () => {
     } else {
       process.env['CARDS_DISCOVERY_PATH'] = originalDiscovery;
     }
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('joins reposPath with the cardId', async () => {
@@ -489,7 +493,7 @@ describe('acquireLock', () => {
   });
 
   afterEach(async () => {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('acquires a fresh lock and records the agent PID and cardId', async () => {
