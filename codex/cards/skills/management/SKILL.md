@@ -98,14 +98,14 @@ Binding installs hooks, registers the worktree branch with the card, and enables
 - You are in a linked worktree (not the main repository)
 - The worktree has no existing card bound to it
 - The card exists and is accessible
-- A parent branch can be resolved (either inferred from `.git/HEAD` or supplied via `--parent-branch`)
+- A parent branch can be resolved (checked in order: `branch.<name>.cardsParent` git config, reflog decoration, `--parent-branch` flag, then refuses)
 
-The response includes the card's repository path. If transcript streaming is disabled (transcript path cannot be resolved), binding succeeds with a stderr warning and streaming-disabled notice.
+The command outputs card-repo-log and workspace-repo-log context blocks to stdout (without the env block), so the calling agent immediately receives current card context. If transcript streaming is disabled (transcript path cannot be resolved), binding succeeds with a stderr warning and streaming-disabled notice.
 
 Example:
 ```
 $ cd my-worktree && card main-42 bind
-Transcript streaming disabled: transcript path could not be resolved.
+card bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.
 $ git log --oneline -3
 ```
 

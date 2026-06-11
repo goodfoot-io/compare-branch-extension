@@ -18,12 +18,14 @@ import { toCardListSummaries } from '@cards/sdk/card-summary';
 import { resolveCardsParentBranch } from '@cards/sdk/cards-parent-branch';
 import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
 import {
+  ApiError,
   CardsClient,
   calculateBackoffMs,
   EventSubscriber,
   formatCommit,
   getUnattributedCommits,
-  isBookkeepingCommit
+  isBookkeepingCommit,
+  NetworkError
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards/sdk/context';
@@ -1075,7 +1077,10 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   const cardIdFile = join(worktreeDir, '.cards', 'CARD_ID');
   if (existsSync(cardIdFile)) {
     const existingId = readFileSync(cardIdFile, 'utf-8').trim();
-    console.error(`card bind: this worktree is already bound to card ${existingId}. Unbind it first.`);
+    console.error(
+      `card bind: this worktree is already bound to card ${existingId}. ` +
+        `To bind a different card, remove this worktree and create a new one.`
+    );
     process.exit(1);
   }
 
@@ -1085,8 +1090,16 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   try {
     const card = await client.getCard(cardId);
     cardRepoPath = card.repositoryPath;
-  } catch {
-    console.error(`card bind: card "${cardId}" not found or inaccessible.`);
+  } catch (error) {
+    if (error instanceof ApiError && error.code === '404') {
+      console.error(`card bind: card "${cardId}" not found.`);
+    } else if (error instanceof NetworkError) {
+      console.error(
+        `card bind: card service unavailable — check that the extension/daemon is running. (${error.message})`
+      );
+    } else {
+      console.error(`card bind: unable to fetch card "${cardId}".`, error);
+    }
     process.exit(1);
   }
 
