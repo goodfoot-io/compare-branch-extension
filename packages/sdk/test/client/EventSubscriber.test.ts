@@ -805,6 +805,69 @@ describe('EventSubscriber', () => {
 
       subscriber.disconnect();
     });
+
+    it('should not open a socket from a stale reconnect whose generation was advanced during in-flight discovery', async () => {
+      // Use a deferred promise so the test controls when discover() resolves.
+      // This recreates the race: timer fires → discover() starts (async) →
+      // manual connect() advances connectGeneration and opens a healthy socket →
+      // discover() resolves → the stale .then() callback calls _openSocket()
+      // without re-checking generation, clobbering the healthy socket.
+      let resolveDiscover!: (value: { wsUrl: string; accessToken: string }) => void;
+      const discoverPromise = new Promise<{ wsUrl: string; accessToken: string }>((resolve) => {
+        resolveDiscover = resolve;
+      });
+      const discoverFn = vi.fn().mockReturnValue(discoverPromise);
+
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'test-token',
+        discover: discoverFn,
+        maxReconnectAttempts: 5
+      });
+
+      // Step 1: Open initial connection.
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+      expect(mock.instances).toHaveLength(1);
+
+      // Step 2: Connection drops — scheduleReconnect captures the current
+      // generation and arms a backoff timer.
+      mock.instances[0]!.simulateClose();
+      expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
+
+      // Step 3: Fire the timeout callback. The generation check at timer-fire
+      // passes (generation has not advanced yet), so discover() is called —
+      // but the returned promise does not resolve yet.
+      getLastTimeoutCallback(setTimeoutSpy)();
+      expect(discoverFn).toHaveBeenCalledOnce();
+
+      // Step 4: While discover is in-flight, a manual connect() advances
+      // connectGeneration and opens a healthy socket via _openSocket(), which
+      // also sets shouldReconnect = true.
+      const manualConnect = subscriber.connect();
+      mock.instances[1]!.simulateOpen();
+      await manualConnect;
+      expect(mock.instances).toHaveLength(2);
+
+      // Step 5: Resolve the deferred discover promise. The stale .then()
+      // callback at line 372 only checks shouldReconnect (still true) and
+      // proceeds to call _openSocket(), which closes the healthy socket
+      // from step 4 and creates a replacement — even though the generation
+      // counter has advanced.
+      resolveDiscover({ wsUrl: 'ws://localhost:3000/events', accessToken: 'test-token' });
+
+      // Flush microtasks so the .then() callback and its synchronous
+      // _openSocket side effects (WebSocket construction) complete.
+      await new Promise((r) => setTimeout(r, 0));
+
+      // The stale reconnect must not have created an additional WebSocket.
+      // With the bug, mock.instances.length === 3 because _openSocket creates
+      // a new WebSocket synchronously before returning its promise.
+      expect(mock.instances).toHaveLength(2);
+
+      subscriber.disconnect();
+    });
   });
 
   describe('Connection Change Callbacks', () => {
