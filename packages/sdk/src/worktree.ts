@@ -906,7 +906,11 @@ exit 0
     return `${prologue}
 # Cards pre-commit runs first — capture rc before any test consumes $? (fail-closed)
 if [ -f "$CARDS_HOOK" ]; then
-${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+${RESOLVE_NODE}  if [ -z "$NODE_RUN" ]; then
+    echo "cards-hook: no Node.js interpreter available for pre-commit validation" >&2
+    exit 1
+  fi
+  if [ -n "$NODE_RUN" ]; then
     "$NODE_RUN" "$CARDS_HOOK"
     rc=$?
     if [ "$rc" -ne 0 ]; then exit "$rc"; fi
