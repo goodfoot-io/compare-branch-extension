@@ -399,4 +399,40 @@ describe('generated dispatcher scripts', () => {
     expect(log).toContain('cards:post-commit:');
     await expect(fs.access(origMarker)).resolves.toBeUndefined();
   });
+
+  it('pre-commit fails with an error when no Node interpreter is resolvable', async () => {
+    // HOME is already a temp dir, so ~/.cards/VSCODE_NODE does not exist.
+    // Remove node from PATH so that `command -v node` also fails, which
+    // causes RESOLVE_NODE to set NODE_RUN="". The dispatcher must detect
+    // the missing interpreter and block the commit instead of silently
+    // skipping the Cards hook and exiting 0.
+    const savedPath = process.env['PATH']!;
+
+    // Build a minimal PATH with bash, cat, git, and dirname — the only
+    // commands the pre-commit dispatcher prologue and RESOLVE_NODE need —
+    // but deliberately excluding node.
+    const noNodeBin = path.join(tmpBase, 'no-node-bin');
+    await fs.mkdir(noNodeBin, { recursive: true });
+    for (const cmd of ['bash', 'cat', 'git', 'dirname']) {
+      const realPath = execFileSync('bash', ['-c', `command -v ${cmd}`], {
+        encoding: 'utf8'
+      }).trim();
+      if (realPath) {
+        await fs.symlink(realPath, path.join(noNodeBin, cmd));
+      }
+    }
+    process.env['PATH'] = noNodeBin;
+
+    try {
+      const res = runDispatcher('pre-commit', [], '');
+      // The current (unfixed) code exits 0 because [ -n "$NODE_RUN" ] is
+      // false when NODE_RUN is empty, silently skipping the Cards hook.
+      // After the fix the dispatcher must exit non-zero and write an
+      // error about the missing Node interpreter to stderr.
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toMatch(/node/i);
+    } finally {
+      process.env['PATH'] = savedPath;
+    }
+  });
 });
