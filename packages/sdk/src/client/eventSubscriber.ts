@@ -276,17 +276,7 @@ export class EventSubscriber {
         // (e.g., by a concurrent connect() call). Only the current socket's
         // close event should trigger state changes and reconnection.
         if (ws !== this.ws) return;
-
-        this.connected = false;
-        this._stopHeartbeat();
-        if (this.hasConnected) {
-          for (const cb of this.connectionChangeCallbacks) {
-            cb(false);
-          }
-        }
-        if (this.shouldReconnect) {
-          this.scheduleReconnect();
-        }
+        this._teardownConnection();
       });
       ws.addEventListener('message', (event: MessageEvent) => {
         // Ignore messages from a stale socket that has already been replaced.
@@ -369,7 +359,7 @@ export class EventSubscriber {
       this.options
         .discover()
         .then((result: DiscoverResult) => {
-          if (!this.shouldReconnect) {
+          if (!this.shouldReconnect || this.connectGeneration !== generation) {
             return;
           }
           if ('error' in result) {
@@ -389,7 +379,7 @@ export class EventSubscriber {
           });
         })
         .catch((err: unknown) => {
-          if (!this.shouldReconnect) {
+          if (!this.shouldReconnect || this.connectGeneration !== generation) {
             return;
           }
           this.logger.warn(
@@ -425,6 +415,28 @@ export class EventSubscriber {
    * @param event - Browser WebSocket message event containing the serialized payload.
    */
   /**
+   * Shared disconnect-state transition: marks the connection as down, stops
+   * the heartbeat, fires connection-change callbacks, and arms the reconnect
+   * scheduler when appropriate.
+   *
+   * Callers are responsible for cleaning up the socket (close / nullify)
+   * before or alongside this call — this method only handles the state and
+   * notification side of a disconnect.
+   */
+  private _teardownConnection(): void {
+    this.connected = false;
+    this._stopHeartbeat();
+    if (this.hasConnected) {
+      for (const cb of this.connectionChangeCallbacks) {
+        cb(false);
+      }
+    }
+    if (this.shouldReconnect) {
+      this.scheduleReconnect();
+    }
+  }
+
+  /**
    * Starts the app-level heartbeat. Sends `{ type: 'ping' }` every
    * {@link HEARTBEAT_INTERVAL_MS} and tracks missed pongs; closes the socket
    * after {@link MISSED_PONG_LIMIT} consecutive misses to trigger reconnection.
@@ -449,16 +461,7 @@ export class EventSubscriber {
           this.ws.close();
           this.ws = null;
         }
-        this.connected = false;
-        this._stopHeartbeat();
-        if (this.hasConnected) {
-          for (const cb of this.connectionChangeCallbacks) {
-            cb(false);
-          }
-        }
-        if (this.shouldReconnect) {
-          this.scheduleReconnect();
-        }
+        this._teardownConnection();
         return;
       }
       try {
