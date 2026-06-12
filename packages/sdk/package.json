@@ -40,7 +40,8 @@
     "./cards-parent-branch": "./src/cardsParentBranch.ts",
     "./unbound-worktree-candidates": "./src/unboundWorktreeCandidates.ts",
     "./adhoc-attribution": "./src/adhocAttribution.ts",
-    "./context": "./src/context.ts"
+    "./context": "./src/context.ts",
+    "./git-hooks": "./src/git-hooks.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",

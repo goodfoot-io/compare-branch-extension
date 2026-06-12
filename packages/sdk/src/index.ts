@@ -90,6 +90,14 @@ export {
 export { executeCommand } from './config/runtime.js';
 // --- Type Utilities ---
 export type { SameShape } from './config/type-utils.js';
+// --- Git Hooks ---
+export {
+  atomicWriteHookFile,
+  compiledHookScriptPaths,
+  type HookFileFs,
+  type HookName,
+  RESOLVE_NODE_BASH
+} from './git-hooks.js';
 // --- Process Tree ---
 export { findAgentPid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 // --- Scaffold Dir ---

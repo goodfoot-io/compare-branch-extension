@@ -13,12 +13,13 @@
  */
 
 import { execFile } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
+import { atomicWriteHookFile, RESOLVE_NODE_BASH } from './git-hooks.js';
 import { applyWorktreeInclude } from './worktreeInclude.js';
 import { createWorktreePerf } from './worktreePerf.js';
 
@@ -1114,29 +1115,6 @@ fi
 }
 
 /**
- * Resolves the Node interpreter into `$NODE_RUN`. Prefers the extension's
- * bundled interpreter (`~/.cards/VSCODE_NODE`), falls back to `node` on PATH.
- *
- * Exports `ELECTRON_RUN_AS_NODE=1` so a desktop VS Code's Electron binary runs
- * as a headless Node interpreter rather than launching a GUI window. These
- * dispatchers are git hooks spawned by `git`, which does NOT inherit the var
- * from the extension host — without it every commit pops a focus-stealing
- * Electron window (invisible under Xvfb on Linux, very visible on macOS host).
- * The var is a no-op for a real `node` on PATH, so it is safe to set in both
- * branches.
- */
-const RESOLVE_NODE = `export ELECTRON_RUN_AS_NODE=1
-NODE_BIN=$(cat "$HOME/.cards/VSCODE_NODE" 2>/dev/null)
-if [ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ]; then
-  NODE_RUN="$NODE_BIN"
-elif command -v node >/dev/null 2>&1; then
-  NODE_RUN="node"
-else
-  NODE_RUN=""
-fi
-`;
-
-/**
  * Builds the dispatcher script for a single hook type.
  *
  * Per-category templates (D2/D3/D5/D11/`<fail-closed>`):
@@ -1163,7 +1141,9 @@ function buildDispatcherScript(hookType: string, hasCardsHook: boolean): string 
     return `${prologue}
 # Cards post-commit: non-blocking, runs first
 if [ -f "$CARDS_HOOK" ]; then
-${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+${RESOLVE_NODE_BASH}
+NODE_RUN="$NODE_BIN"
+  if [ -n "$NODE_RUN" ]; then
     "$NODE_RUN" "$CARDS_HOOK"
   fi
 fi
@@ -1180,7 +1160,9 @@ exit 0
     return `${prologue}
 # Cards pre-commit runs first — capture rc before any test consumes $? (fail-closed)
 if [ -f "$CARDS_HOOK" ]; then
-${RESOLVE_NODE}  if [ -z "$NODE_RUN" ]; then
+${RESOLVE_NODE_BASH}
+NODE_RUN="$NODE_BIN"
+  if [ -z "$NODE_RUN" ]; then
     echo "cards-hook: no Node.js interpreter available for pre-commit validation" >&2
     exit 1
   fi
@@ -1206,7 +1188,9 @@ STDIN_TMPFILE=$(mktemp)
 cat > "$STDIN_TMPFILE"
 
 if [ -f "$CARDS_HOOK" ]; then
-${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+${RESOLVE_NODE_BASH}
+NODE_RUN="$NODE_BIN"
+  if [ -n "$NODE_RUN" ]; then
     "$NODE_RUN" "$CARDS_HOOK" "$@" < "$STDIN_TMPFILE"
   fi
 fi
@@ -1225,7 +1209,9 @@ exit 0
     // File-arg hooks: git passes a file path as $1, no stdin involved.
     const cardsBlock = hasCardsHook
       ? `if [ -f "$CARDS_HOOK" ]; then
-${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+${RESOLVE_NODE_BASH}
+NODE_RUN="$NODE_BIN"
+  if [ -n "$NODE_RUN" ]; then
     "$NODE_RUN" "$CARDS_HOOK" "$@"
   fi
 fi
@@ -1273,55 +1259,18 @@ export async function provisionSharedHooksDir(
 ): Promise<void> {
   await fs.mkdir(sharedHooksDir, { recursive: true });
 
-  // Content-addressed skip: the provisioned files are a pure function of the
-  // dispatcher template (versioned by DISPATCHER_SCHEMA_VERSION) and the compiled
-  // `.mjs` inputs. Key on the version plus each source's size+mtime (a stat, no
-  // read) and record it in a marker written last. A matching marker means the dir
-  // already holds byte-identical output, so the ~20 writes are skipped. This needs
-  // no invalidation: a rebuilt `.mjs` changes its stat → a different key → a
-  // natural miss; a stale key is simply never matched, never expired. Fail-closed:
-  // the marker is written only after every file lands, so a crash mid-provision
-  // leaves no marker and the next call re-provisions.
-  const markerPath = path.join(sharedHooksDir, MARKER_NAME);
-  const provisionKey = await computeHooksProvisionKey(compiledScriptPaths);
-  try {
-    const existing = await fs.readFile(markerPath, 'utf-8');
-    if (existing === provisionKey) {
-      return;
-    }
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
-  }
-
-  const atomicWrite = async (destName: string, content: string, mode: number): Promise<void> => {
-    const destPath = path.join(sharedHooksDir, destName);
-    const tmpPath = path.join(sharedHooksDir, `.${destName}.${process.pid}.${randomUUID()}.tmp`);
-    try {
-      await fs.writeFile(tmpPath, content, { mode });
-      // `writeFile` honors `mode` only when it creates the file; enforce it
-      // explicitly so a pre-existing umask cannot leave the script non-exec.
-      await fs.chmod(tmpPath, mode);
-      await fs.rename(tmpPath, destPath);
-    } catch (error: unknown) {
-      await fs.rm(tmpPath, { force: true });
-      throw error;
-    }
-  };
-
   await Promise.all(
     CLIENT_SIDE_HOOK_TYPES.map(async (hookType) => {
       const hasCardsHook = compiledScriptPaths[hookType] !== undefined;
       const script = buildDispatcherScript(hookType, hasCardsHook);
-      await atomicWrite(hookType, script, 0o755);
+      await atomicWriteHookFile(fs, sharedHooksDir, hookType, script, 0o755);
     })
   );
 
   await Promise.all(
     Object.entries(compiledScriptPaths).map(async ([hookType, sourcePath]) => {
       const content = await fs.readFile(sourcePath, 'utf-8');
-      await atomicWrite(`${hookType}.mjs`, content, 0o644);
+      await atomicWriteHookFile(fs, sharedHooksDir, `${hookType}.mjs`, content, 0o644);
     })
   );
 
