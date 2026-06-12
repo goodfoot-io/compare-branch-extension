@@ -152,23 +152,30 @@ export async function acquireLock(
 
   if (Number.isFinite(ownerPid) && isProcessAlive(ownerPid)) {
     // Already tracked by this live session. Re-entering the same worktree is a
-    // clean no-op; moving to a different worktree keeps the original binding.
+    // clean no-op; moving to a different worktree keeps the original WATCHER
+    // binding (the caller still spawns a per-card adhoc-cleanup so the second
+    // card's status activation happens).
     //
-    // KNOWN LIMITATION (intentional): a single ad-hoc session attributes only
-    // the FIRST card-worktree it enters. The transcript-watcher's watcherId is
-    // the session id, and the WatcherRegistry takeover invariant permits only
-    // one live watcher per session — re-targeting a second card would tear down
-    // the first watcher (churn + a transcript-sync gap), which the card's "reuse
-    // the transcript-watcher as-is" constraint forbids. Consequence: work done
+    // KNOWN LIMITATION (intentional): a single ad-hoc session's TRANSCRIPT is
+    // attributed only to the FIRST card-worktree it enters. The
+    // transcript-watcher's watcherId is the session id, and the
+    // WatcherRegistry takeover invariant permits only one live watcher per
+    // session — re-targeting a second card would tear down the first watcher
+    // (churn + a transcript-sync gap), which the card's "reuse the
+    // transcript-watcher as-is" constraint forbids. Consequence: work done
     // after entering a second card's worktree within the same session streams
-    // its transcript into the FIRST card. The warning below surfaces this so a
+    // its transcript into the FIRST card (the second card is still activated
+    // via its own adhoc-cleanup). The warning below surfaces this so a
     // contributor switching worktrees mid-session is not surprised by it.
     if (boundCardId && boundCardId !== cardId) {
-      logger.warn('enter-worktree: session already bound to a different card — keeping original binding', {
-        boundCardId,
-        attemptedCardId: cardId,
-        ownerPid
-      });
+      logger.warn(
+        'enter-worktree: session transcript already bound to a different card — keeping original watcher binding',
+        {
+          boundCardId,
+          attemptedCardId: cardId,
+          ownerPid
+        }
+      );
     }
     return false;
   }

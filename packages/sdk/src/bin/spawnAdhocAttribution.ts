@@ -76,16 +76,23 @@ export type SpawnAdhocAttributionOutcome =
  *    in a terminal or review-exit state.
  *
  * 2. **De-dupe lock** — acquires an O_EXCL lock at `lockPath` recording
- *    `agentPid` (the agent PID, never the node process PID). If the lock is
- *    already held by a live process, returns without spawning (the session is
- *    already tracked). On a stale lock from a crashed hook, the lock is
- *    unlinked and re-acquired.
+ *    `agentPid` (the agent PID, never the node process PID). The lock guards
+ *    ONLY the session-scoped transcript-watcher spawn (one live watcher per
+ *    session). If the lock is already held by a live process, the watcher
+ *    spawn is skipped but the per-card adhoc-cleanup spawn still happens. On a
+ *    stale lock from a crashed hook, the lock is unlinked and re-acquired.
  *
- * 3. **Spawn transcript-watcher** (non-fatal) — spawns the detached
- *    `transcript-watcher` bin. Spawn failure is logged and does not propagate.
+ * 3. **Spawn transcript-watcher** (non-fatal, lock-gated) — spawns the
+ *    detached `transcript-watcher` bin only when this bind acquired the
+ *    session lock. Spawn failure is logged and does not propagate.
  *
- * 4. **Spawn adhoc-cleanup** (non-fatal) — spawns the detached `adhoc-cleanup`
- *    bin. Spawn failure is logged and does not propagate.
+ * 4. **Spawn adhoc-cleanup** (non-fatal, per-card) — spawns the detached
+ *    `adhoc-cleanup` bin for every bound card, so each card's status
+ *    activation and ref registration happens even when the session lock is
+ *    held by an earlier bind. The lock path is forwarded only when this bind
+ *    owns the lock; non-owner cleanups receive an empty lock path so they
+ *    never release a lock another card's cleanup owns. Spawn failure is
+ *    logged and does not propagate.
  *
  * @param params - All parameters needed for the spawn path.
  * @param logger - Structured logger for warn and error output.
@@ -113,24 +120,32 @@ export async function spawnAdhocAttribution(
   // 2. O_EXCL de-dupe lock. Records the AGENT PID (passed in by the caller),
   //    never the node process PID. Returns false if the session is already
   //    tracked; a stale lock from a crashed hook is unlinked and retried once.
+  //    The lock gates only the session-scoped transcript-watcher below — the
+  //    per-card adhoc-cleanup spawn must happen regardless, otherwise a second
+  //    card bound in the same session is never activated.
   const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
-  if (!acquired) return { activated: false, reason: 'lock-held' };
 
-  // 3. Spawn transcript-watcher (non-fatal). Attach mode runs with the `cards`
-  //    plugin enabled so its bin — and the `transcript-watcher` wrapper — is on
-  //    PATH; the platform-correct bare name (`.cmd` on win32) resolves there.
-  spawnTranscriptWatcher(
-    transcriptWatcherWrapperName(),
-    agentPid,
-    sessionId,
-    transcriptPath,
-    cardId,
-    cardRepoPath,
-    logger
-  );
+  if (acquired) {
+    // 3. Spawn transcript-watcher (non-fatal, one per session). Attach mode
+    //    runs with the `cards` plugin enabled so its bin — and the
+    //    `transcript-watcher` wrapper — is on PATH; the platform-correct bare
+    //    name (`.cmd` on win32) resolves there.
+    spawnTranscriptWatcher(
+      transcriptWatcherWrapperName(),
+      agentPid,
+      sessionId,
+      transcriptPath,
+      cardId,
+      cardRepoPath,
+      logger
+    );
+  }
 
-  // 4. Spawn adhoc-cleanup (non-fatal).
-  spawnAdhocCleanup(agentPid, sessionId, cardId, cardRepoPath, lockPath, logger);
+  // 4. Spawn adhoc-cleanup (non-fatal, one per bound card). Only the
+  //    lock-owning bind forwards the lock path; non-owners pass an empty path
+  //    so their teardown never unlinks a lock owned by an earlier card's
+  //    cleanup (which would break the watcher de-dupe invariant).
+  spawnAdhocCleanup(agentPid, sessionId, cardId, cardRepoPath, acquired ? lockPath : '', logger);
 
   return { activated: true };
 }

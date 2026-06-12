@@ -62,7 +62,9 @@ export interface AdhocCleanupLogger {
  * @param sessionId - Session identifier (UUID) for this ad-hoc session.
  * @param cardId - Card identifier for the status target.
  * @param cardRepoPath - Path to the card repository.
- * @param lockPath - Path to the de-dupe lock file removed on cleanup exit.
+ * @param lockPath - Path to the de-dupe lock file removed on cleanup exit, or
+ *   the empty string when this bind does not own the session lock (the
+ *   cleanup then skips lock release and session-scoped state clearing).
  * @param logger - Logger for structured error output when the process cannot be launched.
  */
 export function spawnAdhocCleanup(
