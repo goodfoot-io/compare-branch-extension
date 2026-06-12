@@ -206,10 +206,10 @@ describe('bindCard activation outcome (fail-closed)', () => {
       process.env['CARDS_SESSION_ID'] = 'sess-skipped-activation';
       process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/transcript.jsonl';
 
-      // Activation was silently skipped: the session de-dupe lock is held by
-      // another card, so the worktree got its branch registered but the card
-      // was never activated and attribution never attached.
-      outfitWorktreeForCard.mockResolvedValue({ activated: false, reason: 'lock-held' });
+      // Activation was silently skipped: the card is not in an activatable
+      // state, so the worktree got its branch registered but the card was
+      // never activated and attribution never attached.
+      outfitWorktreeForCard.mockResolvedValue({ activated: false, reason: 'not-activatable' });
 
       // Fail-closed contract: bind must NOT complete as a plain success.
       // Primary expectation: a non-zero exit so scripted callers can detect

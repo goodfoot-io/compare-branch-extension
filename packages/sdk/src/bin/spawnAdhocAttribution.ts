@@ -52,18 +52,19 @@ export interface SpawnAdhocAttributionParams {
 /**
  * Structured result of {@link spawnAdhocAttribution}.
  *
- * `activated: true` means both guards passed and the detached watcher/cleanup
- * spawns were attempted. `activated: false` means activation was skipped, with
- * `reason` identifying which guard short-circuited:
+ * `activated: true` means the per-card adhoc-cleanup spawn was attempted — the
+ * card's activation and ref registration are underway regardless of whether
+ * this bind also owns the session's transcript-watcher. `activated: false`
+ * means activation was skipped, with `reason` identifying the guard:
  *
  * - `'not-activatable'` — the card's status is not in the activatable set (or
  *   `CARD.meta.json` is missing).
- * - `'lock-held'` — the per-session O_EXCL de-dupe lock is already held by a
- *   live process, so this session is already tracked.
+ *
+ * A held session de-dupe lock is deliberately NOT a skip: the lock gates only
+ * the transcript-watcher spawn, so a second card bound in the same session
+ * still activates.
  */
-export type SpawnAdhocAttributionOutcome =
-  | { activated: true }
-  | { activated: false; reason: 'not-activatable' | 'lock-held' };
+export type SpawnAdhocAttributionOutcome = { activated: true } | { activated: false; reason: 'not-activatable' };
 
 /**
  * Runs the full attribution-spawn path: activatable-status guard, de-dupe lock

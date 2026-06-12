@@ -1,11 +1,10 @@
 /**
  * Reproduction tests for the spawnAdhocAttribution outcome contract.
  *
- * Hypothesis: spawnAdhocAttribution() resolves `undefined` on ALL paths, so
- * callers (e.g. `card <id> bind`) cannot distinguish a successful activation
- * from a silently skipped one (lock already held, card not activatable). These
- * tests assert the expected structured outcome and MUST FAIL against current
- * code.
+ * Callers (e.g. `card <id> bind`) must be able to distinguish a successful
+ * activation from a skipped one. A non-activatable card status is the only
+ * skip; a held session de-dupe lock de-dupes only the transcript-watcher and
+ * still activates the card.
  *
  * @summary Outcome-contract reproduction tests for spawnAdhocAttribution
  */
@@ -67,7 +66,7 @@ describe('spawnAdhocAttribution outcome contract', () => {
     vi.resetAllMocks();
   });
 
-  it('resolves { activated: false, reason: "lock-held" } when the de-dupe lock is not acquired', async () => {
+  it('resolves { activated: true } when the de-dupe lock is not acquired — the lock gates only the watcher', async () => {
     vi.mocked(readCardStatus).mockResolvedValue('active');
     vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
     vi.mocked(acquireLock).mockResolvedValue(false);
@@ -75,7 +74,10 @@ describe('spawnAdhocAttribution outcome contract', () => {
     const outcome = await spawnAdhocAttribution(makeParams(), makeLogger());
 
     expect(outcome).toBeDefined();
-    expect(outcome).toMatchObject({ activated: false, reason: 'lock-held' });
+    expect(outcome).toMatchObject({ activated: true });
+    // The per-card cleanup still spawns for the second card in the session;
+    // only the session-scoped transcript-watcher is de-duped.
+    expect(spawnTranscriptWatcher).not.toHaveBeenCalled();
   });
 
   it('resolves { activated: false, reason: "not-activatable" } when the card status guard rejects', async () => {

@@ -123,7 +123,7 @@ export interface OutfitWorktreeForCardOptions {
  * report a skipped activation. `attribution: 'skipped'` means session
  * activation did not happen, with `reason` naming why (preflight skip such as
  * `'no-transcript'`, `'card-repo-path-unresolved'`, `'agent-pid-unresolved'`,
- * or a guard skip propagated from the spawn helper: `'lock-held'`,
+ * or a guard skip propagated from the spawn helper:
  * `'not-activatable'`). `activated: false` is set when the spawn helper itself
  * reported the skip. The branch registration and disk phases have already
  * succeeded by the time this outcome is produced — a skip means "branch
