@@ -28,6 +28,7 @@ import {
   createWorktree,
   type EarlyWorktreeResult,
   findGitRoots,
+  gitConfigWithRetry,
   provisionSharedHooksDir,
   removeWorktree,
   resolveHomeDir,
@@ -226,14 +227,12 @@ export async function outfitWorktreeForCard(
   await provisionSharedHooksDir(sharedHooksDir, compiledScriptPaths);
 
   // 4. Enable per-worktree config — MUST precede the --worktree write (D9).
-  await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], {
-    timeout: 5_000
-  });
+  //    Retried on config-lock contention: createWorktree's settle phase writes
+  //    the same key concurrently when outfit runs on the early (pre-settle) path.
+  await gitConfigWithRetry(['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true']);
 
   // 5. Point this worktree at the shared dispatcher dir (D9: after step 4).
-  await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', sharedHooksDir], {
-    timeout: 5_000
-  });
+  await gitConfigWithRetry(['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', sharedHooksDir]);
 
   // 6. Hide the binding markers from git status so they are never staged.
   await appendWorktreeGitExcludes(worktreeDir, ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH']);

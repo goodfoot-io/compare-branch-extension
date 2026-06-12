@@ -37,6 +37,37 @@ export class WorktreeScopeError extends Error {
 const execFileAsync = promisify(execFile);
 
 /**
+ * Runs `git config <args>` and retries on `.git/config` lock contention.
+ *
+ * Git takes an exclusive `config.lock` for every config write and fails
+ * immediately — `error: could not lock config file ...: File exists` — when
+ * another process holds it. Two writers race on the same repo config by
+ * design here: {@link createWorktree}'s `settle` phase (via
+ * `updateGitExclude`) and `outfitWorktreeForCard` both set
+ * `extensions.worktreeConfig` on the repo root, and outfit deliberately runs
+ * before `settle` resolves (the A2 early path). The write is idempotent, so
+ * the loser of the lock race only needs to retry, not fail.
+ *
+ * @param args - Full git argument list (e.g. `['-C', repo, 'config', key, value]`).
+ * @param attempts - Maximum tries before the lock error propagates.
+ */
+export async function gitConfigWithRetry(args: string[], attempts = 5): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await execFileAsync('git', args, { timeout: 5_000 });
+      return;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt < attempts && message.includes('could not lock config file')) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * attempt));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+/**
  * Thrown when a symlink cannot be created because the OS denies the privilege.
  *
  * On Windows, `fs.symlink` fails with `EPERM` (or `EINVAL`) when the session
@@ -1411,7 +1442,7 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
   await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
 
   try {
-    await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], { timeout: 5_000 });
+    await gitConfigWithRetry(['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true']);
   } catch (error: unknown) {
     process.stderr.write(
       `create-worktree: failed to set worktreeConfig extension: ${error instanceof Error ? error.message : String(error)}\n`
@@ -1419,9 +1450,7 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
   }
 
   try {
-    await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.excludesFile', excludePath], {
-      timeout: 5_000
-    });
+    await gitConfigWithRetry(['-C', worktreeDir, 'config', '--worktree', 'core.excludesFile', excludePath]);
   } catch (error: unknown) {
     process.stderr.write(
       `create-worktree: failed to set core.excludesFile: ${error instanceof Error ? error.message : String(error)}\n`
