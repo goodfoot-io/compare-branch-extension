@@ -1060,6 +1060,12 @@ export async function executeAction(
  * transcript, and parent branch, then outputs card-repo-log and workspace-repo-log
  * context blocks to stdout so the calling agent receives current card context.
  *
+ * Fail-closed on skipped activation: if the outfit's attribution outcome
+ * reports that session activation was skipped (lock held, card not
+ * activatable, or a preflight failure), bind prints a "branch registered but
+ * card not activated" diagnostic to stderr and exits non-zero instead of
+ * printing the success payload.
+ *
  * @param cardId - The card identifier to bind to the current worktree.
  * @param parentBranchFlag - Optional `--parent-branch` flag value.
  */
@@ -1135,13 +1141,23 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     'post-rewrite': join(gitHooksDir, 'post-rewrite.mjs')
   };
 
-  await outfitWorktreeForCard(client, worktreeDir, {
+  const outcome = await outfitWorktreeForCard(client, worktreeDir, {
     cardId,
     parentBranch: parent.parentBranch,
     sessionId,
     transcriptPath,
     compiledScriptPaths
   });
+
+  // Fail closed: at this point the branch is registered, but if session
+  // activation was skipped (de-dupe lock held by another card, card not in an
+  // activatable status, or an attribution preflight failed) the bind must not
+  // masquerade as a plain success — surface the partial state on stderr and
+  // exit non-zero so scripted callers can detect it.
+  if (outcome && (outcome.activated === false || outcome.attribution === 'skipped')) {
+    console.error(`card bind: branch registered but card not activated (${outcome.reason ?? 'unknown reason'}).`);
+    process.exit(1);
+  }
 
   // Drop the candidate record so a later `card create` in the same session
   // does not re-offer this worktree.

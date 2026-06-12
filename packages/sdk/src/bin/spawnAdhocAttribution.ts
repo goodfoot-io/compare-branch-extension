@@ -50,6 +50,22 @@ export interface SpawnAdhocAttributionParams {
 }
 
 /**
+ * Structured result of {@link spawnAdhocAttribution}.
+ *
+ * `activated: true` means both guards passed and the detached watcher/cleanup
+ * spawns were attempted. `activated: false` means activation was skipped, with
+ * `reason` identifying which guard short-circuited:
+ *
+ * - `'not-activatable'` — the card's status is not in the activatable set (or
+ *   `CARD.meta.json` is missing).
+ * - `'lock-held'` — the per-session O_EXCL de-dupe lock is already held by a
+ *   live process, so this session is already tracked.
+ */
+export type SpawnAdhocAttributionOutcome =
+  | { activated: true }
+  | { activated: false; reason: 'not-activatable' | 'lock-held' };
+
+/**
  * Runs the full attribution-spawn path: activatable-status guard, de-dupe lock
  * acquisition, transcript-watcher spawn, and adhoc-cleanup spawn.
  *
@@ -73,11 +89,15 @@ export interface SpawnAdhocAttributionParams {
  *
  * @param params - All parameters needed for the spawn path.
  * @param logger - Structured logger for warn and error output.
+ * @returns Structured outcome: `{ activated: true }` when the spawns were
+ *   attempted, or `{ activated: false, reason }` when a guard skipped
+ *   activation — so callers (e.g. `card <id> bind`) can fail closed instead of
+ *   reporting success on a silently skipped activation.
  */
 export async function spawnAdhocAttribution(
   params: SpawnAdhocAttributionParams,
   logger: SpawnAdhocAttributionLogger
-): Promise<void> {
+): Promise<SpawnAdhocAttributionOutcome> {
   const { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath } = params;
 
   // 1. Activatable-status guard — fail closed on null status (missing meta).
@@ -87,14 +107,14 @@ export async function spawnAdhocAttribution(
       cardId,
       status: currentStatus
     });
-    return;
+    return { activated: false, reason: 'not-activatable' };
   }
 
   // 2. O_EXCL de-dupe lock. Records the AGENT PID (passed in by the caller),
   //    never the node process PID. Returns false if the session is already
   //    tracked; a stale lock from a crashed hook is unlinked and retried once.
   const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
-  if (!acquired) return;
+  if (!acquired) return { activated: false, reason: 'lock-held' };
 
   // 3. Spawn transcript-watcher (non-fatal). Attach mode runs with the `cards`
   //    plugin enabled so its bin — and the `transcript-watcher` wrapper — is on
@@ -111,4 +131,6 @@ export async function spawnAdhocAttribution(
 
   // 4. Spawn adhoc-cleanup (non-fatal).
   spawnAdhocCleanup(agentPid, sessionId, cardId, cardRepoPath, lockPath, logger);
+
+  return { activated: true };
 }

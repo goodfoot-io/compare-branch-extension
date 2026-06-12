@@ -116,6 +116,28 @@ export interface OutfitWorktreeForCardOptions {
 }
 
 /**
+ * Attribution outcome resolved by {@link outfitWorktreeForCard}.
+ *
+ * `attribution: 'spawned'` means {@link spawnAdhocAttribution} ran and did not
+ * report a skipped activation. `attribution: 'skipped'` means session
+ * activation did not happen, with `reason` naming why (preflight skip such as
+ * `'no-transcript'`, `'card-repo-path-unresolved'`, `'agent-pid-unresolved'`,
+ * or a guard skip propagated from the spawn helper: `'lock-held'`,
+ * `'not-activatable'`). `activated: false` is set when the spawn helper itself
+ * reported the skip. The branch registration and disk phases have already
+ * succeeded by the time this outcome is produced — a skip means "branch
+ * registered but card not activated".
+ */
+export interface OutfitAttributionOutcome {
+  /** Whether transcript attribution was spawned or skipped. */
+  attribution: 'spawned' | 'skipped';
+  /** Set to false when {@link spawnAdhocAttribution} reported a skipped activation. */
+  activated?: boolean;
+  /** Why attribution was skipped; present only when `attribution` is `'skipped'`. */
+  reason?: string;
+}
+
+/**
  * Outfits an existing worktree as card-bound: installs the commit-attribution
  * hooks on disk, registers the branch with the Cards API, and (when a transcript
  * is supplied) spawns transcript attribution.
@@ -149,12 +171,15 @@ export interface OutfitWorktreeForCardOptions {
  * @param client - CardsClient used to register the branch record.
  * @param worktreeDir - Absolute path to the (already-created) worktree root.
  * @param options - Card id, parent branch, session, transcript, and compiled hook paths.
+ * @returns An {@link OutfitAttributionOutcome} describing whether attribution
+ *   was spawned or skipped (and why), so callers like `card <id> bind` can
+ *   fail closed when the branch was registered but the card was not activated.
  */
 export async function outfitWorktreeForCard(
   client: CardsClient,
   worktreeDir: string,
   options: OutfitWorktreeForCardOptions
-): Promise<void> {
+): Promise<OutfitAttributionOutcome> {
   const { cardId, parentBranch, sessionId, transcriptPath, compiledScriptPaths } = options;
 
   if (cardId.length === 0) {
@@ -240,35 +265,41 @@ export async function outfitWorktreeForCard(
   // orchestrator — so omitting the transcript leaves action-launch behavior
   // unchanged. Activation is NOT written here; it stays inside adhoc-cleanup so
   // an `active` card always has a live monitor + ref.
-  if (transcriptPath && transcriptPath.length > 0 && sessionId && sessionId.length > 0) {
-    const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
-    if (!cardRepoPath) {
-      stderrLogger.warn(
-        'outfitWorktreeForCard: bound worktree but could not resolve card repository path — attribution not spawned',
-        {
-          cardId
-        }
-      );
-      return;
-    }
-
-    const agentPid = findAgentPid();
-    if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
-      stderrLogger.warn(
-        'outfitWorktreeForCard: bound worktree but could not resolve a known agent PID — attribution not spawned',
-        {
-          cardId
-        }
-      );
-      return;
-    }
-
-    const attributionLockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
-    await spawnAdhocAttribution(
-      { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath: attributionLockPath },
-      stderrLogger
-    );
+  if (!transcriptPath || transcriptPath.length === 0 || !sessionId || sessionId.length === 0) {
+    return { attribution: 'skipped', reason: 'no-transcript' };
   }
+
+  const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
+  if (!cardRepoPath) {
+    stderrLogger.warn(
+      'outfitWorktreeForCard: bound worktree but could not resolve card repository path — attribution not spawned',
+      {
+        cardId
+      }
+    );
+    return { attribution: 'skipped', reason: 'card-repo-path-unresolved' };
+  }
+
+  const agentPid = findAgentPid();
+  if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
+    stderrLogger.warn(
+      'outfitWorktreeForCard: bound worktree but could not resolve a known agent PID — attribution not spawned',
+      {
+        cardId
+      }
+    );
+    return { attribution: 'skipped', reason: 'agent-pid-unresolved' };
+  }
+
+  const attributionLockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
+  const spawnOutcome = await spawnAdhocAttribution(
+    { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath: attributionLockPath },
+    stderrLogger
+  );
+  if (spawnOutcome && spawnOutcome.activated === false) {
+    return { attribution: 'skipped', activated: false, reason: spawnOutcome.reason };
+  }
+  return { attribution: 'spawned' };
 }
 
 /**
