@@ -81,7 +81,11 @@ function makeLinkedWorktree(base: string): string {
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: mainRepo });
   execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: mainRepo });
   execFileSync('git', ['worktree', 'add', '-q', '-b', 'feature/x', linked], { cwd: mainRepo });
-  return linked;
+  // Return the git-canonical toplevel — the exact string the hook records as the
+  // candidate (it resolves the worktree via `git rev-parse --show-toplevel`). On
+  // Windows that is forward-slashed and differs from `join`'s native separators,
+  // so deriving it the same way keeps the candidate-path assertions cross-platform.
+  return execFileSync('git', ['-C', linked, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 }
 
 describe('SubagentStart hook — bindable linked worktree', () => {

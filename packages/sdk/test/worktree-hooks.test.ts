@@ -446,8 +446,9 @@ describe('generated dispatcher scripts', () => {
     // but deliberately excluding node.
     const noNodeBin = path.join(tmpBase, 'no-node-bin');
     await fs.mkdir(noNodeBin, { recursive: true });
+    const bash = resolveBash();
     for (const cmd of ['bash', 'cat', 'git', 'dirname']) {
-      const realPath = execFileSync('bash', ['-c', `command -v ${cmd}`], {
+      const realPath = execFileSync(bash, ['-c', `command -v ${cmd}`], {
         encoding: 'utf8'
       }).trim();
       if (realPath) {

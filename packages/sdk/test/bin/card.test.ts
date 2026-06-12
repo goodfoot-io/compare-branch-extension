@@ -1469,7 +1469,14 @@ describe('card binary', () => {
       execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: mainRepo });
       const linkedRaw = join(base, 'linked');
       execFileSync('git', ['worktree', 'add', '-q', '-b', 'feature/bind', linkedRaw], { cwd: mainRepo });
-      linkedWorktree = realpathSync(linkedRaw);
+      // Use the git-canonical toplevel — the exact string resolveBindTarget
+      // records (it resolves the worktree via `git rev-parse --show-toplevel`).
+      // git resolves symlinks like realpath, and on Windows emits forward
+      // slashes (unlike `join`/`realpathSync`), so deriving it the same way
+      // keeps the bound-path assertions cross-platform.
+      linkedWorktree = execFileSync('git', ['-C', linkedRaw, 'rev-parse', '--show-toplevel'], {
+        encoding: 'utf8'
+      }).trim();
       if (withParentConfig) {
         execFileSync('git', ['config', 'branch.feature/bind.cardsParent', 'main'], { cwd: linkedWorktree });
       }
