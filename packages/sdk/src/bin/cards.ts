@@ -38,6 +38,7 @@ import { outfitWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
+import { compiledHookScriptPaths } from '../git-hooks.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -603,12 +604,7 @@ async function outfitCreatedWorktree(
   const { worktreeDir, parentBranch, transcriptPath, sessionId } = target;
   try {
     const extensionPath = await resolveExtensionPath();
-    const gitHooksDir = join(extensionPath, 'dist', 'git-hooks');
-    const compiledScriptPaths = {
-      'pre-commit': join(gitHooksDir, 'pre-commit.mjs'),
-      'post-commit': join(gitHooksDir, 'post-commit.mjs'),
-      'post-rewrite': join(gitHooksDir, 'post-rewrite.mjs')
-    };
+    const compiledScriptPaths = compiledHookScriptPaths(extensionPath);
 
     const outcome = await outfitWorktreeForCard(client, worktreeDir, {
       cardId,
@@ -1217,12 +1213,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   }
 
   const extensionPath = await resolveExtensionPath();
-  const gitHooksDir = join(extensionPath, 'dist', 'git-hooks');
-  const compiledScriptPaths = {
-    'pre-commit': join(gitHooksDir, 'pre-commit.mjs'),
-    'post-commit': join(gitHooksDir, 'post-commit.mjs'),
-    'post-rewrite': join(gitHooksDir, 'post-rewrite.mjs')
-  };
+  const compiledScriptPaths = compiledHookScriptPaths(extensionPath);
 
   const outcome = await outfitWorktreeForCard(client, worktreeDir, {
     cardId,

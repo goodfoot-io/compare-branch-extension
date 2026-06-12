@@ -18,6 +18,7 @@ import { type ActionContext, type ActionInput, CARDS_ENV_VARS, resolveWorktreeDi
 import { execFileNoWindowAsync } from '@cards/sdk/bin/child-process';
 import type { CardsClient } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
+import { compiledHookScriptPaths } from '@cards/sdk/git-hooks';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
 import { BRANCHES_DIR } from '@cards/sdk/protocol';
 
@@ -251,25 +252,6 @@ async function worktreeExistsOnDisk(worktreePath: string): Promise<boolean> {
  * @param sessionId - Claude Code session ID forwarded to the API so the card repo post-commit hook can attribute the commit.
  * @returns Worktree path, branch name, and parent branch name.
  */
-/**
- * Builds the `compiledScriptPaths` map for `createWorktree({ cardId })`.
- *
- * Points each Cards-active hook type at the compiled `.mjs` artifact bundled
- * with the extension (`<extensionPath>/dist/git-hooks/*.mjs`). Required when
- * `cardId` is set — without it `createWorktree` throws (D10a guard).
- *
- * @param extensionPath - Absolute path to the extension installation directory.
- * @returns Map of hook name to absolute compiled `.mjs` path.
- */
-function compiledHookScriptPaths(extensionPath: string): Record<string, string> {
-  const gitHooksDir = path.join(extensionPath, 'dist', 'git-hooks');
-  return {
-    'pre-commit': path.join(gitHooksDir, 'pre-commit.mjs'),
-    'post-commit': path.join(gitHooksDir, 'post-commit.mjs'),
-    'post-rewrite': path.join(gitHooksDir, 'post-rewrite.mjs')
-  };
-}
-
 /**
  * Finds or creates a worktree for the card.
  *
