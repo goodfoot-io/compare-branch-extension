@@ -76,8 +76,7 @@ const targets = [
     output: '../../claude/runtime/hooks/hooks.json',
     clean: ['hooks', 'bin', 'content'],
     loaders: TEXT_LOADERS,
-    logEnvVar: 'CLAUDE_CODE_RUNTIME_HOOKS_LOG_FILE',
-    mcpServer: true
+    logEnvVar: 'CLAUDE_CODE_RUNTIME_HOOKS_LOG_FILE'
   },
   {
     name: 'codex-assistant',
@@ -100,32 +99,6 @@ const targets = [
     logEnvVar: null
   }
 ];
-
-/**
- * Bundles cards-mcp-server into the Claude runtime plugin's bin directory.
- * Source-bundled by relative path — cards-mcp-server is not a workspace dep.
- * Flags are identical to the former runtime package's `build:mcp-server`.
- */
-function buildMcpServer() {
-  const esbuild = require.resolve('esbuild/bin/esbuild');
-  const result = spawnSync(
-    process.execPath,
-    [
-      esbuild,
-      '../cards-mcp-server/src/index.ts',
-      '--bundle',
-      '--platform=node',
-      '--format=esm',
-      '--tree-shaking=true',
-      '--outfile=../../claude/runtime/bin/cards-mcp-server.mjs',
-      '--external:node:*'
-    ],
-    { cwd: packageRoot, stdio: 'inherit' }
-  );
-  if (result.status !== 0) {
-    throw new Error(`mcp-server bundle failed with exit code ${result.status}`);
-  }
-}
 
 function buildTarget(target) {
   // Pre-clean each output subdirectory (rm → compile), matching the
@@ -150,10 +123,6 @@ function buildTarget(target) {
   });
   if (result.status !== 0) {
     throw new Error(`target ${target.name} failed with exit code ${result.status}`);
-  }
-
-  if (target.mcpServer) {
-    buildMcpServer();
   }
 }
 

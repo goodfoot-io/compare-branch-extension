@@ -22,8 +22,6 @@ export interface BuildTarget {
   loaders: string[];
   /** --log-env-var value, or null for targets that don't use it. */
   logEnvVar: string | null;
-  /** True only for the claude-runtime target (triggers MCP server bundle). */
-  mcpServer?: boolean;
 }
 
 /** The VSCODE_NODE executable wrapper stamped into every hooks.json command. */

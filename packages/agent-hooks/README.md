@@ -14,8 +14,6 @@ packages into one workspace package with a manifest-driven multi-target build.
 ## Build
 
 `yarn build` runs all five targets via `scripts/build.mjs`. Each target globs only
-its own handler directory; shared leaves are pulled in through normal imports. The
-Claude runtime target additionally bundles `cards-mcp-server` into
-`public/claude/runtime/bin/cards-mcp-server.mjs`.
+its own handler directory; shared leaves are pulled in through normal imports.
 
 Use `yarn test`, `yarn lint`, and `yarn typecheck` to validate the whole surface in one invocation.
