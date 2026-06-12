@@ -9,10 +9,16 @@ vi.mock('../src/process-tree.js', () => ({
   findAgentPid: vi.fn()
 }));
 
+vi.mock('../src/unboundWorktreeCandidates.js', () => ({
+  readUnboundCandidates: vi.fn()
+}));
+
 import { findAgentPid } from '../src/process-tree.js';
-import { resolveSessionId } from '../src/session-resolver.js';
+import { resolveSessionId, resolveTranscriptPath } from '../src/session-resolver.js';
+import { readUnboundCandidates } from '../src/unboundWorktreeCandidates.js';
 
 const mockFindAgentPid = vi.mocked(findAgentPid);
+const mockReadUnboundCandidates = vi.mocked(readUnboundCandidates);
 
 const ENV_VARS = [
   'CARDS_SESSION_ID',
@@ -127,6 +133,99 @@ describe('resolveSessionId', () => {
     it('returns null when all env vars absent and findAgentPid returns null', async () => {
       mockFindAgentPid.mockReturnValue(null);
       expect(await resolveSessionId()).toBeNull();
+    });
+  });
+});
+
+describe('resolveTranscriptPath', () => {
+  let savedTranscriptPath: string | undefined;
+
+  beforeEach(() => {
+    savedTranscriptPath = process.env['CARDS_TRANSCRIPT_PATH'];
+    delete process.env['CARDS_TRANSCRIPT_PATH'];
+    mockReadUnboundCandidates.mockReset();
+    mockReadUnboundCandidates.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    if (savedTranscriptPath === undefined) {
+      delete process.env['CARDS_TRANSCRIPT_PATH'];
+    } else {
+      process.env['CARDS_TRANSCRIPT_PATH'] = savedTranscriptPath;
+    }
+  });
+
+  describe('env var tier', () => {
+    it('returns CARDS_TRANSCRIPT_PATH when set', async () => {
+      process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/my-transcript.jsonl';
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('/tmp/my-transcript.jsonl');
+    });
+
+    it('trims whitespace from CARDS_TRANSCRIPT_PATH', async () => {
+      process.env['CARDS_TRANSCRIPT_PATH'] = '  /tmp/trimmed.jsonl  ';
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('/tmp/trimmed.jsonl');
+    });
+
+    it('falls through an empty CARDS_TRANSCRIPT_PATH to the candidate tier', async () => {
+      process.env['CARDS_TRANSCRIPT_PATH'] = '';
+      mockReadUnboundCandidates.mockResolvedValue([
+        { worktreeDir: '/wt/dir', sessionId: 'sess-1', transcriptPath: '/tmp/candidate.jsonl' }
+      ]);
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('/tmp/candidate.jsonl');
+    });
+
+    it('falls through a whitespace-only CARDS_TRANSCRIPT_PATH to the candidate tier', async () => {
+      process.env['CARDS_TRANSCRIPT_PATH'] = '   ';
+      mockReadUnboundCandidates.mockResolvedValue([
+        { worktreeDir: '/wt/dir', sessionId: 'sess-1', transcriptPath: '/tmp/candidate.jsonl' }
+      ]);
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('/tmp/candidate.jsonl');
+    });
+
+    it('does not read candidates when env var is set', async () => {
+      process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/env.jsonl';
+      await resolveTranscriptPath('sess-1', '/wt/dir');
+      expect(mockReadUnboundCandidates).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unbound-candidate tier', () => {
+    it('returns the transcriptPath from a matching candidate record', async () => {
+      mockReadUnboundCandidates.mockResolvedValue([
+        { worktreeDir: '/wt/dir', sessionId: 'sess-1', transcriptPath: '/tmp/cand.jsonl' }
+      ]);
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('/tmp/cand.jsonl');
+    });
+
+    it('passes sessionId to readUnboundCandidates', async () => {
+      await resolveTranscriptPath('my-session-id', '/wt/dir');
+      expect(mockReadUnboundCandidates).toHaveBeenCalledWith('my-session-id');
+    });
+
+    it('matches candidate by worktreeDir — ignores entries for other worktrees', async () => {
+      mockReadUnboundCandidates.mockResolvedValue([
+        { worktreeDir: '/wt/other', sessionId: 'sess-1', transcriptPath: '/tmp/other.jsonl' }
+      ]);
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('');
+    });
+
+    it('returns the first matching candidate when multiple entries exist', async () => {
+      mockReadUnboundCandidates.mockResolvedValue([
+        { worktreeDir: '/wt/dir', sessionId: 'sess-1', transcriptPath: '/tmp/first.jsonl' },
+        { worktreeDir: '/wt/dir', sessionId: 'sess-1', transcriptPath: '/tmp/second.jsonl' }
+      ]);
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('/tmp/first.jsonl');
+    });
+  });
+
+  describe('empty-string fallback', () => {
+    it('returns empty string when env var is absent and no candidate matches', async () => {
+      mockReadUnboundCandidates.mockResolvedValue([]);
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('');
+    });
+
+    it('returns empty string when candidate set is empty', async () => {
+      expect(await resolveTranscriptPath('sess-1', '/wt/dir')).toBe('');
     });
   });
 });

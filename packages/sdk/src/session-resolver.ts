@@ -7,6 +7,7 @@
  */
 
 import { findAgentPid } from './process-tree.js';
+import { readUnboundCandidates } from './unboundWorktreeCandidates.js';
 
 /**
  * Resolves the session id for the current process using a fixed precedence
@@ -41,4 +42,38 @@ export async function resolveSessionId(): Promise<string | null> {
   // persisted by session-start before any hook fires — see B3 / Phase 2.1).
   const pid = findAgentPid();
   return pid !== null ? String(pid) : null;
+}
+
+/**
+ * Resolves the transcript path for the current session using a two-tier
+ * precedence chain.
+ *
+ * Precedence:
+ *   CARDS_TRANSCRIPT_PATH (env var) → unbound-candidate record for the given
+ *   worktree → empty string (no transcript available).
+ *
+ * Empty-string and whitespace-only values in `CARDS_TRANSCRIPT_PATH` are
+ * treated as absent, consistent with {@link resolveSessionId}.
+ *
+ * When the env var is absent, the function looks up the per-session
+ * unbound-candidate record for `worktreeDir`. If a matching entry carries a
+ * `transcriptPath`, that path is returned. This allows `card create` and
+ * `card bind` to recover the transcript recorded at worktree-creation time even
+ * when the env var was not inherited.
+ *
+ * An empty string is returned when neither tier resolves — callers must treat
+ * this as a degraded path (transcript streaming disabled but not a hard error,
+ * consistent with {@link outfitWorktreeForCard} warn-and-skip behaviour).
+ *
+ * @param sessionId - The resolved session id (from {@link resolveSessionId}).
+ * @param worktreeDir - Absolute path to the worktree being bound.
+ * @returns The resolved transcript path, or an empty string when unavailable.
+ */
+export async function resolveTranscriptPath(sessionId: string, worktreeDir: string): Promise<string> {
+  const envVal = (process.env['CARDS_TRANSCRIPT_PATH'] ?? '').trim();
+  if (envVal) return envVal;
+
+  const candidates = await readUnboundCandidates(sessionId);
+  const match = candidates.find((c) => c.worktreeDir === worktreeDir);
+  return match?.transcriptPath ?? '';
 }

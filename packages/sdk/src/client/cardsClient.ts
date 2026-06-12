@@ -268,16 +268,26 @@ export class CardsClient {
    * HTTP error responses (4xx, 5xx) surface immediately as {@link ApiError}
    * since the server is reachable and the request was rejected on its merits.
    *
-   * All network errors — timeouts, connection refused, DNS failures — are
-   * retried with exponential backoff: starting at 3s, doubling each attempt
-   * up to a 30s cap, then retrying every 30s indefinitely until the server
-   * responds.
+   * Network errors are retried with exponential backoff (starting at 3s,
+   * doubling each attempt up to a 30s cap, then every 30s indefinitely) only
+   * when the operation is idempotent — re-running it cannot change server
+   * state beyond what a single successful run would. GETs and replace-style
+   * writes (PUT/DELETE) are idempotent and retried.
+   *
+   * Non-idempotent operations (e.g. `POST /cards`, which mints a new card on
+   * each run) are NOT retried on an ambiguous-outcome network error such as a
+   * request timeout: the request may already have committed server-side, and a
+   * blind retry would duplicate the effect (main-186). Such failures surface
+   * immediately as {@link NetworkError} so the caller can decide how to recover.
    *
    * @param fn - Async request function to execute.
+   * @param idempotent - When false, ambiguous network failures surface as
+   *   {@link NetworkError} instead of being retried. Defaults to true.
    * @returns The resolved value from the request function.
    * @throws ApiError when the server responds with a non-2xx status.
+   * @throws NetworkError when a non-idempotent request fails to reach the server.
    */
-  private async request<T>(fn: () => Promise<T>): Promise<T> {
+  private async request<T>(fn: () => Promise<T>, idempotent = true): Promise<T> {
     let retryDelayMs = INITIAL_RETRY_DELAY_MS;
 
     while (true) {
@@ -322,8 +332,11 @@ export class CardsClient {
           throw error;
         }
 
-        // Network error — retry with exponential backoff delay, unless caller opted out
-        if (this.options.retryOnNetworkError === false) {
+        // Network error. A non-idempotent operation has an ambiguous outcome —
+        // the request may already have committed server-side — so retrying it
+        // would duplicate the effect (main-186). Surface it instead of retrying.
+        // The same applies when the caller has opted out of network retries.
+        if (!idempotent || this.options.retryOnNetworkError === false) {
           throw new NetworkError(
             error instanceof Error ? error.message : String(error),
             error instanceof Error ? error : undefined
@@ -408,7 +421,7 @@ export class CardsClient {
       ...data,
       workspacePath: this.options.workspacePath
     };
-    return this.request(() => this.getHttpClient().post<Card>(url, body));
+    return this.request(() => this.getHttpClient().post<Card>(url, body), false);
   }
 
   /**
@@ -481,7 +494,7 @@ export class CardsClient {
    */
   async createComment(cardId: string, data: CommentCreateData): Promise<Comment> {
     const url = this.buildUrl(`/cards/${cardId}/comments`);
-    return this.request(() => this.getHttpClient().post<Comment>(url, data));
+    return this.request(() => this.getHttpClient().post<Comment>(url, data), false);
   }
 
   /**
@@ -687,7 +700,7 @@ export class CardsClient {
    */
   async addCommit(cardId: string, sha: string): Promise<CommitInfo> {
     const url = this.buildUrl(`/cards/${cardId}/commits`);
-    return this.request(() => this.getHttpClient().post<CommitInfo>(url, { sha }));
+    return this.request(() => this.getHttpClient().post<CommitInfo>(url, { sha }), false);
   }
 
   /**
@@ -742,7 +755,7 @@ export class CardsClient {
     if (options?.sessionId) {
       headers['X-Cards-Session-Id'] = options.sessionId;
     }
-    await this.request(() => this.getHttpClient().post<unknown>(url, data, { headers }));
+    await this.request(() => this.getHttpClient().post<unknown>(url, data, { headers }), false);
   }
 
   /**
@@ -959,7 +972,7 @@ export class CardsClient {
   async executeAction(cardId: string, actionName: string, mode?: ExecutionMode): Promise<ActionResult> {
     const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
     const body: ExecuteActionRequest | undefined = mode ? { mode } : undefined;
-    return this.request(() => this.getHttpClient().post<ActionResult>(url, body));
+    return this.request(() => this.getHttpClient().post<ActionResult>(url, body), false);
   }
 
   // --- Compare Operations ---

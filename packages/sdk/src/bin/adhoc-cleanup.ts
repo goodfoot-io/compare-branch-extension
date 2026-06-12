@@ -11,7 +11,10 @@
  * is operating on). When the flip is deferred to a live action wrapper this
  * session's (dead-PID) ref is RETAINED so the reconciliation sweep settles the
  * card once the action clears; the ref is removed only on the paths where the
- * card's status is actually resolved. The de-dupe lock is always released.
+ * card's status is actually resolved. The de-dupe lock is released only by the
+ * cleanup that owns it: when a second card binds within an already-locked
+ * session, its cleanup is spawned with an EMPTY lock path and never touches
+ * the lock (or the session-scoped unbound-candidate state) on teardown.
  *
  * Touches status only — no `git clean -fd` (that is the wrapper's job for
  * action-spawned sessions).
@@ -44,7 +47,12 @@ export interface AdhocCleanupArgs {
   cardId: string;
   /** Filesystem path to the card repository. */
   cardRepoPath: string;
-  /** Filesystem path to the de-dupe lock file to remove on exit. */
+  /**
+   * Filesystem path to the de-dupe lock file to remove on exit, or the empty
+   * string when this cleanup does not own the session lock (a later card
+   * bound while an earlier card's cleanup held it). Non-owners skip the lock
+   * release and the session-scoped candidate clear on teardown.
+   */
   lockPath: string;
 }
 
@@ -122,8 +130,10 @@ export async function main(logger: CleanupLogger = consoleLogger): Promise<void>
   const client = await createCardsClient();
   if (client === null) {
     // No server means no watchable card. Skip active write and teardown,
-    // remove the lock, and exit.
-    await unlinkIfExists(lockPath);
+    // remove the lock (if this cleanup owns it), and exit.
+    if (lockPath !== '') {
+      await unlinkIfExists(lockPath);
+    }
     return;
   }
 
@@ -157,8 +167,11 @@ export async function main(logger: CleanupLogger = consoleLogger): Promise<void>
  * Teardown invoked once the monitored agent PID is dead: resolve the card's
  * status and release the de-dupe lock.
  *
- * The de-dupe lock is keyed on this (now-dead) session, so it is always
- * released on exit — but this session's REF is only removed once the card's
+ * The de-dupe lock is keyed on this (now-dead) session and is released on
+ * exit by the cleanup that OWNS it (`lockPath` non-empty); a non-owner cleanup
+ * (second card bound under an already-held session lock, spawned with an
+ * empty `lockPath`) leaves both the lock and the session-scoped
+ * unbound-candidate state to the owner. This session's REF is only removed once the card's
  * status is actually resolved. Crucially the ref-removal decision happens AFTER
  * the deferral decision: if the flip is deferred because a live action owns the
  * card, this session's (dead-PID) ref is RETAINED so the reconciliation sweep
@@ -203,17 +216,21 @@ export async function performTeardown(
       await removeRef(cardId, sessionId);
     }
   } finally {
-    // Session-end teardown. In a `finally` so a rethrow from
+    // Session-end teardown — lock-owner only. In a `finally` so a rethrow from
     // transitionCardStatus (API-down + commit-failure) does not leak the lock
-    // or strand the per-session candidate directory.
-    //
-    // Release the de-dupe lock.
-    await unlinkIfExists(lockPath);
-    // Remove this session's unbound-worktree candidate directory so per-session
-    // `~/.cards/adhoc-sessions/<sid>/unbound-candidates/` dirs do not leak. The
-    // clear is ENOENT-tolerant (sessions that never created a candidate have no
-    // directory to remove).
-    await clearUnboundCandidates(sessionId);
+    // or strand the per-session candidate directory. A non-owner cleanup
+    // (empty lockPath) skips both: unlinking the lock would break the
+    // one-watcher-per-session de-dupe, and the session-scoped candidate state
+    // belongs to the lock owner.
+    if (lockPath !== '') {
+      // Release the de-dupe lock.
+      await unlinkIfExists(lockPath);
+      // Remove this session's unbound-worktree candidate directory so per-session
+      // `~/.cards/adhoc-sessions/<sid>/unbound-candidates/` dirs do not leak. The
+      // clear is ENOENT-tolerant (sessions that never created a candidate have no
+      // directory to remove).
+      await clearUnboundCandidates(sessionId);
+    }
   }
 }
 

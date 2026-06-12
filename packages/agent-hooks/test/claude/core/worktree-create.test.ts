@@ -29,7 +29,9 @@ const EXPECTED_COMPILED_SCRIPT_PATHS = {
 // execFile is consumed via promisify(execFile), which uses the [util.promisify.custom]
 // symbol on the real execFile to resolve with { stdout, stderr }. The mock carries an
 // equivalent custom impl so promisify(mock) returns that shape; mockExecFileStdout
-// controls the resolved stdout.
+// controls the resolved stdout of the HEAD-branch lookup. The worktree-detection
+// probe (`rev-parse --git-dir --git-common-dir`) is answered separately: equal
+// paths, modeling the main working tree, so the hook derives the parent from HEAD.
 let mockExecFileStdout = 'main\n';
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
@@ -38,7 +40,12 @@ vi.mock('node:child_process', async (importOriginal) => {
     (...a: unknown[]): unknown;
     [k: symbol]: unknown;
   };
-  execFileMock[promisify.custom] = async () => ({ stdout: mockExecFileStdout, stderr: '' });
+  execFileMock[promisify.custom] = async (_cmd: string, args: string[]) => {
+    if (Array.isArray(args) && args.includes('--git-common-dir')) {
+      return { stdout: '/test/workspace/.git\n/test/workspace/.git\n', stderr: '' };
+    }
+    return { stdout: mockExecFileStdout, stderr: '' };
+  };
   return {
     ...actual,
     execFile: execFileMock

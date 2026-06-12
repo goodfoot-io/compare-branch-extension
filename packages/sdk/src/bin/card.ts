@@ -9,7 +9,7 @@
  */
 
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
@@ -19,17 +19,20 @@ import { toCardListSummaries } from '@cards/sdk/card-summary';
 import { resolveCardsParentBranch } from '@cards/sdk/cards-parent-branch';
 import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
 import {
+  ApiError,
   CardsClient,
   calculateBackoffMs,
   EventSubscriber,
   formatCommit,
   getUnattributedCommits,
-  isBookkeepingCommit
+  isBookkeepingCommit,
+  NetworkError
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
+import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards/sdk/context';
 import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
-import { resolveSessionId } from '@cards/sdk/session-resolver';
+import { resolveSessionId, resolveTranscriptPath } from '@cards/sdk/session-resolver';
 import { readUnboundCandidates, removeUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
 import { outfitWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
@@ -88,6 +91,7 @@ Commands:
   search [query] [options]       Search cards using #tag @relation text syntax
   <card-id> action <action-id> [options]  Execute an action on a card
   <card-id> watch [glob...]     Wait for next unattributed commit
+  <card-id> bind [options]      Bind an existing card to the current worktree
 
 Get:
   Pass a card identifier as the sole argument. The full Card object is
@@ -177,6 +181,26 @@ Watch:
     card <card-id> watch
     card <card-id> watch "src/auth/**"
     card <card-id> watch "src/**" "tests/**"
+
+Bind:
+  Attaches an existing card to the current worktree. Installs git hooks,
+  registers the branch with the Cards API, and (when a transcript path is
+  available) spawns transcript attribution. Outputs card-repo-log and
+  workspace-repo-log context blocks to stdout so the calling agent receives
+  current card context immediately.
+
+  The command refuses (exits non-zero) when:
+    - Not running inside a linked worktree (must be a "git worktree add" worktree)
+    - The worktree is already bound to a card (shows the existing card id)
+    - The card id does not resolve via the Cards API
+    - No parent branch can be determined (use --parent-branch to supply one)
+
+  Options:
+    --parent-branch <ref>  Explicit parent branch (overrides git config and reflog detection)
+
+  Examples:
+    card main-42 bind
+    card main-42 bind --parent-branch main
 
 Exit codes:
   0  Success
@@ -446,19 +470,22 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
       return { kind: 'refuse', reason: `card create: ${parent.reason}` };
     }
 
-    // The binder's own session/transcript: env inheritance guarantees the
-    // transcript belongs to this agent (the structural-redundancy case noted in
-    // the plan's session-gate). Both must be present for streaming attribution.
-    const sessionId = process.env['CARDS_SESSION_ID']?.trim() ?? '';
-    const transcriptPath = process.env['CARDS_TRANSCRIPT_PATH']?.trim() ?? '';
-    if (!sessionId || !transcriptPath) {
+    // Resolve session identity via the shared resolvers. resolveSessionId()
+    // applies the full five-variable precedence chain with PID fallback;
+    // resolveTranscriptPath() checks CARDS_TRANSCRIPT_PATH first, then falls
+    // back to the unbound-candidate record for this worktree. Either resolver
+    // returning an absent value is a degradation (outfit will warn-and-skip
+    // transcript streaming) but is not a hard refuse.
+    const sessionId = await resolveSessionId();
+    if (sessionId === null) {
       return {
         kind: 'refuse',
         reason:
-          'card create: refusing to bind worktree — CARDS_SESSION_ID / CARDS_TRANSCRIPT_PATH are not set, so the ' +
-          'agent transcript cannot be streamed. Re-enter the worktree via the EnterWorktree tool, then run `card create` again.'
+          'card create: refusing to bind worktree — no session id could be resolved. ' +
+          'Re-enter the worktree via the EnterWorktree tool, then run `card create` again.'
       };
     }
+    const transcriptPath = await resolveTranscriptPath(sessionId, cwdWorktree);
 
     return { kind: 'bind', worktreeDir: cwdWorktree, parentBranch: parent.parentBranch, transcriptPath, sessionId };
   }
@@ -497,11 +524,13 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
   // make the target explicit rather than binding silently.
   console.error(`card create: binding the single unbound worktree for this session: ${candidate.worktreeDir}`);
 
+  const transcriptPath = await resolveTranscriptPath(sessionId, candidate.worktreeDir);
+
   return {
     kind: 'bind',
     worktreeDir: candidate.worktreeDir,
     parentBranch: parent.parentBranch,
-    transcriptPath: candidate.transcriptPath,
+    transcriptPath,
     sessionId
   };
 }
@@ -1018,6 +1047,136 @@ export async function executeAction(
   console.log(formatOutput(result, jsonPath));
 }
 
+/**
+ * Binds an existing card to the current worktree.
+ *
+ * Applies four fail-closed gates before any state change:
+ *
+ * 1. Must be inside a linked worktree (not the main worktree).
+ * 2. The worktree must not already be bound to a card.
+ * 3. The card ID must resolve via the Cards API.
+ * 4. A parent branch must be determinable.
+ *
+ * On pass, calls {@link outfitWorktreeForCard} with the resolved session,
+ * transcript, and parent branch, then outputs card-repo-log and workspace-repo-log
+ * context blocks to stdout so the calling agent receives current card context.
+ *
+ * Fail-closed on skipped activation: if the outfit's attribution outcome
+ * reports that session activation was skipped (lock held, card not
+ * activatable, or a preflight failure), bind prints a "branch registered but
+ * card not activated" diagnostic to stderr and exits non-zero instead of
+ * printing the success payload.
+ *
+ * @param cardId - The card identifier to bind to the current worktree.
+ * @param parentBranchFlag - Optional `--parent-branch` flag value.
+ */
+export async function bindCard(cardId: string, parentBranchFlag?: string): Promise<void> {
+  // Gate 1: must be inside a linked worktree.
+  const worktreeDir = await resolveLinkedWorktreeDir();
+  if (!worktreeDir) {
+    console.error(
+      'card bind: not in a linked worktree. Run this command from inside a worktree created with `git worktree add`.'
+    );
+    process.exit(1);
+  }
+
+  // Gate 2: worktree must not already be bound.
+  const cardIdFile = join(worktreeDir, '.cards', 'CARD_ID');
+  if (existsSync(cardIdFile)) {
+    const existingId = readFileSync(cardIdFile, 'utf-8').trim();
+    console.error(
+      `card bind: this worktree is already bound to card ${existingId}. ` +
+        `To bind a different card, remove this worktree and create a new one.`
+    );
+    process.exit(1);
+  }
+
+  // Gate 3: card must resolve via the API.
+  const client = await connectClient();
+  let cardRepoPath: string;
+  try {
+    const card = await client.getCard(cardId);
+    cardRepoPath = card.repositoryPath;
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'NOT_FOUND') {
+      console.error(`card bind: card "${cardId}" not found.`);
+    } else if (error instanceof NetworkError) {
+      console.error(
+        `card bind: card service unavailable — check that the extension/daemon is running. (${error.message})`
+      );
+    } else {
+      console.error(`card bind: unable to fetch card "${cardId}".`, error);
+    }
+    process.exit(1);
+  }
+
+  // Gate 4: parent branch must be determinable.
+  const parent = await resolveCardsParentBranch(worktreeDir, parentBranchFlag);
+  if (parent.kind === 'refuse') {
+    console.error(`card bind: ${parent.reason}`);
+    process.exit(1);
+  }
+
+  // All gates passed — resolve session identity then outfit.
+  const sessionId = await resolveSessionId();
+  if (sessionId === null) {
+    console.error(
+      'card bind: refusing to bind worktree — no session id could be resolved. ' +
+        'Re-enter the worktree via the EnterWorktree tool, then run `card <id> bind` again.'
+    );
+    process.exit(1);
+  }
+
+  const transcriptPath = await resolveTranscriptPath(sessionId, worktreeDir);
+  if (!transcriptPath) {
+    console.error(
+      'card bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.'
+    );
+  }
+
+  const extensionPath = await resolveExtensionPath();
+  const gitHooksDir = join(extensionPath, 'dist', 'git-hooks');
+  const compiledScriptPaths = {
+    'pre-commit': join(gitHooksDir, 'pre-commit.mjs'),
+    'post-commit': join(gitHooksDir, 'post-commit.mjs'),
+    'post-rewrite': join(gitHooksDir, 'post-rewrite.mjs')
+  };
+
+  const outcome = await outfitWorktreeForCard(client, worktreeDir, {
+    cardId,
+    parentBranch: parent.parentBranch,
+    sessionId,
+    transcriptPath,
+    compiledScriptPaths
+  });
+
+  // Fail closed: at this point the branch is registered, but if session
+  // activation was skipped (de-dupe lock held by another card, card not in an
+  // activatable status, or an attribution preflight failed) the bind must not
+  // masquerade as a plain success — surface the partial state on stderr and
+  // exit non-zero so scripted callers can detect it.
+  if (outcome && (outcome.activated === false || outcome.attribution === 'skipped')) {
+    console.error(`card bind: branch registered but card not activated (${outcome.reason ?? 'unknown reason'}).`);
+    process.exit(1);
+  }
+
+  // Drop the candidate record so a later `card create` in the same session
+  // does not re-offer this worktree.
+  await removeUnboundCandidate(sessionId, worktreeDir);
+
+  // Output context blocks so the calling agent receives current card context.
+  const repoRoot = getGitRoot() ?? worktreeDir;
+  const logBlock = buildCardRepoLogBlock(cardRepoPath);
+  const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(repoRoot, cardRepoPath);
+
+  const parts: string[] = [];
+  if (logBlock) parts.push(logBlock);
+  parts.push(...workspaceLogBlocks);
+  if (parts.length > 0) {
+    console.log(parts.join('\n\n'));
+  }
+}
+
 if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
   const command = process.argv[2];
 
@@ -1062,6 +1221,9 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
         const watchGlobs = process.argv.slice(4);
         run = watchCard(command, watchGlobs);
         isWatch = true;
+      } else if (verb === 'bind') {
+        const bindFlags = parseFlags(process.argv.slice(4));
+        run = bindCard(command, bindFlags['parent-branch']?.[0]);
       } else if (verb?.startsWith('--')) {
         const getFlags = parseFlags(process.argv.slice(3));
         run = getCard(command, getFlags['jsonpath']?.[0]);

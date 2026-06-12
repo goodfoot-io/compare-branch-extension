@@ -38,7 +38,8 @@
     "./session-resolver": "./src/session-resolver.ts",
     "./cards-parent-branch": "./src/cardsParentBranch.ts",
     "./unbound-worktree-candidates": "./src/unboundWorktreeCandidates.ts",
-    "./adhoc-attribution": "./src/adhocAttribution.ts"
+    "./adhoc-attribution": "./src/adhocAttribution.ts",
+    "./context": "./src/context.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",

@@ -94,16 +94,28 @@ describe('spawnAdhocAttribution', () => {
     expect(spawnAdhocCleanup).not.toHaveBeenCalled();
   });
 
-  it('returns without spawning when the lock is not acquired (session already tracked)', async () => {
+  it('skips the watcher but still spawns adhoc-cleanup (with an empty lock path) when the lock is not acquired', async () => {
     vi.mocked(readCardStatus).mockResolvedValue('active');
     vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
     vi.mocked(acquireLock).mockResolvedValue(false);
 
     const logger = makeLogger();
-    await spawnAdhocAttribution(makeParams(), logger);
+    const params = makeParams();
+    await spawnAdhocAttribution(params, logger);
 
+    // The session lock gates only the transcript-watcher (one per session).
     expect(spawnTranscriptWatcher).not.toHaveBeenCalled();
-    expect(spawnAdhocCleanup).not.toHaveBeenCalled();
+    // The per-card cleanup must still run so this card is activated; the empty
+    // lock path marks it a non-owner so teardown never releases another
+    // bind's session lock.
+    expect(spawnAdhocCleanup).toHaveBeenCalledWith(
+      params.agentPid,
+      params.sessionId,
+      params.cardId,
+      params.cardRepoPath,
+      '',
+      logger
+    );
   });
 
   it('invokes both spawns on the happy path (activatable status + lock acquired)', async () => {

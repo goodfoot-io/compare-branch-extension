@@ -18,6 +18,7 @@ import { resolveCardRepoPath } from './adhocAttribution.js';
 import { isKnownAgentComm } from './bin/process-utils.js';
 import { spawnAdhocAttribution } from './bin/spawnAdhocAttribution.js';
 import { resolveGlobalCardsConfigDir } from './cards-config.js';
+import { writeCardsParentConfig } from './cardsParentBranch.js';
 import type { CardsClient } from './client/cardsClient.js';
 import { findAgentPid } from './process-tree.js';
 import {
@@ -27,6 +28,7 @@ import {
   createWorktree,
   type EarlyWorktreeResult,
   findGitRoots,
+  gitConfigWithRetry,
   provisionSharedHooksDir,
   removeWorktree,
   resolveHomeDir,
@@ -115,6 +117,28 @@ export interface OutfitWorktreeForCardOptions {
 }
 
 /**
+ * Attribution outcome resolved by {@link outfitWorktreeForCard}.
+ *
+ * `attribution: 'spawned'` means {@link spawnAdhocAttribution} ran and did not
+ * report a skipped activation. `attribution: 'skipped'` means session
+ * activation did not happen, with `reason` naming why (preflight skip such as
+ * `'no-transcript'`, `'card-repo-path-unresolved'`, `'agent-pid-unresolved'`,
+ * or a guard skip propagated from the spawn helper:
+ * `'not-activatable'`). `activated: false` is set when the spawn helper itself
+ * reported the skip. The branch registration and disk phases have already
+ * succeeded by the time this outcome is produced — a skip means "branch
+ * registered but card not activated".
+ */
+export interface OutfitAttributionOutcome {
+  /** Whether transcript attribution was spawned or skipped. */
+  attribution: 'spawned' | 'skipped';
+  /** Set to false when {@link spawnAdhocAttribution} reported a skipped activation. */
+  activated?: boolean;
+  /** Why attribution was skipped; present only when `attribution` is `'skipped'`. */
+  reason?: string;
+}
+
+/**
  * Outfits an existing worktree as card-bound: installs the commit-attribution
  * hooks on disk, registers the branch with the Cards API, and (when a transcript
  * is supplied) spawns transcript attribution.
@@ -148,12 +172,15 @@ export interface OutfitWorktreeForCardOptions {
  * @param client - CardsClient used to register the branch record.
  * @param worktreeDir - Absolute path to the (already-created) worktree root.
  * @param options - Card id, parent branch, session, transcript, and compiled hook paths.
+ * @returns An {@link OutfitAttributionOutcome} describing whether attribution
+ *   was spawned or skipped (and why), so callers like `card <id> bind` can
+ *   fail closed when the branch was registered but the card was not activated.
  */
 export async function outfitWorktreeForCard(
   client: CardsClient,
   worktreeDir: string,
   options: OutfitWorktreeForCardOptions
-): Promise<void> {
+): Promise<OutfitAttributionOutcome> {
   const { cardId, parentBranch, sessionId, transcriptPath, compiledScriptPaths } = options;
 
   if (cardId.length === 0) {
@@ -200,14 +227,12 @@ export async function outfitWorktreeForCard(
   await provisionSharedHooksDir(sharedHooksDir, compiledScriptPaths);
 
   // 4. Enable per-worktree config — MUST precede the --worktree write (D9).
-  await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], {
-    timeout: 5_000
-  });
+  //    Retried on config-lock contention: createWorktree's settle phase writes
+  //    the same key concurrently when outfit runs on the early (pre-settle) path.
+  await gitConfigWithRetry(['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true']);
 
   // 5. Point this worktree at the shared dispatcher dir (D9: after step 4).
-  await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', sharedHooksDir], {
-    timeout: 5_000
-  });
+  await gitConfigWithRetry(['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', sharedHooksDir]);
 
   // 6. Hide the binding markers from git status so they are never staged.
   await appendWorktreeGitExcludes(worktreeDir, ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH']);
@@ -222,6 +247,11 @@ export async function outfitWorktreeForCard(
   await acquireLock(lockPath, BIND_LOCK_TIMEOUT_MS);
   try {
     const branchName = await resolveWorktreeBranchName(worktreeDir);
+    // Record the parent branch as durable `branch.<name>.cardsParent` git
+    // config — the first source resolveCardsParentBranch consults at bind
+    // time — so card-bound worktrees carry the same lineage record as unbound
+    // ones and never depend on fragile reflog decoration. Idempotent overwrite.
+    await writeCardsParentConfig(worktreeDir, branchName, parentBranch);
     await client.addBranch(cardId, { name: branchName, worktree: worktreeDir, parentBranch }, { sessionId });
   } finally {
     releaseLock(lockPath);
@@ -234,35 +264,41 @@ export async function outfitWorktreeForCard(
   // orchestrator — so omitting the transcript leaves action-launch behavior
   // unchanged. Activation is NOT written here; it stays inside adhoc-cleanup so
   // an `active` card always has a live monitor + ref.
-  if (transcriptPath && transcriptPath.length > 0 && sessionId && sessionId.length > 0) {
-    const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
-    if (!cardRepoPath) {
-      stderrLogger.warn(
-        'outfitWorktreeForCard: bound worktree but could not resolve card repository path — attribution not spawned',
-        {
-          cardId
-        }
-      );
-      return;
-    }
-
-    const agentPid = findAgentPid();
-    if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
-      stderrLogger.warn(
-        'outfitWorktreeForCard: bound worktree but could not resolve a known agent PID — attribution not spawned',
-        {
-          cardId
-        }
-      );
-      return;
-    }
-
-    const attributionLockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
-    await spawnAdhocAttribution(
-      { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath: attributionLockPath },
-      stderrLogger
-    );
+  if (!transcriptPath || transcriptPath.length === 0 || !sessionId || sessionId.length === 0) {
+    return { attribution: 'skipped', reason: 'no-transcript' };
   }
+
+  const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
+  if (!cardRepoPath) {
+    stderrLogger.warn(
+      'outfitWorktreeForCard: bound worktree but could not resolve card repository path — attribution not spawned',
+      {
+        cardId
+      }
+    );
+    return { attribution: 'skipped', reason: 'card-repo-path-unresolved' };
+  }
+
+  const agentPid = findAgentPid();
+  if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
+    stderrLogger.warn(
+      'outfitWorktreeForCard: bound worktree but could not resolve a known agent PID — attribution not spawned',
+      {
+        cardId
+      }
+    );
+    return { attribution: 'skipped', reason: 'agent-pid-unresolved' };
+  }
+
+  const attributionLockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
+  const spawnOutcome = await spawnAdhocAttribution(
+    { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath: attributionLockPath },
+    stderrLogger
+  );
+  if (spawnOutcome && spawnOutcome.activated === false) {
+    return { attribution: 'skipped', activated: false, reason: spawnOutcome.reason };
+  }
+  return { attribution: 'spawned' };
 }
 
 /**
@@ -436,9 +472,9 @@ export async function releaseWorktreeForCard(
     }
   }
   if (originalHooksDir && originalHooksDir.length > 0) {
-    await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', originalHooksDir], {
-      timeout: 5_000
-    });
+    // Retried on config-lock contention: a release can race other config
+    // writers (sibling binds, settle phases) on the same repository.
+    await gitConfigWithRetry(['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', originalHooksDir]);
   } else {
     stderrLogger.warn(
       'releaseWorktreeForCard: no CARD_ORIGINAL_HOOK_PATH snapshot found; leaving core.hooksPath unchanged',

@@ -260,16 +260,17 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path — including after applying fixes yourself — return to Step 5 and collect the remaining verdicts.
 
-Send a shutdown request to every still-running evaluator in the team. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently:
+Shut down every still-running evaluator in the team by sending each a `shutdown_request` — the evaluator's own skill handles its exit. On Standard depth this is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
 
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">failure-mode</parameter>
-  <parameter name="message">{"type": "shutdown_request"}</parameter>
+  <parameter name="summary">Shutdown request</parameter>
+  <parameter name="message">{"type": "shutdown_request", "reason": "Evaluation complete"}</parameter>
 </invoke>
 ```
 
-Wait for every evaluator to shut down before tearing down the team:
+`TeamDelete` fails while any member is still active, so send the request to every evaluator and wait for each to terminate before tearing down the team:
 
 ```xml
 <invoke name="TeamDelete" />

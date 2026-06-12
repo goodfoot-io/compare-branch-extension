@@ -299,7 +299,7 @@ describe('EnterWorktree hook — unbound path (bindable linked worktree)', () =>
 
     const ctx = getAdditionalContext(result);
     expect(typeof ctx).toBe('string');
-    expect(ctx).toMatch(/create a card/);
+    expect(ctx).toMatch(/create a new card/);
   });
 
   it('re-entering the same worktree re-feeds the candidate set (idempotent overwrite) and re-nudges', async () => {
@@ -312,7 +312,7 @@ describe('EnterWorktree hook — unbound path (bindable linked worktree)', () =>
 
     // Both entries write the candidate (the on-disk hash file is overwritten).
     expect(mocks.addUnboundCandidate).toHaveBeenCalledTimes(2);
-    expect(getAdditionalContext(result)).toMatch(/create a card/);
+    expect(getAdditionalContext(result)).toMatch(/create a new card/);
   });
 
   it('does NOT feed the candidate set when CARD_ID is also present (CARD_ID wins)', async () => {

@@ -37,6 +37,37 @@ export class WorktreeScopeError extends Error {
 const execFileAsync = promisify(execFile);
 
 /**
+ * Runs `git config <args>` and retries on `.git/config` lock contention.
+ *
+ * Git takes an exclusive `config.lock` for every config write and fails
+ * immediately — `error: could not lock config file ...: File exists` — when
+ * another process holds it. Two writers race on the same repo config by
+ * design here: {@link createWorktree}'s `settle` phase (via
+ * `updateGitExclude`) and `outfitWorktreeForCard` both set
+ * `extensions.worktreeConfig` on the repo root, and outfit deliberately runs
+ * before `settle` resolves (the A2 early path). The write is idempotent, so
+ * the loser of the lock race only needs to retry, not fail.
+ *
+ * @param args - Full git argument list (e.g. `['-C', repo, 'config', key, value]`).
+ * @param attempts - Maximum tries before the lock error propagates.
+ */
+export async function gitConfigWithRetry(args: string[], attempts = 5): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await execFileAsync('git', args, { timeout: 5_000 });
+      return;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt < attempts && message.includes('could not lock config file')) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * attempt));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+/**
  * Thrown when a symlink cannot be created because the OS denies the privilege.
  *
  * On Windows, `fs.symlink` fails with `EPERM` (or `EINVAL`) when the session
@@ -572,7 +603,10 @@ export async function addWorktree(opts: AddWorktreeOptions): Promise<void> {
   const args = opts.branchExists
     ? ['worktree', 'add', opts.worktreeDir, opts.branchName]
     : ['worktree', 'add', '-b', opts.branchName, opts.worktreeDir, opts.startPoint];
-  await execFileAsync('git', args, { cwd: opts.repoRoot, timeout: 30_000 });
+  // `worktree add` materializes the entire working tree on disk, so its runtime
+  // scales with repo size and host load. A short cap kills the checkout mid-way
+  // (SIGTERM) under load, leaving a partial worktree; allow up to 10 minutes.
+  await execFileAsync('git', args, { cwd: opts.repoRoot, timeout: 600_000 });
 }
 
 /**
@@ -877,7 +911,11 @@ exit 0
     return `${prologue}
 # Cards pre-commit runs first — capture rc before any test consumes $? (fail-closed)
 if [ -f "$CARDS_HOOK" ]; then
-${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+${RESOLVE_NODE}  if [ -z "$NODE_RUN" ]; then
+    echo "cards-hook: no Node.js interpreter available for pre-commit validation" >&2
+    exit 1
+  fi
+  if [ -n "$NODE_RUN" ]; then
     "$NODE_RUN" "$CARDS_HOOK"
     rc=$?
     if [ "$rc" -ne 0 ]; then exit "$rc"; fi
@@ -1413,7 +1451,7 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
   await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
 
   try {
-    await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], { timeout: 5_000 });
+    await gitConfigWithRetry(['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true']);
   } catch (error: unknown) {
     process.stderr.write(
       `create-worktree: failed to set worktreeConfig extension: ${error instanceof Error ? error.message : String(error)}\n`
@@ -1421,9 +1459,7 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
   }
 
   try {
-    await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.excludesFile', excludePath], {
-      timeout: 5_000
-    });
+    await gitConfigWithRetry(['-C', worktreeDir, 'config', '--worktree', 'core.excludesFile', excludePath]);
   } catch (error: unknown) {
     process.stderr.write(
       `create-worktree: failed to set core.excludesFile: ${error instanceof Error ? error.message : String(error)}\n`
