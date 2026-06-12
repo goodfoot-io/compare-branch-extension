@@ -542,6 +542,15 @@ export async function main(): Promise<void> {
             warnFn(`fs.watch error: ${String(error)}`);
           }
         });
+        // Close the fs.watch arm-gap. The catch-up `fullCopyPass` above runs
+        // just *before* `watch()` is armed, and once the watcher is installed
+        // nothing reconciles again — so a file written in the window between that
+        // pass and the watch becoming live is dropped for the whole session.
+        // win32's `fs.watch` is especially prone to missing the first event on a
+        // freshly created directory. Re-run the copy pass through the serialized
+        // `syncChain` (so it cannot race the watch callback's offset state) to
+        // capture anything written during arming.
+        syncChain = syncChain.then(() => fullCopyPass(sourceDir, destDir, sessionId, cardId, fileStates, warnFn));
         return w;
       } catch (error) {
         warnFn(`Failed to start fs.watch: ${String(error)}`);
@@ -582,6 +591,16 @@ export async function main(): Promise<void> {
       onTick: async () => {
         if (!fsWatcher && !exitSignaled) {
           fsWatcher = await tryInstallWatcher();
+        } else if (fsWatcher && !exitSignaled) {
+          // Periodic reconcile. `fs.watch` is best-effort: on win32 it silently
+          // drops events (recursive watches on busy or freshly created dirs miss
+          // the first and occasional later events), which would otherwise strand
+          // a transcript append until session close. Re-run the copy pass each
+          // liveness tick through the serialized `syncChain` so any write the
+          // event stream missed is captured within one interval — the eventual
+          // consistency the watcher cannot get from events alone. `syncFile` is
+          // offset-based, so a reconcile that finds nothing new is a cheap no-op.
+          syncChain = syncChain.then(() => fullCopyPass(sourceDir, destDir, sessionId, cardId, fileStates, warnFn));
         }
         // Poll quickly until the watcher attaches, then fall back to the slower
         // liveness cadence once it is installed.
