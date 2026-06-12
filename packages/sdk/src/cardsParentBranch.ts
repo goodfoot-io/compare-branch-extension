@@ -16,6 +16,7 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { gitConfigWithRetry } from './worktree.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -81,7 +82,9 @@ export async function writeCardsParentConfig(
   newBranchName: string,
   parentBranch: string
 ): Promise<void> {
-  await execFileAsync('git', ['-C', worktreeDir, 'config', `branch.${newBranchName}.cardsParent`, parentBranch]);
+  // Retried on config-lock contention: this write runs during worktree
+  // creation, concurrently with other config writers on the same repository.
+  await gitConfigWithRetry(['-C', worktreeDir, 'config', `branch.${newBranchName}.cardsParent`, parentBranch]);
 }
 
 /**

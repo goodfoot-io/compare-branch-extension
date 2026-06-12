@@ -472,9 +472,9 @@ export async function releaseWorktreeForCard(
     }
   }
   if (originalHooksDir && originalHooksDir.length > 0) {
-    await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', originalHooksDir], {
-      timeout: 5_000
-    });
+    // Retried on config-lock contention: a release can race other config
+    // writers (sibling binds, settle phases) on the same repository.
+    await gitConfigWithRetry(['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', originalHooksDir]);
   } else {
     stderrLogger.warn(
       'releaseWorktreeForCard: no CARD_ORIGINAL_HOOK_PATH snapshot found; leaving core.hooksPath unchanged',
