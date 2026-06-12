@@ -20,6 +20,16 @@ export default defineConfig({
     // 5s default. Allow more headroom so the slow-spawn host passes.
     testTimeout: 60_000,
     hookTimeout: 60_000,
+    // Run the whole package serially. The spawn-heavy suites above, distributed
+    // across reused parallel forks, intermittently crash a sibling fork on
+    // teardown (`Worker exited unexpectedly`: every test passes but the run exits
+    // non-zero). `fileParallelism: false` forces `maxWorkers` to 1, so every file
+    // runs sequentially in one worker and no two files ever share or crash a
+    // fork. (`singleFork` is NOT a valid top-level Vitest 4 option — it is
+    // silently ignored.) Determinism on the validation gate is worth the
+    // wall-clock; matches @cards/cards-server.
+    pool: 'forks',
+    fileParallelism: false,
     setupFiles: ['./test/setup.ts'],
     env: {
       CARDS_HOOKS_LOG_FILE: '/dev/null'
