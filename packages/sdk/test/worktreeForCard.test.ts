@@ -34,6 +34,7 @@ vi.mock('../src/worktree.js', () => ({
   findGitRoots: vi.fn(async () => ({ sourceRoot: '/src', repoRoot: '/repo' })),
   captureOriginalHooksPath: vi.fn(async () => '/repo/.git/hooks'),
   provisionSharedHooksDir: vi.fn(async () => undefined),
+  gitConfigWithRetry: vi.fn(async () => undefined),
   resolveHomeDir: vi.fn(() => '/home')
 }));
 
