@@ -14,6 +14,8 @@ import type { HttpClient } from '../src/protocol/index.js';
 /**
  * Builds an `HttpClient` whose `post` rejects with a fetch-style network error
  * on every attempt, counting how many times it was called.
+ *
+ * @returns The stub `HttpClient` and a getter for the recorded attempt count.
  */
 function makeCountingPostClient(): { client: HttpClient; getAttempts: () => number } {
   let attempts = 0;
