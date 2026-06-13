@@ -29,7 +29,7 @@ const baseActionInput = {
   cardId: 'card-123',
   actionName: 'Launch',
   environment: 'default',
-  executionMode: 'background' as const,
+  executionMode: 'interactive' as const,
   exitWhenDone: true,
   repoRoot: '/workspace',
   cardRepoPath: '/tmp/card-repos/card-123',
@@ -102,6 +102,32 @@ describe('Stop Exit-When-Done Hook', () => {
 
       expect(result).toBeNull();
       expect(mockMarkSessionExitWhenDoneNudgeFired).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('waiting guard suppression', () => {
+    it('returns null when last_assistant_message contains a waiting phrase', async () => {
+      const waitingInput = {
+        ...mockInput,
+        last_assistant_message: "I'm waiting for the build to finish before proceeding."
+      } as Parameters<typeof hook>[0];
+
+      const result = await hook(waitingInput, { logger });
+
+      expect(result).toBeNull();
+      expect(mockHasSessionExitWhenDoneNudgeFired).not.toHaveBeenCalled();
+      expect(mockMarkSessionExitWhenDoneNudgeFired).not.toHaveBeenCalled();
+    });
+
+    it('fires normally when last_assistant_message does not contain a waiting phrase', async () => {
+      const activeInput = {
+        ...mockInput,
+        last_assistant_message: 'All tests pass. The implementation is complete.'
+      } as Parameters<typeof hook>[0];
+
+      const result = await hook(activeInput, { logger });
+
+      expect(result).not.toBeNull();
     });
   });
 

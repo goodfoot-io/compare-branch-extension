@@ -20,6 +20,21 @@ import { extractActionInput } from '@cards/sdk/config';
 import { hasSessionExitWhenDoneNudgeFired, markSessionExitWhenDoneNudgeFired } from '@cards/sessions/card-repo';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 
+/**
+ * Word stems that signal the assistant is intentionally pausing — waiting on a
+ * timer, a build, an external check, or a follow-up trigger. If the last
+ * assistant message contains any of these, suppress the exit-when-done nudge:
+ * the agent has not declared the work finished, it has parked itself mid-task.
+ * Firing the nudge here would consume the once-per-session budget on a false
+ * positive and push a paused agent toward shutdown.
+ */
+const WAITING_STEM_RE =
+  /\b(?:wait(?:ing|ed|s)?|await(?:ing|ed|s)?|poll(?:ing|ed|s)?|monitor(?:ing|ed|s)?|pending|sleep(?:ing)?|standby|stand(?:ing)?\s+by|check(?:ing)?\s+back|hold(?:ing)?\s+(?:on|off)|in\s+the\s+meantime|until\s+(?:it|the|then)|ETA)\b/i;
+
+function isWaitingMessage(message: string | undefined): boolean {
+  return typeof message === 'string' && WAITING_STEM_RE.test(message);
+}
+
 export default stopHook({}, async (input, { logger }) => {
   let actionInput: ReturnType<typeof extractActionInput>;
   try {
@@ -32,6 +47,10 @@ export default stopHook({}, async (input, { logger }) => {
   }
 
   if (!actionInput.exitWhenDone) {
+    return null;
+  }
+
+  if (isWaitingMessage(input.last_assistant_message)) {
     return null;
   }
 
