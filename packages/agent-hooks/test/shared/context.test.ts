@@ -7,7 +7,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLANS_PREFIX } from '@cards/sdk/card-repo-layout';
-import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
+import { BRANCHES_DIR, COMMITS_DIR } from '@cards/sdk/protocol';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -306,8 +306,22 @@ describe('buildWorkspaceRepoLogBlocks', () => {
   function makeCardRepo(branches: Record<string, unknown>, commits: string[]): string {
     const dir = join(workspacePath, '..', `card-repo-ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, BRANCHES_FILE), JSON.stringify(branches, null, 2));
-    writeFileSync(join(dir, COMMITS_FILE), commits.map((c) => `${c}\n`).join(''));
+    // Phase-3 decomposed layout: each branch is a per-entry file
+    // branches/<encodeURIComponent(name)>.json carrying the authoritative `name`
+    // inside, and each attributed commit is a commits/<sha> entry file.
+    const branchesDir = join(dir, BRANCHES_DIR);
+    mkdirSync(branchesDir, { recursive: true });
+    for (const [name, meta] of Object.entries(branches)) {
+      writeFileSync(
+        join(branchesDir, `${encodeURIComponent(name)}.json`),
+        `${JSON.stringify({ name, ...(meta as object) }, null, 2)}\n`
+      );
+    }
+    const commitsDir = join(dir, COMMITS_DIR);
+    mkdirSync(commitsDir, { recursive: true });
+    for (const sha of commits) {
+      writeFileSync(join(commitsDir, sha), `${sha}\n`);
+    }
     return dir;
   }
 
