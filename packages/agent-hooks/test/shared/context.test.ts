@@ -103,12 +103,19 @@ describe('buildEnvBlock', () => {
     expect(result).toContain('BASE_BRANCH=main');
     expect(result).toContain('WORKSPACE_BRANCH=cards/card-123/1');
     expect(result).toContain('EXECUTION_MODE=interactive');
+    expect(result).toContain('EXIT_WHEN_DONE=false');
   });
 
   it('includes EXECUTION_MODE from actionInput.executionMode', () => {
     const result = buildEnvBlock(makeActionInput({ executionMode: 'background' }));
 
     expect(result).toContain('EXECUTION_MODE=background');
+  });
+
+  it('includes EXIT_WHEN_DONE=true when exitWhenDone is true', () => {
+    const result = buildEnvBlock(makeActionInput({ exitWhenDone: true }));
+
+    expect(result).toContain('EXIT_WHEN_DONE=true');
   });
 });
 

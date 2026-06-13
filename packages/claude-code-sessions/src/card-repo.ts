@@ -217,3 +217,55 @@ export function removeSessionRouteNudge(sessionId: string): void {
     if (!hasErrnoCode(error, 'ENOENT')) throw error;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Per-session exit-when-done nudge marker
+// ---------------------------------------------------------------------------
+
+function getSessionExitWhenDoneNudgePath(sessionId: string): string {
+  return join(getCardRepoCommitsDir(), `${sessionId}.exit-when-done-nudge`);
+}
+
+/**
+ * Creates the per-session exit-when-done nudge marker file.
+ * Creates directory if it doesn't exist.
+ *
+ * @param sessionId - Session to mark as having received an exit-when-done nudge.
+ * @throws Error when directory creation or file write fails.
+ */
+export function markSessionExitWhenDoneNudgeFired(sessionId: string): void {
+  mkdirSync(getCardRepoCommitsDir(), { recursive: true, mode: 0o700 });
+  writeFileSync(getSessionExitWhenDoneNudgePath(sessionId), '', { mode: 0o600 });
+}
+
+/**
+ * Returns whether the per-session exit-when-done nudge marker file exists.
+ *
+ * @param sessionId - Session to check.
+ * @returns `true` when the marker exists, `false` on `ENOENT`.
+ * @throws Error when the check fails for reasons other than `ENOENT`.
+ */
+export function hasSessionExitWhenDoneNudgeFired(sessionId: string): boolean {
+  try {
+    readFileSync(getSessionExitWhenDoneNudgePath(sessionId));
+    return true;
+  } catch (error) {
+    if (hasErrnoCode(error, 'ENOENT')) return false;
+    throw error;
+  }
+}
+
+/**
+ * Removes the per-session exit-when-done nudge marker file.
+ * No-op if file doesn't exist.
+ *
+ * @param sessionId - Session whose exit-when-done nudge marker should be deleted.
+ * @throws Error when deleting the file fails for reasons other than `ENOENT`.
+ */
+export function removeSessionExitWhenDoneNudge(sessionId: string): void {
+  try {
+    unlinkSync(getSessionExitWhenDoneNudgePath(sessionId));
+  } catch (error) {
+    if (!hasErrnoCode(error, 'ENOENT')) throw error;
+  }
+}

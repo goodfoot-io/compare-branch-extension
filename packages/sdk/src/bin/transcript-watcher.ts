@@ -20,7 +20,12 @@ import { watch } from 'node:fs';
 import { access, appendFile, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
+import {
+  removeSessionCsv,
+  removeSessionExitWhenDoneNudge,
+  removeSessionHeadSha,
+  removeSessionRouteNudge
+} from '@cards/sessions/card-repo';
 import { createWatcher } from '../config/watcher/createWatcher.js';
 import { isProcessAlive } from './process-utils.js';
 
@@ -639,6 +644,12 @@ export async function cleanupSessionArtifacts(sessionId: string, warnFn: (msg: s
     removeSessionRouteNudge(sessionId);
   } catch (error) {
     warnFn(`cleanupSessionArtifacts: removeSessionRouteNudge failed: ${String(error)}`);
+  }
+
+  try {
+    removeSessionExitWhenDoneNudge(sessionId);
+  } catch (error) {
+    warnFn(`cleanupSessionArtifacts: removeSessionExitWhenDoneNudge failed: ${String(error)}`);
   }
 }
 

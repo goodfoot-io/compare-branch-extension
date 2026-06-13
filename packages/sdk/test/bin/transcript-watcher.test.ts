@@ -34,10 +34,12 @@ vi.mock('node:child_process', async (importOriginal) => {
 const mockRemoveSessionHeadSha = vi.fn<(sessionId: string) => void>();
 const mockRemoveSessionCsv = vi.fn<(sessionId: string) => void>();
 const mockRemoveSessionRouteNudge = vi.fn<(sessionId: string) => void>();
+const mockRemoveSessionExitWhenDoneNudge = vi.fn<(sessionId: string) => void>();
 vi.mock('@cards/sessions/card-repo', () => ({
   removeSessionHeadSha: (sessionId: string) => mockRemoveSessionHeadSha(sessionId),
   removeSessionCsv: (sessionId: string) => mockRemoveSessionCsv(sessionId),
   removeSessionRouteNudge: (sessionId: string) => mockRemoveSessionRouteNudge(sessionId),
+  removeSessionExitWhenDoneNudge: (sessionId: string) => mockRemoveSessionExitWhenDoneNudge(sessionId),
   // Pass-through for any other exports used by the module under test.
   appendCommitToSession: vi.fn(),
   getSessionCommits: vi.fn(() => []),
@@ -247,9 +249,10 @@ describe('cleanupSessionArtifacts', () => {
     mockRemoveSessionHeadSha.mockReset();
     mockRemoveSessionCsv.mockReset();
     mockRemoveSessionRouteNudge.mockReset();
+    mockRemoveSessionExitWhenDoneNudge.mockReset();
   });
 
-  it('invokes all three removeSession* functions with the session id', async () => {
+  it('invokes all four removeSession* functions with the session id', async () => {
     const warnings: string[] = [];
     await cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg));
 
@@ -259,6 +262,8 @@ describe('cleanupSessionArtifacts', () => {
     expect(mockRemoveSessionCsv).toHaveBeenCalledWith(SESSION_ID);
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledWith(SESSION_ID);
     expect(warnings).toHaveLength(0);
   });
 
@@ -272,13 +277,15 @@ describe('cleanupSessionArtifacts', () => {
     // Must not throw even though removeSessionHeadSha throws.
     await expect(cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg))).resolves.toBeUndefined();
 
-    // The failing call is warned, the other two still fire.
+    // The failing call is warned, the other three still fire.
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('removeSessionHeadSha');
     expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
     expect(mockRemoveSessionCsv).toHaveBeenCalledWith(SESSION_ID);
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledWith(SESSION_ID);
   });
 
   it('warns for each individual failure independently', async () => {
@@ -294,10 +301,12 @@ describe('cleanupSessionArtifacts', () => {
     const warnings: string[] = [];
     await expect(cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg))).resolves.toBeUndefined();
 
-    // Two warnings, one per failing call; the third still fires.
+    // Two warnings, one per failing call; the remaining two still fire.
     expect(warnings).toHaveLength(2);
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledWith(SESSION_ID);
   });
 });
 
@@ -365,6 +374,7 @@ describe('runWatcherLoop — cleanup gate wiring', () => {
     mockRemoveSessionHeadSha.mockReset();
     mockRemoveSessionCsv.mockReset();
     mockRemoveSessionRouteNudge.mockReset();
+    mockRemoveSessionExitWhenDoneNudge.mockReset();
 
     const deps = makeDeps({ maxLifetimeMs: 0 });
     const { maxLifetimeExceeded } = await runWatcherLoop(deps);
@@ -377,12 +387,14 @@ describe('runWatcherLoop — cleanup gate wiring', () => {
     expect(mockRemoveSessionHeadSha).not.toHaveBeenCalled();
     expect(mockRemoveSessionCsv).not.toHaveBeenCalled();
     expect(mockRemoveSessionRouteNudge).not.toHaveBeenCalled();
+    expect(mockRemoveSessionExitWhenDoneNudge).not.toHaveBeenCalled();
   });
 
   it('cleanup runs when the loop exits via the process-death path', async () => {
     mockRemoveSessionHeadSha.mockReset();
     mockRemoveSessionCsv.mockReset();
     mockRemoveSessionRouteNudge.mockReset();
+    mockRemoveSessionExitWhenDoneNudge.mockReset();
 
     const deps = makeDeps({ checkAlive: () => false });
     const { maxLifetimeExceeded } = await runWatcherLoop(deps);
@@ -394,12 +406,14 @@ describe('runWatcherLoop — cleanup gate wiring', () => {
     expect(mockRemoveSessionHeadSha).toHaveBeenCalledOnce();
     expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledOnce();
   });
 
   it('cleanup runs when the loop exits via the stop-control path', async () => {
     mockRemoveSessionHeadSha.mockReset();
     mockRemoveSessionCsv.mockReset();
     mockRemoveSessionRouteNudge.mockReset();
+    mockRemoveSessionExitWhenDoneNudge.mockReset();
 
     const signal = { stopped: true };
     const deps = makeDeps({ signal });
@@ -412,6 +426,7 @@ describe('runWatcherLoop — cleanup gate wiring', () => {
     expect(mockRemoveSessionHeadSha).toHaveBeenCalledOnce();
     expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
     expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionExitWhenDoneNudge).toHaveBeenCalledOnce();
   });
 
   it('runs onTick each surviving iteration and sleeps the interval it returns', async () => {

@@ -23,7 +23,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
-import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
+import {
+  removeSessionCsv,
+  removeSessionExitWhenDoneNudge,
+  removeSessionHeadSha,
+  removeSessionRouteNudge
+} from '@cards/sessions/card-repo';
 import { sessionEndHook } from '@goodfoot/claude-code-hooks';
 
 /**
@@ -86,6 +91,14 @@ export async function cleanupSessionArtifacts(
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     logger.warn('Failed to remove route-nudge marker', { sessionId, error: e.message });
+    errors.push(e);
+  }
+
+  try {
+    removeSessionExitWhenDoneNudge(sessionId);
+  } catch (error) {
+    const e = error instanceof Error ? error : new Error(String(error));
+    logger.warn('Failed to remove exit-when-done nudge marker', { sessionId, error: e.message });
     errors.push(e);
   }
 

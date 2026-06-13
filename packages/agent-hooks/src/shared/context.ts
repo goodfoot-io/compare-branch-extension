@@ -78,7 +78,8 @@ export function buildEnvBlock(actionInput: ActionInput): string {
     `WORKSPACE_PATH=${workspacePath}`,
     `BASE_BRANCH=${baseBranch}`,
     `WORKSPACE_BRANCH=${workspaceBranch}`,
-    `EXECUTION_MODE=${actionInput.executionMode}`
+    `EXECUTION_MODE=${actionInput.executionMode}`,
+    `EXIT_WHEN_DONE=${actionInput.exitWhenDone}`
   ];
 
   return `\`\`\`bash\n${lines.join('\n')}\n\`\`\``;

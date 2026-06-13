@@ -16,10 +16,13 @@ import { tmpdir as realTmpdir } from 'node:os';
 import {
   appendCommitToSession,
   getSessionCommits,
+  hasSessionExitWhenDoneNudgeFired,
   hasSessionRouteNudgeFired,
+  markSessionExitWhenDoneNudgeFired,
   markSessionRouteNudgeFired,
   readSessionHeadSha,
   removeSessionCsv,
+  removeSessionExitWhenDoneNudge,
   removeSessionHeadSha,
   removeSessionRouteNudge,
   writeSessionHeadSha
@@ -260,6 +263,61 @@ describe('card-repo', () => {
 
     it('no-ops when marker file is absent', () => {
       expect(() => removeSessionRouteNudge('nonexistent-session')).not.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // markSessionExitWhenDoneNudgeFired / hasSessionExitWhenDoneNudgeFired / removeSessionExitWhenDoneNudge
+  // -------------------------------------------------------------------------
+
+  describe('markSessionExitWhenDoneNudgeFired', () => {
+    it('creates the .exit-when-done-nudge marker file', () => {
+      markSessionExitWhenDoneNudgeFired(sessionId);
+      const markerPath = join(cardRepoCommitsDir, `${sessionId}.exit-when-done-nudge`);
+      expect(existsSync(markerPath)).toBe(true);
+    });
+
+    it('creates directory if it does not exist', () => {
+      markSessionExitWhenDoneNudgeFired(sessionId);
+      expect(existsSync(cardRepoCommitsDir)).toBe(true);
+    });
+  });
+
+  describe('hasSessionExitWhenDoneNudgeFired', () => {
+    it('returns true when marker file exists', () => {
+      markSessionExitWhenDoneNudgeFired(sessionId);
+      expect(hasSessionExitWhenDoneNudgeFired(sessionId)).toBe(true);
+    });
+
+    it('returns false when marker file is absent', () => {
+      expect(hasSessionExitWhenDoneNudgeFired('nonexistent-session')).toBe(false);
+    });
+  });
+
+  describe('removeSessionExitWhenDoneNudge', () => {
+    it('deletes the .exit-when-done-nudge marker file', () => {
+      markSessionExitWhenDoneNudgeFired(sessionId);
+      const markerPath = join(cardRepoCommitsDir, `${sessionId}.exit-when-done-nudge`);
+      expect(existsSync(markerPath)).toBe(true);
+
+      removeSessionExitWhenDoneNudge(sessionId);
+      expect(existsSync(markerPath)).toBe(false);
+    });
+
+    it('no-ops when marker file is absent', () => {
+      expect(() => removeSessionExitWhenDoneNudge('nonexistent-session')).not.toThrow();
+    });
+  });
+
+  describe('exit-when-done marker is independent from route-nudge marker', () => {
+    it('route-nudge marker does not affect exit-when-done marker', () => {
+      markSessionRouteNudgeFired(sessionId);
+      expect(hasSessionExitWhenDoneNudgeFired(sessionId)).toBe(false);
+    });
+
+    it('exit-when-done marker does not affect route-nudge marker', () => {
+      markSessionExitWhenDoneNudgeFired(sessionId);
+      expect(hasSessionRouteNudgeFired(sessionId)).toBe(false);
     });
   });
 });
