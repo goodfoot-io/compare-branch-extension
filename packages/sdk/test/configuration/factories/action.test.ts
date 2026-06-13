@@ -20,6 +20,7 @@ describe('defineAction', () => {
     actionName: 'Test Action',
     environment: 'default',
     executionMode: 'interactive',
+    exitWhenDone: false,
     codingAgent: 'claude',
     repoRoot: '/workspace',
     cardRepoPath: '/workspace/.cards/card-123',

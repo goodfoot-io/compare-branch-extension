@@ -42,6 +42,7 @@ describe('runtime', () => {
     process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Test Action';
     process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'default';
     process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+    process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE] = 'false';
     process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace';
     process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace';
     process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/cards';

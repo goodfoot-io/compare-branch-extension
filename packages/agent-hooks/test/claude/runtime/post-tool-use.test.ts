@@ -61,6 +61,7 @@ const ACTION_ENV = {
   ACTION_NAME: 'Launch Claude',
   ENVIRONMENT: 'staging',
   EXECUTION_MODE: 'interactive',
+  EXIT_WHEN_DONE: 'false',
   REPO_ROOT: '/workspace',
   CARD_REPO_PATH: '/workspace/.cards/repo',
   CONFIG_PATH: '/tmp/config',
