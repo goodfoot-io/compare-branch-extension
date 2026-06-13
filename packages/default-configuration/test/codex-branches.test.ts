@@ -96,6 +96,26 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
+// Delegate the card-bound worktree orchestrator to the mocked bare primitive so
+// tests drive worktree creation without the real outfit machinery (locks, hook
+// provisioning, attribution spawning).
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn(
+    async (
+      _client: unknown,
+      ref: string,
+      options: { cwd?: string; cardId: string; compiledScriptPaths: Record<string, string> }
+    ) => {
+      const worktree = await import('@cards/sdk/worktree');
+      return worktree.createWorktree(ref, {
+        cwd: options.cwd,
+        cardId: options.cardId,
+        compiledScriptPaths: options.compiledScriptPaths
+      } as Parameters<typeof worktree.createWorktree>[1]);
+    }
+  )
+}));
+
 vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
   spawnBranchCleanupWatcher: vi.fn()
 }));
@@ -234,16 +254,18 @@ beforeEach(async () => {
         }
       });
     }
-    if (toPosix(filePath) === '/test/repo/branches.json') {
+    if (toPosix(filePath) === `/test/repo/branches/${encodeURIComponent('cards/card-123/1')}.json`) {
       return JSON.stringify({
-        'cards/card-123/1': {
-          parentBranch: 'main',
-          addedAt: '2026-04-02T00:00:00.000Z'
-        }
+        name: 'cards/card-123/1',
+        parentBranch: 'main',
+        addedAt: '2026-04-02T00:00:00.000Z'
       });
     }
-    if (toPosix(filePath) === '/test/repo/commits.csv') {
-      return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
+    if (toPosix(filePath) === '/test/repo/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') {
+      return 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n';
+    }
+    if (toPosix(filePath) === '/test/repo/commits/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb') {
+      return 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n';
     }
     if (toPosix(filePath) === '/test/repo/AGENTS.md') {
       return '# Card Repository Reference\n\nEach card is an isolated Git repository.\n';

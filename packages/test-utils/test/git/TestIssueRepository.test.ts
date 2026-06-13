@@ -11,7 +11,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ATTACHMENTS_DIR, COMMENTS_DIR, COMMENTS_PREFIX, PLANS_DIR } from '@cards/sdk/card-repo-layout';
-import { COMMITS_FILE } from '@cards/sdk/protocol';
+import { COMMITS_DIR } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TestCardRepository } from '../../src/git/TestCardRepository.js';
@@ -178,15 +178,11 @@ describe('TestCardRepository', () => {
       cardId = await repo.createCard({ title: 'Test Card' });
     });
 
-    it('adds attribution to commits.csv', async () => {
+    it('writes a commits/<sha> entry file', async () => {
       await repo.addAttribution(cardId, 'abc123def456');
-      const csvPath = path.join(repo.getCardPath(cardId), COMMITS_FILE);
-      const content = await fs.readFile(csvPath, 'utf-8');
-      const commits = content
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0);
-      expect(commits).toContain('abc123def456');
+      const commitsDir = path.join(repo.getCardPath(cardId), COMMITS_DIR);
+      const entries = await fs.readdir(commitsDir);
+      expect(entries).toContain('abc123def456');
     });
   });
 

@@ -11,11 +11,13 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from './client/index.js';
 import { CARDS_ENV_VARS } from './config/index.js';
-import { BRANCHES_FILE, COMMITS_FILE } from './protocol/index.js';
+import { BRANCHES_DIR, COMMITS_DIR } from './protocol/index.js';
+
+const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 // ============================================================================
 // Card repo git log
@@ -108,11 +110,13 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   let commits: string[] = [];
 
   try {
-    const raw = readFileSync(join(cardRepoPath, BRANCHES_FILE), 'utf-8');
-    const parsed = JSON.parse(raw) as Record<string, { parentBranch?: string; addedAt?: string }>;
-    for (const [name, meta] of Object.entries(parsed)) {
-      if (meta && typeof meta === 'object') {
-        branches[name] = {
+    const files = readdirSync(join(cardRepoPath, BRANCHES_DIR));
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      const raw = readFileSync(join(cardRepoPath, BRANCHES_DIR, file), 'utf-8');
+      const meta = JSON.parse(raw) as { name?: string; parentBranch?: string; addedAt?: string };
+      if (meta && typeof meta === 'object' && typeof meta.name === 'string') {
+        branches[meta.name] = {
           parentBranch: typeof meta.parentBranch === 'string' ? meta.parentBranch : undefined,
           addedAt: typeof meta.addedAt === 'string' ? meta.addedAt : ''
         };
@@ -125,11 +129,7 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   }
 
   try {
-    const raw = readFileSync(join(cardRepoPath, COMMITS_FILE), 'utf-8');
-    commits = raw
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((s): s is string => s.length > 0);
+    commits = readdirSync(join(cardRepoPath, COMMITS_DIR)).filter((f): f is string => SHA_PATTERN.test(f));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       return null;

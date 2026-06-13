@@ -26,13 +26,16 @@ const SHA_1 = '1'.repeat(40);
 const SHA_2 = '2'.repeat(40);
 const SHA_3 = '3'.repeat(40);
 
+const COMMIT_ENTRY = `commits/${'a'.repeat(40)}`;
+const BRANCH_ENTRY = `branches/${encodeURIComponent('cards/main-1/1')}.json`;
+
 describe('isBookkeepingCommit', () => {
-  it('returns true for commits.csv only', () => {
-    expect(isBookkeepingCommit(makeCommit([{ file: 'commits.csv', status: 'M', binary: false }]))).toBe(true);
+  it('returns true for a commits/ entry file only', () => {
+    expect(isBookkeepingCommit(makeCommit([{ file: COMMIT_ENTRY, status: 'A', binary: false }]))).toBe(true);
   });
 
-  it('returns true for branches.json only', () => {
-    expect(isBookkeepingCommit(makeCommit([{ file: 'branches.json', status: 'M', binary: false }]))).toBe(true);
+  it('returns true for a branches/ entry file only', () => {
+    expect(isBookkeepingCommit(makeCommit([{ file: BRANCH_ENTRY, status: 'A', binary: false }]))).toBe(true);
   });
 
   it('returns true for session stream files only', () => {
@@ -50,8 +53,8 @@ describe('isBookkeepingCommit', () => {
     expect(
       isBookkeepingCommit(
         makeCommit([
-          { file: 'commits.csv', status: 'M', binary: false },
-          { file: 'branches.json', status: 'M', binary: false },
+          { file: COMMIT_ENTRY, status: 'A', binary: false },
+          { file: BRANCH_ENTRY, status: 'A', binary: false },
           { file: 'streams/claude-code-session/abc.jsonl', status: 'A', binary: false }
         ])
       )
@@ -62,7 +65,7 @@ describe('isBookkeepingCommit', () => {
     expect(
       isBookkeepingCommit(
         makeCommit([
-          { file: 'commits.csv', status: 'M', binary: false },
+          { file: COMMIT_ENTRY, status: 'A', binary: false },
           { file: 'CARD.md', status: 'M', binary: false }
         ])
       )

@@ -36,8 +36,8 @@ describe('getCommitsSince', () => {
         '--',
         '.',
         ':!streams/claude-code-session/',
-        ':!commits.csv',
-        ':!branches.json'
+        ':!commits/',
+        ':!branches/'
       ],
       expect.objectContaining({ cwd: '/repo' })
     );

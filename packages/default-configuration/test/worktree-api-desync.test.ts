@@ -37,6 +37,26 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
+// Delegate the card-bound worktree orchestrator to the mocked bare primitive so
+// tests drive worktree creation without the real outfit machinery (locks, hook
+// provisioning, attribution spawning).
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn(
+    async (
+      _client: unknown,
+      ref: string,
+      options: { cwd?: string; cardId: string; compiledScriptPaths: Record<string, string> }
+    ) => {
+      const worktree = await import('@cards/sdk/worktree');
+      return worktree.createWorktree(ref, {
+        cwd: options.cwd,
+        cardId: options.cardId,
+        compiledScriptPaths: options.compiledScriptPaths
+      } as Parameters<typeof worktree.createWorktree>[1]);
+    }
+  )
+}));
+
 vi.mock('node:crypto', async () => {
   const actual = await vi.importActual('node:crypto');
   return {

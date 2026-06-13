@@ -3,7 +3,7 @@
  *
  * When claude exits cleanly (code 0) in background mode, `spawnClaudeSession`
  * calls `cleanupMergedBranches` inline. If the card repo is inaccessible
- * (e.g. disk error reading branches.json), the error must not
+ * (e.g. disk error reading the branches/ directory), the error must not
  * propagate — cleanup is triple-redundant and should not be fatal.
  *
  * This test asserts that `spawnClaudeSession` resolves successfully even when
@@ -26,13 +26,35 @@ vi.mock('node:child_process', () => ({
 vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   readFile: vi.fn(),
-  writeFile: vi.fn()
+  writeFile: vi.fn(),
+  readdir: vi.fn(),
+  rm: vi.fn()
 }));
 
 vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
+}));
+
+// Delegate the card-bound worktree orchestrator to the mocked bare primitive so
+// tests drive worktree creation without the real outfit machinery (locks, hook
+// provisioning, attribution spawning).
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn(
+    async (
+      _client: unknown,
+      ref: string,
+      options: { cwd?: string; cardId: string; compiledScriptPaths: Record<string, string> }
+    ) => {
+      const worktree = await import('@cards/sdk/worktree');
+      return worktree.createWorktree(ref, {
+        cwd: options.cwd,
+        cardId: options.cardId,
+        compiledScriptPaths: options.compiledScriptPaths
+      } as Parameters<typeof worktree.createWorktree>[1]);
+    }
+  )
 }));
 
 vi.mock('node:crypto', async () => {
@@ -83,16 +105,20 @@ beforeEach(async () => {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
-  // readFile: reject with EACCES to simulate inaccessible card repo for cleanupMergedBranches
-  const { readFile } = await import('node:fs/promises');
-  vi.mocked(readFile).mockImplementation((filePath: unknown) => {
-    const p = String(filePath);
-    if (p.endsWith('branches.json')) {
+  // readdir: reject with EACCES to simulate an inaccessible branches/ directory
+  // so cleanupMergedBranches propagates a non-ENOENT error.
+  const { readFile, readdir, rm } = await import('node:fs/promises');
+  vi.mocked(readdir).mockImplementation(((dirPath: unknown) => {
+    if (String(dirPath).endsWith('branches')) {
       return Promise.reject(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
     }
-    // Other reads (e.g. marketplace registration) return ENOENT
     return Promise.reject(Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' }));
-  });
+  }) as unknown as typeof readdir);
+  vi.mocked(rm).mockResolvedValue(undefined);
+  // Other reads (e.g. marketplace registration) return ENOENT
+  vi.mocked(readFile).mockRejectedValue(
+    Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+  );
 
   const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
@@ -177,7 +203,7 @@ describe('spawnClaudeSession post-exit cleanup error propagation', () => {
     child.emit('close', 0);
 
     // spawnClaudeSession should resolve without error even though
-    // cleanupMergedBranches throws due to EACCES on branches.json.
+    // cleanupMergedBranches throws due to EACCES on the branches/ directory.
     await expect(promise).resolves.toBeUndefined();
   });
 });

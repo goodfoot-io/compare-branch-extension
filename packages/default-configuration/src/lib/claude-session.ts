@@ -19,7 +19,7 @@ import { type ActionContext, type ActionInput, CARDS_ENV_VARS, resolveWorktreeDi
 import type { CardsClient } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
-import { BRANCHES_FILE } from '@cards/sdk/protocol';
+import { BRANCHES_DIR } from '@cards/sdk/protocol';
 
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
@@ -478,23 +478,29 @@ export async function cleanupMergedBranches(
 ): Promise<void> {
   let t0 = performance.now();
 
-  // Read branches.json directly from the card repository
-  const branchesPath = path.join(cardRepoPath, BRANCHES_FILE);
-  let branchesJson: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>;
+  // Read per-branch entry files from the card repository's branches/ directory.
+  // The authoritative branch name lives in each file's `name` field, never the filename.
+  const branchesDir = path.join(cardRepoPath, BRANCHES_DIR);
+  let entries: Array<[string, { worktree?: string; parentBranch: string; addedAt: string }]>;
   try {
-    const content = await fs.readFile(branchesPath, 'utf-8');
-    branchesJson = JSON.parse(content) as typeof branchesJson;
+    const files = (await fs.readdir(branchesDir)).filter((f) => f.endsWith('.json'));
+    const parsed: Array<[string, { worktree?: string; parentBranch: string; addedAt: string }]> = [];
+    for (const file of files) {
+      const content = await fs.readFile(path.join(branchesDir, file), 'utf-8');
+      const record = JSON.parse(content) as { name: string; worktree?: string; parentBranch: string; addedAt: string };
+      parsed.push([record.name, record]);
+    }
+    entries = parsed;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      logger.debug(`No ${BRANCHES_FILE} found, nothing to clean up`);
+      logger.debug(`No ${BRANCHES_DIR}/ found, nothing to clean up`);
       return;
     }
     throw error;
   }
 
   // Compute existence for each branch via git
-  const entries = Object.entries(branchesJson);
-  logger.debug(`Read ${BRANCHES_FILE}`, {
+  logger.debug(`Read ${BRANCHES_DIR}/`, {
     cardId: input.cardId,
     branchCount: entries.length,
     elapsedMs: Math.round(performance.now() - t0)
@@ -580,25 +586,30 @@ export async function cleanupMergedBranches(
     });
 
     if (branchDeleted) {
-      // Remove the branch entry from branches.json and commit
+      // Remove the branch's per-entry file from branches/ and commit
       t0 = performance.now();
       await tryCleanupStep(
         async () => {
-          // Re-read to avoid stale data after earlier iterations
-          const freshContent = await fs.readFile(branchesPath, 'utf-8');
-          const freshBranches = JSON.parse(freshContent) as Record<string, unknown>;
-          delete freshBranches[branchName];
-          await fs.writeFile(branchesPath, `${JSON.stringify(freshBranches, null, 2)}\n`, 'utf-8');
+          const entryRel = path.join(BRANCHES_DIR, `${encodeURIComponent(branchName)}.json`);
+          await fs.rm(path.join(cardRepoPath, entryRel), { force: true });
 
           const gitEnv: Record<string, string> = {};
           if (sessionId) {
             gitEnv['CARDS_SESSION_ID'] = sessionId;
           }
-          await execFileAsync('git', ['add', BRANCHES_FILE], {
+          await execFileAsync('git', ['rm', '--quiet', '--ignore-unmatch', '--', entryRel], {
             cwd: cardRepoPath,
             env: { ...process.env, ...gitEnv }
           });
-          const branchCount = Object.keys(freshBranches).length;
+          // Re-count remaining entry files for the commit message.
+          let branchCount = 0;
+          try {
+            branchCount = (await fs.readdir(path.join(cardRepoPath, BRANCHES_DIR))).filter((f) =>
+              f.endsWith('.json')
+            ).length;
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          }
           await execFileAsync(
             'git',
             ['commit', '-m', `Removed branch "${branchName}" (now tracking ${branchCount}).`],
