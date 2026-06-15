@@ -836,6 +836,12 @@ WORKTREE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 CARDS_HOOK="$(dirname "$0")/${hookType}.mjs"
 ORIGINAL_HOOKS_DIR=$(cat "$WORKTREE_ROOT/.cards/CARD_ORIGINAL_HOOK_PATH" 2>/dev/null)
 ORIGINAL_HOOK="$ORIGINAL_HOOKS_DIR/${hookType}"
+
+# Skip if CARDS_SKIP_HOOK is set — consistent with the card-repo wrapper
+# guard so a single env var suppresses both hook layers.
+if [ "$CARDS_SKIP_HOOK" = "1" ]; then
+  exit 0
+fi
 `;
 }
 
