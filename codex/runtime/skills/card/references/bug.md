@@ -2,8 +2,8 @@
 <placeholder-variables>
 [BUG_DESCRIPTION] — One-sentence summary extracted in Step 1.2: "[Expected behavior] but [actual behavior]"
 [SCOPE_HINT] — Files, packages, or functions mentioned in the card, extracted in Step 1.2
-[SHORT_LABEL] — Short identifier for a single root-cause hypothesis (one per parallel subagent in Step 1.4)
-[TEST_FAILURE_OUTPUT] — Combined failure output from the reproduction tests, captured in Step 1.5
+[SHORT_LABEL] — Short identifier for a single root-cause hypothesis (one per parallel subagent in Step 1.5)
+[TEST_FAILURE_OUTPUT] — Combined failure output from the reproduction tests, captured in Step 1.6
 </placeholder-variables>
 
 <test-first-invariant>
@@ -49,7 +49,19 @@ Enumerate all plausible root causes based on card content, error messages, and s
 
 If every hypothesis reduces to "the described behavior is not implemented anywhere," the card is a missing-feature request rather than a bug. Write a comment explaining the finding, commit, and Read `./plan.md` to continue.
 
-### 1.4 Write Reproduction Tests in Parallel
+### 1.4 Assess Reproduction Suitability
+
+Reproduction is the default; fail closed — when in doubt, reproduce. Divert to `./plan.md` only when one disqualifier holds **for every viable hypothesis** and no **outcome-level** test (asserting observable behavior, not which API was called) exists either:
+
+- **Tautological** — the fix *is* the mechanism change, so any test only restates the implementation. Fix is "stop calling `fs.watch`" → test asserts `fs.watch` uncalled.
+- **Dangerous** — a faithful reproduction must perform an unsafe or irreversible act: resource exhaustion (fork/watch/fd/memory storms, DoS load), data loss, or mutating an external or credentialed system.
+- **Cost-prohibitive or environment-bound** — faithful reproduction needs infeasible fixtures or scale, or the symptom is platform/kernel/hardware-specific so the test probes *where* it runs, not whether the bug is present.
+
+"Hard", "slow", "obvious", and "I'm confident" are not disqualifiers — reproduce anyway.
+
+On divert: write a comment naming the disqualifier and why no outcome-level test fits, commit, and Read `./plan.md` (the planning path picks an outcome guard where one is meaningful). Otherwise proceed to Step 1.5.
+
+### 1.5 Write Reproduction Tests in Parallel
 
 For each viable hypothesis, `spawn_agent` one child so they run concurrently — give each a descriptive `task_name` like `reproduce_[SHORT_LABEL]`. The `message` for each carries the task below, scoped to its single hypothesis:
 
@@ -87,13 +99,13 @@ Write a minimal reproduction test for a single root-cause hypothesis.
 
 Each child's final report returns to you when it finishes. After every child returns, run each new test file and discard any that passes — only tests that actually fail are kept.
 
-### 1.5 Commit Reproduction
+### 1.6 Commit Reproduction
 
 **Every commit below follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.**
 
 Based on the reproduction results:
 - **One or more tests fail**: Commit all failing tests in one commit, tag the state, capture `[TEST_FAILURE_OUTPUT]`, write a progress comment to the card repository listing each viable pathway and its test, commit the card repository, and proceed to Step 2: Resolve Bug.
-- **No tests fail, new evidence expanded the hypothesis set** (max 3 rounds total across Step 1.3–1.5): Return to Step 1.3: Identify Root Cause Hypotheses.
+- **No tests fail, new evidence expanded the hypothesis set** (max 3 rounds total across Step 1.3–1.6): Return to Step 1.3: Identify Root Cause Hypotheses.
 - **No tests fail, hypotheses exhausted**: Write a comment explaining what was tried and why reproduction failed, and **STOP** — awaiting user direction.
 
 ```bash
