@@ -25,10 +25,16 @@ function postToHost(message: IframeToHostMessage): void {
  * The host will respond with a `subscribe:response` message containing
  * the file's current lines and metadata.
  *
+ * When `tail` is provided, the host only sends the last `tail` lines (a compact
+ * preview); the response's `meta.lineCount` still reflects the full stream so
+ * the renderer knows earlier content exists. Omit it to receive the full
+ * transcript (the expanded panel).
+ *
  * @param filename - Stream filename to subscribe to.
+ * @param tail - Optional positive line count for a trailing-window preview.
  */
-export function subscribe(filename: string): void {
-  postToHost({ type: 'subscribe', filename });
+export function subscribe(filename: string, tail?: number): void {
+  postToHost(tail !== undefined ? { type: 'subscribe', filename, tail } : { type: 'subscribe', filename });
 }
 
 /**

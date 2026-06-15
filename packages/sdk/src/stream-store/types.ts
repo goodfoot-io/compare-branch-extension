@@ -31,6 +31,17 @@ export interface StreamMeta {
 /** Host-selected display mode for a stream iframe. */
 export type StreamDisplayMode = 'compact' | 'expanded';
 
+/**
+ * Number of trailing lines a compact preview requests when backfilling.
+ *
+ * A compact stream card renders only ~3 visible lines (overflow hidden), so
+ * fetching the full transcript is wasteful. The auto-subscribe and the host's
+ * subscribe handler both use this to request just the tail; the response's
+ * `meta.lineCount` still reports the full stream length. The expanded panel
+ * omits the tail and downloads the whole transcript.
+ */
+export const COMPACT_TAIL_LINES = 50;
+
 // ============================================================================
 // Store State
 // ============================================================================
@@ -104,4 +115,14 @@ export type IframeToHostMessage =
   | { type: 'openFile'; path: string; line?: number }
   | { type: 'showDiff'; sha: string; filePath?: string }
   | { type: 'claim'; filenames: string[] }
-  | { type: 'subscribe'; filename: string };
+  | {
+      type: 'subscribe';
+      filename: string;
+      /**
+       * When set, the renderer only needs the last `tail` lines (compact
+       * preview). The host requests just that many lines so an ended stream's
+       * full multi-MB transcript is never downloaded to show ~3 lines. Absent
+       * for the expanded panel, which renders the full transcript.
+       */
+      tail?: number;
+    };

@@ -498,6 +498,43 @@ describe('CardsClient', () => {
       expect(result).toEqual(mockStream);
     });
 
+    it('getStream appends ?tail=N when a tail is provided', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      const mockStream = {
+        meta: { filename: 'session.log', streamType: 'claude-session', lineCount: 2460 },
+        lines: ['line 2459', 'line 2460']
+      };
+      httpClient.responses.set(
+        'http://localhost:3000/cards/card-1/streams/claude-session/session.log?tail=50',
+        mockStream
+      );
+
+      const result = await client.getStream('card-1', 'claude-session', 'session.log', 50);
+
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'GET',
+        url: expect.stringContaining('tail=50')
+      });
+      // meta.lineCount still reports the full stream even though only the tail
+      // was returned.
+      expect(result.meta.lineCount).toBe(2460);
+      expect(result.lines).toHaveLength(2);
+    });
+
+    it('getStream omits the tail query param when no tail is provided', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      httpClient.responses.set('http://localhost:3000/cards/card-1/streams/claude-session/session.log', {
+        meta: {},
+        lines: []
+      });
+
+      await client.getStream('card-1', 'claude-session', 'session.log');
+
+      expect(httpClient.requests[0]!.url).not.toContain('tail=');
+    });
+
     it('getStream encodes filename in URL', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);

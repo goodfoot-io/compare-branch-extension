@@ -40,6 +40,19 @@ describe('stream store actions', () => {
 
       expect(postMessageSpy).toHaveBeenCalledWith({ type: 'subscribe', filename: 'session.jsonl' }, '*');
     });
+
+    it('should include the tail when provided (compact preview)', () => {
+      subscribe('session.jsonl', 50);
+
+      expect(postMessageSpy).toHaveBeenCalledWith({ type: 'subscribe', filename: 'session.jsonl', tail: 50 }, '*');
+    });
+
+    it('should omit the tail key entirely when not provided', () => {
+      subscribe('session.jsonl');
+
+      const message = postMessageSpy.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(message).not.toHaveProperty('tail');
+    });
   });
 
   describe('close', () => {
