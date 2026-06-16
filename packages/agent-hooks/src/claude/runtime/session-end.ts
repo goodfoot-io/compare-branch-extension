@@ -61,7 +61,7 @@ export async function writeSentinelFile(cardRepoPath: string, sessionId: string)
  * @param logger.warn - Log warning messages.
  * @throws {AggregateError} When one or more cleanup steps fail.
  */
-export async function cleanupSessionArtifacts(
+async function cleanupSessionArtifacts(
   sessionId: string,
   logger: {
     info: (msg: string, ctx?: Record<string, unknown>) => void;

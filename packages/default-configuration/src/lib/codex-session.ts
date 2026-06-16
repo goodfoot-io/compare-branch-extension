@@ -88,7 +88,7 @@ export class CardRepoAccessError extends Error {
  * @param marketplacePath - Absolute path to the packaged marketplace directory.
  * @returns Absolute path to the bundled Codex root directory.
  */
-export function resolveCodexBundlePath(marketplacePath: string): string {
+function resolveCodexBundlePath(marketplacePath: string): string {
   return path.join(path.dirname(marketplacePath), 'codex');
 }
 
@@ -99,7 +99,7 @@ export function resolveCodexBundlePath(marketplacePath: string): string {
  * @param pluginName - Bundled Codex plugin name to resolve.
  * @returns Absolute path to the packaged Codex runtime plugin directory.
  */
-export function resolveCodexPluginPath(marketplacePath: string, pluginName: CodexPluginName): string {
+function resolveCodexPluginPath(marketplacePath: string, pluginName: CodexPluginName): string {
   return path.join(resolveCodexBundlePath(marketplacePath), pluginName);
 }
 
@@ -119,7 +119,7 @@ export function resolveDefaultCodexHome(): string {
  * @param expectedName - Expected plugin name from the bundle manifest.
  * @returns Parsed plugin manifest.
  */
-export async function readCodexPluginManifest(
+async function readCodexPluginManifest(
   pluginPath: string,
   expectedName: CodexPluginName
 ): Promise<CodexPluginManifest> {

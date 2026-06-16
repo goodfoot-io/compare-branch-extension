@@ -30,7 +30,7 @@ const CLI_WRAPPERS = [{ envVar: 'CARDS_DEV_CLI', filename: 'cards-dev-cli' }] as
  * @param filename - Wrapper script filename (e.g. `cards-dev-cli`).
  * @returns Absolute path to the wrapper.
  */
-export function resolveCliWrapper(filename: string): string {
+function resolveCliWrapper(filename: string): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), '../../bin', filename);
 }
 

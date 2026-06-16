@@ -10,10 +10,10 @@
  */
 
 /** Name of the env var that carries the current session identifier. */
-export const CARDS_SESSION_ID_ENV = 'CARDS_SESSION_ID';
+const CARDS_SESSION_ID_ENV = 'CARDS_SESSION_ID';
 
 /** Name of the env var that carries the path to the session transcript file. */
-export const CARDS_TRANSCRIPT_PATH_ENV = 'CARDS_TRANSCRIPT_PATH';
+const CARDS_TRANSCRIPT_PATH_ENV = 'CARDS_TRANSCRIPT_PATH';
 
 /**
  * Persists the Cards session identity vars into the Bash tool shell environment.

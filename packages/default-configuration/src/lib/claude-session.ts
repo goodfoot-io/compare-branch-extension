@@ -370,7 +370,7 @@ export async function resolveOrCreateWorktree(
  * @param dirPath - Absolute path to the directory whose child processes should be killed.
  * @param logger - Logger for diagnostic output.
  */
-export async function killProcessesInDirectory(dirPath: string, logger: ActionContext['logger']): Promise<void> {
+async function killProcessesInDirectory(dirPath: string, logger: ActionContext['logger']): Promise<void> {
   const resolvedDir = fsSyncNs.realpathSync(dirPath);
   const pidsToKill: number[] = [];
 
