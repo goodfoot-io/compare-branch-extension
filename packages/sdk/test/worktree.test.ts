@@ -428,9 +428,17 @@ describe('createWorktree static .cards subtree provisioning', () => {
     const sourceBin = path.join(repoDir, '.cards', 'bin');
     const destBin = path.join(wPath, '.cards', 'bin');
 
-    // A real file the worktree added (not a symlink) must survive a second pass.
+    // A real file the worktree added whose name does NOT match any source entry
+    // must survive a second pass (replaceSymlink is never called for it).
     const realFile = path.join(destBin, 'real.mjs');
     await fs.writeFile(realFile, 'console.log("real");\n');
+
+    // Remove the cli.mjs symlink and create a real file at the same path, so the
+    // destination has a real file whose name DOES match a source entry. This
+    // exercises the replaceSymlink non-symlink early-return path: lstat finds a
+    // real file, and the function must return without error, leaving it untouched.
+    await fs.unlink(path.join(destBin, 'cli.mjs'));
+    await fs.writeFile(path.join(destBin, 'cli.mjs'), 'console.log("shadow");\n');
 
     // Drive a second provisioning pass against the SAME destination directory —
     // exactly what a re-fired WorktreeCreate hook or retried settle does. It must
@@ -438,13 +446,20 @@ describe('createWorktree static .cards subtree provisioning', () => {
     // replaceSymlink, and the destination directory mkdir is idempotent.
     await expect(provisionStaticCardsSubtree(sourceBin, destBin)).resolves.toBeUndefined();
 
-    // The pre-existing symlink is still a valid symlink to the source.
-    const linkStat = await fs.lstat(path.join(destBin, 'cli.mjs'));
+    // The pre-existing symlink that was never replaced (helper.mjs) is still a
+    // valid symlink to the source.
+    const linkStat = await fs.lstat(path.join(destBin, 'helper.mjs'));
     expect(linkStat.isSymbolicLink()).toBe(true);
-    await expect(fs.readFile(path.join(destBin, 'cli.mjs'), 'utf8')).resolves.toBe('console.log("cli");\n');
+    await expect(fs.readFile(path.join(destBin, 'helper.mjs'), 'utf8')).resolves.toBe('export const x = 1;\n');
 
-    // The worktree's real file is left untouched (replaceSymlink never clobbers a
-    // real file; the source has no such entry, so nothing overwrites it).
+    // The real file at cli.mjs was left untouched — replaceSymlink returned early
+    // when lstat showed a non-symlink, rather than throwing EEXIST.
+    const shadowStat = await fs.lstat(path.join(destBin, 'cli.mjs'));
+    expect(shadowStat.isFile()).toBe(true);
+    expect(shadowStat.isSymbolicLink()).toBe(false);
+    await expect(fs.readFile(path.join(destBin, 'cli.mjs'), 'utf8')).resolves.toBe('console.log("shadow");\n');
+
+    // The unrelated real file is still untouched.
     const realStat = await fs.lstat(realFile);
     expect(realStat.isFile()).toBe(true);
     expect(realStat.isSymbolicLink()).toBe(false);

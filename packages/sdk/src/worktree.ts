@@ -124,9 +124,8 @@ async function createSymlink(target: string, linkPath: string): Promise<void> {
  * itself no longer fires on a second run and each per-entry `fs.symlink` would
  * reject with `EEXIST`. Unlinking a pre-existing symlink first makes every
  * per-entry link safe to recreate. A non-symlink at `linkPath` is left
- * untouched so genuine on-disk data is never clobbered — the subsequent
- * `createSymlink` then surfaces the conflict (fail-closed) rather than masking
- * it.
+ * untouched — the function returns early without error, so genuine on-disk data
+ * is never clobbered.
  *
  * @param target - Symlink target (passed through to {@link createSymlink}).
  * @param linkPath - Path at which to create the symlink.
@@ -137,6 +136,8 @@ async function replaceSymlink(target: string, linkPath: string): Promise<void> {
     const stats = await fs.lstat(linkPath);
     if (stats.isSymbolicLink()) {
       await fs.unlink(linkPath);
+    } else {
+      return;
     }
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -680,10 +681,12 @@ const STATIC_CARDS_SUBTREES = ['bin', 'www'] as const;
  * write through it would land in the source — so directories are recreated, not linked.
  *
  * The operation is idempotent: per-file links go through {@link replaceSymlink}, which unlinks a
- * pre-existing symlink before recreating it and leaves a real file untouched. ENOENT-tolerant: an
- * absent source subtree is skipped (no dangling links, no throw). Non-file, non-directory entries
- * (sockets, devices) are skipped with a stderr warning, matching the error-handling idiom used
- * throughout this file.
+ * pre-existing symlink before recreating it and leaves a real file untouched. Symlink entries in
+ * the source are mirrored by reading their target and creating a matching symlink in the
+ * destination. ENOENT-tolerant: an absent source subtree is skipped, and a source subtree that
+ * disappears mid-operation is caught gracefully (no dangling links, no throw). Non-file,
+ * non-directory, non-symlink entries (sockets, devices) are skipped with a stderr warning,
+ * matching the error-handling idiom used throughout this file.
  *
  * @param sourcePath - Absolute path to the source subtree (e.g. `sourceRoot/.cards/bin`).
  * @param destPath - Absolute path to the destination subtree (e.g. `worktreeDir/.cards/bin`).
@@ -701,20 +704,29 @@ export async function provisionStaticCardsSubtree(sourcePath: string, destPath: 
 
   // Create the real destination directory only once the source is known to exist,
   // so an absent source never leaves an empty directory behind.
-  await fs.mkdir(destPath, { recursive: true });
+  try {
+    await fs.mkdir(destPath, { recursive: true });
 
-  const entries = await fs.readdir(sourcePath, { withFileTypes: true });
-  for (const entry of entries) {
-    const entrySource = path.join(sourcePath, entry.name);
-    const entryDest = path.join(destPath, entry.name);
-    if (entry.isDirectory()) {
-      await provisionStaticCardsSubtree(entrySource, entryDest);
-    } else if (entry.isFile()) {
-      await replaceSymlink(entrySource, entryDest);
-    } else {
-      process.stderr.write(
-        `create-worktree: skipping non-file, non-directory entry while provisioning static .cards subtree: ${entrySource}\n`
-      );
+    const entries = await fs.readdir(sourcePath, { withFileTypes: true });
+    for (const entry of entries) {
+      const entrySource = path.join(sourcePath, entry.name);
+      const entryDest = path.join(destPath, entry.name);
+      if (entry.isDirectory()) {
+        await provisionStaticCardsSubtree(entrySource, entryDest);
+      } else if (entry.isFile()) {
+        await replaceSymlink(entrySource, entryDest);
+      } else if (entry.isSymbolicLink()) {
+        const symlinkTarget = await fs.readlink(entrySource);
+        await replaceSymlink(symlinkTarget, entryDest);
+      } else {
+        process.stderr.write(
+          `create-worktree: skipping non-file, non-directory, non-symlink entry while provisioning static .cards subtree: ${entrySource}\n`
+        );
+      }
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
     }
   }
 }
