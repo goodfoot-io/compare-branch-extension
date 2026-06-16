@@ -318,9 +318,17 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     const ignored = await discoverIgnoredPaths(sourceRoot);
     await copyExistingSymlinks(sourceRoot, worktreeDir);
 
-    // .cards is copied rather than symlinked so each worktree gets an independent copy
+    // .cards is copied rather than symlinked so each worktree gets an independent copy.
+    // node_modules owned by the rerouter are excluded here — the rerouter rebuilds
+    // them as real directories; symlinking first and then unlinking wastes syscalls
+    // and creates an ordering dependency between the two steps.
+    const reroutedNodeModules = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+    const ownedNodeModules = new Set(reroutedNodeModules.map((e) => e.relativePath));
+
     const filteredIgnored: IgnoredPaths = {
-      directories: ignored.directories.filter((d) => d !== '.cards' && !d.startsWith('.cards/')),
+      directories: ignored.directories.filter(
+        (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedNodeModules.has(d)
+      ),
       files: ignored.files.filter((f) => !f.startsWith('.cards/'))
     };
     await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
@@ -1318,6 +1326,88 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
   return counts.reduce((sum, c) => sum + c, 0);
 }
 
+/**
+ * A single node_modules directory that `rerouteAllNodeModules` owns.
+ */
+export interface ReroutedNodeModulesEntry {
+  /**
+   * Path relative to the repo root in git/POSIX form ("node_modules",
+   * "packages/foo/node_modules"). Used to match against the git-discovered
+   * ignored-directory list, so it must use forward slashes.
+   */
+  relativePath: string;
+  /** Absolute source node_modules directory to mirror. */
+  sourceNodeModules: string;
+}
+
+/**
+ * Enumerates the node_modules directories that the rerouter will own.
+ *
+ * Returns `[]` when `repoRoot/package.json` is absent or has no `workspaces`
+ * field — mirroring the early-return behaviour of `rerouteAllNodeModules`.
+ *
+ * Always includes the root entry. Per-package entries are only included when
+ * their source `node_modules` directory exists (matching the `lstat` check in
+ * `rerouteAllNodeModules`).
+ *
+ * @param opts - Options bag.
+ * @param opts.sourceRoot - Absolute path to the source checkout root.
+ * @param opts.repoRoot - Absolute path to the repository root containing `package.json`.
+ * @returns Owned entries in root-first order.
+ */
+export async function enumerateReroutedNodeModules(opts: {
+  sourceRoot: string;
+  repoRoot: string;
+}): Promise<ReroutedNodeModulesEntry[]> {
+  const { sourceRoot, repoRoot } = opts;
+
+  let packageJson: { workspaces?: string[] };
+  try {
+    const packageJsonContent = await fs.readFile(path.join(repoRoot, 'package.json'), 'utf-8');
+    packageJson = JSON.parse(packageJsonContent);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+
+  if (!packageJson.workspaces) {
+    return [];
+  }
+
+  const entries: ReroutedNodeModulesEntry[] = [
+    { relativePath: 'node_modules', sourceNodeModules: path.join(sourceRoot, 'node_modules') }
+  ];
+
+  const packagesDir = path.join(sourceRoot, 'packages');
+  try {
+    const packageEntries = await fs.readdir(packagesDir, { withFileTypes: true });
+    for (const entry of packageEntries) {
+      if (entry.isDirectory()) {
+        const pkgNodeModules = path.join(packagesDir, entry.name, 'node_modules');
+        try {
+          await fs.lstat(pkgNodeModules);
+          entries.push({
+            relativePath: `packages/${entry.name}/node_modules`,
+            sourceNodeModules: pkgNodeModules
+          });
+        } catch (error: unknown) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw error;
+          }
+        }
+      }
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  return entries;
+}
+
 interface RerouteAllNodeModulesOptions {
   sourceRoot: string;
   worktreeDir: string;
@@ -1335,57 +1425,21 @@ interface RerouteAllNodeModulesOptions {
 export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions): Promise<number> {
   const { sourceRoot, worktreeDir, repoRoot } = opts;
 
-  let packageJson: { workspaces?: string[] };
-  try {
-    const packageJsonContent = await fs.readFile(path.join(repoRoot, 'package.json'), 'utf-8');
-    packageJson = JSON.parse(packageJsonContent);
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return 0;
-    }
-    throw error;
-  }
-
-  if (!packageJson.workspaces) {
+  const reroutedEntries = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+  if (reroutedEntries.length === 0) {
     return 0;
   }
 
   let totalCount = 0;
 
-  totalCount += await rerouteNodeModules({
-    sourceNodeModules: path.join(sourceRoot, 'node_modules'),
-    destNodeModules: path.join(worktreeDir, 'node_modules')
-  });
-
-  const packagesDir = path.join(sourceRoot, 'packages');
-  try {
-    const packageEntries = await fs.readdir(packagesDir, { withFileTypes: true });
-    for (const entry of packageEntries) {
-      if (entry.isDirectory()) {
-        const pkgNodeModules = path.join(packagesDir, entry.name, 'node_modules');
-        let nodeModulesExists = false;
-        try {
-          await fs.lstat(pkgNodeModules);
-          nodeModulesExists = true;
-        } catch (error: unknown) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-            throw error;
-          }
-        }
-        if (nodeModulesExists) {
-          const destPackageDir = path.join(worktreeDir, 'packages', entry.name);
-          await fs.mkdir(destPackageDir, { recursive: true });
-          totalCount += await rerouteNodeModules({
-            sourceNodeModules: pkgNodeModules,
-            destNodeModules: path.join(destPackageDir, 'node_modules')
-          });
-        }
-      }
-    }
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
+  for (const entry of reroutedEntries) {
+    const destNodeModules = path.join(worktreeDir, entry.relativePath);
+    const destParent = path.dirname(destNodeModules);
+    await fs.mkdir(destParent, { recursive: true });
+    totalCount += await rerouteNodeModules({
+      sourceNodeModules: entry.sourceNodeModules,
+      destNodeModules
+    });
   }
 
   return totalCount;
