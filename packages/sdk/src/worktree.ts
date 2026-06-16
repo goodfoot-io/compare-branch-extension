@@ -666,6 +666,59 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
   return { directories, files };
 }
 
+/** .cards subtrees whose contents are byte-identical across worktrees and never written per-worktree. */
+const STATIC_CARDS_SUBTREES = ['bin', 'www'] as const;
+
+/**
+ * Provisions a static `.cards` subtree as a real directory populated with per-entry symlinks to the
+ * corresponding source files, recursing so every nested directory is also a real directory.
+ *
+ * This is the mechanism that structurally enforces write isolation for {@link STATIC_CARDS_SUBTREES}:
+ * the destination directory is owned by the worktree, so writing a new file into
+ * `worktreeDir/.cards/bin/` (or any depth within `www/`) creates it in the worktree's own directory
+ * and never reaches `sourceRoot/.cards`. A directory symlink at any level would defeat this — every
+ * write through it would land in the source — so directories are recreated, not linked.
+ *
+ * The operation is idempotent: per-file links go through {@link replaceSymlink}, which unlinks a
+ * pre-existing symlink before recreating it and leaves a real file untouched. ENOENT-tolerant: an
+ * absent source subtree is skipped (no dangling links, no throw). Non-file, non-directory entries
+ * (sockets, devices) are skipped with a stderr warning, matching the error-handling idiom used
+ * throughout this file.
+ *
+ * @param sourcePath - Absolute path to the source subtree (e.g. `sourceRoot/.cards/bin`).
+ * @param destPath - Absolute path to the destination subtree (e.g. `worktreeDir/.cards/bin`).
+ * @throws {SymlinkPrivilegeError} When the OS denies symlink creation (EPERM/EINVAL).
+ */
+export async function provisionStaticCardsSubtree(sourcePath: string, destPath: string): Promise<void> {
+  try {
+    await fs.lstat(sourcePath);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  // Create the real destination directory only once the source is known to exist,
+  // so an absent source never leaves an empty directory behind.
+  await fs.mkdir(destPath, { recursive: true });
+
+  const entries = await fs.readdir(sourcePath, { withFileTypes: true });
+  for (const entry of entries) {
+    const entrySource = path.join(sourcePath, entry.name);
+    const entryDest = path.join(destPath, entry.name);
+    if (entry.isDirectory()) {
+      await provisionStaticCardsSubtree(entrySource, entryDest);
+    } else if (entry.isFile()) {
+      await replaceSymlink(entrySource, entryDest);
+    } else {
+      process.stderr.write(
+        `create-worktree: skipping non-file, non-directory entry while provisioning static .cards subtree: ${entrySource}\n`
+      );
+    }
+  }
+}
+
 /**
  * Copies the `.cards` directory from the source root into the worktree.
  *
@@ -680,6 +733,18 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
  * stops `fs.cp` from descending into it at all, so provisioning never pays to
  * `stat` and traverse a subtree whose contents are discarded anyway.
  *
+ * The static {@link STATIC_CARDS_SUBTREES} (`bin/` and `www/`) are excluded from
+ * the copy with the same directory-pruning pattern, then provisioned separately
+ * by {@link provisionStaticCardsSubtree} as real directories populated with
+ * per-entry symlinks rather than byte-copied. These subtrees are compiled output
+ * deployed alongside the extension — byte-identical across worktrees and never
+ * written by any per-worktree code path. Per-entry symlinks inside a real
+ * directory structurally enforce write isolation: a write through
+ * `worktreeDir/.cards/bin/` lands in the worktree's own directory and can never
+ * reach `sourceRoot/.cards/bin`. The only permitted writer to the source subtrees
+ * is the Cards extension build (which writes to `outdir/bin` and `outdir/www`),
+ * not any worktree.
+ *
  * The card-binding marker files `.cards/CARD_ID` and
  * `.cards/CARD_ORIGINAL_HOOK_PATH` are also excluded. When the source checkout
  * is itself card-bound, copying these markers would bleed the SOURCE worktree's
@@ -693,23 +758,35 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
  */
 async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Promise<void> {
   const sourcePath = path.join(sourceRoot, '.cards');
+  const destPath = path.join(worktreeDir, '.cards');
   const logsDir = path.join(sourcePath, 'logs');
   const cardIdMarker = path.join(sourcePath, 'CARD_ID');
   const originalHookPathMarker = path.join(sourcePath, 'CARD_ORIGINAL_HOOK_PATH');
+  const staticSubtreeDirs = STATIC_CARDS_SUBTREES.map((name) => path.join(sourcePath, name));
   try {
-    await fs.cp(sourcePath, path.join(worktreeDir, '.cards'), {
+    await fs.cp(sourcePath, destPath, {
       recursive: true,
       filter: (src) =>
         // Prune the logs directory itself: returning false for the directory
         // entry stops fs.cp from recursing into it, so its contents are never
         // stat-ed or traversed. The startsWith guard is defense-in-depth in case
-        // the directory entry is ever visited differently across platforms.
-        src !== logsDir && !src.startsWith(logsDir + path.sep) && src !== cardIdMarker && src !== originalHookPathMarker
+        // the directory entry is ever visited differently across platforms. The
+        // static subtrees (bin/, www/) are pruned the same way — they are
+        // provisioned as per-entry symlinks below instead of copied.
+        src !== logsDir &&
+        !src.startsWith(logsDir + path.sep) &&
+        src !== cardIdMarker &&
+        src !== originalHookPathMarker &&
+        !staticSubtreeDirs.some((dir) => src === dir || src.startsWith(dir + path.sep))
     });
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw error;
     }
+  }
+
+  for (const name of STATIC_CARDS_SUBTREES) {
+    await provisionStaticCardsSubtree(path.join(sourcePath, name), path.join(destPath, name));
   }
 }
 
