@@ -132,11 +132,12 @@ Use `--workspace-path` only if the user explicitly requests creating a card in a
 **Execute an action** — Execute an action on a card via the server relay:
 ```
 card <card-id> action <action-id>
-card <card-id> action <action-id> --execution-mode interactive
+card <card-id> action <action-id> --background
+card <card-id> action <action-id> --background --exit-when-done
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
-`--execution-mode <interactive|background>` selects how the action runs. When omitted, the server derives the mode from the action definition: `background` when the action declares `supportsBackgroundMode: true`, otherwise `interactive`. An explicit `background` request for an action that does not support background mode is rejected with a 400 error.
+Actions run interactively by default. `--background` runs the action in the background instead; it is rejected with a 400 error for an action that does not support background mode. `--exit-when-done` signals the agent to exit cleanly once the action completes rather than leaving the session open.
 
 **Watch for commits** — Block until the next unattributed commit on a card's repository:
 ```
@@ -164,9 +165,20 @@ comments/                   # Created on first comment
 attachments/                # Created on first attachment
   att-{uuid4}_{name}        # Binary content
   att-{uuid4}_{name}.meta.json
+commits/                    # One file per attributed commit (infra-managed)
+  {sha}                     # Filename is the full 40-hex SHA; content is `<sha>\n`
+branches/                   # One file per tracked branch (infra-managed)
+  {encodeURIComponent(name)}.json
 ```
 
 `comments/` and `attachments/` directories do not exist until first use (lazy creation).
+
+### Commits and Branches
+
+The `commits/` and `branches/` directories are written by Cards infrastructure, not by hand. Produce a correctly-formatted entry only when a task explicitly requires it — otherwise leave these alone.
+
+- **`commits/`** — one file per attributed commit. The filename is the full 40-character lowercase-hex commit SHA (`/^[0-9a-f]{40}$/`); the content is that SHA followed by a single newline (`<sha>\n`). The card-repo pre-commit hook validates entries fail-closed and rejects any other filename with `commits/: invalid commit entry filename: <name>` (so no `.patch`, CSV, or short-SHA forms). Defined by `COMMITS_DIR` in `public/packages/sdk/src/protocol/types/branch.ts`.
+- **`branches/`** — one file per tracked branch, named `<encodeURIComponent(name)>.json`. The authoritative branch `name` lives inside the file content, never decoded from the filename. The content is the persisted `WorkspaceBranch`: `parentBranch` and `addedAt` (ISO 8601), plus optional `worktree`. The computed `BranchInfo` fields (`exists`, `isMerged`, `commits`) are derived at read time and never persisted. Defined by `BRANCHES_DIR` and `WorkspaceBranch` in `public/packages/sdk/src/protocol/types/branch.ts`.
 
 ### CARD.meta.json
 

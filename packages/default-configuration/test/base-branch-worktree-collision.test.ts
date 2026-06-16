@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Reproduces a bug where the base branch (e.g. `main`) is registered
- * into `branches.json`, and `resolveOrCreateWorktree` Step 2 then
+ * as a `branches/` entry, and `resolveOrCreateWorktree` Step 2 then
  * attempts to create a worktree for that base branch — failing with
  * `fatal: 'main' is already checked out`.
  *

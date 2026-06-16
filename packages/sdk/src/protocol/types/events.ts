@@ -388,6 +388,8 @@ export interface ActionExecuteRequestEvent {
   environmentName: string;
   /** Execution mode controlling whether the action runs interactively or in the background. */
   mode: ExecutionMode;
+  /** When true, the spawned agent is signalled to exit cleanly once the action completes. */
+  exitWhenDone: boolean;
 }
 
 /**

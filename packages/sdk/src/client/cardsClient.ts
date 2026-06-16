@@ -840,15 +840,22 @@ export class CardsClient {
   }
 
   /**
-   * Retrieves a stream's metadata and all raw lines.
+   * Retrieves a stream's metadata and raw lines.
    *
    * The `streamType` and `filename` are URI-encoded automatically. For completed
    * streams the returned `lines` array is the full content; for active streams it
    * is a snapshot that may grow while the caller processes it.
    *
+   * When `tail` is provided, only the last `tail` lines are returned; the
+   * `meta.lineCount` still reflects the full stream length so the caller can tell
+   * whether earlier content exists. Use this for compact previews that render
+   * only a handful of trailing lines, and omit it (or call again without it) to
+   * fetch the full transcript on expand.
+   *
    * @param cardId - Identifier of the card that owns the requested stream.
    * @param streamType - Stream type key (e.g., `"claude-code-session"`).
    * @param filename - Stream filename (e.g., `"session.log"`).
+   * @param tail - When set to a positive integer, return only the last `tail` lines.
    * @returns Metadata and content lines.
    * @throws ApiError on 404 (unknown card or stream) or other server errors.
    * @throws NetworkError when the request fails to reach the server.
@@ -856,10 +863,12 @@ export class CardsClient {
   async getStream(
     cardId: string,
     streamType: string,
-    filename: string
+    filename: string,
+    tail?: number
   ): Promise<{ meta: StreamMeta; lines: string[] }> {
     const url = this.buildUrl(
-      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodeURIComponent(filename)}`
+      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodeURIComponent(filename)}`,
+      tail !== undefined ? { tail } : undefined
     );
     return this.request(() => this.getHttpClient().get<{ meta: StreamMeta; lines: string[] }>(url));
   }
@@ -963,16 +972,27 @@ export class CardsClient {
    *
    * @param cardId - Identifier of the card to execute the action on.
    * @param actionName - Action identifier (e.g., 'launch').
-   * @param mode - Optional execution mode. When omitted, the server derives
-   *   the mode from the action's `supportsBackgroundMode` flag.
+   * @param mode - Optional execution mode. When omitted, the server runs the
+   *   action interactively (the default).
+   * @param exitWhenDone - When true, the spawned agent is signalled to exit
+   *   once the action completes. Omitted from the request when false, which is
+   *   the server default.
    * @returns Promise resolving to the action execution result.
    * @throws ApiError when the server rejects the request.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async executeAction(cardId: string, actionName: string, mode?: ExecutionMode): Promise<ActionResult> {
+  async executeAction(
+    cardId: string,
+    actionName: string,
+    mode?: ExecutionMode,
+    exitWhenDone?: boolean
+  ): Promise<ActionResult> {
     const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
-    const body: ExecuteActionRequest | undefined = mode ? { mode } : undefined;
-    return this.request(() => this.getHttpClient().post<ActionResult>(url, body), false);
+    const body: ExecuteActionRequest = {};
+    if (mode) body.mode = mode;
+    if (exitWhenDone) body.exitWhenDone = true;
+    const hasBody = Object.keys(body).length > 0;
+    return this.request(() => this.getHttpClient().post<ActionResult>(url, hasBody ? body : undefined), false);
   }
 
   // --- Compare Operations ---

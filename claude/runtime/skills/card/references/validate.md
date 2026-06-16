@@ -1,6 +1,6 @@
 
 <placeholder-variables>
-[CARD_ID] — The card identifier, used to scope the validation team's name
+[CARD_ID] — The card identifier
 </placeholder-variables>
 
 <instructions>
@@ -68,16 +68,7 @@ If you choose not to bail out, continue to Step 4.
 
 ## 4. Dispatch failure-mode
 
-Create a single-evaluator team scoped to this validation pass:
-
-```xml
-<invoke name="TeamCreate">
-  <parameter name="team_name">card-validate-[CARD_ID]</parameter>
-  <parameter name="description">Re-validation team for card [CARD_ID]</parameter>
-</invoke>
-```
-
-Read the diff and the card before writing the prompt — the prompt must reflect this specific implementation, not generic instructions.
+This pass dispatches a single failure-mode evaluator. Read the diff and the card before writing the prompt — the prompt must reflect this specific implementation, not generic instructions.
 
 ```xml
 <invoke name="Agent">
@@ -85,13 +76,12 @@ Read the diff and the card before writing the prompt — the prompt must reflect
 <parameter name="subagent_type">runtime:card:failure-mode</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="name">failure-mode</parameter>
-<parameter name="team_name">card-validate-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead`, and DM `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `main` (the orchestrator), and DM `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` to `main` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode` and a `---` delimiter.
 
-## Team Name
-Your team is `card-validate-[CARD_ID]`.
+## Peers
+You are the only evaluator on this pass. The orchestrator is `main`.
 
 This is a re-validation pass — the implementation was committed in a prior session and is being re-checked before finalize. Weight completeness against the card's acceptance criteria alongside the usual failure-mode questions.
 
@@ -116,7 +106,7 @@ Workspace validation passed before this dispatch. Focus on runtime behavior, sem
 
 Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM.
 
-Every branch tears down the team the same way: send the evaluator a `shutdown_request`, wait for it to exit, then `TeamDelete`. Do this before any branch-specific routing. The evaluator's own skill handles its exit:
+Every branch shuts down the evaluator the same way: send it a `shutdown_request` and wait for it to exit. Do this before any branch-specific routing. The evaluator's own skill handles its exit:
 
 ```xml
 <invoke name="SendMessage">
@@ -126,13 +116,7 @@ Every branch tears down the team the same way: send the evaluator a `shutdown_re
 </invoke>
 ```
 
-`TeamDelete` fails while the evaluator is still active, so wait for it to terminate, then:
-
-```xml
-<invoke name="TeamDelete" />
-```
-
-Then route on the verdict:
+Wait for the evaluator to terminate, then route on the verdict:
 - **`VERDICT: APPROVED`**: Proceed to Step 6: Finalize.
 - **`VERDICT: CHANGES_REQUESTED`**: Route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plans/` in the card repository:
   - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.

@@ -84,7 +84,14 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 function writeBranchesJson(
   branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
 ): void {
-  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'branches.json'), JSON.stringify(branches, null, 2));
+  const branchesDir = path.join(tempCardRepo, 'branches');
+  fsSyncNs.mkdirSync(branchesDir, { recursive: true });
+  for (const [name, data] of Object.entries(branches)) {
+    fsSyncNs.writeFileSync(
+      path.join(branchesDir, `${encodeURIComponent(name)}.json`),
+      JSON.stringify({ name, ...data }, null, 2)
+    );
+  }
 }
 
 describe('cleanupMergedBranches — self-referential parentBranch bug', () => {

@@ -11,6 +11,7 @@
 import { createStore } from 'zustand/vanilla';
 import { subscribe } from './actions.js';
 import type { HostToIframeMessage, StreamFile, StreamInitData, StreamStoreState } from './types.js';
+import { COMPACT_TAIL_LINES } from './types.js';
 
 declare global {
   interface Window {
@@ -150,9 +151,14 @@ export const streamStore = createStore<StreamStoreState>()(() => buildInitialSta
 // Auto-subscribe for empty primary file (all statuses: active, completed, error).
 // Timing is safe: the iframe is gated on listenerReady in StreamIframeHost so the
 // parent listener is always registered before this code runs.
+//
+// Compact previews only render a handful of trailing lines, so they request a
+// tail rather than the full transcript — the host fetches just the last
+// COMPACT_TAIL_LINES lines and `meta.lineCount` still reports the full length.
+// The expanded panel omits the tail and receives the whole transcript.
 const primaryFile = streamStore.getState().files.get(init.primary);
 if (primaryFile && primaryFile.lines.length === 0) {
-  subscribe(init.primary);
+  subscribe(init.primary, init.mode === 'compact' ? COMPACT_TAIL_LINES : undefined);
 }
 
 /** Maps VS Code theme kind enum to the attribute value used in CSS selectors. */

@@ -154,6 +154,7 @@ describe('SessionStart Hook', () => {
         ACTION_NAME: 'Launch Claude',
         ENVIRONMENT: 'default',
         EXECUTION_MODE: 'background',
+        EXIT_WHEN_DONE: 'false',
         REPO_ROOT: '/workspace',
         CARD_REPO_PATH: repoPath,
         CONFIG_PATH: '/tmp/config',

@@ -23,7 +23,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
-import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
+import {
+  removeSessionCsv,
+  removeSessionExitWhenDoneNudge,
+  removeSessionHeadSha,
+  removeSessionRouteNudge
+} from '@cards/sessions/card-repo';
 import { sessionEndHook } from '@goodfoot/claude-code-hooks';
 
 /**
@@ -56,7 +61,7 @@ export async function writeSentinelFile(cardRepoPath: string, sessionId: string)
  * @param logger.warn - Log warning messages.
  * @throws {AggregateError} When one or more cleanup steps fail.
  */
-export async function cleanupSessionArtifacts(
+async function cleanupSessionArtifacts(
   sessionId: string,
   logger: {
     info: (msg: string, ctx?: Record<string, unknown>) => void;
@@ -86,6 +91,14 @@ export async function cleanupSessionArtifacts(
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     logger.warn('Failed to remove route-nudge marker', { sessionId, error: e.message });
+    errors.push(e);
+  }
+
+  try {
+    removeSessionExitWhenDoneNudge(sessionId);
+  } catch (error) {
+    const e = error instanceof Error ? error : new Error(String(error));
+    logger.warn('Failed to remove exit-when-done nudge marker', { sessionId, error: e.message });
     errors.push(e);
   }
 

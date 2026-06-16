@@ -14,6 +14,7 @@ import {
   getCodingAgent,
   getEnvironment,
   getExecutionMode,
+  getExitWhenDone,
   getVscodeNodePath
 } from '../../src/config/env.js';
 
@@ -27,6 +28,7 @@ describe('env', () => {
     delete process.env[CARDS_ENV_VARS.ACTION_NAME];
     delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
     delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
+    delete process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE];
     delete process.env[CARDS_ENV_VARS.CODING_AGENT];
     delete process.env[CARDS_ENV_VARS.VSCODE_NODE];
   });
@@ -43,6 +45,7 @@ describe('env', () => {
         ACTION_NAME: 'ACTION_NAME',
         ENVIRONMENT: 'ENVIRONMENT',
         EXECUTION_MODE: 'EXECUTION_MODE',
+        EXIT_WHEN_DONE: 'EXIT_WHEN_DONE',
         CODING_AGENT: 'CODING_AGENT',
         VSCODE_NODE: 'VSCODE_NODE',
         NODE: 'NODE',
@@ -141,6 +144,32 @@ describe('env', () => {
     });
   });
 
+  describe('getExitWhenDone', () => {
+    it('should return true when set to "true"', () => {
+      process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE] = 'true';
+      expect(getExitWhenDone()).toBe(true);
+    });
+
+    it('should return false when set to "false"', () => {
+      process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE] = 'false';
+      expect(getExitWhenDone()).toBe(false);
+    });
+
+    it('should throw when EXIT_WHEN_DONE is undefined', () => {
+      expect(() => getExitWhenDone()).toThrow('Missing required environment variable: EXIT_WHEN_DONE');
+    });
+
+    it('should throw when EXIT_WHEN_DONE is empty string', () => {
+      process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE] = '';
+      expect(() => getExitWhenDone()).toThrow('Missing required environment variable: EXIT_WHEN_DONE');
+    });
+
+    it('should throw when EXIT_WHEN_DONE is invalid value', () => {
+      process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE] = 'invalid';
+      expect(() => getExitWhenDone()).toThrow("Invalid EXIT_WHEN_DONE: expected 'true' or 'false', got \"invalid\"");
+    });
+  });
+
   describe('getCodingAgent', () => {
     it('should return coding agent when set', () => {
       process.env[CARDS_ENV_VARS.CODING_AGENT] = 'claude';
@@ -180,6 +209,7 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE] = 'false';
       process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace/project';
       process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/project/.cards/repo';
       process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/project/.cards/config';
@@ -201,6 +231,7 @@ describe('env', () => {
         actionName: 'Launch Claude',
         environment: 'production',
         executionMode: 'interactive',
+        exitWhenDone: false,
         codingAgent: 'claude',
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',
@@ -221,6 +252,7 @@ describe('env', () => {
         actionName: 'Launch Claude',
         environment: 'production',
         executionMode: 'interactive',
+        exitWhenDone: false,
         codingAgent: undefined,
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',

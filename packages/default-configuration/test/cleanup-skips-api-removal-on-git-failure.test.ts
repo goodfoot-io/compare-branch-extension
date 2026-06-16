@@ -73,7 +73,18 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 function writeBranchesJson(
   branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
 ): void {
-  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'branches.json'), `${JSON.stringify(branches, null, 2)}\n`);
+  const branchesDir = path.join(tempCardRepo, 'branches');
+  fsSyncNs.mkdirSync(branchesDir, { recursive: true });
+  for (const [name, data] of Object.entries(branches)) {
+    fsSyncNs.writeFileSync(
+      path.join(branchesDir, `${encodeURIComponent(name)}.json`),
+      `${JSON.stringify({ name, ...data }, null, 2)}\n`
+    );
+  }
+}
+
+function branchEntryExists(name: string): boolean {
+  return fsSyncNs.existsSync(path.join(tempCardRepo, 'branches', `${encodeURIComponent(name)}.json`));
 }
 
 describe('cleanupMergedBranches — cleanup steps run independently', () => {
@@ -115,9 +126,8 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
 
     await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
 
-    // branches.json should still contain the branch
-    const branches = JSON.parse(fsSyncNs.readFileSync(path.join(tempCardRepo, 'branches.json'), 'utf-8'));
-    expect(branches['cards/card-123/1']).toBeDefined();
+    // The branch entry file should still be present
+    expect(branchEntryExists('cards/card-123/1')).toBe(true);
   });
 
   it('skips branch record removal when both worktree remove and branch -d fail', async () => {
@@ -156,9 +166,8 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
 
     await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
 
-    // branches.json should still contain the branch
-    const branches = JSON.parse(fsSyncNs.readFileSync(path.join(tempCardRepo, 'branches.json'), 'utf-8'));
-    expect(branches['cards/card-123/1']).toBeDefined();
+    // The branch entry file should still be present
+    expect(branchEntryExists('cards/card-123/1')).toBe(true);
   });
 
   it('removes branch record when git branch -d succeeds', async () => {
@@ -192,8 +201,7 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
 
     await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
 
-    // branches.json should no longer contain the branch
-    const branches = JSON.parse(fsSyncNs.readFileSync(path.join(tempCardRepo, 'branches.json'), 'utf-8'));
-    expect(branches['cards/card-123/1']).toBeUndefined();
+    // The branch entry file should have been removed
+    expect(branchEntryExists('cards/card-123/1')).toBe(false);
   });
 });

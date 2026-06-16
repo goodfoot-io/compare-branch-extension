@@ -19,3 +19,4 @@ export type {
   StreamMeta,
   StreamStoreState
 } from './types.js';
+export { COMPACT_TAIL_LINES } from './types.js';

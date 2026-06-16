@@ -604,37 +604,42 @@ describe('card binary', () => {
       }
     });
 
-    it('sends "interactive" execution mode in the request body', async () => {
+    it('sends "background" mode in the request body when background is set', async () => {
       cards.set('card-1', { id: 'card-1', title: 'Test', status: 'todo' });
 
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
-        await executeAction('card-1', 'chat', undefined, 'interactive');
-        expect(actionRequests).toEqual([{ cardId: 'card-1', actionName: 'chat', body: { mode: 'interactive' } }]);
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
-    it('sends "background" execution mode in the request body', async () => {
-      cards.set('card-1', { id: 'card-1', title: 'Test', status: 'todo' });
-
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await executeAction('card-1', 'launch', undefined, 'background');
+        await executeAction('card-1', 'launch', { background: true });
         expect(actionRequests).toEqual([{ cardId: 'card-1', actionName: 'launch', body: { mode: 'background' } }]);
       } finally {
         logSpy.mockRestore();
       }
     });
 
-    it('rejects an invalid execution mode without contacting the server', async () => {
+    it('sends exitWhenDone in the request body when exit-when-done is set', async () => {
       cards.set('card-1', { id: 'card-1', title: 'Test', status: 'todo' });
 
-      await expect(executeAction('card-1', 'launch', undefined, 'detached')).rejects.toThrow(
-        'invalid --execution-mode "detached": expected "interactive" or "background"'
-      );
-      expect(actionRequests).toEqual([]);
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await executeAction('card-1', 'launch', { exitWhenDone: true });
+        expect(actionRequests).toEqual([{ cardId: 'card-1', actionName: 'launch', body: { exitWhenDone: true } }]);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('combines background and exitWhenDone in the request body', async () => {
+      cards.set('card-1', { id: 'card-1', title: 'Test', status: 'todo' });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await executeAction('card-1', 'launch', { background: true, exitWhenDone: true });
+        expect(actionRequests).toEqual([
+          { cardId: 'card-1', actionName: 'launch', body: { mode: 'background', exitWhenDone: true } }
+        ]);
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 

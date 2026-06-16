@@ -250,16 +250,18 @@ beforeEach(async () => {
         }
       });
     }
-    if (toPosix(filePath) === '/test/repo/branches.json') {
+    if (toPosix(filePath) === `/test/repo/branches/${encodeURIComponent('cards/card-123/1')}.json`) {
       return JSON.stringify({
-        'cards/card-123/1': {
-          parentBranch: 'main',
-          addedAt: '2026-04-02T00:00:00.000Z'
-        }
+        name: 'cards/card-123/1',
+        parentBranch: 'main',
+        addedAt: '2026-04-02T00:00:00.000Z'
       });
     }
-    if (toPosix(filePath) === '/test/repo/commits.csv') {
-      return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
+    if (toPosix(filePath) === '/test/repo/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') {
+      return 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n';
+    }
+    if (toPosix(filePath) === '/test/repo/commits/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb') {
+      return 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n';
     }
     if (toPosix(filePath) === '/test/repo/AGENTS.md') {
       return '# Card Repository Reference\n\nEach card is an isolated Git repository.\n';

@@ -13,7 +13,7 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 </definitions>
 
 <placeholder-variables>
-[CARD_ID] — The card identifier, used to scope the planning team's name
+[CARD_ID] — The card identifier
 [N_PLANNERS] — Number of parallel planners (2 for tier 3, 4 for tier 4)
 [WINNING_PLANNER] — The `planner-N` subagent the reviewer named in its `WINNER:` DM
 [WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` DM (e.g., `initial`, `phase-2`, `schema-first`)
@@ -21,16 +21,7 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 
 <instructions>
 
-## 1. Create the Planning Team
-
-```xml
-<invoke name="TeamCreate">
-  <parameter name="team_name">card-plan-[CARD_ID]</parameter>
-  <parameter name="description">Planning contest for card [CARD_ID]</parameter>
-</invoke>
-```
-
-## 2. Dispatch the Planners
+## 1. Dispatch the Planners
 
 Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plans/[AGENT_NAME].md`.
 
@@ -42,7 +33,6 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">sonnet</parameter>
 <parameter name="name">planner-[N]</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 ## Card Repository
@@ -51,17 +41,17 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the card from the card repository. Create a plan at `plans/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to the team as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.
+Read the card from the card repository. Create a plan at `plans/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to your peers as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.
 
 Follow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and shutdown handling.
 
-## Team Name
-Your team is `card-plan-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-plan-[CARD_ID]/config.json`) uses this exact name.
+## Peers
+Your peer planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]` (excluding yourself). The reviewer is `plan-failure-mode`. The orchestrator is `main`. Track the live set from the `BLOCKED` DMs you receive — there is no roster file to read.
 </parameter>
 </invoke>
 ```
 
-## 3. Dispatch the Reviewer
+## 2. Dispatch the Reviewer
 
 Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners. It reviews each plan as its `PLAN: READY` DM arrives and remains active until the contest closes:
 
@@ -71,15 +61,14 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="name">plan-failure-mode</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 [N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.
 
 Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and shutdown handling.
 
-## Team Name
-Your team is `card-plan-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-plan-[CARD_ID]/config.json`) uses this exact name.
+## Peers
+The planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `main`. Track the live set from the `PLAN: BLOCKED` / `VERDICT: BLOCKED for:planner-N` DMs you receive — there is no roster file to read.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -90,7 +79,7 @@ Your team is `card-plan-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-plan
 </invoke>
 ```
 
-## 4. Monitor the Contest
+## 3. Monitor the Contest
 
 Process inbound DMs from planners and the reviewer. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each DM arrives. The state-line marker on each inbound DM tells you what changed. Teammates who are uncertain about state will DM you with plain-language questions; answer from your in-memory state, or ask the relevant teammate yourself if you need to verify.
 
@@ -109,17 +98,17 @@ reviewer's `VERDICT: BLOCKED for:planner-N` ruling.
 
 ### Closure — Judgment, Not a Handshake
 
-Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. A planner that revises after approval does not announce it — it just revises and later DMs a new `PLAN: READY round-K+1`. So "approved and silent" is indistinguishable from "approved and quietly revising," and you do not need to tell them apart: closing is safe even if a planner was mid-revision, because its next `PLAN: READY` reopens the field before any winner is finalized (Step 5). When several DMs share the same subject, the latest supersedes earlier ones — that is how revocation works.
+Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. A planner that revises after approval does not announce it — it just revises and later DMs a new `PLAN: READY round-K+1`. So "approved and silent" is indistinguishable from "approved and quietly revising," and you do not need to tell them apart: closing is safe even if a planner was mid-revision, because its next `PLAN: READY` reopens the field before any winner is finalized (Step 4). When several DMs share the same subject, the latest supersedes earlier ones — that is how revocation works.
 
-You can see every open revision from your own inbound history; you do not need planners to certify the peer field back to you. A planner that holds approval and has gone quiet is done. An approved set with nothing in flight is closeable now — proceed to Step 5: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.
+You can see every open revision from your own inbound history; you do not need planners to certify the peer field back to you. A planner that holds approval and has gone quiet is done. An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.
 
 The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it DMs a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.
 
-**Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 5 — the reviewer's lone-survivor branch names the survivor without comparison.
+**Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 4 — the reviewer's lone-survivor branch names the survivor without comparison.
 
 ### Other Outcomes from Step 4
 
-- **All planners blocked.** No viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Skip to Step 6: End the Contest with no winner, then return `BLOCKED` to the caller.
+- **All planners blocked.** No viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Skip to Step 5: End the Contest with no winner, then return `BLOCKED` to the caller.
 - **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue monitoring. Do not intervene.
 - **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `runtime:card-plan-failure-mode`; you do not BLOCK planners yourself. You may DM the planner to ask its intent if its state is genuinely unclear to you.
 
@@ -134,30 +123,34 @@ Teammates may DM you with plain-language questions about contest state — peer 
 
 If a question requires verification beyond what you know directly (e.g., "is planner-2 about to emit a new round?"), DM that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.
 
-## 5. Trigger Selection
+## 4. Trigger Selection
 
-Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary`; the body is empty or notes the closure-condition state for context.
+Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary` and as the first line of the `message` body.
 
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">plan-failure-mode</parameter>
   <parameter name="summary">SELECT_WINNER</parameter>
-  <parameter name="message">Every live plan is approved and nothing is in flight; please run the final retroactive pass and name a winner.</parameter>
+  <parameter name="message">
+SELECT_WINNER
+---
+Every live plan is approved and nothing is in flight; please run the final retroactive pass and name a winner.
+  </parameter>
 </invoke>
 ```
 
 Two responses are possible:
 
-- **`WINNER: planner-N` DM** from the reviewer: record `[WINNING_PLANNER] = planner-N`. Proceed to Step 6: End the Contest with a winner.
-- **A fresh `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM** from the reviewer: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — the affected planner is back in the revision loop, the closure condition no longer holds, and you return to Step 4: Monitor the Contest.
+- **`WINNER: planner-N` DM** from the reviewer: record `[WINNING_PLANNER] = planner-N`. Proceed to Step 5: End the Contest with a winner.
+- **A fresh `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM** from the reviewer: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — the affected planner is back in the revision loop, the closure condition no longer holds, and you return to Step 3: Monitor the Contest.
 
 A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for that planner — the `WINNER:` DM is the authoritative end signal.
 
-## 6. End the Contest
+## 5. End the Contest
 
-This step runs on every exit path from Step 4 and Step 5 (winner, all-blocked, lone survivor).
+This step runs on every exit path from Step 3 and Step 4 (winner, all-blocked, lone survivor).
 
-Shut down every still-running subagent in the team — each live `planner-N` and the `plan-failure-mode` reviewer — by sending each a `shutdown_request`. The teammate's own skill handles its exit:
+Shut down every still-running subagent — each live `planner-N` and the `plan-failure-mode` reviewer — by sending each a `shutdown_request`. The teammate's own skill handles its exit:
 
 ```xml
 <invoke name="SendMessage">
@@ -167,7 +160,7 @@ Shut down every still-running subagent in the team — each live `planner-N` and
 </invoke>
 ```
 
-`TeamDelete` fails while any member is still active, so send the request to every teammate and wait for each to terminate before proceeding.
+Send each still-running subagent a `shutdown_request` and wait for each to exit before proceeding.
 
 If there is a winner, promote the winning plan and delete every other plan file. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` DM body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:
 
@@ -188,13 +181,7 @@ git ls-files plans/ \
 git commit -m "[single sentence summarizing the winning approach]"
 ```
 
-Tear down the team:
-
-```xml
-<invoke name="TeamDelete" />
-```
-
-## 7. Return to Caller
+## 6. Return to Caller
 
 - **Winner**: return `APPROVED` so the caller routes to implementation.
 - **All planners blocked or no viable plan**: return `BLOCKED`.

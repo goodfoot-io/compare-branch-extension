@@ -35,6 +35,7 @@ const baseActionInput = {
   actionName: 'Launch',
   environment: 'default',
   executionMode: 'interactive' as const,
+  exitWhenDone: false,
   repoRoot: '/workspace',
   cardRepoPath: '/tmp/card-repos/card-123',
   configPath: '/tmp/config',

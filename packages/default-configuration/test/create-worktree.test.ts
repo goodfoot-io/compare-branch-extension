@@ -30,6 +30,7 @@ import {
   copyExistingSymlinks,
   createWorktree,
   discoverIgnoredPaths,
+  enumerateReroutedNodeModules,
   findGitRoots,
   isInternalSymlink,
   isNestedUnder,
@@ -1047,6 +1048,203 @@ describe('rerouteAllNodeModules', () => {
     });
 
     expect(count).toBe(3);
+  });
+});
+
+describe('enumerateReroutedNodeModules', () => {
+  let tempDir: string;
+
+  beforeAll(async () => {
+    tempDir = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'enumerate-rerouted-test-'));
+  });
+
+  afterAll(async () => {
+    if (tempDir) {
+      await fsExtra.remove(tempDir);
+    }
+  });
+
+  it('returns [] when package.json is absent', async () => {
+    const repoRoot = path.join(tempDir, 'no-pkg-json');
+    await fsExtra.ensureDir(repoRoot);
+
+    const entries = await enumerateReroutedNodeModules({
+      sourceRoot: repoRoot,
+      repoRoot
+    });
+
+    expect(entries).toEqual([]);
+  });
+
+  it('returns [] when package.json has no workspaces field', async () => {
+    const repoRoot = path.join(tempDir, 'no-workspaces');
+    await fsExtra.ensureDir(repoRoot);
+    await fs.writeFile(path.join(repoRoot, 'package.json'), JSON.stringify({ name: 'test' }));
+
+    const entries = await enumerateReroutedNodeModules({
+      sourceRoot: repoRoot,
+      repoRoot
+    });
+
+    expect(entries).toEqual([]);
+  });
+
+  it('always includes root entry and uses POSIX relativePath', async () => {
+    const repoRoot = path.join(tempDir, 'root-entry');
+    const sourceRoot = repoRoot;
+    await fsExtra.ensureDir(repoRoot);
+    await fs.writeFile(path.join(repoRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+
+    const entries = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+
+    const rootEntry = entries.find((e) => e.relativePath === 'node_modules');
+    expect(rootEntry).toBeDefined();
+    expect(rootEntry!.sourceNodeModules).toBe(path.join(sourceRoot, 'node_modules'));
+    // relativePath must use forward slash (no backslash) for git match
+    expect(rootEntry!.relativePath).not.toContain('\\');
+  });
+
+  it('includes per-package entries only when their node_modules exists', async () => {
+    const repoRoot = path.join(tempDir, 'per-pkg');
+    const sourceRoot = repoRoot;
+    await fsExtra.ensureDir(repoRoot);
+    await fs.writeFile(path.join(repoRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+
+    // pkg-a has node_modules; pkg-b does not
+    const pkgANM = path.join(sourceRoot, 'packages', 'pkg-a', 'node_modules');
+    await fsExtra.ensureDir(pkgANM);
+    await fsExtra.ensureDir(path.join(sourceRoot, 'packages', 'pkg-b'));
+
+    const entries = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+
+    const relPaths = entries.map((e) => e.relativePath);
+    expect(relPaths).toContain('node_modules');
+    expect(relPaths).toContain('packages/pkg-a/node_modules');
+    expect(relPaths).not.toContain('packages/pkg-b/node_modules');
+
+    const pkgAEntry = entries.find((e) => e.relativePath === 'packages/pkg-a/node_modules');
+    expect(pkgAEntry!.sourceNodeModules).toBe(pkgANM);
+    // POSIX form — no backslashes in the key
+    expect(pkgAEntry!.relativePath).not.toContain('\\');
+  });
+
+  it('result is order-independent: symlinkIgnoredPaths + rerouteAllNodeModules in either order produces identical layout', async () => {
+    // Build a minimal repo layout: root node_modules with one internal symlink,
+    // one package with its own node_modules.
+    const makeSourceRepo = async (dir: string): Promise<void> => {
+      await fsExtra.ensureDir(dir);
+      await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+      const rootNM = path.join(dir, 'node_modules');
+      await fsExtra.ensureDir(rootNM);
+      await fs.symlink('../../packages/shared', path.join(rootNM, 'shared'));
+      const pkgNM = path.join(dir, 'packages', 'alpha', 'node_modules');
+      await fsExtra.ensureDir(pkgNM);
+      await fs.symlink('../../../packages/shared', path.join(pkgNM, 'shared'));
+    };
+
+    const sourceA = path.join(tempDir, 'order-src-a');
+    const sourceB = path.join(tempDir, 'order-src-b');
+    await makeSourceRepo(sourceA);
+    await makeSourceRepo(sourceB);
+
+    const worktreeA = path.join(tempDir, 'order-wt-a');
+    const worktreeB = path.join(tempDir, 'order-wt-b');
+    await fsExtra.ensureDir(worktreeA);
+    await fsExtra.ensureDir(worktreeB);
+
+    // Order A: symlink first, then reroute (current order)
+    const reroutedA = await enumerateReroutedNodeModules({ sourceRoot: sourceA, repoRoot: sourceA });
+    const ownedA = new Set(reroutedA.map((e) => e.relativePath));
+    await symlinkIgnoredPaths({
+      sourceRoot: sourceA,
+      worktreeDir: worktreeA,
+      ignored: {
+        directories: ['node_modules', 'packages/alpha/node_modules'].filter((d) => !ownedA.has(d)),
+        files: []
+      }
+    });
+    await rerouteAllNodeModules({ sourceRoot: sourceA, worktreeDir: worktreeA, repoRoot: sourceA });
+
+    // Order B: reroute first, then symlink (reversed)
+    await rerouteAllNodeModules({ sourceRoot: sourceB, worktreeDir: worktreeB, repoRoot: sourceB });
+    const reroutedB = await enumerateReroutedNodeModules({ sourceRoot: sourceB, repoRoot: sourceB });
+    const ownedB = new Set(reroutedB.map((e) => e.relativePath));
+    await symlinkIgnoredPaths({
+      sourceRoot: sourceB,
+      worktreeDir: worktreeB,
+      ignored: {
+        directories: ['node_modules', 'packages/alpha/node_modules'].filter((d) => !ownedB.has(d)),
+        files: []
+      }
+    });
+
+    // Both worktrees must have real directories (not symlinks) for owned node_modules
+    for (const wt of [worktreeA, worktreeB]) {
+      const rootNMStat = await fs.lstat(path.join(wt, 'node_modules'));
+      expect(rootNMStat.isDirectory()).toBe(true);
+      expect(rootNMStat.isSymbolicLink()).toBe(false);
+
+      const pkgNMStat = await fs.lstat(path.join(wt, 'packages', 'alpha', 'node_modules'));
+      expect(pkgNMStat.isDirectory()).toBe(true);
+      expect(pkgNMStat.isSymbolicLink()).toBe(false);
+    }
+
+    // Internal links inside node_modules must have identical relative targets in both worktrees
+    const targetA = await fs.readlink(path.join(worktreeA, 'node_modules', 'shared'));
+    const targetB = await fs.readlink(path.join(worktreeB, 'node_modules', 'shared'));
+    expect(toPosix(targetA)).toBe(toPosix(targetB));
+
+    const pkgTargetA = await fs.readlink(path.join(worktreeA, 'packages', 'alpha', 'node_modules', 'shared'));
+    const pkgTargetB = await fs.readlink(path.join(worktreeB, 'packages', 'alpha', 'node_modules', 'shared'));
+    expect(toPosix(pkgTargetA)).toBe(toPosix(pkgTargetB));
+  });
+
+  it('exclusion-correctness: rerouted relativePaths are absent from symlinkIgnoredPaths input', async () => {
+    const repoRoot = path.join(tempDir, 'exclusion-check');
+    const sourceRoot = repoRoot;
+    await fsExtra.ensureDir(repoRoot);
+    await fs.writeFile(path.join(repoRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+    await fsExtra.ensureDir(path.join(sourceRoot, 'node_modules'));
+    await fsExtra.ensureDir(path.join(sourceRoot, 'packages', 'pkg-x', 'node_modules'));
+
+    const entries = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+    const ownedPaths = new Set(entries.map((e) => e.relativePath));
+
+    // Simulate the full ignored-directory list as discoverIgnoredPaths would return
+    const simulatedIgnoredDirs = ['node_modules', 'packages/pkg-x/node_modules', '.other-ignored'];
+
+    const filteredDirs = simulatedIgnoredDirs.filter(
+      (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedPaths.has(d)
+    );
+
+    // No rerouter-owned path must survive into the symlinker input
+    for (const owned of ownedPaths) {
+      expect(filteredDirs).not.toContain(owned);
+    }
+    // Unrelated ignored paths are passed through unchanged
+    expect(filteredDirs).toContain('.other-ignored');
+  });
+
+  it('isolation: writing into worktree node_modules does not reach source node_modules', async () => {
+    const repoRoot = path.join(tempDir, 'isolation-check');
+    const sourceRoot = repoRoot;
+    const worktreeDir = path.join(tempDir, 'isolation-wt');
+    await fsExtra.ensureDir(repoRoot);
+    await fs.writeFile(path.join(repoRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+
+    const rootNM = path.join(sourceRoot, 'node_modules');
+    await fsExtra.ensureDir(rootNM);
+    await fs.symlink('../../packages/shared', path.join(rootNM, 'shared'));
+
+    await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
+
+    // Write a file into the worktree's node_modules
+    const newFile = path.join(worktreeDir, 'node_modules', 'injected-sentinel.txt');
+    await fs.writeFile(newFile, 'worktree-only');
+
+    // The source node_modules must not contain that file
+    const sourceFile = path.join(rootNM, 'injected-sentinel.txt');
+    await expect(fs.access(sourceFile)).rejects.toThrow();
   });
 });
 

@@ -31,7 +31,9 @@ vi.mock('node:child_process', () => ({
 vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   readFile: vi.fn(),
-  writeFile: vi.fn()
+  writeFile: vi.fn(),
+  readdir: vi.fn(),
+  rm: vi.fn()
 }));
 
 vi.mock('@cards/sdk/worktree', () => ({
@@ -66,6 +68,28 @@ vi.mock('@cards/sdk', async () => {
     })
   };
 });
+
+// Delegate the card-bound worktree orchestrator to the mocked bare primitive so
+// tests can drive worktree creation without the real outfit machinery (locks,
+// hook provisioning, attribution spawning). The orchestrator's contract is to
+// call createWorktree(ref, { cwd, cardId, compiledScriptPaths }) and return its
+// result, which is exactly what these tests assert against.
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn(
+    async (
+      _client: unknown,
+      ref: string,
+      options: { cwd?: string; cardId: string; compiledScriptPaths: Record<string, string> }
+    ) => {
+      const worktree = await import('@cards/sdk/worktree');
+      return worktree.createWorktree(ref, {
+        cwd: options.cwd,
+        cardId: options.cardId,
+        compiledScriptPaths: options.compiledScriptPaths
+      } as Parameters<typeof worktree.createWorktree>[1]);
+    }
+  )
+}));
 
 vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
   spawnBranchCleanupWatcher: vi.fn()
@@ -102,6 +126,9 @@ beforeEach(async () => {
   const fsPromises = await import('node:fs/promises');
   const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
   vi.mocked(fsPromises.readFile).mockRejectedValue(enoent);
+  // Default: branches/ directory is absent so cleanupMergedBranches exits early.
+  vi.mocked(fsPromises.readdir).mockRejectedValue(enoent);
+  vi.mocked(fsPromises.rm).mockResolvedValue(undefined);
 
   // Default: worktree setup succeeds so all tests can call the action.
   // resolveBaseBranch → 'main', getBranches → [] (empty), createWorktree → default path.
@@ -212,6 +239,38 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     codingAgent: 'claude-code-cli',
     ...overrides
   };
+}
+
+/**
+ * Configures the fs/promises mock to serve per-branch entry files from the
+ * card repo's `branches/` directory. `readdir` returns the encoded entry
+ * filenames; `readFile` returns each entry's `{ name, ... }` JSON. Other
+ * `readFile` paths fall back to ENOENT.
+ *
+ * @param branches - Branch data keyed by authoritative branch name.
+ */
+async function configureBranchEntries(
+  branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
+): Promise<void> {
+  const { readdir, readFile } = await import('node:fs/promises');
+  const entryFiles = Object.keys(branches).map((name) => `${encodeURIComponent(name)}.json`);
+
+  vi.mocked(readdir).mockImplementation(((dirPath: unknown) => {
+    if (String(dirPath).endsWith('branches')) {
+      return Promise.resolve(entryFiles);
+    }
+    return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+  }) as unknown as typeof readdir);
+
+  vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+    const p = String(filePath);
+    for (const [name, data] of Object.entries(branches)) {
+      if (p.endsWith(`${encodeURIComponent(name)}.json`)) {
+        return Promise.resolve(JSON.stringify({ name, ...data }, null, 2));
+      }
+    }
+    return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+  });
 }
 
 describe('Default Actions', () => {
@@ -699,27 +758,14 @@ describe('Default Actions', () => {
 
       it('cleans up fully-merged branches in background mode', async () => {
         const { spawn, execFile } = await import('node:child_process');
-        const { access, readFile } = await import('node:fs/promises');
+        const { access } = await import('node:fs/promises');
 
-        const branchesJson = JSON.stringify(
-          {
-            'cards/card-123/1': {
-              worktree: '/test/workspace/.worktrees/cards/card-123/1',
-              parentBranch: 'main',
-              addedAt: '2025-01-01T00:00:00Z'
-            }
-          },
-          null,
-          2
-        );
-
-        // readFile: return branches JSON for branches.json, ENOENT for others
-        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
-          const p = String(filePath);
-          if (p.endsWith('branches.json')) {
-            return Promise.resolve(branchesJson);
+        await configureBranchEntries({
+          'cards/card-123/1': {
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z'
           }
-          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
         });
 
         const mergeBaseKey = 'git merge-base --is-ancestor cards/card-123/1 main';
@@ -732,7 +778,7 @@ describe('Default Actions', () => {
           [mergeBaseKey]: { stdout: '' },
           [worktreeRemoveKey]: { stdout: '' },
           [branchDeleteKey]: { stdout: '' },
-          'git add branches.json': { stdout: '' },
+          'git rm': { stdout: '' },
           'git commit': { stdout: '' }
         });
 
@@ -784,27 +830,14 @@ describe('Default Actions', () => {
 
       it('skips cleanup for unmerged branches in background mode', async () => {
         const { spawn, execFile } = await import('node:child_process');
-        const { access, readFile } = await import('node:fs/promises');
+        const { access } = await import('node:fs/promises');
 
-        const branchesJson = JSON.stringify(
-          {
-            'cards/card-123/1': {
-              worktree: '/test/workspace/.worktrees/cards/card-123/1',
-              parentBranch: 'main',
-              addedAt: '2025-01-01T00:00:00Z'
-            }
-          },
-          null,
-          2
-        );
-
-        // readFile: return branches JSON for branches.json, ENOENT for others
-        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
-          const p = String(filePath);
-          if (p.endsWith('branches.json')) {
-            return Promise.resolve(branchesJson);
+        await configureBranchEntries({
+          'cards/card-123/1': {
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z'
           }
-          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
         });
 
         const handlers: Record<string, { stdout: string }> = {

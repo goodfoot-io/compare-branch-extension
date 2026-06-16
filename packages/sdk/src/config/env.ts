@@ -57,6 +57,13 @@ export const CARDS_ENV_VARS = {
   EXECUTION_MODE: 'EXECUTION_MODE',
 
   /**
+   * Whether the action should exit when done.
+   * Available in actions only (not type hooks).
+   * Valid values: 'true' | 'false'
+   */
+  EXIT_WHEN_DONE: 'EXIT_WHEN_DONE',
+
+  /**
    * Configured coding agent identifier from cards.codingAgent setting.
    * Available in actions only (not type hooks).
    * Optional.
@@ -309,6 +316,31 @@ export function getExecutionMode(): 'interactive' | 'background' {
     throw new Error(`Invalid ${CARDS_ENV_VARS.EXECUTION_MODE}: expected 'interactive' or 'background', got "${value}"`);
   }
   return value;
+}
+
+/**
+ * Reads the exit-when-done flag from the environment.
+ *
+ * Determines whether the action should exit when the agent finishes.
+ * @returns `true` when the action should exit on completion, `false` otherwise
+ * @throws Error if EXIT_WHEN_DONE is missing, empty, or not 'true' or 'false'
+ * @example
+ * ```typescript
+ * const exitWhenDone = getExitWhenDone();
+ * if (exitWhenDone) {
+ *   // Exit after agent completes
+ * }
+ * ```
+ */
+export function getExitWhenDone(): boolean {
+  const value = process.env[CARDS_ENV_VARS.EXIT_WHEN_DONE];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.EXIT_WHEN_DONE}`);
+  }
+  if (value !== 'true' && value !== 'false') {
+    throw new Error(`Invalid ${CARDS_ENV_VARS.EXIT_WHEN_DONE}: expected 'true' or 'false', got "${value}"`);
+  }
+  return value === 'true';
 }
 
 /**
@@ -616,6 +648,7 @@ export function extractActionInput(): ActionInput {
     actionName: getActionName(),
     environment: getEnvironment(),
     executionMode: getExecutionMode(),
+    exitWhenDone: getExitWhenDone(),
     codingAgent: getCodingAgent(),
     switchToInteractiveData: readSwitchToInteractiveData(),
     repoRoot: getRepoRoot(),

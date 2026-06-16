@@ -32,7 +32,9 @@ vi.mock('node:child_process', () => ({
 vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   readFile: vi.fn(),
-  writeFile: vi.fn()
+  writeFile: vi.fn(),
+  readdir: vi.fn(),
+  rm: vi.fn()
 }));
 
 vi.mock('@cards/sdk/worktree', () => ({
@@ -525,20 +527,33 @@ describe('claude-session shared utilities', () => {
     async function configureBranchesFile(
       branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
     ): Promise<void> {
-      const { readFile } = await import('node:fs/promises');
+      const { readFile, readdir, rm } = await import('node:fs/promises');
+      const entryFiles = Object.keys(branches).map((name) => `${encodeURIComponent(name)}.json`);
+
+      vi.mocked(readdir).mockImplementation(((dirPath: unknown) => {
+        if (String(dirPath).endsWith('branches')) {
+          return Promise.resolve(entryFiles);
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      }) as unknown as typeof readdir);
+
       vi.mocked(readFile).mockImplementation((filePath: unknown) => {
         const p = String(filePath);
-        if (p.endsWith('branches.json')) {
-          return Promise.resolve(JSON.stringify(branches, null, 2));
+        for (const [name, data] of Object.entries(branches)) {
+          if (p.endsWith(`${encodeURIComponent(name)}.json`)) {
+            return Promise.resolve(JSON.stringify({ name, ...data }, null, 2));
+          }
         }
         return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       });
+
+      vi.mocked(rm).mockResolvedValue(undefined);
     }
 
     it('removes fully merged branches (worktree, ref, and branch record)', async () => {
       const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
       const { execFile } = await import('node:child_process');
-      const { writeFile } = await import('node:fs/promises');
+      const { rm } = await import('node:fs/promises');
 
       await configureBranchesFile({
         'cards/card-123/1': {
@@ -584,8 +599,15 @@ describe('claude-session shared utilities', () => {
       );
       expect(branchDeleteCall).toBeDefined();
 
-      // Verify branches.json was written without the branch
-      expect(vi.mocked(writeFile)).toHaveBeenCalled();
+      // Verify the branch's per-entry file was removed (fs.rm + git rm)
+      expect(vi.mocked(rm)).toHaveBeenCalledWith(
+        expect.stringContaining(`${encodeURIComponent('cards/card-123/1')}.json`),
+        expect.objectContaining({ force: true })
+      );
+      const gitRmCall = execCalls.find(
+        (c) => (c[1] as string[])?.[0] === 'rm' && (c[1] as string[])?.includes('--ignore-unmatch')
+      );
+      expect(gitRmCall).toBeDefined();
     });
 
     it('checks each branch against its own parentBranch, not workspace HEAD', async () => {

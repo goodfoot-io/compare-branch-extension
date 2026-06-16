@@ -50,8 +50,8 @@ export type {
   WorkspaceBranch
 } from './branch.js';
 export {
-  BRANCHES_FILE,
-  COMMITS_FILE,
+  BRANCHES_DIR,
+  COMMITS_DIR,
   EMPTY_TREE_SHA
 } from './branch.js';
 // --- Card Types ---

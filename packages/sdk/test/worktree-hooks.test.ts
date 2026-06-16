@@ -469,4 +469,45 @@ describe('generated dispatcher scripts', () => {
       process.env['PATH'] = savedPath;
     }
   });
+
+  // ─── CARDS_SKIP_HOOK ────────────────────────────────────────────────
+
+  it('CARDS_SKIP_HOOK=1 skips pre-commit even when .mjs would block', async () => {
+    const prev = process.env['CARDS_SKIP_HOOK'];
+    process.env['CARDS_SKIP_HOOK'] = '1';
+    try {
+      // Write a failing pre-commit.mjs — if the dispatcher delegated, it'd
+      // exit 42 and block the commit.
+      const failingMjs = path.join(sharedDir, 'pre-commit.mjs');
+      await fs.writeFile(failingMjs, `process.exit(42);\n`);
+
+      const res = runDispatcher('pre-commit', [], '');
+      // The dispatcher checks CARDS_SKIP_HOOK before delegation and exits 0.
+      expect(res.status).toBe(0);
+
+      // The Cards .mjs must NOT have fired — the skip guard exits before
+      // RESOLVE_NODE runs.
+      const log = await fs.readFile(testLog, 'utf8');
+      expect(log).not.toContain('cards:pre-commit');
+    } finally {
+      delete process.env['CARDS_SKIP_HOOK'];
+      if (prev !== undefined) process.env['CARDS_SKIP_HOOK'] = prev;
+    }
+  });
+
+  it('CARDS_SKIP_HOOK=1 skips post-commit Cards hook', async () => {
+    const prev = process.env['CARDS_SKIP_HOOK'];
+    process.env['CARDS_SKIP_HOOK'] = '1';
+    try {
+      const res = runDispatcher('post-commit', [], '');
+      expect(res.status).toBe(0);
+
+      // The Cards .mjs must NOT have fired.
+      const log = await fs.readFile(testLog, 'utf8');
+      expect(log).not.toContain('cards:post-commit');
+    } finally {
+      delete process.env['CARDS_SKIP_HOOK'];
+      if (prev !== undefined) process.env['CARDS_SKIP_HOOK'] = prev;
+    }
+  });
 });

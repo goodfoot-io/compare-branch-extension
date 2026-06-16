@@ -356,6 +356,16 @@ export async function createWorktreeForCard(
 
   const result = await createWorktree(ref, { cwd });
 
+  // Attach a no-op rejection handler to settle immediately, before any
+  // outfit work or await points. The settle promise runs concurrently with
+  // outfitWorktreeForCard — if settle rejects (e.g. copyCardsDirectory
+  // hitting EEXIST because outfit already created .cards/) before a caller
+  // attaches its own handler, the rejection surfaces as an unhandled
+  // rejection and crashes the process. Callers that care about settle
+  // health attach their own handler and observe the outcome; this handler
+  // is a safety net, not a semantic consumer.
+  void result.settle.catch(() => undefined);
+
   try {
     await outfitWorktreeForCard(client, result.path, {
       cardId,
@@ -368,10 +378,6 @@ export async function createWorktreeForCard(
     // failed partway (e.g. addBranch rejected), so no fully-registered worktree
     // exists. Roll the worktree back so no orphaned, unregistered worktree is
     // left behind (the exact debt this orchestrator exists to prevent).
-    // `result.settle` is never returned on this path, so it would be an
-    // unobserved promise — attach a no-op handler to keep a later settle
-    // rejection from surfacing as an unhandledRejection, then tear down.
-    void result.settle.catch(() => undefined);
     try {
       await removeWorktree(result.path);
     } catch (rollbackError) {

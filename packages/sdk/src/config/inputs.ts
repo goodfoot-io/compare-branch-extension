@@ -59,6 +59,14 @@ export interface ActionInput {
   executionMode: 'interactive' | 'background';
 
   /**
+   * Whether the action should exit when the agent finishes.
+   *
+   * When `true`, the runtime exits once the agent process completes.
+   * When `false`, the runtime continues running after agent completion.
+   */
+  exitWhenDone: boolean;
+
+  /**
    * Configured coding agent identifier from `cards.codingAgent` setting.
    *
    * When set, indicates which AI coding assistant the user prefers. Actions

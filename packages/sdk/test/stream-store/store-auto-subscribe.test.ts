@@ -12,15 +12,17 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StreamInitData } from '../../src/stream-store/types.js';
+import type { StreamDisplayMode, StreamInitData } from '../../src/stream-store/types.js';
+import { COMPACT_TAIL_LINES } from '../../src/stream-store/types.js';
 
 /**
  * Builds a minimal StreamInitData for testing.
  *
  * @param primaryLines - Lines for the primary file.
+ * @param mode - Display mode for the iframe (defaults to compact).
  * @returns StreamInitData with a single primary file.
  */
-function buildInitData(primaryLines: string[]): StreamInitData {
+function buildInitData(primaryLines: string[], mode: StreamDisplayMode = 'compact'): StreamInitData {
   return {
     primary: 'session.jsonl',
     files: {
@@ -30,7 +32,7 @@ function buildInitData(primaryLines: string[]): StreamInitData {
       }
     },
     availableFiles: ['session.jsonl'],
-    mode: 'compact'
+    mode
   };
 }
 
@@ -76,6 +78,40 @@ describe('stream store auto-subscribe', () => {
     );
 
     expect(subscribeCalls).toHaveLength(0);
+
+    spy.mockRestore();
+  });
+
+  it('should request only the trailing tail in compact mode', async () => {
+    window.__STREAM_INIT__ = buildInitData([], 'compact');
+
+    const spy = vi.spyOn(window, 'postMessage');
+
+    await import('../../src/stream-store/store.js');
+
+    const subscribeCall = spy.mock.calls.find((call) => (call[0] as { type?: string })?.type === 'subscribe')?.[0] as {
+      tail?: number;
+    };
+
+    expect(subscribeCall).toBeDefined();
+    expect(subscribeCall.tail).toBe(COMPACT_TAIL_LINES);
+
+    spy.mockRestore();
+  });
+
+  it('should request the full transcript (no tail) in expanded mode', async () => {
+    window.__STREAM_INIT__ = buildInitData([], 'expanded');
+
+    const spy = vi.spyOn(window, 'postMessage');
+
+    await import('../../src/stream-store/store.js');
+
+    const subscribeCall = spy.mock.calls.find(
+      (call) => (call[0] as { type?: string })?.type === 'subscribe'
+    )?.[0] as Record<string, unknown>;
+
+    expect(subscribeCall).toBeDefined();
+    expect(subscribeCall).not.toHaveProperty('tail');
 
     spy.mockRestore();
   });

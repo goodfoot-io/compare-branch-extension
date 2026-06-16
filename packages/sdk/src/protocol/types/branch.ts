@@ -2,8 +2,8 @@
  * Branch and worktree tracking types for Cards V2 workspace integration.
  *
  * These types support tracking Git branches and their associated worktrees within
- * a card's workspace. Branch metadata is persisted in separate branches.json
- * and commits.csv files, tracked with static metadata (branch name, worktree path,
+ * a card's workspace. Branch metadata is persisted as per-entry files under the
+ * branches/ and commits/ directories, tracked with static metadata (branch name, worktree path,
  * addedAt timestamp) and derived fields computed at read time (exists, isMerged, commits).
  *
  * The branch API (`GET /cards/:id/branches`, `POST /cards/:id/branches`) uses
@@ -25,13 +25,24 @@ import type { CommitDetails } from './timeline.js';
  */
 export const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
-export const BRANCHES_FILE = 'branches.json';
-export const COMMITS_FILE = 'commits.csv';
+/**
+ * Directory holding per-branch entry files, one `branches/<encodeURIComponent(name)>.json`
+ * per tracked branch. The authoritative branch `name` lives inside each file's content,
+ * never decoded from the filename. Concurrent same-card branch writes touch disjoint
+ * paths so the git-plumbing compare-and-swap never serializes them into false conflicts.
+ */
+export const BRANCHES_DIR = 'branches';
+
+/**
+ * Directory holding per-commit entry files, one `commits/<sha>` per attributed commit
+ * SHA (40-hex). Concurrent same-card attribution writes touch disjoint paths.
+ */
+export const COMMITS_DIR = 'commits';
 
 /**
  * A single tracked branch within a card's workspace block.
  *
- * This is the minimal metadata persisted for each branch in branches.json.
+ * This is the minimal metadata persisted for each branch as a branches/<name>.json entry.
  * The worktree path is optional and machine-specific; it may become stale if
  * the worktree is moved or deleted outside of the cards system.
  */
@@ -119,7 +130,7 @@ export interface BranchesResponse {
   branches: BranchInfo[];
 
   /**
-   * All card-level commit SHAs from commits.csv.
+   * All card-level commit SHAs from the commits/ directory.
    * Present regardless of branch state, so the UI can show changes
    * even after all tracked branches have been removed.
    */

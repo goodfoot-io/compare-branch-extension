@@ -10,9 +10,11 @@
  */
 
 import type { CardCommit } from '../protocol/index.js';
-import { BRANCHES_FILE, COMMITS_FILE } from '../protocol/index.js';
+import { BRANCHES_DIR, COMMITS_DIR } from '../protocol/index.js';
 
 const SESSION_STREAM_PREFIX = 'streams/claude-code-session/';
+const COMMITS_DIR_PREFIX = `${COMMITS_DIR}/`;
+const BRANCHES_DIR_PREFIX = `${BRANCHES_DIR}/`;
 
 /**
  * Git pathspec exclusions for system-managed bookkeeping files.
@@ -22,13 +24,13 @@ const SESSION_STREAM_PREFIX = 'streams/claude-code-session/';
  *
  * Exclusions:
  * - `streams/claude-code-session/` — session stream files
- * - `commits.csv` — session commit records
- * - `branches.json` — tracked branch records
+ * - `commits/` — per-commit attribution entry files
+ * - `branches/` — per-branch tracking entry files
  */
 export const BOOKKEEPING_PATHSPEC_EXCLUSIONS = [
   ':!streams/claude-code-session/',
-  `:!${COMMITS_FILE}`,
-  `:!${BRANCHES_FILE}`
+  `:!${COMMITS_DIR_PREFIX}`,
+  `:!${BRANCHES_DIR_PREFIX}`
 ] as const;
 
 /**
@@ -37,7 +39,11 @@ export const BOOKKEEPING_PATHSPEC_EXCLUSIONS = [
  * The repo log hides the full `streams/` tree to keep high-frequency
  * transcript writes out of the visible summary.
  */
-export const CARD_REPO_LOG_PATHSPEC_EXCLUSIONS = [':!streams/', `:!${COMMITS_FILE}`, `:!${BRANCHES_FILE}`] as const;
+export const CARD_REPO_LOG_PATHSPEC_EXCLUSIONS = [
+  ':!streams/',
+  `:!${COMMITS_DIR_PREFIX}`,
+  `:!${BRANCHES_DIR_PREFIX}`
+] as const;
 
 /**
  * Returns true when every file in the commit matches a bookkeeping exclusion
@@ -45,8 +51,8 @@ export const CARD_REPO_LOG_PATHSPEC_EXCLUSIONS = [':!streams/', `:!${COMMITS_FIL
  *
  * Exclusions mirror the stop hook:
  * - `streams/claude-code-session/` (prefix match)
- * - `commits.csv` (exact match)
- * - `branches.json` (exact match)
+ * - `commits/` (prefix match)
+ * - `branches/` (prefix match)
  *
  * A commit with zero changed files is treated as bookkeeping-only (nothing
  * user-visible changed).
@@ -56,7 +62,10 @@ export const CARD_REPO_LOG_PATHSPEC_EXCLUSIONS = [':!streams/', `:!${COMMITS_FIL
  */
 export function isBookkeepingCommit(commit: CardCommit): boolean {
   return commit.diff.files.every(
-    (f) => f.file === COMMITS_FILE || f.file === BRANCHES_FILE || f.file.startsWith(SESSION_STREAM_PREFIX)
+    (f) =>
+      f.file.startsWith(COMMITS_DIR_PREFIX) ||
+      f.file.startsWith(BRANCHES_DIR_PREFIX) ||
+      f.file.startsWith(SESSION_STREAM_PREFIX)
   );
 }
 

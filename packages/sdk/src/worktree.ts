@@ -124,9 +124,8 @@ async function createSymlink(target: string, linkPath: string): Promise<void> {
  * itself no longer fires on a second run and each per-entry `fs.symlink` would
  * reject with `EEXIST`. Unlinking a pre-existing symlink first makes every
  * per-entry link safe to recreate. A non-symlink at `linkPath` is left
- * untouched so genuine on-disk data is never clobbered — the subsequent
- * `createSymlink` then surfaces the conflict (fail-closed) rather than masking
- * it.
+ * untouched — the function returns early without error, so genuine on-disk data
+ * is never clobbered.
  *
  * @param target - Symlink target (passed through to {@link createSymlink}).
  * @param linkPath - Path at which to create the symlink.
@@ -137,6 +136,8 @@ async function replaceSymlink(target: string, linkPath: string): Promise<void> {
     const stats = await fs.lstat(linkPath);
     if (stats.isSymbolicLink()) {
       await fs.unlink(linkPath);
+    } else {
+      return;
     }
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -315,21 +316,38 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
   // the path (e.g. as cwd for spawning processes) while the remaining setup
   // (symlinks, node_modules rerouting, git excludes) runs concurrently.
   const settle = (async (): Promise<CreateWorktreeResult> => {
-    const ignored = await discoverIgnoredPaths(sourceRoot);
-    await copyExistingSymlinks(sourceRoot, worktreeDir);
+    // Wave 1: all independent — launch immediately
+    const [ignored, reroutedNodeModules] = await Promise.all([
+      discoverIgnoredPaths(sourceRoot),
+      enumerateReroutedNodeModules({ sourceRoot, repoRoot }),
+      copyExistingSymlinks(sourceRoot, worktreeDir),
+      copyCardsDirectory(sourceRoot, worktreeDir)
+    ]);
 
-    // .cards is copied rather than symlinked so each worktree gets an independent copy
+    // Synchronization: compute filteredIgnored once both discovery results are in hand.
+    // .cards is copied rather than symlinked so each worktree gets an independent copy.
+    // node_modules owned by the rerouter are excluded here — the rerouter rebuilds
+    // them as real directories; symlinking first and then unlinking wastes syscalls
+    // and creates an ordering dependency between the two steps.
+    const ownedNodeModules = new Set(reroutedNodeModules.map((e) => e.relativePath));
     const filteredIgnored: IgnoredPaths = {
-      directories: ignored.directories.filter((d) => d !== '.cards' && !d.startsWith('.cards/')),
+      directories: ignored.directories.filter(
+        (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedNodeModules.has(d)
+      ),
       files: ignored.files.filter((f) => !f.startsWith('.cards/'))
     };
-    await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
-    await copyCardsDirectory(sourceRoot, worktreeDir);
 
-    const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
-    const copiedFromInclude = await applyWorktreeInclude({ sourceRoot, worktreeDir });
+    // Wave 2: symlinkIgnoredPaths and rerouteAllNodeModules write to disjoint paths
+    const [, reroutedCount] = await Promise.all([
+      symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored }),
+      rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot })
+    ]);
 
-    const [, baseSha] = await Promise.all([
+    // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
+    // on any overlapping gitignored paths; updateGitExclude needs symlinks in place;
+    // resolveHead is read-only and safe alongside both
+    const [copiedFromInclude, , baseSha] = await Promise.all([
+      applyWorktreeInclude({ sourceRoot, worktreeDir }),
       updateGitExclude({
         worktreeDir,
         repoRoot,
@@ -654,16 +672,95 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
   return { directories, files };
 }
 
+/** .cards subtrees whose contents are byte-identical across worktrees and never written per-worktree. */
+const STATIC_CARDS_SUBTREES = ['bin', 'www'] as const;
+
+/**
+ * Provisions a static `.cards` subtree as a real directory populated with per-entry symlinks to the
+ * corresponding source files, recursing so every nested directory is also a real directory.
+ *
+ * This is the mechanism that structurally enforces write isolation for {@link STATIC_CARDS_SUBTREES}:
+ * the destination directory is owned by the worktree, so writing a new file into
+ * `worktreeDir/.cards/bin/` (or any depth within `www/`) creates it in the worktree's own directory
+ * and never reaches `sourceRoot/.cards`. A directory symlink at any level would defeat this — every
+ * write through it would land in the source — so directories are recreated, not linked.
+ *
+ * The operation is idempotent: per-file links go through {@link replaceSymlink}, which unlinks a
+ * pre-existing symlink before recreating it and leaves a real file untouched. Symlink entries in
+ * the source are mirrored by reading their target and creating a matching symlink in the
+ * destination. ENOENT-tolerant: an absent source subtree is skipped, and a source subtree that
+ * disappears mid-operation is caught gracefully (no dangling links, no throw). Non-file,
+ * non-directory, non-symlink entries (sockets, devices) are skipped with a stderr warning,
+ * matching the error-handling idiom used throughout this file.
+ *
+ * @param sourcePath - Absolute path to the source subtree (e.g. `sourceRoot/.cards/bin`).
+ * @param destPath - Absolute path to the destination subtree (e.g. `worktreeDir/.cards/bin`).
+ * @throws {SymlinkPrivilegeError} When the OS denies symlink creation (EPERM/EINVAL).
+ */
+export async function provisionStaticCardsSubtree(sourcePath: string, destPath: string): Promise<void> {
+  try {
+    await fs.lstat(sourcePath);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  // Create the real destination directory only once the source is known to exist,
+  // so an absent source never leaves an empty directory behind.
+  try {
+    await fs.mkdir(destPath, { recursive: true });
+
+    const entries = await fs.readdir(sourcePath, { withFileTypes: true });
+    for (const entry of entries) {
+      const entrySource = path.join(sourcePath, entry.name);
+      const entryDest = path.join(destPath, entry.name);
+      if (entry.isDirectory()) {
+        await provisionStaticCardsSubtree(entrySource, entryDest);
+      } else if (entry.isFile()) {
+        await replaceSymlink(entrySource, entryDest);
+      } else if (entry.isSymbolicLink()) {
+        const symlinkTarget = await fs.readlink(entrySource);
+        await replaceSymlink(symlinkTarget, entryDest);
+      } else {
+        process.stderr.write(
+          `create-worktree: skipping non-file, non-directory, non-symlink entry while provisioning static .cards subtree: ${entrySource}\n`
+        );
+      }
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
 /**
  * Copies the `.cards` directory from the source root into the worktree.
  *
  * `.cards` needs an independent copy per worktree rather than a symlink
  * so each worktree can modify its cards state without affecting others.
  *
- * Stale `*.log` files under `.cards/logs/` are excluded so a freshly created
- * worktree never inherits another worktree's (or the main repo's) logs. Logs
- * resolve at runtime to the durable main-repo-root path, so copying them would
- * only produce confusing dead copies.
+ * The entire `.cards/logs/` subtree is excluded so a freshly created worktree
+ * never inherits another worktree's (or the main repo's) logs. Logs resolve at
+ * runtime to the durable main-repo-root path, so copying them would only produce
+ * confusing dead copies. The exclusion prunes the directory itself rather than
+ * filtering its files one by one — returning `false` for the directory entry
+ * stops `fs.cp` from descending into it at all, so provisioning never pays to
+ * `stat` and traverse a subtree whose contents are discarded anyway.
+ *
+ * The static {@link STATIC_CARDS_SUBTREES} (`bin/` and `www/`) are excluded from
+ * the copy with the same directory-pruning pattern, then provisioned separately
+ * by {@link provisionStaticCardsSubtree} as real directories populated with
+ * per-entry symlinks rather than byte-copied. These subtrees are compiled output
+ * deployed alongside the extension — byte-identical across worktrees and never
+ * written by any per-worktree code path. Per-entry symlinks inside a real
+ * directory structurally enforce write isolation: a write through
+ * `worktreeDir/.cards/bin/` lands in the worktree's own directory and can never
+ * reach `sourceRoot/.cards/bin`. The only permitted writer to the source subtrees
+ * is the Cards extension build (which writes to `outdir/bin` and `outdir/www`),
+ * not any worktree.
  *
  * The card-binding marker files `.cards/CARD_ID` and
  * `.cards/CARD_ORIGINAL_HOOK_PATH` are also excluded. When the source checkout
@@ -678,21 +775,42 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
  */
 async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Promise<void> {
   const sourcePath = path.join(sourceRoot, '.cards');
+  const destPath = path.join(worktreeDir, '.cards');
   const logsDir = path.join(sourcePath, 'logs');
   const cardIdMarker = path.join(sourcePath, 'CARD_ID');
   const originalHookPathMarker = path.join(sourcePath, 'CARD_ORIGINAL_HOOK_PATH');
+  const staticSubtreeDirs = STATIC_CARDS_SUBTREES.map((name) => path.join(sourcePath, name));
   try {
-    await fs.cp(sourcePath, path.join(worktreeDir, '.cards'), {
+    await fs.cp(sourcePath, destPath, {
       recursive: true,
       filter: (src) =>
-        !(src.startsWith(logsDir + path.sep) && src.endsWith('.log')) &&
+        // Prune the logs directory itself: returning false for the directory
+        // entry stops fs.cp from recursing into it, so its contents are never
+        // stat-ed or traversed. The startsWith guard is defense-in-depth in case
+        // the directory entry is ever visited differently across platforms. The
+        // static subtrees (bin/, www/) are pruned the same way — they are
+        // provisioned as per-entry symlinks below instead of copied.
+        src !== logsDir &&
+        !src.startsWith(logsDir + path.sep) &&
         src !== cardIdMarker &&
-        src !== originalHookPathMarker
+        src !== originalHookPathMarker &&
+        !staticSubtreeDirs.some((dir) => src === dir || src.startsWith(dir + path.sep))
     });
   } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+    // ENOENT: source .cards/ does not exist (nothing to copy).
+    // EEXIST: destination .cards/ already exists — outfitWorktreeForCard runs
+    //   before the settle phase and creates it via writeCardBoundFile. When it
+    //   wins the race, fs.cp's internal mkdir sees the existing directory and
+    //   throws. The destination already contains the authoritative markers
+    //   (CARD_ID, CARD_ORIGINAL_HOOK_PATH), so skipping the copy is safe.
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'EEXIST') {
       throw error;
     }
+  }
+
+  for (const name of STATIC_CARDS_SUBTREES) {
+    await provisionStaticCardsSubtree(path.join(sourcePath, name), path.join(destPath, name));
   }
 }
 
@@ -841,6 +959,12 @@ WORKTREE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 CARDS_HOOK="$(dirname "$0")/${hookType}.mjs"
 ORIGINAL_HOOKS_DIR=$(cat "$WORKTREE_ROOT/.cards/CARD_ORIGINAL_HOOK_PATH" 2>/dev/null)
 ORIGINAL_HOOK="$ORIGINAL_HOOKS_DIR/${hookType}"
+
+# Skip if CARDS_SKIP_HOOK is set — consistent with the card-repo wrapper
+# guard so a single env var suppresses both hook layers.
+if [ "$CARDS_SKIP_HOOK" = "1" ]; then
+  exit 0
+fi
 `;
 }
 
@@ -1317,6 +1441,88 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
   return counts.reduce((sum, c) => sum + c, 0);
 }
 
+/**
+ * A single node_modules directory that `rerouteAllNodeModules` owns.
+ */
+export interface ReroutedNodeModulesEntry {
+  /**
+   * Path relative to the repo root in git/POSIX form ("node_modules",
+   * "packages/foo/node_modules"). Used to match against the git-discovered
+   * ignored-directory list, so it must use forward slashes.
+   */
+  relativePath: string;
+  /** Absolute source node_modules directory to mirror. */
+  sourceNodeModules: string;
+}
+
+/**
+ * Enumerates the node_modules directories that the rerouter will own.
+ *
+ * Returns `[]` when `repoRoot/package.json` is absent or has no `workspaces`
+ * field — mirroring the early-return behaviour of `rerouteAllNodeModules`.
+ *
+ * Always includes the root entry. Per-package entries are only included when
+ * their source `node_modules` directory exists (matching the `lstat` check in
+ * `rerouteAllNodeModules`).
+ *
+ * @param opts - Options bag.
+ * @param opts.sourceRoot - Absolute path to the source checkout root.
+ * @param opts.repoRoot - Absolute path to the repository root containing `package.json`.
+ * @returns Owned entries in root-first order.
+ */
+export async function enumerateReroutedNodeModules(opts: {
+  sourceRoot: string;
+  repoRoot: string;
+}): Promise<ReroutedNodeModulesEntry[]> {
+  const { sourceRoot, repoRoot } = opts;
+
+  let packageJson: { workspaces?: string[] };
+  try {
+    const packageJsonContent = await fs.readFile(path.join(repoRoot, 'package.json'), 'utf-8');
+    packageJson = JSON.parse(packageJsonContent);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+
+  if (!packageJson.workspaces) {
+    return [];
+  }
+
+  const entries: ReroutedNodeModulesEntry[] = [
+    { relativePath: 'node_modules', sourceNodeModules: path.join(sourceRoot, 'node_modules') }
+  ];
+
+  const packagesDir = path.join(sourceRoot, 'packages');
+  try {
+    const packageEntries = await fs.readdir(packagesDir, { withFileTypes: true });
+    for (const entry of packageEntries) {
+      if (entry.isDirectory()) {
+        const pkgNodeModules = path.join(packagesDir, entry.name, 'node_modules');
+        try {
+          await fs.lstat(pkgNodeModules);
+          entries.push({
+            relativePath: `packages/${entry.name}/node_modules`,
+            sourceNodeModules: pkgNodeModules
+          });
+        } catch (error: unknown) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw error;
+          }
+        }
+      }
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  return entries;
+}
+
 interface RerouteAllNodeModulesOptions {
   sourceRoot: string;
   worktreeDir: string;
@@ -1334,57 +1540,21 @@ interface RerouteAllNodeModulesOptions {
 export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions): Promise<number> {
   const { sourceRoot, worktreeDir, repoRoot } = opts;
 
-  let packageJson: { workspaces?: string[] };
-  try {
-    const packageJsonContent = await fs.readFile(path.join(repoRoot, 'package.json'), 'utf-8');
-    packageJson = JSON.parse(packageJsonContent);
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return 0;
-    }
-    throw error;
-  }
-
-  if (!packageJson.workspaces) {
+  const reroutedEntries = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+  if (reroutedEntries.length === 0) {
     return 0;
   }
 
   let totalCount = 0;
 
-  totalCount += await rerouteNodeModules({
-    sourceNodeModules: path.join(sourceRoot, 'node_modules'),
-    destNodeModules: path.join(worktreeDir, 'node_modules')
-  });
-
-  const packagesDir = path.join(sourceRoot, 'packages');
-  try {
-    const packageEntries = await fs.readdir(packagesDir, { withFileTypes: true });
-    for (const entry of packageEntries) {
-      if (entry.isDirectory()) {
-        const pkgNodeModules = path.join(packagesDir, entry.name, 'node_modules');
-        let nodeModulesExists = false;
-        try {
-          await fs.lstat(pkgNodeModules);
-          nodeModulesExists = true;
-        } catch (error: unknown) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-            throw error;
-          }
-        }
-        if (nodeModulesExists) {
-          const destPackageDir = path.join(worktreeDir, 'packages', entry.name);
-          await fs.mkdir(destPackageDir, { recursive: true });
-          totalCount += await rerouteNodeModules({
-            sourceNodeModules: pkgNodeModules,
-            destNodeModules: path.join(destPackageDir, 'node_modules')
-          });
-        }
-      }
-    }
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
+  for (const entry of reroutedEntries) {
+    const destNodeModules = path.join(worktreeDir, entry.relativePath);
+    const destParent = path.dirname(destNodeModules);
+    await fs.mkdir(destParent, { recursive: true });
+    totalCount += await rerouteNodeModules({
+      sourceNodeModules: entry.sourceNodeModules,
+      destNodeModules
+    });
   }
 
   return totalCount;

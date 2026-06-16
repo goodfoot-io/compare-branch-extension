@@ -24,5 +24,3 @@ export {
   // Note factories
   createNote
 } from './entities.js';
-// --- Time Utilities ---
-export { futureDate, now, pastDate } from './time.js';

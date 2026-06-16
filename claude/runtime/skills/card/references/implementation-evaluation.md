@@ -24,10 +24,10 @@ COMMITMSG
 Run validation per the plan's validation commands.
 
 Based on the result:
-- **All validations pass**: Proceed to Step 3: Create the Evaluation Team.
-- **Failure**: Treat each failure's output as an initial finding, then proceed to Step 6: Dispatch Developer Wave (the team is not yet created; developers do not join the team in any case). After Step 7: Validate and Commit, return to Step 2: Pre-Evaluation Validation.
+- **All validations pass**: Proceed to Step 3: Dispatch Evaluators.
+- **Failure**: Treat each failure's output as an initial finding, then proceed to Step 6: Dispatch Developer Wave (developers are not part of the evaluation group in any case). After Step 7: Validate and Commit, return to Step 2: Pre-Evaluation Validation.
 
-## 3. Create the Evaluation Team
+## 3. Dispatch Evaluators
 
 Diff the workspace against the baseline to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
 
@@ -38,18 +38,7 @@ Diff the workspace against the baseline to see the full scope of changes. Select
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
-Create the team — it persists across every revision round and is torn down only on terminal exit (Step 9: Finalize, or the BLOCKED branch in Step 5):
-
-```xml
-<invoke name="TeamCreate">
-  <parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
-  <parameter name="description">Implementation evaluation team for card [CARD_ID]</parameter>
-</invoke>
-```
-
-Every evaluator dispatched in Step 4 joins the team via `team_name=card-impl-eval-[CARD_ID]`. Developers dispatched in Step 6 do **not** join the team.
-
-## 4. Dispatch Evaluators
+The evaluators form an ad-hoc group purely by being named; they persist across every revision round and are torn down only on terminal exit (Step 9: Finalize, or the BLOCKED branch in Step 5). Developers dispatched in Step 6 are **not** part of this group.
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
 
@@ -65,13 +54,12 @@ Based on depth:
 <parameter name="subagent_type">runtime:card:failure-mode</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="name">failure-mode</parameter>
-<parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `main` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `main` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
-## Team Name
-Your team is `card-impl-eval-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-impl-eval-[CARD_ID]/config.json`) uses this exact name.
+## Peers
+The orchestrator is `main` (the orchestrator). On Deep depth, your peer evaluator is `experience-evaluator`. Track the live set from the `BLOCKED` DMs you receive.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -98,13 +86,12 @@ For **Deep**, add the second dispatch in the same message:
 <parameter name="subagent_type">runtime:card:experience-evaluator</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="name">experience-evaluator</parameter>
-<parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `main` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `main` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: experience-evaluator`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
-## Team Name
-Your team is `card-impl-eval-[CARD_ID]`.
+## Peers
+The orchestrator is `main`. Your peer evaluator is `failure-mode`. Track the live set from the `BLOCKED` DMs you receive.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -138,14 +125,14 @@ Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current 
 
 Never Finalize on a partial set — every dispatched evaluator must DM `VERDICT: APPROVED` for the current round first. An incomplete set while another evaluator is still working is expected; continue waiting. An evaluator that has exited without a verdict, or is unresponsive to a direct status DM, is not a wait but a judgment call: re-dispatch a replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run.
 
-A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 4 into the same `card-impl-eval-[CARD_ID]` team, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its dispatch prompt so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
+A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its dispatch prompt so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
 
 A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
 
 Based on the aggregated verdicts:
 - **All APPROVED** (every dispatched evaluator has DM'd `VERDICT: APPROVED`): Proceed to Step 9: Finalize. This is the only path to Finalize. Do not accept fewer than the full evaluator set.
 - **Any CHANGES_REQUESTED** (at least one evaluator has DM'd `VERDICT: CHANGES_REQUESTED`, regardless of other evaluators' verdicts): Proceed to Step 6: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.
-- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, tear down the team per Step 9: Finalize (shutdown each evaluator, wait, then `TeamDelete`), and **STOP**.
+- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, tear down the evaluators per Step 9: Finalize (send each a `shutdown_request` and wait for each to exit), and **STOP**.
 
 ## 6. Dispatch Developer Wave
 
@@ -158,7 +145,7 @@ When uncertain between Coherent and Sequential, choose **Sequential**.
 
 Choose [MODEL] per the same tiering as `./implementation-with-plan.md`'s `<model-selection>`.
 
-Developers are **not** team members and receive no follow-up after dispatch — same single-prompt style as `./implementation-with-plan.md`'s `<dispatch>`. Inline every finding the developer must address into its initial prompt; do not stream new findings to a running developer. For Parallel routing, dispatch concurrent developers by placing multiple foreground `<invoke>` blocks in a single message — they execute in parallel without backgrounding. Each developer owns the files referenced in its assigned findings.
+Developers are **not** part of the evaluation group and receive no follow-up after dispatch — same single-prompt style as `./implementation-with-plan.md`'s `<dispatch>`. Inline every finding the developer must address into its initial prompt; do not stream new findings to a running developer. For Parallel routing, dispatch concurrent developers by placing multiple foreground `<invoke>` blocks in a single message — they execute in parallel without backgrounding. Each developer owns the files referenced in its assigned findings.
 
 ```xml
 <invoke name="Agent">
@@ -232,7 +219,7 @@ git clean -fd
 
 ## 8. Trigger Re-Evaluation
 
-The team and its evaluators are still alive. DM a re-evaluation trigger to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
+The evaluators are still alive. DM a re-evaluation trigger to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
 
 The evaluator holds its own findings in context — it does not need a label→SHA dictionary to know what it raised. Give it the commit range and a plain account of what the wave changed and why, and flag anything the wave could *not* fix (that is information the evaluator cannot derive from the diff). The evaluator re-checks against the new HEAD on its own judgment.
 
@@ -241,13 +228,13 @@ The evaluator holds its own findings in context — it does not need a label→S
   <parameter name="to">failure-mode</parameter>
   <parameter name="summary">Re-evaluate against revised implementation</parameter>
   <parameter name="message">
+RE_EVALUATE
+---
 The implementation has been updated to address the prior round's findings. Re-evaluate against the new HEAD.
 
 Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
 What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
 Not fixed: [any finding the wave could not address, and why — omit if none]
-
-RE_EVALUATE
   </parameter>
 </invoke>
 ```
@@ -260,7 +247,7 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path — including after applying fixes yourself — return to Step 5 and collect the remaining verdicts.
 
-Shut down every still-running evaluator in the team by sending each a `shutdown_request` — the evaluator's own skill handles its exit. On Standard depth this is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
+Shut down every still-running evaluator by sending each a `shutdown_request` — the evaluator's own skill handles its exit. On Standard depth this is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
 
 ```xml
 <invoke name="SendMessage">
@@ -270,11 +257,7 @@ Shut down every still-running evaluator in the team by sending each a `shutdown_
 </invoke>
 ```
 
-`TeamDelete` fails while any member is still active, so send the request to every evaluator and wait for each to terminate before tearing down the team:
-
-```xml
-<invoke name="TeamDelete" />
-```
+Send each still-running evaluator a `shutdown_request` and wait for each to exit before proceeding.
 
 Do not modify gates in `CARD.meta.json`.
 
