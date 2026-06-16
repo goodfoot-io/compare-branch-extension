@@ -97,7 +97,10 @@ describe('removeWorktree', () => {
   afterEach(async () => {
     process.env = originalEnv;
     if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true });
+      // maxRetries/retryDelay: on Windows a git subprocess can briefly hold a
+      // handle into tmpBase (.git admin files), so rmdir races EBUSY/EPERM —
+      // retry past the transient lock, mirroring removeWorktree() in worktree.ts.
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpBase = '';
     }
   });
@@ -417,7 +420,10 @@ describe('createWorktree static .cards subtree provisioning', () => {
     symlinkOverride = undefined;
     process.env = originalEnv;
     if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true });
+      // maxRetries/retryDelay: on Windows a git subprocess can briefly hold a
+      // handle into tmpBase (.git admin files), so rmdir races EBUSY/EPERM —
+      // retry past the transient lock, mirroring removeWorktree() in worktree.ts.
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpBase = '';
     }
   });
