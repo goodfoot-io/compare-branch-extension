@@ -227,4 +227,64 @@ describe('removeWorktree', () => {
     const worktrees = listWorktrees(repoDir);
     expect(worktrees.every((w) => w !== wPath)).toBe(true);
   });
+
+  it('applyWorktreeInclude ordering: settle resolves and worktree is correct when gitignored paths overlap with .worktreeinclude', async () => {
+    // This test guards the Wave 2 → Wave 3 ordering contract:
+    // symlinkIgnoredPaths (Wave 2) must complete before applyWorktreeInclude (Wave 3) starts.
+    //
+    // Scenario:
+    // - `.link` is a root-level symlink (not gitignored) → copyExistingSymlinks (Wave 1) copies
+    //   it to the worktree; symlinkIgnoredPaths and applyWorktreeInclude do not touch it.
+    // - `dist/` is a gitignored directory → symlinkIgnoredPaths (Wave 2) creates
+    //   worktreeDir/dist as a symlink to sourceRoot/dist; applyWorktreeInclude (Wave 3)
+    //   enumerates dist/bundle.js and copies it — safe because fs.copyFile resolves through
+    //   the symlink (same inode, succeeds without EEXIST).
+    //
+    // The Wave 1 barrier ensures copyExistingSymlinks completes before applyWorktreeInclude
+    // starts (Wave 3). The Wave 2 barrier ensures symlinkIgnoredPaths completes before
+    // applyWorktreeInclude starts. If those barriers were removed and all steps ran concurrently,
+    // applyWorktreeInclude could race copyExistingSymlinks on a gitignored root-level symlink
+    // (F2) or race symlinkIgnoredPaths on a gitignored file in .worktreeinclude, producing
+    // EEXIST (applyWorktreeInclude has no EEXIST guard) and rejecting the settle promise.
+    await fs.writeFile(path.join(repoDir, '.gitignore'), 'dist/\n');
+    execFileSync('git', ['add', '.gitignore'], { cwd: repoDir });
+    execFileSync('git', ['commit', '-q', '-m', 'add gitignore'], { cwd: repoDir });
+
+    // Root-level symlink (copied by copyExistingSymlinks in Wave 1; not gitignored so
+    // symlinkIgnoredPaths and applyWorktreeInclude do not touch it)
+    await fs.writeFile(path.join(repoDir, 'target.txt'), 'target content');
+    await fs.symlink('target.txt', path.join(repoDir, '.link'));
+
+    // Gitignored directory with a regular file (symlinkIgnoredPaths symlinks the dir in Wave 2;
+    // applyWorktreeInclude copies the file through the symlink in Wave 3 — safe)
+    await fs.mkdir(path.join(repoDir, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'dist', 'bundle.js'), 'console.log(1);');
+
+    // .worktreeinclude re-includes the dist directory's contents
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'dist/\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/include-ordering', { cwd: repoDir });
+
+    // settle must resolve — a wrong ordering that produces EEXIST would reject it
+    const result = await settle;
+    expect(result).toBeDefined();
+
+    // copyExistingSymlinks (Wave 1) placed the root symlink; it must be a symlink in the worktree.
+    // copyExistingSymlinks creates a symlink pointing to the source entry (absolute path), not
+    // to the original link target — that is the correct sequential result for this step.
+    const linkLstat = await fs.lstat(path.join(wPath, '.link'));
+    expect(linkLstat.isSymbolicLink()).toBe(true);
+    // The symlink resolves to the source .link, which in turn resolves to target.txt
+    const resolvedLink = await fs.realpath(path.join(wPath, '.link'));
+    expect(resolvedLink).toBe(await fs.realpath(path.join(repoDir, '.link')));
+
+    // dist/bundle.js is accessible in the worktree (symlinkIgnoredPaths created worktreeDir/dist
+    // as a symlink; applyWorktreeInclude's copy resolves through it to the source file)
+    const bundleStat = await fs.stat(path.join(wPath, 'dist', 'bundle.js'));
+    expect(bundleStat.isFile()).toBe(true);
+    const bundleContent = await fs.readFile(path.join(wPath, 'dist', 'bundle.js'), 'utf8');
+    expect(bundleContent).toBe('console.log(1);');
+
+    await removeWorktree(wPath);
+  });
 });

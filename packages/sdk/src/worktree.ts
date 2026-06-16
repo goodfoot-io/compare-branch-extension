@@ -315,29 +315,38 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
   // the path (e.g. as cwd for spawning processes) while the remaining setup
   // (symlinks, node_modules rerouting, git excludes) runs concurrently.
   const settle = (async (): Promise<CreateWorktreeResult> => {
-    const ignored = await discoverIgnoredPaths(sourceRoot);
-    await copyExistingSymlinks(sourceRoot, worktreeDir);
+    // Wave 1: all independent — launch immediately
+    const [ignored, reroutedNodeModules] = await Promise.all([
+      discoverIgnoredPaths(sourceRoot),
+      enumerateReroutedNodeModules({ sourceRoot, repoRoot }),
+      copyExistingSymlinks(sourceRoot, worktreeDir),
+      copyCardsDirectory(sourceRoot, worktreeDir)
+    ]);
 
+    // Synchronization: compute filteredIgnored once both discovery results are in hand.
     // .cards is copied rather than symlinked so each worktree gets an independent copy.
     // node_modules owned by the rerouter are excluded here — the rerouter rebuilds
     // them as real directories; symlinking first and then unlinking wastes syscalls
     // and creates an ordering dependency between the two steps.
-    const reroutedNodeModules = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
     const ownedNodeModules = new Set(reroutedNodeModules.map((e) => e.relativePath));
-
     const filteredIgnored: IgnoredPaths = {
       directories: ignored.directories.filter(
         (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedNodeModules.has(d)
       ),
       files: ignored.files.filter((f) => !f.startsWith('.cards/'))
     };
-    await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
-    await copyCardsDirectory(sourceRoot, worktreeDir);
 
-    const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
-    const copiedFromInclude = await applyWorktreeInclude({ sourceRoot, worktreeDir });
+    // Wave 2: symlinkIgnoredPaths and rerouteAllNodeModules write to disjoint paths
+    const [, reroutedCount] = await Promise.all([
+      symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored }),
+      rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot })
+    ]);
 
-    const [, baseSha] = await Promise.all([
+    // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
+    // on any overlapping gitignored paths; updateGitExclude needs symlinks in place;
+    // resolveHead is read-only and safe alongside both
+    const [copiedFromInclude, , baseSha] = await Promise.all([
+      applyWorktreeInclude({ sourceRoot, worktreeDir }),
       updateGitExclude({
         worktreeDir,
         repoRoot,
