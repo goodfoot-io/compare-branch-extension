@@ -56,7 +56,7 @@ Based on depth:
 <parameter name="name">failure-mode</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `main` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `main` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `main` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `main` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
 The orchestrator is `main` (the orchestrator). On Deep depth, your peer evaluator is `experience-evaluator`. Track the live set from the `BLOCKED` DMs you receive.
@@ -88,7 +88,7 @@ For **Deep**, add the second dispatch in the same message:
 <parameter name="name">experience-evaluator</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `main` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `main` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `main` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `main` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: experience-evaluator`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
 The orchestrator is `main`. Your peer evaluator is `failure-mode`. Track the live set from the `BLOCKED` DMs you receive.
@@ -228,13 +228,13 @@ The evaluator holds its own findings in context — it does not need a label→S
   <parameter name="to">failure-mode</parameter>
   <parameter name="summary">Re-evaluate against revised implementation</parameter>
   <parameter name="message">
+RE_EVALUATE
+---
 The implementation has been updated to address the prior round's findings. Re-evaluate against the new HEAD.
 
 Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
 What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
 Not fixed: [any finding the wave could not address, and why — omit if none]
-
-RE_EVALUATE
   </parameter>
 </invoke>
 ```

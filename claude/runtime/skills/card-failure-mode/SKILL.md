@@ -6,7 +6,7 @@ description: Identify potential failure modes in card implementations
 <critical-constraints>
 
 - **Never implement fixes, design fixes, or rewrite the change yourself** — you identify failure modes; the developer implements
-- **Never return findings as a final response** — DM each `FINDING:` and `VERDICT:` to `main` (the orchestrator — the reserved address that routes to the main conversation), and DM peer evaluators directly with `CRITIQUE:` markers. On Deep depth, also DM each `FINDING:` to the peer evaluator so cross-evaluator critiques can respond to specific findings.
+- **Never return findings as a final response** — DM each `FINDING:` and `VERDICT:` to `main` (the orchestrator — the reserved address that routes to the main conversation), and DM peer evaluators directly with `CRITIQUE:` markers. On Deep depth, also DM each `FINDING:` to the peer evaluator so cross-evaluator critiques can respond to specific findings. The marker goes in `summary` and as the first line of the `message` body, followed by a `Sender: failure-mode` line and a `---` delimiter. Peers see an opaque sender ID — your name is invisible unless you self-identify.
 - **Apply the same scrutiny to fix code as to the original implementation** — each round of fixes is new scope
 - **Never create extra artifacts** unless the task explicitly requires them
 - **Follow repository conventions** when judging what is risky or incorrect
@@ -105,7 +105,7 @@ A revision can attack any of the three: narrow severity (shrink the blast radius
 
 As soon as a finding meets the Step 4 detail bar, DM it. Do not wait for the rest of your analysis. Do not batch.
 
-The marker `FINDING: [short label] round-K` goes in the `summary` field; round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.) — a private label so you can tell which round you first raised a finding in across resumes. The cause / mode / effect plus severity / occurrence / detection tags plus the file or runtime path go in the `message` body.
+The marker `FINDING: [short label] round-K` goes in `summary` and as the first line of the `message` body, followed by a `Sender: failure-mode` line and a `---` delimiter. Round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.) — a private label so you can tell which round you first raised a finding in across resumes. The cause / mode / effect plus severity / occurrence / detection tags plus the file or runtime path go in the body after `---`.
 
 DM `main` first:
 
@@ -114,6 +114,9 @@ DM `main` first:
   <parameter name="to">main</parameter>
   <parameter name="summary">FINDING: [short label] round-K</parameter>
   <parameter name="message">
+FINDING: [short label] round-K
+Sender: failure-mode
+---
 [Cause / failure mode / effect, plus severity / occurrence / detection tags, plus the file or runtime path it applies to]
   </parameter>
 </invoke>
@@ -139,7 +142,7 @@ You communicate with peers and the orchestrator only through SendMessage. Plain 
 
 The orchestrator has every finding via your `FINDING:` DMs. DM a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
 
-The marker goes in the `summary`. Three values are valid:
+The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode` and a `---` delimiter. Three values are valid:
 
 - `VERDICT: APPROVED` — every current failure-mode question is answered against the implementation and you have no blocking findings.
 - `VERDICT: CHANGES_REQUESTED` — at least one finding requires implementation changes.
@@ -150,8 +153,11 @@ The orchestrator routes fixes based on your verdict — it does not override it.
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">main</parameter>
-  <parameter name="summary">VERDICT: APPROVED | CHANGES_REQUESTED | BLOCKED</parameter>
+  <parameter name="summary">VERDICT: APPROVED</parameter>
   <parameter name="message">
+VERDICT: APPROVED
+Sender: failure-mode
+---
 [Summary of key findings — approach-level concerns first, then line-level. Any final thoughts not yet DM'd as a FINDING. For BLOCKED, name the external constraint.]
   </parameter>
 </invoke>
@@ -159,7 +165,7 @@ The orchestrator routes fixes based on your verdict — it does not override it.
 
 ## When Resuming for a Fixed Implementation
 
-When `main` DMs you a re-evaluation trigger (`summary: RE_EVALUATE` or similar), this is a continuation of your analysis — you retain full context from every prior round. DM new findings per Step 5: DM Findings during each resume round.
+When `main` DMs you a re-evaluation trigger (`RE_EVALUATE` in summary and body), this is a continuation of your analysis — you retain full context from every prior round. DM new findings per Step 5: DM Findings during each resume round.
 
 ### 1. Review What Changed
 
@@ -187,6 +193,6 @@ Where possible, execute the code paths the fix touches. Runtime behavior is the 
 
 Use the SendMessage format from Step 7: DM Verdict. Lead with unresolved prior concerns, then new findings the fix code introduced, then approach-level risks that survive the revision. Note resolved findings as closed — do not repeat them.
 
-The marker is `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` in the `summary`. Use `APPROVED` only when every current question has been answered, every prior concern has been resolved at the cause, and the fix code introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
+The marker is `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` in `summary` and as the first line of the `message` body. Use `APPROVED` only when every current question has been answered, every prior concern has been resolved at the cause, and the fix code introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
 
 </instructions>

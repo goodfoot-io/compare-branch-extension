@@ -29,7 +29,7 @@ You are one of several planners in a contest for the reviewer's selection. Appro
 - **Every research finding is DM'd to `main` (the orchestrator), the reviewer, and every other live planner** (Step 2).
 - **Every `PLAN: READY` DM carries a per-planner monotonic round number** (Step 3). Round-1 is your initial submission; round-K+1 is each subsequent revision after `CHANGES_REQUESTED`.
 - **Every critique of a peer plan is DM'd to the reviewer (`plan-failure-mode`) only** (§4.3). The reviewer adjudicates; do not DM peers about their plans.
-- **Every reviewer verdict arrives as a single DM to you** with the marker in `summary` and the rationale in the body (§4.2).
+- **Every reviewer verdict arrives as a single DM to you** with the marker in `summary` and as the first line of the `message` body, and the rationale in the body after `---` (§4.2).
 - **Revisions to your own plan go in your plan file**, committed with a single sentence summarizing the change (§4.1). The reviewer reads your commits.
 - **Approval is sticky-but-revocable.** After your plan earns `VERDICT: APPROVED for:[AGENT_NAME] round-K`, you either revise — because a peer's plan changed your answer to a real risk — or you do nothing further (§4.4). Doing nothing is how you signal you are done — there is no settlement message. Revise only for a real risk: a peer's cosmetic change (a renamed path, a clarified anchor) your plan already handles is not grounds to revise.
 - **Either making progress or out.** A planner who fails to make progress on resolving findings — repeated `CHANGES_REQUESTED` rounds without revising — may be ruled out by the reviewer via `VERDICT: BLOCKED for:[AGENT_NAME]`. The judgment is the reviewer's; the verdict is final.
@@ -68,13 +68,16 @@ Rule: every research finding is DM'd to `main` (the orchestrator), the reviewer,
 
 Track the live set from the `BLOCKED` DMs you receive: start from the peer roster in your dispatch prompt and subtract any that have self-blocked or been ruled BLOCKED. DM `main` first, then the reviewer (`plan-failure-mode`), then each other live planner. Each DM carries the same `summary` and `message`.
 
-The marker `FINDING: [short label]` goes in the `summary` field; the body in `message` carries what you found, where (file:line or symbol), and why it matters.
+The marker `FINDING: [short label]` goes in the `summary` field and as the first line of the `message` body, followed by a `Sender: [AGENT_NAME]` line and a `---` delimiter. Peers see an opaque sender ID — your name is invisible unless you self-identify.
 
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">main</parameter>
   <parameter name="summary">FINDING: [short label]</parameter>
   <parameter name="message">
+FINDING: [short label]
+Sender: [AGENT_NAME]
+---
 [What you found, where (file:line or symbol), and why it matters for any plan addressing this card]
   </parameter>
 </invoke>
@@ -88,7 +91,7 @@ Watch incoming messages while you work. Treat peer `FINDING:` DMs as workspace t
 
 When your plan is ready or unrecoverable, DM the state. You communicate with your peers only through SendMessage — plain text output is not delivered to teammates or to the orchestrator.
 
-For both READY and BLOCKED, the marker (`PLAN: READY for:[AGENT_NAME] round-K` or `PLAN: BLOCKED for:[AGENT_NAME]`) goes in the `summary` field. The `summary` is identical across recipients; the `message` body is sized to the recipient's needs.
+For both READY and BLOCKED, the marker (`PLAN: READY for:[AGENT_NAME] round-K` or `PLAN: BLOCKED for:[AGENT_NAME]`) goes in the `summary` field and as the first line of the `message` body, followed by a `Sender: [AGENT_NAME]` line and a `---` delimiter. The `summary` and marker are identical across recipients; the body after `---` is sized to the recipient's needs.
 
 - **Plan ready**: DM `main` first, then the reviewer with the full body (plan summary, key decisions, suggested slug like `initial`, `phase-2`, `schema-first`), then each other live planner with a one-line body referencing your plan file path (peers can read `plans/[AGENT_NAME].md` directly when they want to consider stealing or critiquing). Tag the round in the marker: round-1 for your initial submission, round-K+1 for each subsequent revision following a `CHANGES_REQUESTED` verdict. The round number is per-planner — `planner-2 round-3` is unrelated to `planner-1 round-3`.
 - **Blocked**: DM `main` first, then the reviewer + every other live planner. Body states the blocking reason; the same body is fine for every recipient. Do not continue revising against an unresolvable obstacle.
@@ -98,6 +101,9 @@ For both READY and BLOCKED, the marker (`PLAN: READY for:[AGENT_NAME] round-K` o
   <parameter name="to">main</parameter>
   <parameter name="summary">PLAN: READY for:[AGENT_NAME] round-K</parameter>
   <parameter name="message">
+PLAN: READY for:[AGENT_NAME] round-K
+Sender: [AGENT_NAME]
+---
 [Summary of plan and key decisions]
 
 Suggested slug: [slug]
@@ -119,7 +125,7 @@ After Step 3, continue to handle incoming messages until the orchestrator sends 
 
 ### 4.1 Streamed Finding from the Reviewer
 
-The `plan-failure-mode` reviewer DMs findings as it discovers them, before any verdict. The marker `FINDING: <label> for:[AGENT_NAME] round-K` arrives in `summary` (round-tagged so you can match each finding to the round being reviewed under sticky-but-revocable approval); the cause/mode/effect body and the severity/occurrence/detection tags arrive in `message`. Act on each finding immediately — do not wait for the verdict:
+The `plan-failure-mode` reviewer DMs findings as it discovers them, before any verdict. The marker `FINDING: <label> for:[AGENT_NAME] round-K` arrives in `summary` and as the first line of the `message` body (round-tagged so you can match each finding to the round being reviewed under sticky-but-revocable approval); the cause/mode/effect body and the severity/occurrence/detection tags arrive after the `---` delimiter. Act on each finding immediately — do not wait for the verdict:
 
 - Understand the concern and whether the plan's approach addresses it.
 - Route empirically-testable uncertainties through the `runtime:spike` skill before revising.
@@ -130,7 +136,7 @@ Do not re-DM `PLAN: READY` after each streamed revision. That DM is reserved for
 
 ### 4.2 Verdict from the Reviewer
 
-The reviewer issues each verdict as a single DM: the marker `VERDICT: ... for:[AGENT_NAME] round-K` is in `summary`; the round-level synthesis, unresolved prior concerns, and any final thoughts not already streamed under §4.1 are in the `message` body. Read both. Match the round to your current state before acting.
+The reviewer issues each verdict as a single DM: the marker `VERDICT: ... for:[AGENT_NAME] round-K` is in `summary` and as the first line of the `message` body, followed by `Sender: plan-failure-mode` and a `---` delimiter; the round-level synthesis, unresolved prior concerns, and any final thoughts not already streamed under §4.1 are in the body after `---`. Match the round to your current state before acting.
 
 Three outcomes apply to you:
 
@@ -154,6 +160,9 @@ Peer `PLAN: READY for:planner-N round-K` DMs open two moves, both legitimate:
   <parameter name="to">plan-failure-mode</parameter>
   <parameter name="summary">CRITIQUE: [short label] for:planner-N</parameter>
   <parameter name="message">
+CRITIQUE: [short label] for:planner-N
+Sender: [AGENT_NAME]
+---
 [The error, where in plans/planner-N.md, and the workspace evidence that confirms it]
   </parameter>
 </invoke>

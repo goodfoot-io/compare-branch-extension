@@ -125,13 +125,17 @@ If a question requires verification beyond what you know directly (e.g., "is pla
 
 ## 4. Trigger Selection
 
-Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary`; the body is empty or notes the closure-condition state for context.
+Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary` and as the first line of the `message` body.
 
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">plan-failure-mode</parameter>
   <parameter name="summary">SELECT_WINNER</parameter>
-  <parameter name="message">Every live plan is approved and nothing is in flight; please run the final retroactive pass and name a winner.</parameter>
+  <parameter name="message">
+SELECT_WINNER
+---
+Every live plan is approved and nothing is in flight; please run the final retroactive pass and name a winner.
+  </parameter>
 </invoke>
 ```
 
