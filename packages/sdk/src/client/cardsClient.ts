@@ -972,16 +972,27 @@ export class CardsClient {
    *
    * @param cardId - Identifier of the card to execute the action on.
    * @param actionName - Action identifier (e.g., 'launch').
-   * @param mode - Optional execution mode. When omitted, the server derives
-   *   the mode from the action's `supportsBackgroundMode` flag.
+   * @param mode - Optional execution mode. When omitted, the server runs the
+   *   action interactively (the default).
+   * @param exitWhenDone - When true, the spawned agent is signalled to exit
+   *   once the action completes. Omitted from the request when false, which is
+   *   the server default.
    * @returns Promise resolving to the action execution result.
    * @throws ApiError when the server rejects the request.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async executeAction(cardId: string, actionName: string, mode?: ExecutionMode): Promise<ActionResult> {
+  async executeAction(
+    cardId: string,
+    actionName: string,
+    mode?: ExecutionMode,
+    exitWhenDone?: boolean
+  ): Promise<ActionResult> {
     const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
-    const body: ExecuteActionRequest | undefined = mode ? { mode } : undefined;
-    return this.request(() => this.getHttpClient().post<ActionResult>(url, body), false);
+    const body: ExecuteActionRequest = {};
+    if (mode) body.mode = mode;
+    if (exitWhenDone) body.exitWhenDone = true;
+    const hasBody = Object.keys(body).length > 0;
+    return this.request(() => this.getHttpClient().post<ActionResult>(url, hasBody ? body : undefined), false);
   }
 
   // --- Compare Operations ---

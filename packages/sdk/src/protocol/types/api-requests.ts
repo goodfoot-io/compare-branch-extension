@@ -607,12 +607,18 @@ export interface ExecuteActionRequest {
   /**
    * Execution mode for the action.
    *
-   * When omitted, the server derives the mode from the action definition:
-   * `'background'` when the action declares `supportsBackgroundMode: true`,
-   * otherwise `'interactive'`. An explicit `'background'` request for an
-   * action that does not support background mode is rejected with 400.
+   * When omitted, the server runs the action interactively (the default). An
+   * explicit `'background'` request for an action that does not support
+   * background mode is rejected with 400.
    */
   mode?: ExecutionMode;
+
+  /**
+   * When true, the spawned agent is signalled to exit cleanly once the action
+   * completes rather than leaving the session open. When omitted, defaults to
+   * false.
+   */
+  exitWhenDone?: boolean;
 }
 
 // ============================================================================

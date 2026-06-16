@@ -152,16 +152,17 @@ Action:
   the lowercase identifier from the action definition (e.g., "launch").
 
   Options:
-    --execution-mode <mode>  Execution mode: "interactive" or "background".
-                             When omitted, the server derives the mode from
-                             the action's supportsBackgroundMode flag
-                             (background when true, interactive otherwise).
-                             An explicit "background" request is rejected
-                             when the action does not support background mode.
+    --background             Run the action in the background instead of
+                             interactively. Omit for an interactive run
+                             (the default). Rejected when the action does
+                             not support background mode.
+    --exit-when-done        Signal the agent to exit cleanly once the action
+                             completes, instead of leaving the session open.
 
   Examples:
     card <card-id> action launch
-    card <card-id> action chat --execution-mode interactive
+    card <card-id> action launch --background
+    card <card-id> action launch --background --exit-when-done
 
 Watch:
   Waits for the next unattributed commit on a card's repository. If
@@ -603,16 +604,29 @@ function getGitRoot(): string | null {
  * produces `{ tag: ['bug', 'feature'] }`). Stops at the first positional
  * argument (one that doesn't start with `--`).
  *
+ * Flags named in `booleanFlags` are valueless: their presence records
+ * `['true']` and the following argument is not consumed.
+ *
  * @param args - CLI argument array to parse.
+ * @param booleanFlags - Names (without leading `--`) of valueless boolean flags.
  * @returns Parsed key-to-values pairs with the leading `--` stripped from keys.
- * @throws Error when a flag is missing its value.
+ * @throws Error when a non-boolean flag is missing its value.
  */
-function parseFlags(args: string[]): Record<string, string[]> {
+function parseFlags(args: string[], booleanFlags?: ReadonlySet<string>): Record<string, string[]> {
   const flags: Record<string, string[]> = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     if (!arg.startsWith('--')) break;
     const key = arg.slice(2);
+    if (booleanFlags?.has(key)) {
+      const existing = flags[key];
+      if (existing) {
+        existing.push('true');
+      } else {
+        flags[key] = ['true'];
+      }
+      continue;
+    }
     const value = args[++i];
     if (value === undefined) {
       throw new Error(`flag ${arg} requires a value`);
@@ -1022,28 +1036,23 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
  *
  * @param cardId - The card identifier.
  * @param actionName - The action identifier to execute.
- * @param jsonPath - Optional JSONPath expression to filter the output.
- * @param executionMode - Optional execution mode from `--execution-mode`.
- *   Must be `"interactive"` or `"background"` when provided; when omitted,
- *   the server derives the mode from the action's `supportsBackgroundMode` flag.
- * @throws Error when `executionMode` is not a valid execution mode.
+ * @param opts - Execution options parsed from the action subcommand flags.
+ * @param opts.jsonPath - Optional JSONPath expression to filter the output.
+ * @param opts.background - When true (`--background`), runs the action in the
+ *   background; otherwise the action runs interactively (the default). The
+ *   server rejects a background request for an action that does not support it.
+ * @param opts.exitWhenDone - When true (`--exit-when-done`), the spawned agent
+ *   is signalled to exit once the action completes. Defaults to false.
  */
 export async function executeAction(
   cardId: string,
   actionName: string,
-  jsonPath?: string,
-  executionMode?: string
+  opts?: { jsonPath?: string; background?: boolean; exitWhenDone?: boolean }
 ): Promise<void> {
-  let mode: ExecutionMode | undefined;
-  if (executionMode !== undefined) {
-    if (executionMode !== 'interactive' && executionMode !== 'background') {
-      throw new Error(`invalid --execution-mode "${executionMode}": expected "interactive" or "background"`);
-    }
-    mode = executionMode;
-  }
+  const mode: ExecutionMode | undefined = opts?.background ? 'background' : undefined;
   const client = await connectClient();
-  const result: ActionResult = await client.executeAction(cardId, actionName, mode);
-  console.log(formatOutput(result, jsonPath));
+  const result: ActionResult = await client.executeAction(cardId, actionName, mode, opts?.exitWhenDone ?? false);
+  console.log(formatOutput(result, opts?.jsonPath));
 }
 
 /**
@@ -1210,8 +1219,12 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
           console.error('card action: missing action ID argument');
           process.exit(1);
         }
-        const actionFlags = parseFlags(process.argv.slice(5));
-        run = executeAction(command, actionId, actionFlags['jsonpath']?.[0], actionFlags['execution-mode']?.[0]);
+        const actionFlags = parseFlags(process.argv.slice(5), new Set(['background', 'exit-when-done']));
+        run = executeAction(command, actionId, {
+          jsonPath: actionFlags['jsonpath']?.[0],
+          background: actionFlags['background'] !== undefined,
+          exitWhenDone: actionFlags['exit-when-done'] !== undefined
+        });
       } else if (verb === 'watch') {
         const watchGlobs = process.argv.slice(4);
         run = watchCard(command, watchGlobs);
