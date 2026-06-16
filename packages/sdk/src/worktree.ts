@@ -792,7 +792,14 @@ async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Prom
         !staticSubtreeDirs.some((dir) => src === dir || src.startsWith(dir + path.sep))
     });
   } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+    // ENOENT: source .cards/ does not exist (nothing to copy).
+    // EEXIST: destination .cards/ already exists — outfitWorktreeForCard runs
+    //   before the settle phase and creates it via writeCardBoundFile. When it
+    //   wins the race, fs.cp's internal mkdir sees the existing directory and
+    //   throws. The destination already contains the authoritative markers
+    //   (CARD_ID, CARD_ORIGINAL_HOOK_PATH), so skipping the copy is safe.
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'EEXIST') {
       throw error;
     }
   }
