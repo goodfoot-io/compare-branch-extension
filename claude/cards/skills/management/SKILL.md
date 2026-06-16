@@ -132,11 +132,12 @@ Use `--workspace-path` only if the user explicitly requests creating a card in a
 **Execute an action** — Execute an action on a card via the server relay:
 ```
 card <card-id> action <action-id>
-card <card-id> action <action-id> --execution-mode interactive
+card <card-id> action <action-id> --background
+card <card-id> action <action-id> --background --exit-when-done
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
-`--execution-mode <interactive|background>` selects how the action runs. When omitted, the server derives the mode from the action definition: `background` when the action declares `supportsBackgroundMode: true`, otherwise `interactive`. An explicit `background` request for an action that does not support background mode is rejected with a 400 error.
+Actions run interactively by default. `--background` runs the action in the background instead; it is rejected with a 400 error for an action that does not support background mode. `--exit-when-done` signals the agent to exit cleanly once the action completes rather than leaving the session open.
 
 **Watch for commits** — Block until the next unattributed commit on a card's repository:
 ```
