@@ -20,8 +20,6 @@ export const INFRASTRUCTURE_TOOLS = new Set([
   'TaskOutput',
   'TaskStop',
   'ToolSearch',
-  'TeamCreate',
-  'TeamDelete',
   'Skill',
   'CronCreate',
   'CronDelete',
