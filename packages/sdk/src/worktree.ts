@@ -663,10 +663,13 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
  * `.cards` needs an independent copy per worktree rather than a symlink
  * so each worktree can modify its cards state without affecting others.
  *
- * Stale `*.log` files under `.cards/logs/` are excluded so a freshly created
- * worktree never inherits another worktree's (or the main repo's) logs. Logs
- * resolve at runtime to the durable main-repo-root path, so copying them would
- * only produce confusing dead copies.
+ * The entire `.cards/logs/` subtree is excluded so a freshly created worktree
+ * never inherits another worktree's (or the main repo's) logs. Logs resolve at
+ * runtime to the durable main-repo-root path, so copying them would only produce
+ * confusing dead copies. The exclusion prunes the directory itself rather than
+ * filtering its files one by one — returning `false` for the directory entry
+ * stops `fs.cp` from descending into it at all, so provisioning never pays to
+ * `stat` and traverse a subtree whose contents are discarded anyway.
  *
  * The card-binding marker files `.cards/CARD_ID` and
  * `.cards/CARD_ORIGINAL_HOOK_PATH` are also excluded. When the source checkout
@@ -688,9 +691,11 @@ async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Prom
     await fs.cp(sourcePath, path.join(worktreeDir, '.cards'), {
       recursive: true,
       filter: (src) =>
-        !(src.startsWith(logsDir + path.sep) && src.endsWith('.log')) &&
-        src !== cardIdMarker &&
-        src !== originalHookPathMarker
+        // Prune the logs directory itself: returning false for the directory
+        // entry stops fs.cp from recursing into it, so its contents are never
+        // stat-ed or traversed. The startsWith guard is defense-in-depth in case
+        // the directory entry is ever visited differently across platforms.
+        src !== logsDir && !src.startsWith(logsDir + path.sep) && src !== cardIdMarker && src !== originalHookPathMarker
     });
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {

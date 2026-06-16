@@ -110,11 +110,14 @@ describe('removeWorktree', () => {
     await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  it('copies .cards into a new worktree but excludes stale .cards/logs/*.log', async () => {
-    // Seed the source repo's .cards with a normal file and a stale log.
+  it('copies .cards into a new worktree but prunes the entire .cards/logs subtree', async () => {
+    // Seed the source repo's .cards with a normal file plus a logs subtree
+    // holding a stale log and a non-.log file. The whole subtree is pruned, so
+    // neither the directory nor any of its contents reach the worktree.
     await fs.mkdir(path.join(repoDir, '.cards', 'logs'), { recursive: true });
     await fs.writeFile(path.join(repoDir, '.cards', 'config.json'), '{"seed":true}\n');
     await fs.writeFile(path.join(repoDir, '.cards', 'logs', 'git-workspace-repo-hooks.log'), '{"stale":true}\n');
+    await fs.writeFile(path.join(repoDir, '.cards', 'logs', 'not-a-log.json'), '{"stale":true}\n');
 
     const { path: wPath, settle } = await createWorktree('feature/log-exclusion', { cwd: repoDir });
     await settle;
@@ -122,10 +125,9 @@ describe('removeWorktree', () => {
     // Non-log, non-marker .cards content is copied.
     await expect(fs.readFile(path.join(wPath, '.cards', 'config.json'), 'utf8')).resolves.toBe('{"seed":true}\n');
 
-    // The stale log is NOT copied.
-    await expect(fs.access(path.join(wPath, '.cards', 'logs', 'git-workspace-repo-hooks.log'))).rejects.toMatchObject({
-      code: 'ENOENT'
-    });
+    // The logs directory is pruned entirely — neither the directory nor any
+    // file under it (stale log or otherwise) is copied.
+    await expect(fs.access(path.join(wPath, '.cards', 'logs'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('excludes the source .cards/CARD_ID and CARD_ORIGINAL_HOOK_PATH markers from the copy', async () => {
