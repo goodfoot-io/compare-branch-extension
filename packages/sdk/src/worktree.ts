@@ -372,6 +372,16 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     const basePromise = perf.measure('settle:resolveHead(base)', () => resolveHead(worktreeDir));
     basePromise.catch(() => undefined);
 
+    // Enable the worktree-local git config (rev-parse --git-dir + two ordered
+    // `git config` writes) now, overlapping the symlink/copy waves. These three
+    // subprocesses depend only on the worktree existing, not on any symlink, so
+    // running them here instead of in the wave-3 tail hides ~200ms of subprocess
+    // latency. The exclude-file *content* still waits for symlinks (wave 2).
+    const excludePathPromise = perf.measure('settle:prepareWorktreeExcludes', () =>
+      prepareWorktreeExcludes(worktreeDir, repoRoot)
+    );
+    excludePathPromise.catch(() => undefined);
+
     // Wave 1: await the source-only discovery already in flight (started before
     // `git worktree add`), and run the worktree-writing copies that needed the
     // worktree to exist. discoverIgnoredPaths / enumerateReroutedNodeModules
@@ -409,17 +419,14 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     );
 
     // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
-    // on any overlapping gitignored paths; updateGitExclude needs symlinks in place.
+    // on any overlapping gitignored paths; the exclude-file content write needs symlinks in
+    // place. The git config was already enabled above (excludePathPromise), so only the cheap
+    // filesystem append remains in the tail.
     const [copiedFromInclude] = await perf.measure('settle:wave3', () =>
       Promise.all([
         perf.measure('settle:applyWorktreeInclude', () => applyWorktreeInclude({ sourceRoot, worktreeDir })),
-        perf.measure('settle:updateGitExclude', () =>
-          updateGitExclude({
-            worktreeDir,
-            repoRoot,
-            directories: ignored.directories,
-            files: ignored.files
-          })
+        perf.measure('settle:writeWorktreeExcludeFile', async () =>
+          writeWorktreeExcludeFile(await excludePathPromise, worktreeDir, ignored.directories, ignored.files)
         )
       ])
     );
@@ -1653,56 +1660,29 @@ interface UpdateGitExcludeOptions {
 }
 
 /**
- * Appends symlinked ignored paths to the worktree-specific git exclude file.
+ * Resolves the worktree's `info/exclude` path and enables the worktree-local
+ * git config needed for injected symlinks to be ignored by `git status`.
  *
- * Also enables `extensions.worktreeConfig` and sets worktree-local
- * `core.excludesFile` so git status in the worktree ignores injected links.
+ * This is the subprocess-heavy half of {@link updateGitExclude} — a
+ * `rev-parse --git-dir` plus two ordered `git config` writes — and it depends
+ * only on the worktree existing, not on any symlink being in place. Splitting it
+ * out lets {@link createWorktree} start it at settle entry so the three git
+ * subprocesses overlap the symlink/copy waves instead of running in the tail.
  *
- * @param opts - Worktree path, repo root, and ignored path candidates.
- * @returns No value.
+ * `extensions.worktreeConfig` MUST be enabled before the `--worktree
+ * core.excludesFile` write (D9); both are idempotent and retried on config-lock
+ * contention against `outfitWorktreeForCard`, which sets the same repo key.
+ *
+ * @param worktreeDir - Absolute worktree root.
+ * @param repoRoot - Primary repository root.
+ * @returns Absolute path to the worktree's `info/exclude` file.
  */
-export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<void> {
-  const { worktreeDir, repoRoot, directories, files, additionalExcludes } = opts;
-
+export async function prepareWorktreeExcludes(worktreeDir: string, repoRoot: string): Promise<string> {
   const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreeDir, 'rev-parse', '--git-dir'], {
     timeout: 5_000
   });
   const excludePath = path.join(gitDir.trim(), 'info', 'exclude');
   await fs.mkdir(path.dirname(excludePath), { recursive: true });
-
-  const lines = ['# Symlinks created by instant-worktree'];
-
-  for (const dir of directories) {
-    if (!dir) continue;
-    try {
-      const stats = await fs.lstat(path.join(worktreeDir, dir));
-      if (stats.isSymbolicLink()) lines.push(dir);
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-
-  for (const file of files) {
-    if (!file) continue;
-    try {
-      const stats = await fs.lstat(path.join(worktreeDir, file));
-      if (stats.isSymbolicLink()) lines.push(file);
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-
-  if (additionalExcludes) {
-    for (const entry of additionalExcludes) {
-      if (entry) lines.push(entry);
-    }
-  }
-
-  await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
 
   try {
     await gitConfigWithRetry(['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true']);
@@ -1719,4 +1699,75 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
       `create-worktree: failed to set core.excludesFile: ${error instanceof Error ? error.message : String(error)}\n`
     );
   }
+
+  return excludePath;
+}
+
+/**
+ * Appends the symlinked ignored paths to the worktree's `info/exclude` file.
+ *
+ * This is the symlink-dependent half of {@link updateGitExclude}: it `lstat`s
+ * each candidate and lists only the entries that are actually symlinks (the ones
+ * the settle phase injected), so it must run after the symlink wave. No git
+ * subprocess — pure filesystem — so it is cheap to run in the tail.
+ *
+ * @param excludePath - Path returned by {@link prepareWorktreeExcludes}.
+ * @param worktreeDir - Absolute worktree root.
+ * @param directories - Candidate ignored directories (relative to the worktree).
+ * @param files - Candidate ignored files (relative to the worktree).
+ * @param additionalExcludes - Extra literal exclude lines to append unconditionally.
+ */
+export async function writeWorktreeExcludeFile(
+  excludePath: string,
+  worktreeDir: string,
+  directories: string[],
+  files: string[],
+  additionalExcludes?: string[]
+): Promise<void> {
+  const lines = ['# Symlinks created by instant-worktree'];
+
+  const pushIfSymlink = async (entry: string): Promise<void> => {
+    if (!entry) return;
+    try {
+      const stats = await fs.lstat(path.join(worktreeDir, entry));
+      if (stats.isSymbolicLink()) lines.push(entry);
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  };
+
+  for (const dir of directories) {
+    await pushIfSymlink(dir);
+  }
+  for (const file of files) {
+    await pushIfSymlink(file);
+  }
+
+  if (additionalExcludes) {
+    for (const entry of additionalExcludes) {
+      if (entry) lines.push(entry);
+    }
+  }
+
+  await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
+}
+
+/**
+ * Appends symlinked ignored paths to the worktree-specific git exclude file.
+ *
+ * Also enables `extensions.worktreeConfig` and sets worktree-local
+ * `core.excludesFile` so git status in the worktree ignores injected links.
+ * Thin wrapper composing {@link prepareWorktreeExcludes} and
+ * {@link writeWorktreeExcludeFile}; {@link createWorktree} calls the two halves
+ * separately so the config writes overlap the settle waves.
+ *
+ * @param opts - Worktree path, repo root, and ignored path candidates.
+ * @returns No value.
+ */
+export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<void> {
+  const { worktreeDir, repoRoot, directories, files, additionalExcludes } = opts;
+  const excludePath = await prepareWorktreeExcludes(worktreeDir, repoRoot);
+  await writeWorktreeExcludeFile(excludePath, worktreeDir, directories, files, additionalExcludes);
 }
