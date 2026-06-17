@@ -201,56 +201,66 @@ export async function outfitWorktreeForCard(
 
   const { repoRoot } = await perf.measure('outfit:findGitRoots', () => findGitRoots(worktreeDir));
 
-  // 1. Write .cards/CARD_ID (writeCardBoundFile mkdir -p's .cards itself).
+  const sharedHooksDir = join(resolveHomeDir(), '.cards', 'workspace-hooks');
+  const originalHookPathFile = join(worktreeDir, '.cards', 'CARD_ORIGINAL_HOOK_PATH');
+
+  // 1. Write .cards/CARD_ID first — this mkdir -p's .cards, which the hooks-path
+  //    snapshot below writes into. Cheap (one mkdir + small write).
   await perf.measure('outfit:writeCardBoundFile', () => writeCardBoundFile(worktreeDir, cardId));
 
-  // 2. Snapshot the pre-existing hooks dir — GUARDED. If the snapshot already
-  //    exists, a previous outfit already captured the user's original hooks dir;
-  //    re-capturing now would record the cards shared dispatcher dir (set in
-  //    step 5) as the "original" and break hook chaining. Skip on re-run.
-  const originalHookPathFile = join(worktreeDir, '.cards', 'CARD_ORIGINAL_HOOK_PATH');
-  await perf.measure('outfit:captureOriginalHooks', async () => {
-    let originalHookPathExists = false;
-    try {
-      await access(originalHookPathFile);
-      originalHookPathExists = true;
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
-    if (!originalHookPathExists) {
-      const originalHooksDir = await captureOriginalHooksPath(repoRoot);
-      await writeFile(originalHookPathFile, originalHooksDir);
-    }
-  });
-
-  // 3. Provision the shared dispatcher dir (idempotent). It lives at a global,
-  //    flat location (`~/.cards/workspace-hooks`) — the provisioned scripts and
-  //    `.mjs` payloads are byte-identical across all repos and worktrees (every
-  //    repo/worktree-specific value is resolved at runtime), so a single global
-  //    dir is correct and keeps it out of any working tree. `$HOME` is the same
-  //    anchor the dispatcher uses for `$HOME/.cards/VSCODE_NODE`.
-  const sharedHooksDir = join(resolveHomeDir(), '.cards', 'workspace-hooks');
-  await perf.measure('outfit:provisionSharedHooksDir', () =>
-    provisionSharedHooksDir(sharedHooksDir, compiledScriptPaths)
+  // The remaining disk-phase steps are mutually independent — they write disjoint
+  // paths and none performs a shared git-config WRITE (the two reads, rev-parse
+  // and `config --get core.hooksPath`, do not take the config lock) — so they run
+  // concurrently instead of serially. The branch name is resolved here too so it
+  // is ready for the API phase. The ordered git-config writes (steps below) are
+  // the only part that must stay sequential.
+  const [, , , branchName] = await perf.measure('outfit:disk-parallel', () =>
+    Promise.all([
+      // 2. Snapshot the pre-existing hooks dir — GUARDED. If the snapshot already
+      //    exists, a previous outfit already captured the user's original hooks
+      //    dir; re-capturing now would record the cards shared dispatcher dir as
+      //    the "original" and break hook chaining. Skip on re-run. The per-worktree
+      //    `core.hooksPath` set below is a `--worktree` write, so it cannot change
+      //    the repo-level `core.hooksPath` this reads — capture is order-independent.
+      perf.measure('outfit:captureOriginalHooks', async () => {
+        let originalHookPathExists = false;
+        try {
+          await access(originalHookPathFile);
+          originalHookPathExists = true;
+        } catch (error: unknown) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw error;
+          }
+        }
+        if (!originalHookPathExists) {
+          const originalHooksDir = await captureOriginalHooksPath(repoRoot);
+          await writeFile(originalHookPathFile, originalHooksDir);
+        }
+      }),
+      // 3. Provision the shared dispatcher dir (idempotent, content-addressed skip).
+      //    Global flat location (`~/.cards/workspace-hooks`); byte-identical across
+      //    worktrees. `$HOME` is the same anchor the dispatcher uses for VSCODE_NODE.
+      perf.measure('outfit:provisionSharedHooksDir', () =>
+        provisionSharedHooksDir(sharedHooksDir, compiledScriptPaths)
+      ),
+      // 6. Hide the binding markers from git status so they are never staged.
+      perf.measure('outfit:appendWorktreeGitExcludes', () =>
+        appendWorktreeGitExcludes(worktreeDir, ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH'])
+      ),
+      // Resolve the branch name now so the API phase need not wait on a git read.
+      perf.measure('outfit:resolveBranchName', () => resolveWorktreeBranchName(worktreeDir))
+    ])
   );
 
-  // 4. Enable per-worktree config — MUST precede the --worktree write (D9).
-  //    Retried on config-lock contention: createWorktree's settle phase writes
-  //    the same key concurrently when outfit runs on the early (pre-settle) path.
+  // 4 + 5. Ordered git-config chain: enable per-worktree config on the repo
+  //   (MUST precede the --worktree write, D9), then point this worktree at the
+  //   shared dispatcher dir. Retried on config-lock contention: createWorktree's
+  //   settle phase writes the same repo key concurrently on the early path.
   await perf.measure('outfit:config:worktreeConfig', () =>
     gitConfigWithRetry(['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'])
   );
-
-  // 5. Point this worktree at the shared dispatcher dir (D9: after step 4).
   await perf.measure('outfit:config:hooksPath', () =>
     gitConfigWithRetry(['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', sharedHooksDir])
-  );
-
-  // 6. Hide the binding markers from git status so they are never staged.
-  await perf.measure('outfit:appendWorktreeGitExcludes', () =>
-    appendWorktreeGitExcludes(worktreeDir, ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH'])
   );
 
   // --- API phase ---
@@ -262,7 +272,6 @@ export async function outfitWorktreeForCard(
   const lockPath = resolveBindLockPath(worktreeDir);
   await perf.measure('outfit:acquireLock', () => acquireLock(lockPath, BIND_LOCK_TIMEOUT_MS));
   try {
-    const branchName = await perf.measure('outfit:resolveBranchName', () => resolveWorktreeBranchName(worktreeDir));
     // Record the parent branch as durable `branch.<name>.cardsParent` git
     // config — the first source resolveCardsParentBranch consults at bind
     // time — so card-bound worktrees carry the same lineage record as unbound
