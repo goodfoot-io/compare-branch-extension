@@ -20,6 +20,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
 import { applyWorktreeInclude } from './worktreeInclude.js';
+import { createWorktreePerf } from './worktreePerf.js';
 
 /**
  * Thrown when a path argument falls outside the Cards worktrees root.
@@ -278,14 +279,21 @@ export interface EarlyWorktreeResult {
  * @returns Early result with `path` available immediately and `settle` resolving when setup completes.
  */
 export async function createWorktree(ref: string, options?: CreateWorktreeOptions): Promise<EarlyWorktreeResult> {
-  const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
+  // Opt-in phase timing (CARDS_WORKTREE_PERF). A no-op fast path when unset, so
+  // the common case allocates nothing and reads no clock. t0 is captured here,
+  // so every offset is measured from the start of the call the contributor waits on.
+  const perf = createWorktreePerf();
+
+  const { sourceRoot, repoRoot } = await perf.measure('findGitRoots', () =>
+    findGitRoots(options?.cwd ?? process.cwd())
+  );
 
   // Determine whether this is an existing ref or a new branch name.
   // resolveRefType throws for unknown refs; a valid branch name that
   // doesn't exist yet is treated as a new branch to create.
   let refType: 'branch' | 'tag' | 'commit';
   try {
-    refType = await resolveRefType(repoRoot, ref);
+    refType = await perf.measure('resolveRefType', () => resolveRefType(repoRoot, ref));
   } catch {
     validateBranchName(ref);
     refType = 'branch';
@@ -297,32 +305,41 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
 
   const worktreeDir = resolveWorktreeDir(repoRoot, ref);
 
-  const worktreeExists = await checkWorktreeExists(repoRoot, worktreeDir);
+  const worktreeExists = await perf.measure('checkWorktreeExists', () => checkWorktreeExists(repoRoot, worktreeDir));
   if (worktreeExists) {
     throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
   }
 
-  await cleanStaleWorktreeDir(repoRoot, worktreeDir);
+  await perf.measure('cleanStaleWorktreeDir', () => cleanStaleWorktreeDir(repoRoot, worktreeDir));
 
   if (refType === 'branch') {
-    const startPoint = await resolveHead(sourceRoot);
-    const branchExists = await checkBranchExists(repoRoot, ref);
-    await addWorktree({ repoRoot, worktreeDir, branchName: ref, branchExists, startPoint });
+    const startPoint = await perf.measure('resolveHead(start)', () => resolveHead(sourceRoot));
+    const branchExists = await perf.measure('checkBranchExists', () => checkBranchExists(repoRoot, ref));
+    await perf.measure('git worktree add', () =>
+      addWorktree({ repoRoot, worktreeDir, branchName: ref, branchExists, startPoint })
+    );
   } else {
-    await addDetachedWorktree(repoRoot, worktreeDir, ref);
+    await perf.measure('git worktree add (detached)', () => addDetachedWorktree(repoRoot, worktreeDir, ref));
   }
 
   // The worktree directory exists on disk — return early so callers can use
   // the path (e.g. as cwd for spawning processes) while the remaining setup
-  // (symlinks, node_modules rerouting, git excludes) runs concurrently.
-  const settle = (async (): Promise<CreateWorktreeResult> => {
+  // (symlinks, node_modules rerouting, git excludes) runs concurrently. This
+  // mark is the time-to-usable boundary the contributor's launch waits on.
+  perf.mark('usable-directory');
+
+  const settle = perf.measure('settle:total', async (): Promise<CreateWorktreeResult> => {
     // Wave 1: all independent — launch immediately
-    const [ignored, reroutedNodeModules] = await Promise.all([
-      discoverIgnoredPaths(sourceRoot),
-      enumerateReroutedNodeModules({ sourceRoot, repoRoot }),
-      copyExistingSymlinks(sourceRoot, worktreeDir),
-      copyCardsDirectory(sourceRoot, worktreeDir)
-    ]);
+    const [ignored, reroutedNodeModules] = await perf.measure('settle:wave1', () =>
+      Promise.all([
+        perf.measure('settle:discoverIgnoredPaths', () => discoverIgnoredPaths(sourceRoot)),
+        perf.measure('settle:enumerateReroutedNodeModules', () =>
+          enumerateReroutedNodeModules({ sourceRoot, repoRoot })
+        ),
+        perf.measure('settle:copyExistingSymlinks', () => copyExistingSymlinks(sourceRoot, worktreeDir)),
+        perf.measure('settle:copyCardsDirectory', () => copyCardsDirectory(sourceRoot, worktreeDir))
+      ])
+    );
 
     // Synchronization: compute filteredIgnored once both discovery results are in hand.
     // .cards is copied rather than symlinked so each worktree gets an independent copy.
@@ -338,24 +355,32 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     };
 
     // Wave 2: symlinkIgnoredPaths and rerouteAllNodeModules write to disjoint paths
-    const [, reroutedCount] = await Promise.all([
-      symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored }),
-      rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot })
-    ]);
+    const [, reroutedCount] = await perf.measure('settle:wave2', () =>
+      Promise.all([
+        perf.measure('settle:symlinkIgnoredPaths', () =>
+          symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored })
+        ),
+        perf.measure('settle:rerouteAllNodeModules', () => rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot }))
+      ])
+    );
 
     // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
     // on any overlapping gitignored paths; updateGitExclude needs symlinks in place;
     // resolveHead is read-only and safe alongside both
-    const [copiedFromInclude, , baseSha] = await Promise.all([
-      applyWorktreeInclude({ sourceRoot, worktreeDir }),
-      updateGitExclude({
-        worktreeDir,
-        repoRoot,
-        directories: ignored.directories,
-        files: ignored.files
-      }),
-      resolveHead(worktreeDir)
-    ]);
+    const [copiedFromInclude, , baseSha] = await perf.measure('settle:wave3', () =>
+      Promise.all([
+        perf.measure('settle:applyWorktreeInclude', () => applyWorktreeInclude({ sourceRoot, worktreeDir })),
+        perf.measure('settle:updateGitExclude', () =>
+          updateGitExclude({
+            worktreeDir,
+            repoRoot,
+            directories: ignored.directories,
+            files: ignored.files
+          })
+        ),
+        perf.measure('settle:resolveHead(base)', () => resolveHead(worktreeDir))
+      ])
+    );
 
     const result: CreateWorktreeResult = {
       branch: ref,
@@ -366,7 +391,7 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     };
 
     return result;
-  })();
+  });
 
   return { path: worktreeDir, settle };
 }
