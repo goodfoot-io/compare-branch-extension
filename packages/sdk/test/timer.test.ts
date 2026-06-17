@@ -236,6 +236,13 @@ describe('withTimeout', () => {
         vi.useFakeTimers();
       }
     });
+
+    it('accepts unref: true without throwing (unref is a no-op with fake timers)', async () => {
+      const promise = new Promise(() => {});
+      const result = withTimeout(promise, 5000, { unref: true });
+      vi.advanceTimersByTime(5000);
+      await expect(result).rejects.toBeInstanceOf(TimeoutError);
+    });
   });
 });
 

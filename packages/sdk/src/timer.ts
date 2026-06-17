@@ -54,6 +54,13 @@ export interface WithTimeoutOptions {
    * timeout forcing an early resolution).
    */
   signal?: AbortSignal;
+
+  /**
+   * When `true`, calls `unref()` on the underlying timer so it does not
+   * keep the Node.js process alive.  Ignored in browser environments
+   * where `unref` is unavailable.
+   */
+  unref?: boolean;
 }
 
 /**
@@ -76,7 +83,7 @@ export interface WithTimeoutOptions {
  */
 export function withTimeout<T>(promise: Promise<T>, ms: number, opts?: WithTimeoutOptions): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const { onTimeout, resolveOnTimeout, signal } = opts ?? {};
+    const { onTimeout, resolveOnTimeout, signal, unref } = opts ?? {};
 
     // Check if the signal is already aborted — if so, forward the promise
     // without arming a timeout.
@@ -108,6 +115,10 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, opts?: WithTimeo
         reject(new TimeoutError(`Operation timed out after ${ms}ms`));
       }
     }, ms);
+
+    if (unref) {
+      (timerId as { unref?: () => void } | null)?.unref?.();
+    }
 
     // If the timeout is zero or negative, we want the timer to fire
     // in the same microtask-scheduling order as `setTimeout(fn, 0)`
