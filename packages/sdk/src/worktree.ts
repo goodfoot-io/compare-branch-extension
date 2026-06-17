@@ -13,7 +13,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -1226,6 +1226,28 @@ export async function provisionSharedHooksDir(
 ): Promise<void> {
   await fs.mkdir(sharedHooksDir, { recursive: true });
 
+  // Content-addressed skip: the provisioned files are a pure function of the
+  // dispatcher template (versioned by DISPATCHER_SCHEMA_VERSION) and the compiled
+  // `.mjs` inputs. Key on the version plus each source's size+mtime (a stat, no
+  // read) and record it in a marker written last. A matching marker means the dir
+  // already holds byte-identical output, so the ~20 writes are skipped. This needs
+  // no invalidation: a rebuilt `.mjs` changes its stat → a different key → a
+  // natural miss; a stale key is simply never matched, never expired. Fail-closed:
+  // the marker is written only after every file lands, so a crash mid-provision
+  // leaves no marker and the next call re-provisions.
+  const markerPath = path.join(sharedHooksDir, MARKER_NAME);
+  const provisionKey = await computeHooksProvisionKey(compiledScriptPaths);
+  try {
+    const existing = await fs.readFile(markerPath, 'utf-8');
+    if (existing === provisionKey) {
+      return;
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
   const atomicWrite = async (destName: string, content: string, mode: number): Promise<void> => {
     const destPath = path.join(sharedHooksDir, destName);
     const tmpPath = path.join(sharedHooksDir, `.${destName}.${process.pid}.${randomUUID()}.tmp`);
@@ -1255,6 +1277,49 @@ export async function provisionSharedHooksDir(
       await atomicWrite(`${hookType}.mjs`, content, 0o644);
     })
   );
+
+  // Marker written LAST so its presence proves a complete provision (fail-closed).
+  await atomicWrite(MARKER_NAME, provisionKey, 0o644);
+}
+
+/**
+ * Filename of the {@link provisionSharedHooksDir} content-addressed marker.
+ * Dot-prefixed so it never collides with a hook-type dispatcher script.
+ */
+const MARKER_NAME = '.provisioned';
+
+/**
+ * Bump whenever {@link buildDispatcherScript}, {@link CLIENT_SIDE_HOOK_TYPES},
+ * or {@link RESOLVE_NODE} change so a stale shared-hooks dir is re-provisioned
+ * even when the compiled `.mjs` inputs are unchanged. The dispatcher script
+ * content is otherwise invisible to the stat-based key.
+ */
+const DISPATCHER_SCHEMA_VERSION = 1;
+
+/**
+ * Computes the content-addressed provisioning key for {@link provisionSharedHooksDir}.
+ *
+ * The key identifies the exact byte output the dir should hold: the dispatcher
+ * schema version, the full ordered hook-type list, and — for each compiled
+ * `.mjs` input — its size and mtime (a `stat`, never a content read). A rebuilt
+ * `.mjs` changes its mtime/size and so the key, which is what makes the cache
+ * invalidation-free: a changed input yields a different key rather than needing
+ * an explicit expiry.
+ *
+ * @param compiledScriptPaths - Map of hook name to compiled `.mjs` source path.
+ * @returns Hex sha-256 digest over the version and per-input stat metadata.
+ * @throws When a compiled `.mjs` source cannot be stat-ed (fail-closed; the same
+ *   missing input would also break the read in the provisioning body).
+ */
+async function computeHooksProvisionKey(compiledScriptPaths: Record<string, string>): Promise<string> {
+  const hash = createHash('sha256');
+  hash.update(`v${DISPATCHER_SCHEMA_VERSION}\n`);
+  hash.update(`${CLIENT_SIDE_HOOK_TYPES.join(',')}\n`);
+  for (const [hookType, sourcePath] of Object.entries(compiledScriptPaths).sort((a, b) => a[0].localeCompare(b[0]))) {
+    const stats = await fs.stat(sourcePath);
+    hash.update(`${hookType}:${stats.size}:${stats.mtimeMs}\n`);
+  }
+  return hash.digest('hex');
 }
 
 interface SymlinkIgnoredPathsOptions {

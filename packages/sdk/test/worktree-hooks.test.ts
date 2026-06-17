@@ -18,7 +18,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CardsClient } from '../src/client/cardsClient.js';
-import { createWorktree } from '../src/worktree.js';
+import { createWorktree, provisionSharedHooksDir } from '../src/worktree.js';
 import { outfitWorktreeForCard } from '../src/worktreeForCard.js';
 
 const CARDS_WORKTREES_DIR_KEY = 'CARDS_WORKTREES_DIR';
@@ -236,6 +236,53 @@ describe('createWorktree per-worktree hook provisioning', () => {
         compiledScriptPaths
       })
     ).rejects.toThrow(/non-empty/);
+  });
+});
+
+describe('provisionSharedHooksDir content-addressed skip', () => {
+  let tmpBase = '';
+  let hooksDir = '';
+  let mjsPath = '';
+  let compiled: Record<string, string>;
+
+  beforeEach(async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'phd-test-'));
+    hooksDir = path.join(tmpBase, 'workspace-hooks');
+    mjsPath = path.join(tmpBase, 'post-commit.mjs');
+    await fs.writeFile(mjsPath, '// v1\n');
+    compiled = { 'post-commit': mjsPath };
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpBase, { recursive: true, force: true });
+  });
+
+  it('skips re-provisioning when inputs are unchanged', async () => {
+    await provisionSharedHooksDir(hooksDir, compiled);
+    // Tamper with a provisioned dispatcher; an unchanged-input re-run must skip
+    // and leave the tamper in place, proving it did not rewrite the files.
+    const preCommit = path.join(hooksDir, 'pre-commit');
+    await fs.writeFile(preCommit, 'TAMPERED');
+
+    await provisionSharedHooksDir(hooksDir, compiled);
+
+    expect(await fs.readFile(preCommit, 'utf-8')).toBe('TAMPERED');
+  });
+
+  it('re-provisions when a compiled .mjs input changes', async () => {
+    await provisionSharedHooksDir(hooksDir, compiled);
+    const preCommit = path.join(hooksDir, 'pre-commit');
+    await fs.writeFile(preCommit, 'TAMPERED');
+
+    // Change the .mjs content and bump its mtime so the stat-based key differs.
+    await fs.writeFile(mjsPath, '// v2 changed\n');
+    await fs.utimes(mjsPath, new Date(), new Date(Date.now() + 5_000));
+
+    await provisionSharedHooksDir(hooksDir, compiled);
+
+    // The dispatcher was rewritten (tamper gone) and the new .mjs content landed.
+    expect(await fs.readFile(preCommit, 'utf-8')).not.toBe('TAMPERED');
+    expect(await fs.readFile(path.join(hooksDir, 'post-commit.mjs'), 'utf-8')).toContain('v2 changed');
   });
 });
 
