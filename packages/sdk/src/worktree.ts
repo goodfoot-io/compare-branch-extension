@@ -333,6 +333,21 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     validateBranchName(ref);
   }
 
+  // Start the source-only settle discovery now, so it overlaps the expensive
+  // `git worktree add` checkout instead of running after it. discoverIgnoredPaths
+  // (a full-tree `git ls-files`, ~440ms) and enumerateReroutedNodeModules read
+  // only sourceRoot/repoRoot — neither touches the not-yet-created worktree — so
+  // hoisting them here hides their cost under the multi-second checkout and
+  // shortens total settle time without affecting time-to-usable. A noop catch
+  // prevents an unhandled rejection during the checkout window before settle
+  // awaits them; settle still awaits each promise and surfaces any real error.
+  const ignoredPromise = perf.measure('settle:discoverIgnoredPaths', () => discoverIgnoredPaths(sourceRoot));
+  const reroutedPromise = perf.measure('settle:enumerateReroutedNodeModules', () =>
+    enumerateReroutedNodeModules({ sourceRoot, repoRoot })
+  );
+  ignoredPromise.catch(() => undefined);
+  reroutedPromise.catch(() => undefined);
+
   await perf.measure('cleanStaleWorktreeDir', () => cleanStaleWorktreeDir(repoRoot, worktreeDir));
 
   if (refType === 'branch') {
@@ -350,13 +365,14 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
   perf.mark('usable-directory');
 
   const settle = perf.measure('settle:total', async (): Promise<CreateWorktreeResult> => {
-    // Wave 1: all independent — launch immediately
+    // Wave 1: await the source-only discovery already in flight (started before
+    // `git worktree add`), and run the worktree-writing copies that needed the
+    // worktree to exist. discoverIgnoredPaths / enumerateReroutedNodeModules
+    // typically resolve during the checkout, so this wave is bounded by the copies.
     const [ignored, reroutedNodeModules] = await perf.measure('settle:wave1', () =>
       Promise.all([
-        perf.measure('settle:discoverIgnoredPaths', () => discoverIgnoredPaths(sourceRoot)),
-        perf.measure('settle:enumerateReroutedNodeModules', () =>
-          enumerateReroutedNodeModules({ sourceRoot, repoRoot })
-        ),
+        ignoredPromise,
+        reroutedPromise,
         perf.measure('settle:copyExistingSymlinks', () => copyExistingSymlinks(sourceRoot, worktreeDir)),
         perf.measure('settle:copyCardsDirectory', () => copyCardsDirectory(sourceRoot, worktreeDir))
       ])
