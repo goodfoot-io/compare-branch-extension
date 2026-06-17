@@ -121,18 +121,54 @@ describe('getUnattributedCommits', () => {
 });
 
 describe('formatCommit', () => {
-  it('produces the expected header line with short SHA, author, and message', () => {
+  it('produces the expected header line with short SHA, author name + email, and message', () => {
     const commit = makeCommit([{ file: 'src/foo.ts', status: 'A', binary: false }], {
       hash: 'abcdef1234567890',
       author_name: 'Alice',
+      author_email: 'alice@example.com',
       message: 'Add feature'
     });
 
     const result = formatCommit(commit);
     const lines = result.split('\n');
 
-    expect(lines[0]).toBe('abcdef1 - Alice: Add feature');
+    expect(lines[0]).toBe('abcdef1 - Alice <alice@example.com>: Add feature');
     expect(lines[1]).toBe(' A src/foo.ts');
+  });
+
+  it('renders the commit body on indented lines between header and files', () => {
+    const commit = makeCommit([{ file: 'src/foo.ts', status: 'A', binary: false }], {
+      hash: 'abcdef1234567890',
+      author_name: 'Alice',
+      author_email: 'alice@example.com',
+      message: 'Add feature',
+      body: 'First body line.\nSecond body line.'
+    });
+
+    const result = formatCommit(commit);
+    const lines = result.split('\n');
+
+    expect(lines[0]).toBe('abcdef1 - Alice <alice@example.com>: Add feature');
+    expect(lines[1]).toBe('    First body line.');
+    expect(lines[2]).toBe('    Second body line.');
+    expect(lines[3]).toBe(' A src/foo.ts');
+  });
+
+  it('omits body lines entirely when the body is blank', () => {
+    const commit = makeCommit([{ file: 'src/foo.ts', status: 'A', binary: false }], { body: '   \n  ' });
+    const lines = formatCommit(commit).split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toBe(' A src/foo.ts');
+  });
+
+  it('falls back to author name only when email is empty', () => {
+    const commit = makeCommit([], {
+      hash: 'abcdef1234567890',
+      author_name: 'Alice',
+      author_email: '',
+      message: 'Add feature'
+    });
+    expect(formatCommit(commit)).toBe('abcdef1 - Alice: Add feature');
   });
 
   it('formats renamed files with the from path', () => {
@@ -144,9 +180,14 @@ describe('formatCommit', () => {
   });
 
   it('handles empty diff.files with only the header line', () => {
-    const commit = makeCommit([], { hash: 'abcdef1234567890', author_name: 'Alice', message: 'Add feature' });
+    const commit = makeCommit([], {
+      hash: 'abcdef1234567890',
+      author_name: 'Alice',
+      author_email: 'alice@example.com',
+      message: 'Add feature'
+    });
     const result = formatCommit(commit);
-    expect(result).toBe('abcdef1 - Alice: Add feature');
+    expect(result).toBe('abcdef1 - Alice <alice@example.com>: Add feature');
   });
 
   it('handles multiple changed files', () => {
