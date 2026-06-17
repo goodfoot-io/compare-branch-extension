@@ -121,18 +121,37 @@ describe('getUnattributedCommits', () => {
 });
 
 describe('formatCommit', () => {
-  it('produces the expected header line with short SHA, author, and message', () => {
+  it('produces the expected header line with short SHA, author name + email, and message', () => {
     const commit = makeCommit([{ file: 'src/foo.ts', status: 'A', binary: false }], {
       hash: 'abcdef1234567890',
       author_name: 'Alice',
+      author_email: 'alice@example.com',
       message: 'Add feature'
     });
 
     const result = formatCommit(commit);
     const lines = result.split('\n');
 
-    expect(lines[0]).toBe('abcdef1 - Alice: Add feature');
+    expect(lines[0]).toBe('abcdef1 - Alice <alice@example.com>: Add feature');
     expect(lines[1]).toBe(' A src/foo.ts');
+  });
+
+  it('includes the commit body as an indented block under the header', () => {
+    const commit = makeCommit([{ file: 'src/foo.ts', status: 'A', binary: false }], {
+      hash: 'abcdef1234567890',
+      author_name: 'Alice',
+      author_email: 'alice@example.com',
+      message: 'Add feature',
+      body: 'Why this matters.\nSecond detail line.'
+    });
+
+    const result = formatCommit(commit);
+    const lines = result.split('\n');
+
+    expect(lines[0]).toBe('abcdef1 - Alice <alice@example.com>: Add feature');
+    expect(lines[1]).toBe('    Why this matters.');
+    expect(lines[2]).toBe('    Second detail line.');
+    expect(lines[3]).toBe(' A src/foo.ts');
   });
 
   it('formats renamed files with the from path', () => {
@@ -143,10 +162,15 @@ describe('formatCommit', () => {
     expect(lines[1]).toBe(' R100 src/foo.ts -> src/bar.ts');
   });
 
-  it('handles empty diff.files with only the header line', () => {
-    const commit = makeCommit([], { hash: 'abcdef1234567890', author_name: 'Alice', message: 'Add feature' });
+  it('handles empty diff.files and empty body with only the header line', () => {
+    const commit = makeCommit([], {
+      hash: 'abcdef1234567890',
+      author_name: 'Alice',
+      author_email: 'alice@example.com',
+      message: 'Add feature'
+    });
     const result = formatCommit(commit);
-    expect(result).toBe('abcdef1 - Alice: Add feature');
+    expect(result).toBe('abcdef1 - Alice <alice@example.com>: Add feature');
   });
 
   it('handles multiple changed files', () => {

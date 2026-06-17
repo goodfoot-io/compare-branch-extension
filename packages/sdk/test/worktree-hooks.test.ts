@@ -92,7 +92,10 @@ describe('createWorktree per-worktree hook provisioning', () => {
   const originalEnv = process.env;
 
   beforeEach(async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'wht-test-'));
+    // Canonicalize: the provisioner records CARD_ORIGINAL_HOOK_PATH as the
+    // realpath of .git/hooks, so on macOS it resolves to /private/var/...
+    // rather than /var/... — realpath the base so derived paths match.
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'wht-test-')));
     repoDir = path.join(tmpBase, 'repo');
     worktreesDir = path.join(tmpBase, 'worktrees');
     mjsDir = path.join(tmpBase, 'git-hooks');
