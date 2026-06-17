@@ -568,13 +568,31 @@ async function outfitCreatedWorktree(
       'post-rewrite': join(gitHooksDir, 'post-rewrite.mjs')
     };
 
-    await outfitWorktreeForCard(client, worktreeDir, {
+    const outcome = await outfitWorktreeForCard(client, worktreeDir, {
       cardId,
       parentBranch,
       sessionId,
       transcriptPath,
       compiledScriptPaths
     });
+
+    // Make a skipped activation observable. The disk + API phases succeeded —
+    // the worktree is bound and the branch is registered — but if
+    // outfitWorktreeForCard RETURNED a skipped outcome (e.g. the attribution
+    // preflight could not resolve a known agent PID), the card was never
+    // activated and is left bound-but-inert. Unlike a thrown error, that skip
+    // does not reach the catch below, so without this it is completely silent:
+    // the warn it emits goes only to a detached CLI stderr that no log captures.
+    // Surface it on the create CLI's stderr naming the reason, mirroring the
+    // fail-closed notice bindCard emits. The create path deliberately does NOT
+    // exit non-zero — the card WAS created and the stdout JSON payload must
+    // remain the sole machine-readable result — preserving the fail-open stance
+    // for genuinely un-monitorable cases while making the cause visible.
+    if (outcome && (outcome.activated === false || outcome.attribution === 'skipped')) {
+      console.error(
+        `card create: worktree bound but card ${cardId} not activated (${outcome.reason ?? 'unknown reason'}).`
+      );
+    }
 
     // Bind succeeded — drop the candidate so it is not re-offered this session.
     await removeUnboundCandidate(sessionId, worktreeDir);
