@@ -84,19 +84,34 @@ export function getUnattributedCommits(allCommits: string[], sessionCommits: str
 /**
  * Formats a card repository commit as a compact diffstat string.
  *
+ * The header carries the short SHA, the full author identity (name + email),
+ * and the subject; the commit body — when present — follows as an indented
+ * block, and each changed file gets one status line. `card watch` is the sole
+ * consumer, and a caller deciding how to attribute a commit needs the author
+ * email and the body, not just the subject.
+ *
  * @param commit - Commit metadata including per-file diff.
- * @returns Multi-line string with header and one file-status line per changed file.
+ * @returns Multi-line string with header, optional body block, and one
+ *   file-status line per changed file.
  */
 export function formatCommit(commit: CardCommit): string {
   const shortSha = commit.hash.slice(0, 7);
-  const header = `${shortSha} - ${commit.author_name}: ${commit.message}`;
+  const header = `${shortSha} - ${commit.author_name} <${commit.author_email}>: ${commit.message}`;
 
-  const fileLines = commit.diff.files.map((f) => {
+  const lines = [header];
+
+  const body = commit.body.trim();
+  if (body.length > 0) {
+    for (const line of body.split('\n')) lines.push(`    ${line}`);
+  }
+
+  for (const f of commit.diff.files) {
     if (f.status.startsWith('R') && f.from !== undefined) {
-      return ` ${f.status} ${f.from} -> ${f.file}`;
+      lines.push(` ${f.status} ${f.from} -> ${f.file}`);
+    } else {
+      lines.push(` ${f.status} ${f.file}`);
     }
-    return ` ${f.status} ${f.file}`;
-  });
+  }
 
-  return [header, ...fileLines].join('\n');
+  return lines.join('\n');
 }
