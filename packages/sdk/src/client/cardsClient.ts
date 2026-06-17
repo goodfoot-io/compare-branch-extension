@@ -105,11 +105,19 @@ export class CardsClient {
   private readonly _httpClient?: HttpClient;
 
   /**
+   * The caller-configured per-request timeout. {@link _currentTimeoutMs} starts
+   * at this value and doubles on each consecutive network failure (capped at
+   * {@link MAX_REQUEST_TIMEOUT_MS}), resetting to this value on each successful
+   * response.
+   */
+  private readonly _initialTimeoutMs: number;
+
+  /**
    * Current per-request fetch timeout in milliseconds. Doubles on each
    * consecutive network failure (capped at {@link MAX_REQUEST_TIMEOUT_MS}) and
-   * resets to {@link REQUEST_TIMEOUT_MS} on each successful response.
+   * resets to {@link _initialTimeoutMs} on each successful response.
    */
-  private _currentTimeoutMs = REQUEST_TIMEOUT_MS;
+  private _currentTimeoutMs: number;
 
   /**
    * Creates a new CardsClient instance.
@@ -122,6 +130,8 @@ export class CardsClient {
     httpClient?: HttpClient
   ) {
     this._httpClient = httpClient;
+    this._initialTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+    this._currentTimeoutMs = this._initialTimeoutMs;
   }
 
   /**
@@ -164,10 +174,11 @@ export class CardsClient {
   }
 
   /**
-   * Records a successful request and resets the timeout backoff.
+   * Records a successful request and resets the timeout backoff to the
+   * caller-configured initial value.
    */
   private onRequestSuccess(): void {
-    this._currentTimeoutMs = REQUEST_TIMEOUT_MS;
+    this._currentTimeoutMs = this._initialTimeoutMs;
   }
 
   /**

@@ -61,6 +61,20 @@ export interface CardsClientOptions {
    * forever on an unreachable server.
    */
   retryOnNetworkError?: boolean;
+  /**
+   * Per-request fetch timeout in milliseconds.
+   *
+   * Each individual HTTP request is aborted after this duration. Defaults to
+   * 10 000 (10 s). Set a shorter value when the caller expects the server to
+   * respond promptly — e.g. in tests, or when {@link retryOnNetworkError} is
+   * `false` and there is no value in waiting long for a single attempt.
+   *
+   * The timeout doubles on each consecutive network failure (capped at this
+   * same value, so it never exceeds it) and resets on the first successful
+   * response, mirroring the existing backoff strategy for the retry delay
+   * itself.
+   */
+  requestTimeoutMs?: number;
 }
 
 // ============================================================================
