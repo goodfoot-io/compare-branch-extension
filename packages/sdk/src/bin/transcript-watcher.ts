@@ -210,12 +210,12 @@ async function writeSidecarIfAbsent(
   await writeFile(sidecarPath, JSON.stringify(meta, null, 2));
 }
 
-interface FileState {
+export interface FileState {
   bytesWritten: number;
   pendingFragment: string;
 }
 
-async function appendSyncJsonl(srcPath: string, destPath: string, state: FileState): Promise<void> {
+export async function appendSyncJsonl(srcPath: string, destPath: string, state: FileState): Promise<void> {
   let srcContent: Buffer;
   try {
     srcContent = await readFile(srcPath);
