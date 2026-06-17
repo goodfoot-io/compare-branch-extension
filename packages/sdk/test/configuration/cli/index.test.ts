@@ -683,24 +683,24 @@ export default {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    // settings.json should point to the bundled output directory, scoped by
-    // environment name so same-named streams across environments stay isolated.
+    // settings.json should point to the bundled output directory, keyed by
+    // stream name (www/<stream>).
     const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
-    expect(settings.environments.default.streams['my-stream'].wwwRoot).toBe('./www/default/my-stream');
+    expect(settings.environments.default.streams['my-stream'].wwwRoot).toBe('./www/my-stream');
 
-    const copiedHtml = readFileSync(join(outdir, 'www', 'default', 'my-stream', 'index.html'), 'utf-8');
+    const copiedHtml = readFileSync(join(outdir, 'www', 'my-stream', 'index.html'), 'utf-8');
     expect(copiedHtml).toContain('body { margin: 0; }');
     expect(copiedHtml).toContain('<div id="root"></div>');
     expect(copiedHtml).toContain('src="./helpers.js"');
 
-    expect(readFileSync(join(outdir, 'www', 'default', 'my-stream', 'helpers.js'), 'utf-8')).toContain('Hello, ');
+    expect(readFileSync(join(outdir, 'www', 'my-stream', 'helpers.js'), 'utf-8')).toContain('Hello, ');
   });
 
-  it('isolates wwwRoot output per environment when two environments share a stream name', async () => {
-    // Two environments define a stream with the same name ('claude-session') but
-    // different wwwRoot source directories. Each must land in its own output
-    // directory; otherwise the second copy merges over the first and both
-    // environments' settings reference one mixed directory.
+  it('fails closed when two environments define a stream with the same name', async () => {
+    // Stream output directories are keyed by stream name alone (www/<stream>),
+    // so two environments defining a stream with the same name ('claude-session')
+    // would write to the same directory — a last-writer-wins merge. The build
+    // must reject this up front instead of silently corrupting one renderer.
     const defaultWww = join(testDir, 'renderers', 'default-session');
     const prodWww = join(testDir, 'renderers', 'prod-session');
     mkdirSync(defaultWww, { recursive: true });
@@ -754,22 +754,14 @@ export default {
     const outdir = join(testDir, 'output');
     const result = await build({ config: configPath, outdir });
 
-    expect(result.success).toBe(true);
-    if (!result.success) return;
+    expect(result.success).toBe(false);
+    if (result.success) return;
 
-    const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
-    const defaultRoot = settings.environments.default.streams['claude-session'].wwwRoot as string;
-    const prodRoot = settings.environments.production.streams['claude-session'].wwwRoot as string;
-
-    // Each environment must reference a distinct output directory.
-    expect(defaultRoot).not.toBe(prodRoot);
-
-    // And the on-disk content each environment references must be its own
-    // source tree, not a last-writer-wins merge into a single shared directory.
-    const defaultHtml = readFileSync(join(outdir, defaultRoot.replace(/^\.\//, ''), 'index.html'), 'utf-8');
-    const prodHtml = readFileSync(join(outdir, prodRoot.replace(/^\.\//, ''), 'index.html'), 'utf-8');
-    expect(defaultHtml).toContain('default-marker');
-    expect(prodHtml).toContain('prod-marker');
+    // The error must name the offending stream and both environments so the
+    // author knows exactly what to rename.
+    expect(result.error).toContain('claude-session');
+    expect(result.error).toContain('default');
+    expect(result.error).toContain('production');
   });
 
   it('should pass through wwwRoot path unchanged when directory does not exist', async () => {
