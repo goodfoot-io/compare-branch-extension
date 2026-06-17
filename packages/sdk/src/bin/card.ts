@@ -1101,6 +1101,17 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   }
 
   // Gate 3: card must resolve via the API.
+  //
+  // From here on, `connectClient()` has opened a `CardsClient` HTTP keep-alive
+  // socket. A synchronous `process.exit` while that socket (or undici's
+  // threadpool async handles) is still tearing down trips the fatal libuv
+  // assertion `!(handle->flags & UV_HANDLE_CLOSING)` (`src/win/async.c`) and
+  // aborts with `0xC0000409` on Windows — even though the gate's error already
+  // printed. So every post-connection refusal sets `process.exitCode = 1` and
+  // `return`s; the top-level `.then` handler then calls `requestProcessExit`,
+  // which drains the loop and force-exits via an unref'd backstop only if a
+  // handle lingers. (Gates 1 & 2 above run BEFORE `connectClient`, so their
+  // direct `process.exit` is race-free and left as-is.)
   const client = await connectClient();
   let cardRepoPath: string;
   try {
@@ -1116,14 +1127,16 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     } else {
       console.error(`card bind: unable to fetch card "${cardId}".`, error);
     }
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   // Gate 4: parent branch must be determinable.
   const parent = await resolveCardsParentBranch(worktreeDir, parentBranchFlag);
   if (parent.kind === 'refuse') {
     console.error(`card bind: ${parent.reason}`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   // All gates passed — resolve session identity then outfit.
@@ -1133,7 +1146,8 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
       'card bind: refusing to bind worktree — no session id could be resolved. ' +
         'Re-enter the worktree via the EnterWorktree tool, then run `card <id> bind` again.'
     );
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const transcriptPath = await resolveTranscriptPath(sessionId, worktreeDir);
@@ -1166,7 +1180,11 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   // exit non-zero so scripted callers can detect it.
   if (outcome && (outcome.activated === false || outcome.attribution === 'skipped')) {
     console.error(`card bind: branch registered but card not activated (${outcome.reason ?? 'unknown reason'}).`);
-    process.exit(1);
+    // Post-connection (the client + `outfitWorktreeForCard` opened sockets) —
+    // set the code and return so the top-level `requestProcessExit` drains the
+    // loop instead of a synchronous `process.exit` racing libuv (0xC0000409).
+    process.exitCode = 1;
+    return;
   }
 
   // Drop the candidate record so a later `card create` in the same session

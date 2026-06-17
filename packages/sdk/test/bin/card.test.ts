@@ -1511,6 +1511,10 @@ describe('card binary', () => {
 
     afterEach(() => {
       exitSpy.mockRestore();
+      // Post-connection gates set `process.exitCode` (instead of a libuv-racing
+      // synchronous `process.exit`) and return; clear it so it does not leak
+      // into sibling tests or fail the runner with a non-zero exit.
+      process.exitCode = undefined;
       process.chdir(origCwd);
       restoreEnv('CARDS_SESSION_ID', savedSessionId);
       restoreEnv('CARDS_TRANSCRIPT_PATH', savedTranscript);
@@ -1548,23 +1552,28 @@ describe('card binary', () => {
       }
     });
 
-    it('Gate 3: refuses with exit 1 when the card is not found in the API', async () => {
+    it('Gate 3: refuses with exit code 1 when the card is not found in the API', async () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       try {
         makeLinkedWorktree();
         process.chdir(linkedWorktree);
         process.env['CARDS_SESSION_ID'] = 'sess-gate3';
-        // 'nonexistent-card' is not in the test server's card map.
-        await expect(bindCard('nonexistent-card')).rejects.toThrow('process.exit(1)');
+        // 'nonexistent-card' is not in the test server's card map. Gate 3 runs
+        // AFTER `connectClient()` opens a CardsClient socket, so it must set
+        // `process.exitCode` and return (not synchronously `process.exit`, which
+        // races libuv teardown → 0xC0000409 on Windows). The function resolves.
+        await expect(bindCard('nonexistent-card')).resolves.toBeUndefined();
+        expect(process.exitCode).toBe(1);
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
         expect(diagnostic).toContain('card "nonexistent-card" not found');
+        expect(exitSpy).not.toHaveBeenCalled();
         expect(outfitWorktreeForCard).not.toHaveBeenCalled();
       } finally {
         errSpy.mockRestore();
       }
     });
 
-    it('Gate 4: refuses with exit 1 when no parent branch can be determined', async () => {
+    it('Gate 4: refuses with exit code 1 when no parent branch can be determined', async () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       try {
         // withParentConfig=false: branch.feature/bind.cardsParent is not set,
@@ -1573,10 +1582,13 @@ describe('card binary', () => {
         cards.set('main-001', { id: 'main-001', title: 'Bind Target', status: 'active', repositoryPath: '/tmp/repo' });
         process.chdir(linkedWorktree);
         process.env['CARDS_SESSION_ID'] = 'sess-gate4';
-        await expect(bindCard('main-001')).rejects.toThrow('process.exit(1)');
+        // Gate 4 is also post-connection: set exit code + return, not process.exit.
+        await expect(bindCard('main-001')).resolves.toBeUndefined();
+        expect(process.exitCode).toBe(1);
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
         // The gate 4 message begins with 'card bind:' and contains the refusal reason.
         expect(diagnostic).toMatch(/card bind:/);
+        expect(exitSpy).not.toHaveBeenCalled();
         expect(outfitWorktreeForCard).not.toHaveBeenCalled();
       } finally {
         errSpy.mockRestore();

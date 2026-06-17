@@ -179,6 +179,10 @@ describe('bindCard activation outcome (fail-closed)', () => {
 
   afterEach(async () => {
     exitSpy.mockRestore();
+    // The partial-activation gate sets `process.exitCode` (instead of a
+    // libuv-racing synchronous `process.exit`) and returns; clear it so it does
+    // not leak into sibling tests or fail the runner.
+    process.exitCode = undefined;
     process.chdir(origCwd);
     restoreEnv('CARDS_SESSION_ID', savedSessionId);
     restoreEnv('CARDS_TRANSCRIPT_PATH', savedTranscript);
@@ -212,9 +216,14 @@ describe('bindCard activation outcome (fail-closed)', () => {
       outfitWorktreeForCard.mockResolvedValue({ activated: false, reason: 'not-activatable' });
 
       // Fail-closed contract: bind must NOT complete as a plain success.
-      // Primary expectation: a non-zero exit so scripted callers can detect
-      // that the card was not activated.
-      await expect(bindCard('main-001')).rejects.toThrow(/process\.exit\([1-9]\d*\)/);
+      // Primary expectation: a non-zero exit code so scripted callers can detect
+      // that the card was not activated. This gate runs AFTER the CardsClient +
+      // `outfitWorktreeForCard` opened sockets, so it sets `process.exitCode` and
+      // returns rather than calling `process.exit` (which races libuv teardown →
+      // 0xC0000409 on Windows). The function therefore resolves.
+      await expect(bindCard('main-001')).resolves.toBeUndefined();
+      expect(process.exitCode).toBe(1);
+      expect(exitSpy).not.toHaveBeenCalled();
 
       // And the diagnostic must make the partial state unmistakable.
       const stderr = errSpy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');

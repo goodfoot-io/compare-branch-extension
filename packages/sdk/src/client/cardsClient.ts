@@ -38,8 +38,35 @@ import type {
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
 
+/** Default fetch timeout in milliseconds for each individual request attempt. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 3_000;
+
+/**
+ * Resolves the per-request fetch timeout, honoring the
+ * `CARDS_REQUEST_TIMEOUT_MS` env override when it is a positive finite number.
+ *
+ * The 3 s default is correct for real users hitting a warm, already-running
+ * extension server. It is too short, however, for a *cold* server whose first
+ * `createCard` POST must spawn the git-plumbing compare-and-swap path
+ * (`commitWithCas` / index reconcile) — on a slow host (notably Windows, where
+ * `git` subprocess spawning is expensive) that one-time cost can exceed 3 s and
+ * abort the request. The QA harness (and slow CI) therefore set a larger value
+ * via `CARDS_REQUEST_TIMEOUT_MS` so the raw `card` CLI tolerates the cold start,
+ * while end users keep the tight 3 s bound. Invalid values (non-numeric, zero,
+ * negative, infinite) fall back to the default — fail-closed to the safe bound.
+ *
+ * @returns The resolved request timeout in milliseconds.
+ */
+function resolveRequestTimeoutMs(): number {
+  const raw = process.env['CARDS_REQUEST_TIMEOUT_MS'];
+  if (raw === undefined) return DEFAULT_REQUEST_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
 /** Fetch timeout in milliseconds for each individual request attempt. */
-const REQUEST_TIMEOUT_MS = 3_000;
+const REQUEST_TIMEOUT_MS = resolveRequestTimeoutMs();
 
 /** Initial delay before retrying a failed network request (3 seconds). */
 const INITIAL_RETRY_DELAY_MS = 3_000;
