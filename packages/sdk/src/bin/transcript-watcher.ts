@@ -215,6 +215,21 @@ export interface FileState {
   pendingFragment: string;
 }
 
+/**
+ * Appends newly-arrived JSONL lines from `srcPath` to `destPath`, carrying any
+ * trailing partial line forward in `state` until it is completed.
+ *
+ * `state.bytesWritten` tracks the source byte offset already consumed and
+ * `state.pendingFragment` holds the trailing partial line (as text) read but not
+ * yet terminated by a newline. Every call consumes all source bytes beyond the
+ * recorded offset — including the trailing fragment's bytes — so the fragment
+ * region is never re-read on a subsequent sync; the fragment is instead prepended
+ * from `pendingFragment` once its completing bytes arrive.
+ *
+ * @param srcPath - Source JSONL file being watched.
+ * @param destPath - Destination JSONL file to append completed lines to.
+ * @param state - Mutable sync cursor; updated in place across calls.
+ */
 export async function appendSyncJsonl(srcPath: string, destPath: string, state: FileState): Promise<void> {
   let srcContent: Buffer;
   try {
@@ -236,18 +251,23 @@ export async function appendSyncJsonl(srcPath: string, destPath: string, state: 
 
   const lastNl = text.lastIndexOf('\n');
   if (lastNl < 0) {
+    // No complete line yet: carry the whole text forward as the fragment, but
+    // still consume the source bytes so they are not re-read next call.
     state.pendingFragment = text;
+    state.bytesWritten += newBytes.length;
     return;
   }
 
   const completeLines = text.slice(0, lastNl + 1);
-  const newFragment = text.slice(lastNl + 1);
 
+  // Write before advancing the cursor so a failed append does not lose lines.
   await appendFile(destPath, completeLines, { flag: 'a' });
 
-  const consumed = Buffer.byteLength(completeLines, 'utf-8') - Buffer.byteLength(state.pendingFragment, 'utf-8');
-  state.bytesWritten = state.bytesWritten + consumed;
-  state.pendingFragment = newFragment;
+  // Consume every source byte read this call. The trailing fragment's bytes are
+  // counted here (not deferred), so the next sync starts past them and reads
+  // only genuinely new content; the fragment text is carried in pendingFragment.
+  state.bytesWritten += newBytes.length;
+  state.pendingFragment = text.slice(lastNl + 1);
 }
 
 /**
