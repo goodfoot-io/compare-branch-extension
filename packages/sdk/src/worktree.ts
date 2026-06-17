@@ -382,6 +382,17 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     );
     excludePathPromise.catch(() => undefined);
 
+    // Mirror node_modules now, overlapping wave 1 and the exclude-config writes.
+    // It writes only the worktree's node_modules trees — disjoint from the root
+    // symlinks, .cards copy, and the (node_modules-excluded) ignored-path symlinks
+    // — so it is safe to start at settle entry rather than waiting for wave 2. It
+    // reuses the enumeration already in flight (reroutedPromise) instead of
+    // re-reading package.json and re-lstat-ing every package.
+    const reroutePromise = perf.measure('settle:rerouteAllNodeModules', async () =>
+      rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot, entries: await reroutedPromise })
+    );
+    reroutePromise.catch(() => undefined);
+
     // Wave 1: await the source-only discovery already in flight (started before
     // `git worktree add`), and run the worktree-writing copies that needed the
     // worktree to exist. discoverIgnoredPaths / enumerateReroutedNodeModules
@@ -408,14 +419,10 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
       files: ignored.files.filter((f) => !f.startsWith('.cards/'))
     };
 
-    // Wave 2: symlinkIgnoredPaths and rerouteAllNodeModules write to disjoint paths
-    const [, reroutedCount] = await perf.measure('settle:wave2', () =>
-      Promise.all([
-        perf.measure('settle:symlinkIgnoredPaths', () =>
-          symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored })
-        ),
-        perf.measure('settle:rerouteAllNodeModules', () => rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot }))
-      ])
+    // Wave 2: symlink the remaining ignored paths (node_modules already excluded
+    // from filteredIgnored and rerouted concurrently above).
+    await perf.measure('settle:symlinkIgnoredPaths', () =>
+      symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored })
     );
 
     // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
@@ -431,7 +438,7 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
       ])
     );
 
-    const baseSha = await basePromise;
+    const [baseSha, reroutedCount] = await Promise.all([basePromise, reroutePromise]);
 
     const result: CreateWorktreeResult = {
       branch: ref,
@@ -1618,6 +1625,13 @@ interface RerouteAllNodeModulesOptions {
   sourceRoot: string;
   worktreeDir: string;
   repoRoot: string;
+  /**
+   * Pre-enumerated entries from {@link enumerateReroutedNodeModules}. When
+   * supplied, the redundant internal enumeration is skipped — {@link createWorktree}
+   * already enumerates once (concurrently with the checkout) and reuses the result
+   * here so the same `package.json` read and per-package `lstat`s do not run twice.
+   */
+  entries?: ReroutedNodeModulesEntry[];
 }
 
 /**
@@ -1625,13 +1639,13 @@ interface RerouteAllNodeModulesOptions {
  *
  * The operation is skipped when the repository has no workspace configuration.
  *
- * @param opts - Source root, destination worktree root, and repo root.
+ * @param opts - Source root, destination worktree root, repo root, and optional pre-enumerated entries.
  * @returns Total number of recreated internal workspace symlinks.
  */
 export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions): Promise<number> {
-  const { sourceRoot, worktreeDir, repoRoot } = opts;
+  const { sourceRoot, worktreeDir, repoRoot, entries } = opts;
 
-  const reroutedEntries = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+  const reroutedEntries = entries ?? (await enumerateReroutedNodeModules({ sourceRoot, repoRoot }));
   if (reroutedEntries.length === 0) {
     return 0;
   }
