@@ -96,6 +96,15 @@ export { findAgentPid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 export { resolveScaffoldDir, resolveScaffoldDirFromSource } from './scaffold-dir.js';
 // --- Session Resolver ---
 export { resolveSessionId } from './session-resolver.js';
+// --- Timer Utilities ---
+export {
+  type CreateDebounceOptions,
+  createDebounce,
+  type DebounceHandle,
+  TimeoutError,
+  type WithTimeoutOptions,
+  withTimeout
+} from './timer.js';
 // --- Unbound-worktree candidate set ---
 export {
   addUnboundCandidate,
