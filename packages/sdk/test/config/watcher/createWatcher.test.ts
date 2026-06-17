@@ -291,6 +291,11 @@ describe('createWatcher', () => {
         new Promise<typeof timedOut>((r) => setTimeout(() => r(timedOut), 1000))
       ]);
 
+      // run() resolves when the local socket finishes flushing; the server may
+      // not have processed the inbound stop-ack yet, so wait for it (as the
+      // non-batched stop test does) before asserting on serverMessages.
+      await harness.waitForStopAck();
+
       expect(result).toBe('resolved');
       expect(stopCallbackFired).toBe(true);
       expect(harness.serverMessages.some((m) => m.type === 'stop-ack')).toBe(true);
