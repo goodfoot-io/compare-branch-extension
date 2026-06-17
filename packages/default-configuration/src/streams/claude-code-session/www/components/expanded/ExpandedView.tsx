@@ -49,9 +49,6 @@ export function ExpandedView(): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const storeState = streamStore.getState();
-    const file = storeState.files.get(storeState.primary);
-    lastLineCountRef.current = file ? file.lines.length : 0;
     // column-reverse auto-pins on subsequent appends, but the initial layout
     // with prepopulated content from __STREAM_INIT__ does not start at the
     // bottom in Chromium. scrollTop = 0 is the bottom in column-reverse.
@@ -66,8 +63,20 @@ export function ExpandedView(): React.ReactElement {
     setState((prev) => ({ ...prev, status }));
   }, []);
 
+  // Bootstrap-then-subscribe. Reconcile against the current store before
+  // subscribing so lines that arrived between the initial useState and this
+  // effect are not dropped — the empty-on-boot primary's subscribe:response
+  // delivers the full transcript and can land in exactly this window.
   useEffect(() => {
-    const unsubscribe = streamStore.subscribe((newState) => {
+    const sync = (): void => {
+      const storeState = streamStore.getState();
+      const file = storeState.files.get(storeState.primary);
+      const lines = file ? file.lines : [];
+      lastLineCountRef.current = lines.length;
+      setState(buildExpandedState(lines));
+    };
+    sync();
+    return streamStore.subscribe((newState) => {
       const file = newState.files.get(newState.primary);
       const lines = file ? file.lines : [];
       const newLineCount = lines.length;
@@ -88,8 +97,6 @@ export function ExpandedView(): React.ReactElement {
         setState(buildExpandedState(lines));
       }
     });
-
-    return unsubscribe;
   }, []);
 
   return (

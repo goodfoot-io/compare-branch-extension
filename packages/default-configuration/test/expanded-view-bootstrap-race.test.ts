@@ -44,7 +44,10 @@ const ASSISTANT_LINE = JSON.stringify({
 
 /**
  * Builds a StreamFile-like entry for the files Map.
- * @param overrides - Optional overrides for lineCount, lines, and isSubscribed.
+ * @param overrides - Optional overrides.
+ * @param overrides.lineCount - Optional line count for the file metadata.
+ * @param overrides.lines - Optional lines array for the file.
+ * @param overrides.isSubscribed - Optional subscription flag.
  * @returns A file entry compatible with the store's files Map shape.
  */
 function makeFileEntry(overrides: { lineCount?: number; lines?: string[]; isSubscribed?: boolean } = {}): {
@@ -65,7 +68,10 @@ function makeFileEntry(overrides: { lineCount?: number; lines?: string[]; isSubs
   };
 }
 
-/** Store state the useState initializer sees: primary file has zero lines. */
+/**
+ * Store state the useState initializer sees: primary file has zero lines.
+ * @returns A store state with an empty primary file.
+ */
 function emptyStoreState() {
   return {
     primary: 'session.jsonl',
@@ -76,7 +82,10 @@ function emptyStoreState() {
   };
 }
 
-/** Store state the mount effect sees: 3 lines arrived in the window. */
+/**
+ * Store state the mount effect sees: 3 lines arrived in the window.
+ * @returns A store state with a populated primary file containing 3 assistant lines.
+ */
 function populatedStoreState() {
   return {
     primary: 'session.jsonl',
