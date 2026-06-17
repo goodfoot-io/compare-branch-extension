@@ -39,7 +39,7 @@ import type {
 import { ApiError, NetworkError } from './types/errors.js';
 
 /** Fetch timeout in milliseconds for each individual request attempt. */
-const REQUEST_TIMEOUT_MS = 3_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /** Initial delay before retrying a failed network request (3 seconds). */
 const INITIAL_RETRY_DELAY_MS = 3_000;
@@ -162,8 +162,7 @@ export class CardsClient {
   /**
    * Default HTTP client implementation using fetch + JSON payloads.
    *
-   * Each fetch call includes an AbortSignal.timeout that starts at 3 seconds
-   * and doubles on consecutive failures up to 10 seconds.
+   * Each fetch call includes an AbortSignal.timeout of 10 seconds.
    */
   private defaultHttpClient: HttpClient = {
     get: async <T>(url: string, options?: RequestInit): Promise<T> => {
