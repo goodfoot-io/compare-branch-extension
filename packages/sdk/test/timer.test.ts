@@ -251,7 +251,12 @@ describe('withTimeout', () => {
 // ============================================================================
 
 describe('createDebounce', () => {
-  let handle: DebounceHandle<(...args: unknown[]) => unknown>;
+  const handles: Array<{ dispose(): void; readonly disposed: boolean }> = [];
+
+  function register<T extends (...args: never[]) => unknown>(h: DebounceHandle<T>): DebounceHandle<T> {
+    handles.push(h);
+    return h;
+  }
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -259,8 +264,10 @@ describe('createDebounce', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    if (handle && !handle.disposed) {
-      handle.dispose();
+    for (const h of handles.splice(0)) {
+      if (!h.disposed) {
+        h.dispose();
+      }
     }
   });
 
@@ -271,14 +278,14 @@ describe('createDebounce', () => {
   describe('trailing-edge (default)', () => {
     it('does not invoke fn immediately on first call', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       expect(fn).not.toHaveBeenCalled();
     });
 
     it('invokes fn after the debounce window elapses with the latest arguments', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       handle('b');
       handle('c');
@@ -289,7 +296,7 @@ describe('createDebounce', () => {
 
     it('resets the window on each call', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       vi.advanceTimersByTime(200);
       handle('b'); // resets window
@@ -302,7 +309,7 @@ describe('createDebounce', () => {
 
     it('only invokes fn once across many rapid calls', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       for (let i = 0; i < 100; i++) {
         handle(i);
       }
@@ -319,7 +326,7 @@ describe('createDebounce', () => {
   describe('leading-edge', () => {
     it('invokes fn immediately on first call', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300, { edge: 'leading' });
+      const handle = register(createDebounce(fn, 300, { edge: 'leading' }));
       handle('a');
       expect(fn).toHaveBeenCalledOnce();
       expect(fn).toHaveBeenCalledWith('a');
@@ -327,7 +334,7 @@ describe('createDebounce', () => {
 
     it('suppresses subsequent calls within the window', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300, { edge: 'leading' });
+      const handle = register(createDebounce(fn, 300, { edge: 'leading' }));
       handle('a');
       handle('b');
       handle('c');
@@ -338,7 +345,7 @@ describe('createDebounce', () => {
 
     it('allows the next call after the window elapses', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300, { edge: 'leading' });
+      const handle = register(createDebounce(fn, 300, { edge: 'leading' }));
       handle('a');
       expect(fn).toHaveBeenCalledOnce();
       vi.advanceTimersByTime(300);
@@ -355,7 +362,7 @@ describe('createDebounce', () => {
   describe('cancel()', () => {
     it('clears a pending invocation without disposing the handle', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       handle.cancel();
       vi.advanceTimersByTime(300);
@@ -364,7 +371,7 @@ describe('createDebounce', () => {
 
     it('allows the handle to be used after cancel', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       handle.cancel();
       handle('b');
@@ -375,7 +382,7 @@ describe('createDebounce', () => {
 
     it('is a no-op when there is no pending invocation', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       expect(() => handle.cancel()).not.toThrow();
     });
   });
@@ -387,7 +394,7 @@ describe('createDebounce', () => {
   describe('flush()', () => {
     it('fires a pending invocation immediately', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       handle.flush();
       expect(fn).toHaveBeenCalledOnce();
@@ -396,7 +403,7 @@ describe('createDebounce', () => {
 
     it('clears the pending timer after flush', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       handle.flush();
       vi.advanceTimersByTime(300);
@@ -405,7 +412,7 @@ describe('createDebounce', () => {
 
     it('is a no-op when there is no pending invocation', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       expect(() => handle.flush()).not.toThrow();
       expect(fn).not.toHaveBeenCalled();
     });
@@ -418,7 +425,7 @@ describe('createDebounce', () => {
   describe('dispose()', () => {
     it('cancels a pending invocation and marks the handle as disposed', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       handle.dispose();
       expect(handle.disposed).toBe(true);
@@ -428,7 +435,7 @@ describe('createDebounce', () => {
 
     it('makes subsequent calls no-ops', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle.dispose();
       handle('a');
       vi.advanceTimersByTime(300);
@@ -437,7 +444,7 @@ describe('createDebounce', () => {
 
     it('makes flush a no-op after disposal', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       handle.dispose();
       handle.flush();
@@ -445,7 +452,7 @@ describe('createDebounce', () => {
     });
 
     it('double-dispose is safe', () => {
-      handle = createDebounce(vi.fn(), 300);
+      const handle = register(createDebounce(vi.fn(), 300));
       handle.dispose();
       expect(() => handle.dispose()).not.toThrow();
       expect(handle.disposed).toBe(true);
@@ -460,7 +467,7 @@ describe('createDebounce', () => {
     it('disposes the handle when the signal is aborted', () => {
       const controller = new AbortController();
       const fn = vi.fn();
-      handle = createDebounce(fn, 300, { signal: controller.signal });
+      const handle = register(createDebounce(fn, 300, { signal: controller.signal }));
       handle('a');
       controller.abort();
       expect(handle.disposed).toBe(true);
@@ -471,7 +478,7 @@ describe('createDebounce', () => {
     it('removes the signal listener on manual dispose', () => {
       const controller = new AbortController();
       const removeListenerSpy = vi.spyOn(controller.signal, 'removeEventListener');
-      handle = createDebounce(vi.fn(), 300, { signal: controller.signal });
+      const handle = register(createDebounce(vi.fn(), 300, { signal: controller.signal }));
       handle.dispose();
       expect(removeListenerSpy).toHaveBeenCalled();
     });
@@ -484,7 +491,7 @@ describe('createDebounce', () => {
   describe('edge cases', () => {
     it('handles zero ms debounce', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 0);
+      const handle = register(createDebounce(fn, 0));
       handle('a');
       vi.advanceTimersByTime(0);
       expect(fn).toHaveBeenCalledOnce();
@@ -492,10 +499,10 @@ describe('createDebounce', () => {
 
     it('handles fn that throws (error propagates to caller of flush)', () => {
       const error = new Error('fn error');
-      const fn = vi.fn(() => {
+      const fn = vi.fn((_arg?: unknown) => {
         throw error;
       });
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       expect(() => handle.flush()).toThrow(error);
     });
@@ -504,10 +511,10 @@ describe('createDebounce', () => {
       // Trailing invocations are fire-and-forget (via setTimeout),
       // so thrown errors should not propagate to the handle caller.
       const error = new Error('fn error');
-      const fn = vi.fn(() => {
+      const fn = vi.fn((_arg?: unknown) => {
         throw error;
       });
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle('a');
       // Should not throw when timer fires
       expect(() => vi.advanceTimersByTime(300)).not.toThrow();
@@ -516,7 +523,7 @@ describe('createDebounce', () => {
 
     it('passes multiple arguments to the wrapped function', () => {
       const fn = vi.fn();
-      handle = createDebounce(fn, 300);
+      const handle = register(createDebounce(fn, 300));
       handle(1, 'two', { three: true });
       vi.advanceTimersByTime(300);
       expect(fn).toHaveBeenCalledWith(1, 'two', { three: true });

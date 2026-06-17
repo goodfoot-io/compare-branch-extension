@@ -168,7 +168,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, opts?: WithTimeo
  * Calling the handle resets the debounce window.  Methods control the
  * lifecycle of a pending invocation.
  */
-export interface DebounceHandle<T extends (...args: unknown[]) => unknown> {
+export interface DebounceHandle<T extends (...args: never[]) => unknown> {
   /** Reset the debounce window with new arguments. */
   (...args: Parameters<T>): void;
 
@@ -216,7 +216,7 @@ export interface CreateDebounceOptions {
  * @param opts - Optional configuration.
  * @returns A debounced callable handle with lifecycle methods.
  */
-export function createDebounce<T extends (...args: unknown[]) => unknown>(
+export function createDebounce<T extends (...args: never[]) => unknown>(
   fn: T,
   ms: number,
   opts?: CreateDebounceOptions
