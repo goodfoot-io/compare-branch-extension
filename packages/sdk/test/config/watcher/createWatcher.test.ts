@@ -131,6 +131,9 @@ async function buildHarness(opts: { onHello?: (socket: net.Socket, msg: ParsedMe
       return stopAckPromise;
     },
     async stop() {
+      // Destroy any lingering client connection so unixServer.close() does not
+      // wait on an open socket (e.g. when run() never resolved).
+      activeSocket?.destroy();
       await new Promise<void>((r) => httpServer.close(() => r()));
       await new Promise<void>((r) => unixServer.close(() => r()));
       if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
@@ -239,6 +242,56 @@ describe('createWatcher', () => {
       await runPromise;
       await harness.waitForStopAck();
 
+      expect(stopCallbackFired).toBe(true);
+      expect(harness.serverMessages.some((m) => m.type === 'stop-ack')).toBe(true);
+    } finally {
+      await harness.stop();
+    }
+  });
+
+  it('control message batched into the same chunk as hello-ack is delivered to run()', async () => {
+    // Server coalesces hello-ack and the stop control into a single socket write,
+    // exactly as the OS may coalesce two quick writes into one read. A stream
+    // socket does not preserve message boundaries.
+    const harness = await buildHarness({
+      onHello(socket) {
+        socket.write(
+          `${JSON.stringify({ type: 'hello-ack' })}\n${JSON.stringify({ type: 'control', command: { type: 'stop' } })}\n`
+        );
+      }
+    });
+
+    let stopCallbackFired = false;
+
+    try {
+      const handle = await createWatcher(
+        { watcherId: 'w-batch', cardId: 'c1', metadata: {} },
+        async (ctx: WatcherContext) => {
+          ctx.onControl('stop', async () => {
+            stopCallbackFired = true;
+          });
+          await new Promise<void>((resolve) => {
+            const interval = setInterval(() => {
+              if (stopCallbackFired) {
+                clearInterval(interval);
+                resolve();
+              }
+            }, 10);
+          });
+        }
+      );
+
+      // run() must resolve via the batched stop control. If the trailing control
+      // bytes were dropped during the handshake, the stop handler never fires and
+      // run() never resolves, so this races a timeout.
+      const runPromise = handle.run();
+      const timedOut = Symbol('timeout');
+      const result = await Promise.race([
+        runPromise.then(() => 'resolved'),
+        new Promise<typeof timedOut>((r) => setTimeout(() => r(timedOut), 1000))
+      ]);
+
+      expect(result).toBe('resolved');
       expect(stopCallbackFired).toBe(true);
       expect(harness.serverMessages.some((m) => m.type === 'stop-ack')).toBe(true);
     } finally {
