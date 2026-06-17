@@ -288,13 +288,43 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     findGitRoots(options?.cwd ?? process.cwd())
   );
 
-  // Determine whether this is an existing ref or a new branch name.
-  // resolveRefType throws for unknown refs; a valid branch name that
-  // doesn't exist yet is treated as a new branch to create.
+  const worktreeDir = resolveWorktreeDir(repoRoot, ref);
+
+  // Run the independent read-only git probes concurrently rather than serially.
+  // Previously the worktree-existence guard, ref classification, the branch
+  // start point, and a (duplicate) branch-existence check ran one after another
+  // (~330ms total). They share no state and git permits concurrent reads, so the
+  // prelude collapses to the cost of the slowest probe. Classification is also
+  // inlined here so branch existence is checked once, not once here and again
+  // inside resolveRefType. resolveHead(sourceRoot) is always valid (HEAD exists)
+  // and only consumed on the branch path, so computing it eagerly is safe waste
+  // hidden behind the slower probes.
+  const [worktreeExists, branchExists, tagExists, commitResolves, startPoint] = await perf.measure(
+    'prelude:probes',
+    () =>
+      Promise.all([
+        perf.measure('checkWorktreeExists', () => checkWorktreeExists(repoRoot, worktreeDir)),
+        perf.measure('checkBranchExists', () => checkBranchExists(repoRoot, ref)),
+        perf.measure('checkTagExists', () => checkTagExists(repoRoot, ref)),
+        perf.measure('checkCommitResolves', () => checkCommitResolves(repoRoot, ref)),
+        perf.measure('resolveHead(start)', () => resolveHead(sourceRoot))
+      ])
+  );
+
+  if (worktreeExists) {
+    throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
+  }
+
+  // Classify with branch > tag > commit precedence, matching resolveRefType. A
+  // ref that resolves to none of these is treated as a new branch to create.
   let refType: 'branch' | 'tag' | 'commit';
-  try {
-    refType = await perf.measure('resolveRefType', () => resolveRefType(repoRoot, ref));
-  } catch {
+  if (branchExists) {
+    refType = 'branch';
+  } else if (tagExists) {
+    refType = 'tag';
+  } else if (commitResolves) {
+    refType = 'commit';
+  } else {
     validateBranchName(ref);
     refType = 'branch';
   }
@@ -303,18 +333,9 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     validateBranchName(ref);
   }
 
-  const worktreeDir = resolveWorktreeDir(repoRoot, ref);
-
-  const worktreeExists = await perf.measure('checkWorktreeExists', () => checkWorktreeExists(repoRoot, worktreeDir));
-  if (worktreeExists) {
-    throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
-  }
-
   await perf.measure('cleanStaleWorktreeDir', () => cleanStaleWorktreeDir(repoRoot, worktreeDir));
 
   if (refType === 'branch') {
-    const startPoint = await perf.measure('resolveHead(start)', () => resolveHead(sourceRoot));
-    const branchExists = await perf.measure('checkBranchExists', () => checkBranchExists(repoRoot, ref));
     await perf.measure('git worktree add', () =>
       addWorktree({ repoRoot, worktreeDir, branchName: ref, branchExists, startPoint })
     );
@@ -589,6 +610,40 @@ export async function checkBranchExists(repoRoot: string, branchName: string): P
 }
 
 /**
+ * Checks whether a tag with the given name exists in the repository.
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param ref - Tag name to query.
+ * @returns True when `git tag --list` returns a matching tag.
+ */
+export async function checkTagExists(repoRoot: string, ref: string): Promise<boolean> {
+  const { stdout } = await execFileAsync('git', ['tag', '--list', ref], {
+    cwd: repoRoot,
+    timeout: 30_000
+  });
+  return stdout.trim().length > 0;
+}
+
+/**
+ * Checks whether a ref resolves to a commit object (`<ref>^{commit}`).
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param ref - Candidate commit-ish to verify.
+ * @returns True when `git rev-parse --verify <ref>^{commit}` succeeds.
+ */
+export async function checkCommitResolves(repoRoot: string, ref: string): Promise<boolean> {
+  try {
+    await execFileAsync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
+      cwd: repoRoot,
+      timeout: 5_000
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Determines whether a git ref is a branch, tag, or commit SHA.
  *
  * Checks local branches first, then tags, then falls back to verifying
@@ -600,24 +655,10 @@ export async function checkBranchExists(repoRoot: string, branchName: string): P
  * @returns The ref type: `'branch'`, `'tag'`, or `'commit'`.
  */
 export async function resolveRefType(repoRoot: string, ref: string): Promise<'branch' | 'tag' | 'commit'> {
-  const branchExists = await checkBranchExists(repoRoot, ref);
-  if (branchExists) return 'branch';
-
-  const { stdout: tagOutput } = await execFileAsync('git', ['tag', '--list', ref], {
-    cwd: repoRoot,
-    timeout: 30_000
-  });
-  if (tagOutput.trim().length > 0) return 'tag';
-
-  try {
-    await execFileAsync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
-      cwd: repoRoot,
-      timeout: 5_000
-    });
-    return 'commit';
-  } catch {
-    throw new Error(`Error: '${ref}' does not resolve to a branch, tag, or commit.`);
-  }
+  if (await checkBranchExists(repoRoot, ref)) return 'branch';
+  if (await checkTagExists(repoRoot, ref)) return 'tag';
+  if (await checkCommitResolves(repoRoot, ref)) return 'commit';
+  throw new Error(`Error: '${ref}' does not resolve to a branch, tag, or commit.`);
 }
 
 interface AddWorktreeOptions {
