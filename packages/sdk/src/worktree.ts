@@ -365,6 +365,13 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
   perf.mark('usable-directory');
 
   const settle = perf.measure('settle:total', async (): Promise<CreateWorktreeResult> => {
+    // resolveHead(base) reads only the worktree HEAD (valid the moment the
+    // checkout completed) and is independent of every symlink/copy step, so start
+    // it at settle entry to overlap all three waves rather than paying for it in
+    // the wave-3 tail. A noop catch guards the window before it is awaited below.
+    const basePromise = perf.measure('settle:resolveHead(base)', () => resolveHead(worktreeDir));
+    basePromise.catch(() => undefined);
+
     // Wave 1: await the source-only discovery already in flight (started before
     // `git worktree add`), and run the worktree-writing copies that needed the
     // worktree to exist. discoverIgnoredPaths / enumerateReroutedNodeModules
@@ -402,9 +409,8 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     );
 
     // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
-    // on any overlapping gitignored paths; updateGitExclude needs symlinks in place;
-    // resolveHead is read-only and safe alongside both
-    const [copiedFromInclude, , baseSha] = await perf.measure('settle:wave3', () =>
+    // on any overlapping gitignored paths; updateGitExclude needs symlinks in place.
+    const [copiedFromInclude] = await perf.measure('settle:wave3', () =>
       Promise.all([
         perf.measure('settle:applyWorktreeInclude', () => applyWorktreeInclude({ sourceRoot, worktreeDir })),
         perf.measure('settle:updateGitExclude', () =>
@@ -414,10 +420,11 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
             directories: ignored.directories,
             files: ignored.files
           })
-        ),
-        perf.measure('settle:resolveHead(base)', () => resolveHead(worktreeDir))
+        )
       ])
     );
+
+    const baseSha = await basePromise;
 
     const result: CreateWorktreeResult = {
       branch: ref,
