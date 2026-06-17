@@ -43,31 +43,61 @@ export function hasErrnoCode(error: unknown, code: string): boolean {
  * Reads the PID from the lock file, checks liveness, and unlinks when the
  * holder is no longer running. A second read guards against TOCTOU races.
  *
+ * **Fail-closed**: a live (or unknown-liveness) holder leaves the lock in
+ * place, and an unexpected read failure propagates rather than deleting a
+ * potentially live lock.
+ *
  * @param lockPath - Absolute path to the lock file.
- * @returns `true` when the stale lock was successfully removed.
+ * @returns `true` when the stale lock was successfully removed (or already gone).
+ * @throws {NodeJS.ErrnoException} When reading the lock file fails for a reason
+ *   other than `ENOENT`.
  */
 export function tryRemoveStaleLock(lockPath: string): boolean {
+  let lockContent: string;
   try {
-    const lockContent = readFileSync(lockPath, 'utf-8');
-    const holderPid = Number.parseInt(lockContent.trim(), 10);
-
-    if (!Number.isNaN(holderPid) && !isProcessAlive(holderPid)) {
-      // Re-read lock file to reduce TOCTOU race window before unlinking.
-      if (readFileSync(lockPath, 'utf-8') === lockContent) {
-        unlinkSync(lockPath);
-        return true;
-      }
-    }
-  } catch {
-    try {
-      unlinkSync(lockPath);
-      return true;
-    } catch {
-      // ENOENT: lock already removed; other errors: best-effort cleanup
-    }
+    lockContent = readFileSync(lockPath, 'utf-8');
+  } catch (error) {
+    // The lock is already gone — treat as removed. Any other read failure
+    // (e.g. EACCES) leaves the holder's state unknown: fail closed and
+    // propagate rather than deleting a potentially live lock.
+    if (hasErrnoCode(error, 'ENOENT')) return true;
+    throw error;
   }
 
-  return false;
+  const holderPid = Number.parseInt(lockContent.trim(), 10);
+  if (Number.isNaN(holderPid)) return false;
+
+  // Determine the holder's liveness. `isProcessAlive` rethrows on an unexpected
+  // liveness-probe error, leaving the result *unknown*. Fail closed: an unknown
+  // liveness must not delete a potentially live lock, so keep the lock in place.
+  let holderAlive: boolean;
+  try {
+    holderAlive = isProcessAlive(holderPid);
+  } catch {
+    return false;
+  }
+
+  // A live holder: leave the lock in place (fail closed).
+  if (holderAlive) return false;
+
+  // Holder is dead. Re-read to reduce the TOCTOU race window before unlinking;
+  // a concurrent re-acquire (different content) or a vanished lock both mean we
+  // must not unlink the current lock.
+  try {
+    if (readFileSync(lockPath, 'utf-8') !== lockContent) return false;
+  } catch (error) {
+    if (hasErrnoCode(error, 'ENOENT')) return true;
+    throw error;
+  }
+
+  try {
+    unlinkSync(lockPath);
+    return true;
+  } catch (error) {
+    // Another actor removed it between the re-read and the unlink.
+    if (hasErrnoCode(error, 'ENOENT')) return true;
+    throw error;
+  }
 }
 
 /**
