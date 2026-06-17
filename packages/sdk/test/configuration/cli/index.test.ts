@@ -695,6 +695,82 @@ export default {
     expect(readFileSync(join(outdir, 'www', 'my-stream', 'helpers.js'), 'utf-8')).toContain('Hello, ');
   });
 
+  it('isolates wwwRoot output per environment when two environments share a stream name', async () => {
+    // Two environments define a stream with the same name ('claude-session') but
+    // different wwwRoot source directories. Each must land in its own output
+    // directory; otherwise the second copy merges over the first and both
+    // environments' settings reference one mixed directory.
+    const defaultWww = join(testDir, 'renderers', 'default-session');
+    const prodWww = join(testDir, 'renderers', 'prod-session');
+    mkdirSync(defaultWww, { recursive: true });
+    mkdirSync(prodWww, { recursive: true });
+
+    writeFileSync(
+      join(defaultWww, 'index.html'),
+      `<!DOCTYPE html><html><body><div id="default-marker"></div></body></html>`
+    );
+    writeFileSync(join(prodWww, 'index.html'), `<!DOCTYPE html><html><body><div id="prod-marker"></div></body></html>`);
+
+    const actionHandlerPath = join(testDir, 'action.ts');
+    writeFileSync(
+      actionHandlerPath,
+      `export default { factoryType: 'action', actionName: 'Test', handler: async () => {} };`
+    );
+
+    const configPath = join(testDir, 'settings.config.ts');
+    writeFileSync(
+      configPath,
+      `
+import action from './action.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [action],
+      streams: {
+        'claude-session': {
+          version: 1,
+          wwwRoot: './renderers/default-session'
+        }
+      }
+    },
+    production: {
+      version: 1,
+      actions: [action],
+      streams: {
+        'claude-session': {
+          version: 1,
+          wwwRoot: './renderers/prod-session'
+        }
+      }
+    }
+  }
+};
+      `.trim()
+    );
+
+    const outdir = join(testDir, 'output');
+    const result = await build({ config: configPath, outdir });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
+    const defaultRoot = settings.environments.default.streams['claude-session'].wwwRoot as string;
+    const prodRoot = settings.environments.production.streams['claude-session'].wwwRoot as string;
+
+    // Each environment must reference a distinct output directory.
+    expect(defaultRoot).not.toBe(prodRoot);
+
+    // And the on-disk content each environment references must be its own
+    // source tree, not a last-writer-wins merge into a single shared directory.
+    const defaultHtml = readFileSync(join(outdir, defaultRoot.replace(/^\.\//, ''), 'index.html'), 'utf-8');
+    const prodHtml = readFileSync(join(outdir, prodRoot.replace(/^\.\//, ''), 'index.html'), 'utf-8');
+    expect(defaultHtml).toContain('default-marker');
+    expect(prodHtml).toContain('prod-marker');
+  });
+
   it('should pass through wwwRoot path unchanged when directory does not exist', async () => {
     const actionHandlerPath = join(testDir, 'action.ts');
     writeFileSync(
