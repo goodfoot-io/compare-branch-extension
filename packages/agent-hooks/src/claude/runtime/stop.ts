@@ -55,7 +55,26 @@ export default stopHook({}, async (input, { logger }) => {
     });
   }
 
-  const headSha = readSessionHeadSha(input.session_id);
+  let headSha: string | null;
+  try {
+    headSha = readSessionHeadSha(input.session_id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to read session HEAD SHA', { error: message });
+    return stopOutput({
+      decision: 'approve',
+      systemMessage: [
+        `Could not read session HEAD SHA for session ${input.session_id}.`,
+        '',
+        `Error: ${message}`,
+        '',
+        'Commit attribution could not be verified. To investigate:',
+        '1. Check that the session .head file exists and is readable',
+        `2. Verify file permissions for session ${input.session_id}`
+      ].join('\n'),
+      reason: `Session HEAD SHA read failed: ${message}`
+    });
+  }
   if (!headSha) {
     logger.info('No HEAD SHA on file — skipping commit attribution check');
     return stopOutput({
