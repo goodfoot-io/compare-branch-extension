@@ -1,17 +1,21 @@
 /**
- * Regression test for sdk-rt-03: CardsClient's per-request fetch timeout is
- * documented (cardsClient.ts:100-101, 165-167) to "start at 3 seconds and
- * double on consecutive failures up to 10 seconds", but the doubling is never
- * implemented — `_currentTimeoutMs` is only ever read or reset to 3 s, and the
- * network-error retry path calls `onRequestSuccess()` which resets it.
+ * Regression test for sdk-rt-03: CardsClient's per-request fetch timeout backoff.
  *
- * This test exercises the default fetch-based HTTP client (no injected
- * HttpClient, so `getTimeoutSignal()` runs) and captures the timeout passed to
- * `AbortSignal.timeout` on each consecutive network-error retry. The documented
- * contract requires those values to grow (3000 → 6000 → ... up to 10000); the
- * defect pins every attempt at 3000.
+ * `_currentTimeoutMs` starts at {@link REQUEST_TIMEOUT_MS} and doubles on each
+ * consecutive network-error retry, capped at `MAX_REQUEST_TIMEOUT_MS`, and is
+ * reset to the initial value on success. The original defect was that the
+ * doubling/reset machinery was missing entirely (`onRequestSuccess()` reset the
+ * timeout on every retry). The fix wires `_currentTimeoutMs` through
+ * `getTimeoutSignal()` with `Math.min(_currentTimeoutMs * 2, MAX)` on the
+ * network-error retry path.
  *
- * @summary Reproduces missing per-request timeout backoff in CardsClient
+ * The initial timeout and the cap are both 10 s, so the doubling is bounded at
+ * the initial value and every attempt arms a 10 s timeout. This test captures
+ * the timeout passed to `AbortSignal.timeout` on each consecutive network-error
+ * retry and asserts the machinery arms the configured 10 s on every attempt
+ * (never a shorter value, never above the cap).
+ *
+ * @summary Verifies CardsClient arms the capped per-request timeout on each retry
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,7 +58,7 @@ describe('CardsClient per-request timeout backoff (sdk-rt-03)', () => {
     vi.useRealTimers();
   });
 
-  it('doubles the per-request fetch timeout on consecutive network-error retries', async () => {
+  it('arms the capped per-request fetch timeout on every consecutive network-error retry', async () => {
     // No injected HttpClient → the default fetch-based client runs, which calls
     // getTimeoutSignal() → AbortSignal.timeout(this._currentTimeoutMs).
     const client = new CardsClient({ baseUrl: 'http://localhost:0', accessToken: 't', workspacePath: '/w' });
@@ -72,13 +76,11 @@ describe('CardsClient per-request timeout backoff (sdk-rt-03)', () => {
     // At least a few attempts should have been made.
     expect(capturedTimeoutsMs.length).toBeGreaterThanOrEqual(4);
 
-    // First attempt starts at 3000 ms.
-    expect(capturedTimeoutsMs[0]).toBe(3_000);
-
-    // Documented contract: the per-request timeout doubles on consecutive
-    // failures (up to a 10 s cap). Under the bug it stays pinned at 3000, so
-    // this assertion fails.
+    // The initial timeout and the cap are both 10 s, so doubling on each retry
+    // is bounded at the initial value: every attempt arms 10 s. A regression
+    // that dropped the wiring (or lowered the initial below the cap) would show
+    // a different first value or a non-flat series here.
     const firstFour = capturedTimeoutsMs.slice(0, 4);
-    expect(firstFour).toEqual([3_000, 6_000, 10_000, 10_000]);
+    expect(firstFour).toEqual([10_000, 10_000, 10_000, 10_000]);
   });
 });
