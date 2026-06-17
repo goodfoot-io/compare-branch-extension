@@ -18,6 +18,8 @@ import { TestWebSocketServer } from '../../src/ws/TestWebSocketServer.js';
 
 /**
  * Helper: wait for a WebSocket client to open.
+ *
+ * @param client The WebSocket client to await
  */
 function waitForOpen(client: WebSocket): Promise<void> {
   return new Promise<void>((resolve, reject) => {
