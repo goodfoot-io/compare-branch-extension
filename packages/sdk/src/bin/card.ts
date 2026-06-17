@@ -408,7 +408,44 @@ export async function createCard(args: string[]): Promise<void> {
   if (bindTarget.kind === 'bind') {
     const createdId = full['id'];
     if (typeof createdId === 'string' && createdId.length > 0) {
-      await outfitCreatedWorktree(client, createdId, bindTarget);
+      // Guard against cross-repo bind: when --workspace-path points to a
+      // different repository than the cwd worktree, emit a stderr notice
+      // and skip the bind rather than binding the wrong repo's worktree.
+      const workspacePath = flags['workspace-path']?.[0] ?? getGitRoot();
+      let shouldBind = true;
+      if (workspacePath) {
+        try {
+          const [wsCommonDir, wtCommonDir] = await Promise.all([
+            execFileAsync('git', ['-C', workspacePath, 'rev-parse', '--path-format=absolute', '--git-common-dir']).then(
+              (r) => r.stdout.trim()
+            ),
+            execFileAsync('git', [
+              '-C',
+              bindTarget.worktreeDir,
+              'rev-parse',
+              '--path-format=absolute',
+              '--git-common-dir'
+            ]).then((r) => r.stdout.trim())
+          ]);
+          if (wsCommonDir !== wtCommonDir) {
+            console.error(
+              `card create: worktree ${bindTarget.worktreeDir} belongs to a different workspace than card ${createdId} — not binding.`
+            );
+            shouldBind = false;
+          }
+        } catch (err) {
+          // Infrastructure error resolving git common dir — fall through to
+          // normal bind. The pre-existing behavior is to bind, so don't
+          // regress when git is unavailable. Log so the failure is observable.
+          console.error(
+            'card create: failed to compare workspace and worktree repositories, proceeding with bind:',
+            err
+          );
+        }
+      }
+      if (shouldBind) {
+        await outfitCreatedWorktree(client, createdId, bindTarget);
+      }
     }
   }
 }
