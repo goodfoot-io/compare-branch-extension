@@ -370,7 +370,10 @@ async function processAllWwwRoots(
 
       // wwwRoot is a forward-slash relative path consumed by the extension
       // runtime, so build it with path.posix regardless of host platform.
-      const relativeOutputDir = path.posix.join('www', streamName);
+      // Scope the output by environment so two environments that define a
+      // stream with the same name but different wwwRoot source directories get
+      // isolated output directories instead of overwriting each other on disk.
+      const relativeOutputDir = path.posix.join('www', envName, streamName);
       const absoluteOutputDir = path.join(outdir, relativeOutputDir);
 
       await processWwwRoot(wwwRootDir, absoluteOutputDir, entrypoint);

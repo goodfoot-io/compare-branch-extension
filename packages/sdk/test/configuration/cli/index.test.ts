@@ -683,16 +683,17 @@ export default {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    // settings.json should point to the bundled output directory
+    // settings.json should point to the bundled output directory, scoped by
+    // environment name so same-named streams across environments stay isolated.
     const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
-    expect(settings.environments.default.streams['my-stream'].wwwRoot).toBe('./www/my-stream');
+    expect(settings.environments.default.streams['my-stream'].wwwRoot).toBe('./www/default/my-stream');
 
-    const copiedHtml = readFileSync(join(outdir, 'www', 'my-stream', 'index.html'), 'utf-8');
+    const copiedHtml = readFileSync(join(outdir, 'www', 'default', 'my-stream', 'index.html'), 'utf-8');
     expect(copiedHtml).toContain('body { margin: 0; }');
     expect(copiedHtml).toContain('<div id="root"></div>');
     expect(copiedHtml).toContain('src="./helpers.js"');
 
-    expect(readFileSync(join(outdir, 'www', 'my-stream', 'helpers.js'), 'utf-8')).toContain('Hello, ');
+    expect(readFileSync(join(outdir, 'www', 'default', 'my-stream', 'helpers.js'), 'utf-8')).toContain('Hello, ');
   });
 
   it('isolates wwwRoot output per environment when two environments share a stream name', async () => {
