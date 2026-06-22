@@ -67,7 +67,7 @@ describe('liveRefsRemain', () => {
     } else {
       process.env['CARDS_HOME'] = originalCardsHome;
     }
-    await rm(cardsHome, { recursive: true, force: true });
+    await rm(cardsHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('returns false when only the dying session ref remains', async () => {
@@ -95,7 +95,7 @@ describe('liveRefsRemain', () => {
   });
 
   it('returns false when the reference directory is absent', async () => {
-    await rm(adhocActiveDir(cardId), { recursive: true, force: true });
+    await rm(adhocActiveDir(cardId), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     expect(await liveRefsRemain(cardId, dyingSession, noopLogger)).toBe(false);
   });
 });
@@ -134,8 +134,8 @@ describe('performTeardown', () => {
     } else {
       process.env['CARDS_HOME'] = originalCardsHome;
     }
-    await rm(cardsHome, { recursive: true, force: true });
-    await rm(repoDir, { recursive: true, force: true });
+    await rm(cardsHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    await rm(repoDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   function teardownArgs() {
@@ -226,7 +226,7 @@ describe('performTeardown', () => {
       ).rejects.toThrow();
       await expect(access(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
     } finally {
-      await rm(badRepo, { recursive: true, force: true });
+      await rm(badRepo, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 });

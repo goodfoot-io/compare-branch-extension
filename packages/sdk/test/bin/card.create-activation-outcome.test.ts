@@ -22,13 +22,14 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir as realTmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { forceRemoveSync } from '../helpers/forceRemove.js';
 
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
@@ -218,9 +219,9 @@ describe('createCard activation outcome (observable diagnostic)', () => {
     restoreEnv('CARDS_SESSION_ID', savedSessionId);
     restoreEnv('CARDS_TRANSCRIPT_PATH', savedTranscript);
     process.exitCode = savedExitCode;
-    rmSync(base, { recursive: true, force: true });
+    forceRemoveSync(base);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    rmSync(testDir, { recursive: true, force: true });
+    forceRemoveSync(testDir);
     delete process.env['MOCK_HOMEDIR'];
     restoreEnv('CARDS_HOME', savedCardsHome);
     restoreEnv('XDG_DATA_HOME', savedXdgDataHome);

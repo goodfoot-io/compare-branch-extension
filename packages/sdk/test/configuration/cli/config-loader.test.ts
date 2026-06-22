@@ -113,7 +113,7 @@ export default {
 
   afterAll(() => {
     // Clean up fixtures
-    rmSync(FIXTURES_DIR, { recursive: true, force: true });
+    rmSync(FIXTURES_DIR, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   describe('successful loads', () => {

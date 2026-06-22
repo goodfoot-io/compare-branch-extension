@@ -62,7 +62,7 @@ describe('spawnAdhocAttribution — second card bound in the same session', () =
 
   afterEach(async () => {
     vi.clearAllMocks();
-    await rm(sessionDir, { recursive: true, force: true });
+    await rm(sessionDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('activates card B (spawns adhoc-cleanup for B) even when the session lock is held for card A', async () => {

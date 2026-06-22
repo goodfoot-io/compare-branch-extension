@@ -60,7 +60,11 @@ async function resolveLinkedWorktreeDir(): Promise<string | null> {
       execFileAsync('git', ['rev-parse', '--show-toplevel']).then((r) => r.stdout.trim())
     ]);
     if (gitDir === gitCommonDir) return null;
-    return toplevel;
+    // git emits forward-slash paths even on Windows (`C:/Users/...`); normalize
+    // to a native filesystem path so the resolved worktreeDir compares equal to
+    // fs paths downstream (repo-match guard, unbound-candidate record key) and
+    // reads correctly in the bind notices. Mirrors getWorktreeForBranch.
+    return resolvePath(toplevel);
   } catch {
     // Not a git repository, or git unavailable — no linked worktree to bind.
     return null;

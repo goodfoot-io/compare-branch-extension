@@ -90,7 +90,9 @@ describe('WorktreeRemove hook', () => {
 
   afterEach(async () => {
     if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true });
+      // maxRetries: git worktree children can briefly hold a handle on the temp
+      // tree on Windows, racing the rmdir into EBUSY; Node retries on that class.
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpBase = '';
     }
   });
@@ -225,7 +227,7 @@ describe('WorktreeRemove hook', () => {
     // would have downgraded it to fail-open because the path is gone; type
     // classification correctly keeps it a teardown failure.
     mockRemoveWorktreeForCard.mockImplementation(async () => {
-      await fs.rm(worktree_path, { recursive: true, force: true });
+      await fs.rm(worktree_path, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       throw new Error('git worktree prune failed');
     });
 

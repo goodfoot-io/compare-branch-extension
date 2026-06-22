@@ -149,7 +149,7 @@ describe('builder CLI: build function', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(testDir, { recursive: true, force: true });
+    fs.rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   describe('successful builds', () => {
@@ -638,7 +638,7 @@ describe('builder CLI: compiled handler execution', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(testDir, { recursive: true, force: true });
+    fs.rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   /**
@@ -779,7 +779,7 @@ describe('builder CLI: directory and file handling', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(testDir, { recursive: true, force: true });
+    fs.rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('should create output directory if it does not exist', async () => {
@@ -916,7 +916,7 @@ describe('builder CLI: stream wwwRoot builds', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(testDir, { recursive: true, force: true });
+    fs.rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('should build config with stream wwwRoot and include streams section in settings.json', async () => {
@@ -1052,5 +1052,5 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  fs.rmSync(FIXTURES_BASE, { recursive: true, force: true });
+  fs.rmSync(FIXTURES_BASE, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });

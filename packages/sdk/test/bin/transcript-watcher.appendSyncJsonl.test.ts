@@ -31,7 +31,7 @@ describe('appendSyncJsonl partial-line sync (sdk-rt-01)', () => {
   });
 
   afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('does not duplicate the fragment when a line is completed across two syncs', async () => {

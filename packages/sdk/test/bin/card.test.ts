@@ -13,9 +13,10 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import { tmpdir as realTmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { forceRemoveSync } from '../helpers/forceRemove.js';
 
 /**
  * Absolute path to the tsx CLI entrypoint. Spawned via `process.execPath`
@@ -346,7 +347,7 @@ describe('card binary', () => {
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    rmSync(testDir, { recursive: true, force: true });
+    forceRemoveSync(testDir);
     delete process.env['MOCK_HOMEDIR'];
     restoreEnv('CARDS_HOME', savedCardsHome);
     restoreEnv('XDG_DATA_HOME', savedXdgDataHome);
@@ -1124,14 +1125,17 @@ describe('card binary', () => {
         execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: mainRepo });
         const linkedRaw = join(base, 'linked');
         execFileSync('git', ['worktree', 'add', '-q', '-b', 'feature/x', linkedRaw], { cwd: mainRepo });
-        // Use the git-canonical toplevel — the exact string resolveBindTarget
-        // records (it resolves the worktree via `git rev-parse --show-toplevel`).
-        // git resolves symlinks like realpath, and on Windows emits forward
-        // slashes (unlike `join`/`realpathSync`), so deriving it the same way
-        // keeps the bound-path assertions cross-platform.
-        linkedWorktree = execFileSync('git', ['-C', linkedRaw, 'rev-parse', '--show-toplevel'], {
-          encoding: 'utf8'
-        }).trim();
+        // Use the git-canonical toplevel — the path resolveBindTarget records.
+        // git resolves symlinks like realpath, so deriving it via `git rev-parse
+        // --show-toplevel` matches the resolved identity. resolveBindTarget then
+        // normalizes that output with `path.resolve` (git emits forward slashes
+        // on Windows; the production code converts to a native path so it
+        // compares equal to fs paths), so apply the same `resolve` here.
+        linkedWorktree = resolve(
+          execFileSync('git', ['-C', linkedRaw, 'rev-parse', '--show-toplevel'], {
+            encoding: 'utf8'
+          }).trim()
+        );
         execFileSync('git', ['config', 'branch.feature/x.cardsParent', 'main'], { cwd: linkedWorktree });
       }
 
@@ -1159,7 +1163,7 @@ describe('card binary', () => {
         restoreEnv('CARDS_SESSION_ID', savedSessionId);
         restoreEnv('CARDS_TRANSCRIPT_PATH', savedTranscript);
         process.exitCode = savedExitCode;
-        rmSync(base, { recursive: true, force: true });
+        forceRemoveSync(base);
       });
 
       it('creates an untracked card without binding when cwd is the main worktree (not linked)', async () => {
@@ -1474,14 +1478,17 @@ describe('card binary', () => {
       execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: mainRepo });
       const linkedRaw = join(base, 'linked');
       execFileSync('git', ['worktree', 'add', '-q', '-b', 'feature/bind', linkedRaw], { cwd: mainRepo });
-      // Use the git-canonical toplevel — the exact string resolveBindTarget
-      // records (it resolves the worktree via `git rev-parse --show-toplevel`).
-      // git resolves symlinks like realpath, and on Windows emits forward
-      // slashes (unlike `join`/`realpathSync`), so deriving it the same way
-      // keeps the bound-path assertions cross-platform.
-      linkedWorktree = execFileSync('git', ['-C', linkedRaw, 'rev-parse', '--show-toplevel'], {
-        encoding: 'utf8'
-      }).trim();
+      // Use the git-canonical toplevel — the path resolveBindTarget records.
+      // git resolves symlinks like realpath, so deriving it via `git rev-parse
+      // --show-toplevel` matches the resolved identity. resolveBindTarget then
+      // normalizes that output with `path.resolve` (git emits forward slashes
+      // on Windows; the production code converts to a native path so it
+      // compares equal to fs paths), so apply the same `resolve` here.
+      linkedWorktree = resolve(
+        execFileSync('git', ['-C', linkedRaw, 'rev-parse', '--show-toplevel'], {
+          encoding: 'utf8'
+        }).trim()
+      );
       if (withParentConfig) {
         execFileSync('git', ['config', 'branch.feature/bind.cardsParent', 'main'], { cwd: linkedWorktree });
       }
@@ -1518,7 +1525,7 @@ describe('card binary', () => {
       process.chdir(origCwd);
       restoreEnv('CARDS_SESSION_ID', savedSessionId);
       restoreEnv('CARDS_TRANSCRIPT_PATH', savedTranscript);
-      rmSync(base, { recursive: true, force: true });
+      forceRemoveSync(base);
     });
 
     it('Gate 1: refuses with exit 1 when cwd is the main worktree (not a linked worktree)', async () => {

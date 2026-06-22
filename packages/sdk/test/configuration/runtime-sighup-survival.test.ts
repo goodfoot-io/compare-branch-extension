@@ -113,7 +113,7 @@ describe('SIGHUP survival mechanism', () => {
       killProcessGroup(pid);
     }
     processGroupPids = [];
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it.skipIf(SKIP_ON_WINDOWS)(

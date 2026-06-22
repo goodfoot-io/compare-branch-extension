@@ -128,7 +128,7 @@ describe('outfitWorktreeForCard attribution outcome', () => {
     } else {
       process.env['CARDS_HOME'] = priorCardsHome;
     }
-    await rm(cardsHomeDir, { recursive: true, force: true });
+    await rm(cardsHomeDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('marks attribution skipped (not undefined) when transcriptPath is omitted', async () => {

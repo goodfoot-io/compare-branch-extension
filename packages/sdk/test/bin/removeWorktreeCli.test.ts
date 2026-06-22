@@ -198,11 +198,11 @@ describe('remove-worktree CLI', () => {
       process.env['HOME'] = originalHome;
     }
     if (homeBase) {
-      await fs.rm(homeBase, { recursive: true, force: true });
+      await fs.rm(homeBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       homeBase = '';
     }
     if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true });
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpBase = '';
     }
   });

@@ -171,7 +171,7 @@ describe('create-worktree CLI', () => {
       stubStop = undefined;
     }
     if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true });
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpBase = '';
     }
   });

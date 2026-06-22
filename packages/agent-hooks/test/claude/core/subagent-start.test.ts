@@ -102,7 +102,11 @@ describe('SubagentStart hook — bindable linked worktree', () => {
   });
 
   afterEach(async () => {
-    await rm(tmp, { recursive: true, force: true });
+    // maxRetries: on Windows a just-spawned `git` child (or an AV scan) can
+    // still hold a transient handle on the temp tree, so the recursive rmdir
+    // races it and throws EBUSY. Node's own retry backs off on exactly the
+    // EBUSY/EPERM/ENOTEMPTY class until the handle is released.
+    await rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('feeds the candidate set and emits a nudge for a bindable linked worktree', async () => {
@@ -163,7 +167,7 @@ describe('SubagentStart hook — non-bindable cwd', () => {
       expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
       expect(getAdditionalContext(result)).toBeUndefined();
     } finally {
-      await rm(empty, { recursive: true, force: true });
+      await rm(empty, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -179,7 +183,7 @@ describe('SubagentStart hook — non-bindable cwd', () => {
       expect(mocks.addUnboundCandidate).not.toHaveBeenCalled();
       expect(getAdditionalContext(result)).toBeUndefined();
     } finally {
-      await rm(base, { recursive: true, force: true });
+      await rm(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 });

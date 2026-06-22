@@ -70,7 +70,7 @@ function readCompiledOutput(outputPath: string): string {
  */
 function cleanupTestDir(dir: string): void {
   if (fs.existsSync(dir)) {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

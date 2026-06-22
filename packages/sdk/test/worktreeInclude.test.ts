@@ -79,7 +79,7 @@ describe('applyWorktreeInclude', () => {
       console.warn('afterEach: could not restore .worktreeinclude mode:', err);
     }
     const base = path.dirname(sourceRoot);
-    await fs.rm(base, { recursive: true, force: true });
+    await fs.rm(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('returns 0 and copies no files when no .worktreeinclude file exists', async () => {

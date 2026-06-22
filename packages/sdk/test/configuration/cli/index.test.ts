@@ -138,7 +138,7 @@ export default {
 
 afterAll(() => {
   // Clean up fixtures directory
-  rmSync(FIXTURES_DIR, { recursive: true, force: true });
+  rmSync(FIXTURES_DIR, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 describe('build', () => {
@@ -413,7 +413,7 @@ describe('stream wwwRoot configs', () => {
   });
 
   afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
+    rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('should include streams with wwwRoot in settings.json', async () => {
@@ -628,7 +628,7 @@ describe('wwwRoot bundling', () => {
   });
 
   afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
+    rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('should copy wwwRoot contents to the output directory and rewrite wwwRoot path', async () => {

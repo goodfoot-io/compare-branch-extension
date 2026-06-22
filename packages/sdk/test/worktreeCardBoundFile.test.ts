@@ -22,7 +22,7 @@ describe('writeCardBoundFile', () => {
 
   afterEach(async () => {
     if (tmpDir) {
-      await fs.rm(tmpDir, { recursive: true, force: true });
+      await fs.rm(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpDir = '';
     }
   });
@@ -61,7 +61,7 @@ describe('clearCardBoundFile', () => {
 
   afterEach(async () => {
     if (tmpDir) {
-      await fs.rm(tmpDir, { recursive: true, force: true });
+      await fs.rm(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpDir = '';
     }
   });

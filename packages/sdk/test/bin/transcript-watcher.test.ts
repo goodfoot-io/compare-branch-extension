@@ -202,7 +202,7 @@ describe('sentinelFileExists / removeSentinelFile / ensureGitignoreEntry', () =>
   });
 
   afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
+    rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('detects sentinel file and removes it idempotently', async () => {

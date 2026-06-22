@@ -113,7 +113,10 @@ describe('WorktreeCreate parentBranch derivation from a linked worktree (card-bo
 
   afterEach(async () => {
     process.env = originalEnv;
-    await rm(tempRoot, { recursive: true, force: true });
+    // maxRetries: git worktree children can hold a transient handle on the temp
+    // tree on Windows, racing the recursive rmdir into EBUSY; Node retries on the
+    // EBUSY/EPERM/ENOTEMPTY class until released.
+    await rm(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('records the branch the linked worktree was forked from (main), not the worktree’s own branch', async () => {

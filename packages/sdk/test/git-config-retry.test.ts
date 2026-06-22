@@ -27,7 +27,7 @@ describe('gitConfigWithRetry', () => {
   });
 
   afterEach(() => {
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('writes the value once a contended config lock is released', async () => {

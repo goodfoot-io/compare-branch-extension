@@ -13,13 +13,14 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir as realTmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { forceRemoveSync } from '../helpers/forceRemove.js';
 
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
@@ -204,8 +205,8 @@ describe('card create cross-workspace bind (reproduction)', () => {
     process.exitCode = savedExitCode;
     delete process.env['MOCK_HOMEDIR'];
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    rmSync(testDir, { recursive: true, force: true });
-    rmSync(reposBase, { recursive: true, force: true });
+    forceRemoveSync(testDir);
+    forceRemoveSync(reposBase);
   });
 
   /**

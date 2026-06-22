@@ -46,7 +46,7 @@ describe('api-discovery', () => {
 
   afterEach(() => {
     process.env = originalEnv;
-    rmSync(testDir, { recursive: true, force: true });
+    rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   describe('discoverApiInfo', () => {

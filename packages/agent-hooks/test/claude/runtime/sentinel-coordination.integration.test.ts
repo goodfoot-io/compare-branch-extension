@@ -35,7 +35,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await rm(cardRepoPath, { recursive: true, force: true });
+  // maxRetries: a sentinel/git child can hold a transient handle on the temp
+  // tree on Windows, racing the rmdir into EBUSY; Node retries on that class.
+  await rm(cardRepoPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 describe('sentinel file coordination', () => {

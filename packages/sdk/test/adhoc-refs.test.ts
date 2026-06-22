@@ -54,7 +54,7 @@ describe('adhoc-refs CARDS_HOME-isolated suite', () => {
     } else {
       process.env['CARDS_HOME'] = originalCardsHome;
     }
-    await rm(cardsHome, { recursive: true, force: true });
+    await rm(cardsHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   describe('writeRef + liveRefsRemain start-time reuse', () => {
@@ -120,7 +120,7 @@ describe('adhoc-refs CARDS_HOME-isolated suite', () => {
       // ENOENT means there is no actions dir → there are no actions, not an
       // unexpected error. Removing the isolated CARDS_HOME makes the readdir
       // raise ENOENT.
-      await rm(cardsHome, { recursive: true, force: true });
+      await rm(cardsHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       expect(await liveActionPresent(noopLogger)).toBe(false);
     });
   });
@@ -133,7 +133,7 @@ describe('adhoc-refs CARDS_HOME-isolated suite', () => {
     });
 
     afterEach(async () => {
-      await rm(reposRoot, { recursive: true, force: true });
+      await rm(reposRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     });
 
     async function seedCardRepo(cardId: string, status: string): Promise<string> {

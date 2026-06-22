@@ -174,7 +174,7 @@ describe('createWorktreeForCard', () => {
     } else {
       process.env['CARDS_HOME'] = priorCardsHome;
     }
-    await rm(cardsHomeDir, { recursive: true, force: true });
+    await rm(cardsHomeDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('calls createWorktree as a pure primitive (cwd only, no card options)', async () => {
@@ -495,7 +495,7 @@ describe('outfitWorktreeForCard idempotency', () => {
     } else {
       process.env['CARDS_HOME'] = priorCardsHome;
     }
-    await rm(cardsHomeDir, { recursive: true, force: true });
+    await rm(cardsHomeDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('skips captureOriginalHooksPath when CARD_ORIGINAL_HOOK_PATH already exists (snapshot guard holds)', async () => {

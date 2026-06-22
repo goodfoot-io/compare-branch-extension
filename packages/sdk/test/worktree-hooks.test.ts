@@ -163,7 +163,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
   afterEach(async () => {
     process.env = originalEnv;
     if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true });
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpBase = '';
     }
   });
@@ -290,7 +290,7 @@ describe('provisionSharedHooksDir content-addressed skip', () => {
   });
 
   afterEach(async () => {
-    await fs.rm(tmpBase, { recursive: true, force: true });
+    await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('skips re-provisioning when inputs are unchanged', async () => {
@@ -379,7 +379,7 @@ describe('generated dispatcher scripts', () => {
   afterEach(async () => {
     process.env = originalEnv;
     if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true });
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       tmpBase = '';
     }
   });

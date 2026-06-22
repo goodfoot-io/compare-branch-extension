@@ -43,7 +43,7 @@ describe('unboundWorktreeCandidates', () => {
     } else {
       process.env['CARDS_HOME'] = savedCardsHome;
     }
-    await fs.rm(tmpBase, { recursive: true, force: true });
+    await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   // ---------------------------------------------------------------------------
@@ -102,7 +102,7 @@ describe('unboundWorktreeCandidates', () => {
     // Write the entry while the directory exists.
     await addUnboundCandidate('sess-stale', gone, '/tmp/t.jsonl');
     // Remove the directory to simulate an unbound worktree that was deleted.
-    await fs.rm(gone, { recursive: true, force: true });
+    await fs.rm(gone, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 
     const entries = await readUnboundCandidates('sess-stale');
     expect(entries).toHaveLength(0);
@@ -112,7 +112,7 @@ describe('unboundWorktreeCandidates', () => {
     const gone = path.join(tmpBase, 'gone');
     await fs.mkdir(gone);
     await addUnboundCandidate('sess-mixed', gone, '/tmp/gone.jsonl');
-    await fs.rm(gone, { recursive: true, force: true });
+    await fs.rm(gone, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 
     await addUnboundCandidate('sess-mixed', liveWorktreeDir, '/tmp/live.jsonl');
 

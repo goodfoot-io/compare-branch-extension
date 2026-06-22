@@ -112,7 +112,7 @@ describe('transitionCardStatus', () => {
   });
 
   afterEach(async () => {
-    await rm(repoDir, { recursive: true, force: true });
+    await rm(repoDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('flips active to needs_review and commits', async () => {
@@ -167,7 +167,7 @@ describe('transitionCardStatus', () => {
       const log = execFileSync('git', ['log', '--oneline'], { cwd: bareRepo, encoding: 'utf-8' });
       expect(log).toContain('Changed status from active to needs_review');
     } finally {
-      await rm(bareRepo, { recursive: true, force: true });
+      await rm(bareRepo, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -216,7 +216,7 @@ describe('readCardStatus', () => {
   });
 
   afterEach(async () => {
-    await rm(repoDir, { recursive: true, force: true });
+    await rm(repoDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('reads the status field from CARD.meta.json', async () => {

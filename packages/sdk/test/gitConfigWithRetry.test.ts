@@ -22,7 +22,7 @@ describe('gitConfigWithRetry', () => {
   });
 
   afterEach(async () => {
-    await fs.rm(repoDir, { recursive: true, force: true });
+    await fs.rm(repoDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('writes the config value on the happy path', async () => {

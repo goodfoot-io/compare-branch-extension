@@ -433,7 +433,7 @@ describe('Logger', () => {
         }
       }
       try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       } catch {
         // Ignore cleanup errors
       }
@@ -532,7 +532,7 @@ describe('Logger', () => {
         expect(fs.existsSync(path.join(nonRepoDir, '.cards'))).toBe(false);
       } finally {
         process.chdir(savedCwd);
-        fs.rmSync(nonRepoDir, { recursive: true, force: true });
+        fs.rmSync(nonRepoDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       }
     });
   });

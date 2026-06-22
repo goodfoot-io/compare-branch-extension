@@ -165,7 +165,7 @@ async function buildHarness(): Promise<Harness> {
       await new Promise<void>((r) => httpServer.close(() => r()));
       await new Promise<void>((r) => unixServer.close(() => r()));
       if (existsSync(socketPath)) fs.unlinkSync(socketPath);
-      rmSync(apiInfoDir, { recursive: true, force: true });
+      rmSync(apiInfoDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   };
 }
@@ -214,7 +214,7 @@ describe('transcript-watcher binary integration', () => {
     }
     child = undefined;
     await harness.stop();
-    rmSync(base, { recursive: true, force: true });
+    rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   function spawnWatcher(pid: number): ChildProcess {
@@ -272,7 +272,7 @@ describe('transcript-watcher binary integration', () => {
   it('live-tails when source dir is created after watcher starts', async () => {
     // Remove the pre-created source dir — simulate Claude not having created
     // ~/.claude/projects/<encoded-cwd>/ yet at the moment the watcher spawns.
-    rmSync(sourceDir, { recursive: true, force: true });
+    rmSync(sourceDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 
     child = spawnWatcher(process.pid);
     await harness.waitForHello();
