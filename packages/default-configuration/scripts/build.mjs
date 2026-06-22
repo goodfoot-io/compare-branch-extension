@@ -15,9 +15,10 @@
  *   5. copy dist/* into <workspaceRoot>/.cards/ (after clearing bin/settings.json/www)
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { publishBundle } from './publishBundle.mjs';
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -98,11 +99,8 @@ for (const type of RENDERER_TYPES) {
   }
 }
 
-// 5. Publish the bundle into <workspaceRoot>/.cards/.
+// 5. Publish the bundle into <workspaceRoot>/.cards/ atomically, so a live
+//    extension host never observes a half-published bundle.
 const wsRoot = capture('git rev-parse --show-toplevel');
 const cardsDir = join(wsRoot, '.cards');
-for (const stale of ['bin', 'settings.json', 'www']) {
-  rmSync(join(cardsDir, stale), { recursive: true, force: true });
-}
-mkdirSync(cardsDir, { recursive: true });
-cpSync(dist, cardsDir, { recursive: true });
+publishBundle(dist, cardsDir);
