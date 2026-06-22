@@ -59,7 +59,12 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
  * @returns The resolved initial request timeout in milliseconds.
  */
 function resolveRequestTimeoutMs(): number {
-  const raw = process.env['CARDS_REQUEST_TIMEOUT_MS'];
+  // `cardsClient` is bundled into the browser webviews (via `@cards/web`), where
+  // there is no Node `process` global. Reading bare `process.env` there throws a
+  // `ReferenceError` at module load and blanks the entire webview. The
+  // `CARDS_REQUEST_TIMEOUT_MS` override is only meaningful in Node (CLI / QA
+  // harness); in the browser fall back to the safe default — fail closed.
+  const raw = typeof process !== 'undefined' ? process.env['CARDS_REQUEST_TIMEOUT_MS'] : undefined;
   if (raw === undefined) return DEFAULT_REQUEST_TIMEOUT_MS;
   const parsed = Number(raw);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
