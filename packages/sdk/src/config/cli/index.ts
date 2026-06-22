@@ -353,6 +353,12 @@ async function processAllWwwRoots(
 ): Promise<Map<string, string>> {
   const overrides = new Map<string, string>();
 
+  // Stream output directories are keyed by stream name alone (www/<stream>), so
+  // two environments that define a stream with the same name would write to the
+  // same directory — a last-writer-wins merge that silently corrupts one
+  // environment's renderer. Detect that collision up front and fail closed.
+  const outputDirOwner = new Map<string, string>();
+
   for (const [envName, envConfig] of Object.entries(config.environments)) {
     if (!envConfig.streams) continue;
 
@@ -371,6 +377,17 @@ async function processAllWwwRoots(
       if (!fs.existsSync(entrypointPath)) {
         continue;
       }
+
+      const priorOwner = outputDirOwner.get(streamName);
+      if (priorOwner !== undefined) {
+        throw new Error(
+          `wwwRoot output collision: stream "${streamName}" is defined with a wwwRoot in both ` +
+            `environments "${priorOwner}" and "${envName}", which would write to the same output ` +
+            `directory (www/${streamName}). Rename one of the streams so each renderer gets a ` +
+            `distinct output directory.`
+        );
+      }
+      outputDirOwner.set(streamName, envName);
 
       // wwwRoot is a forward-slash relative path consumed by the extension
       // runtime, so build it with path.posix regardless of host platform.

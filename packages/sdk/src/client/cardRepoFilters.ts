@@ -84,38 +84,36 @@ export function getUnattributedCommits(allCommits: string[], sessionCommits: str
 /**
  * Formats a card repository commit as a compact diffstat string.
  *
- * The header carries the short SHA and full author metadata in git's canonical
- * `Name <email>` form, followed by the commit subject. When the commit has a
- * body (the multi-line description after the subject), it is rendered on its own
- * indented lines between the header and the file list. This is the surface
- * `card <id> watch` prints, so it must include the author email and body — the
- * `CardCommit` carries both (`author_email`, `body`) and the documented contract
- * is that watch prints the commit's "author metadata, body, and changed files".
+ * The header carries the short SHA, the full author identity (name + email in
+ * git's canonical `Name <email>` form, falling back to name only when the email
+ * is empty), and the subject; the commit body — when present — follows as an
+ * indented block, and each changed file gets one status line. `card watch` is
+ * the sole consumer, and a caller deciding how to attribute a commit needs the
+ * author email and the body, not just the subject.
  *
  * @param commit - Commit metadata including per-file diff.
- * @returns Multi-line string: header, optional body lines, one file-status line
- *   per changed file.
+ * @returns Multi-line string with header, optional body block, and one
+ *   file-status line per changed file.
  */
 export function formatCommit(commit: CardCommit): string {
   const shortSha = commit.hash.slice(0, 7);
   const author = commit.author_email ? `${commit.author_name} <${commit.author_email}>` : commit.author_name;
   const header = `${shortSha} - ${author}: ${commit.message}`;
 
-  // Body (if present) on its own indented lines, between header and files.
-  const bodyLines =
-    commit.body.trim().length > 0
-      ? commit.body
-          .replace(/\s+$/, '')
-          .split('\n')
-          .map((line) => `    ${line}`)
-      : [];
+  const lines = [header];
 
-  const fileLines = commit.diff.files.map((f) => {
+  const body = commit.body.trim();
+  if (body.length > 0) {
+    for (const line of body.split('\n')) lines.push(`    ${line}`);
+  }
+
+  for (const f of commit.diff.files) {
     if (f.status.startsWith('R') && f.from !== undefined) {
-      return ` ${f.status} ${f.from} -> ${f.file}`;
+      lines.push(` ${f.status} ${f.from} -> ${f.file}`);
+    } else {
+      lines.push(` ${f.status} ${f.file}`);
     }
-    return ` ${f.status} ${f.file}`;
-  });
+  }
 
-  return [header, ...bodyLines, ...fileLines].join('\n');
+  return lines.join('\n');
 }

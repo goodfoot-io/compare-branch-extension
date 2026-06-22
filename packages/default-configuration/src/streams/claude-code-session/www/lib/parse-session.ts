@@ -687,9 +687,20 @@ export function parseLine(line: string): SessionMsg | null {
  */
 export function parseLines(lines: string[]): SessionMsg[] {
   const result: SessionMsg[] = [];
+  // De-dup by `uuid`: the transcript is double-written, so every `uuid` arrives
+  // twice. Fold each unique `uuid` once, mirroring the compact view, so the
+  // expanded transcript does not render every message twice. Lines without a
+  // `uuid` (e.g. some system/result lines) are never skipped.
+  const seenUuids = new Set<string>();
   for (const line of lines) {
     const msg = parseLine(line);
-    if (msg !== null) result.push(msg);
+    if (msg === null) continue;
+    const uuid = (msg as { uuid?: unknown }).uuid;
+    if (typeof uuid === 'string' && uuid) {
+      if (seenUuids.has(uuid)) continue;
+      seenUuids.add(uuid);
+    }
+    result.push(msg);
   }
   return result;
 }

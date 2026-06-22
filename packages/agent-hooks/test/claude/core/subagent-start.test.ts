@@ -16,7 +16,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Logger, SubagentStartInput } from '@goodfoot/claude-code-hooks';
@@ -95,7 +95,9 @@ describe('SubagentStart hook — bindable linked worktree', () => {
   beforeEach(async () => {
     vi.resetAllMocks();
     mocks = await importMocks();
-    tmp = await mkdtemp(join(tmpdir(), 'sas-bindable-'));
+    // Canonicalize: git rev-parse --show-toplevel returns the realpath, so on
+    // macOS the worktree resolves to /private/var/... rather than /var/...
+    tmp = await realpath(await mkdtemp(join(tmpdir(), 'sas-bindable-')));
     mocks.addUnboundCandidate.mockResolvedValue(undefined);
   });
 

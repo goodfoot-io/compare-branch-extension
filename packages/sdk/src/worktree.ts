@@ -13,13 +13,14 @@
  */
 
 import { execFile } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
 import { applyWorktreeInclude } from './worktreeInclude.js';
+import { createWorktreePerf } from './worktreePerf.js';
 
 /**
  * Thrown when a path argument falls outside the Cards worktrees root.
@@ -278,15 +279,52 @@ export interface EarlyWorktreeResult {
  * @returns Early result with `path` available immediately and `settle` resolving when setup completes.
  */
 export async function createWorktree(ref: string, options?: CreateWorktreeOptions): Promise<EarlyWorktreeResult> {
-  const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
+  // Opt-in phase timing (CARDS_WORKTREE_PERF). A no-op fast path when unset, so
+  // the common case allocates nothing and reads no clock. t0 is captured here,
+  // so every offset is measured from the start of the call the contributor waits on.
+  const perf = createWorktreePerf();
 
-  // Determine whether this is an existing ref or a new branch name.
-  // resolveRefType throws for unknown refs; a valid branch name that
-  // doesn't exist yet is treated as a new branch to create.
+  const { sourceRoot, repoRoot } = await perf.measure('findGitRoots', () =>
+    findGitRoots(options?.cwd ?? process.cwd())
+  );
+
+  const worktreeDir = resolveWorktreeDir(repoRoot, ref);
+
+  // Run the independent read-only git probes concurrently rather than serially.
+  // Previously the worktree-existence guard, ref classification, the branch
+  // start point, and a (duplicate) branch-existence check ran one after another
+  // (~330ms total). They share no state and git permits concurrent reads, so the
+  // prelude collapses to the cost of the slowest probe. Classification is also
+  // inlined here so branch existence is checked once, not once here and again
+  // inside resolveRefType. resolveHead(sourceRoot) is always valid (HEAD exists)
+  // and only consumed on the branch path, so computing it eagerly is safe waste
+  // hidden behind the slower probes.
+  const [worktreeExists, branchExists, tagExists, commitResolves, startPoint] = await perf.measure(
+    'prelude:probes',
+    () =>
+      Promise.all([
+        perf.measure('checkWorktreeExists', () => checkWorktreeExists(repoRoot, worktreeDir)),
+        perf.measure('checkBranchExists', () => checkBranchExists(repoRoot, ref)),
+        perf.measure('checkTagExists', () => checkTagExists(repoRoot, ref)),
+        perf.measure('checkCommitResolves', () => checkCommitResolves(repoRoot, ref)),
+        perf.measure('resolveHead(start)', () => resolveHead(sourceRoot))
+      ])
+  );
+
+  if (worktreeExists) {
+    throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
+  }
+
+  // Classify with branch > tag > commit precedence, matching resolveRefType. A
+  // ref that resolves to none of these is treated as a new branch to create.
   let refType: 'branch' | 'tag' | 'commit';
-  try {
-    refType = await resolveRefType(repoRoot, ref);
-  } catch {
+  if (branchExists) {
+    refType = 'branch';
+  } else if (tagExists) {
+    refType = 'tag';
+  } else if (commitResolves) {
+    refType = 'commit';
+  } else {
     validateBranchName(ref);
     refType = 'branch';
   }
@@ -295,78 +333,133 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     validateBranchName(ref);
   }
 
-  const worktreeDir = resolveWorktreeDir(repoRoot, ref);
+  // Start the source-only settle discovery now, so it overlaps the expensive
+  // `git worktree add` checkout instead of running after it. discoverIgnoredPaths
+  // (a full-tree `git ls-files`, ~440ms) and enumerateReroutedNodeModules read
+  // only sourceRoot/repoRoot — neither touches the not-yet-created worktree — so
+  // hoisting them here hides their cost under the multi-second checkout and
+  // shortens total settle time without affecting time-to-usable. A noop catch
+  // prevents an unhandled rejection during the checkout window before settle
+  // awaits them; settle still awaits each promise and surfaces any real error.
+  const ignoredPromise = perf.measure('settle:discoverIgnoredPaths', () => discoverIgnoredPaths(sourceRoot));
+  const reroutedPromise = perf.measure('settle:enumerateReroutedNodeModules', () =>
+    enumerateReroutedNodeModules({ sourceRoot, repoRoot })
+  );
+  ignoredPromise.catch(() => undefined);
+  reroutedPromise.catch(() => undefined);
 
-  const worktreeExists = await checkWorktreeExists(repoRoot, worktreeDir);
-  if (worktreeExists) {
-    throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
-  }
-
-  await cleanStaleWorktreeDir(repoRoot, worktreeDir);
+  await perf.measure('cleanStaleWorktreeDir', () => cleanStaleWorktreeDir(repoRoot, worktreeDir));
 
   if (refType === 'branch') {
-    const startPoint = await resolveHead(sourceRoot);
-    const branchExists = await checkBranchExists(repoRoot, ref);
-    await addWorktree({ repoRoot, worktreeDir, branchName: ref, branchExists, startPoint });
+    await perf.measure('git worktree add', () =>
+      addWorktree({ repoRoot, worktreeDir, branchName: ref, branchExists, startPoint })
+    );
   } else {
-    await addDetachedWorktree(repoRoot, worktreeDir, ref);
+    await perf.measure('git worktree add (detached)', () => addDetachedWorktree(repoRoot, worktreeDir, ref));
   }
 
   // The worktree directory exists on disk — return early so callers can use
   // the path (e.g. as cwd for spawning processes) while the remaining setup
-  // (symlinks, node_modules rerouting, git excludes) runs concurrently.
-  const settle = (async (): Promise<CreateWorktreeResult> => {
-    // Wave 1: all independent — launch immediately
-    const [ignored, reroutedNodeModules] = await Promise.all([
-      discoverIgnoredPaths(sourceRoot),
-      enumerateReroutedNodeModules({ sourceRoot, repoRoot }),
-      copyExistingSymlinks(sourceRoot, worktreeDir),
-      copyCardsDirectory(sourceRoot, worktreeDir)
-    ]);
+  // (symlinks, node_modules rerouting, git excludes) runs concurrently. This
+  // mark is the time-to-usable boundary the contributor's launch waits on.
+  perf.mark('usable-directory');
 
-    // Synchronization: compute filteredIgnored once both discovery results are in hand.
-    // .cards is copied rather than symlinked so each worktree gets an independent copy.
-    // node_modules owned by the rerouter are excluded here — the rerouter rebuilds
-    // them as real directories; symlinking first and then unlinking wastes syscalls
-    // and creates an ordering dependency between the two steps.
-    const ownedNodeModules = new Set(reroutedNodeModules.map((e) => e.relativePath));
-    const filteredIgnored: IgnoredPaths = {
-      directories: ignored.directories.filter(
-        (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedNodeModules.has(d)
-      ),
-      files: ignored.files.filter((f) => !f.startsWith('.cards/'))
-    };
+  const settle = perf.measure('settle:total', async (): Promise<CreateWorktreeResult> => {
+    // resolveHead(base) reads only the worktree HEAD (valid the moment the
+    // checkout completed) and is independent of every symlink/copy step, so start
+    // it at settle entry to overlap all three waves rather than paying for it in
+    // the wave-3 tail. A noop catch guards the window before it is awaited below.
+    const basePromise = perf.measure('settle:resolveHead(base)', () => resolveHead(worktreeDir));
+    basePromise.catch(() => undefined);
 
-    // Wave 2: symlinkIgnoredPaths and rerouteAllNodeModules write to disjoint paths
-    const [, reroutedCount] = await Promise.all([
-      symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored }),
-      rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot })
-    ]);
+    // Enable the worktree-local git config (rev-parse --git-dir + two ordered
+    // `git config` writes) now, overlapping the symlink/copy waves. These three
+    // subprocesses depend only on the worktree existing, not on any symlink, so
+    // running them here instead of in the wave-3 tail hides ~200ms of subprocess
+    // latency. The exclude-file *content* still waits for symlinks (wave 2).
+    const excludePathPromise = perf.measure('settle:prepareWorktreeExcludes', () =>
+      prepareWorktreeExcludes(worktreeDir, repoRoot)
+    );
+    excludePathPromise.catch(() => undefined);
 
-    // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
-    // on any overlapping gitignored paths; updateGitExclude needs symlinks in place;
-    // resolveHead is read-only and safe alongside both
-    const [copiedFromInclude, , baseSha] = await Promise.all([
-      applyWorktreeInclude({ sourceRoot, worktreeDir }),
-      updateGitExclude({
-        worktreeDir,
-        repoRoot,
-        directories: ignored.directories,
-        files: ignored.files
-      }),
-      resolveHead(worktreeDir)
-    ]);
+    // Mirror node_modules now, overlapping wave 1 and the exclude-config writes.
+    // It writes only the worktree's node_modules trees — disjoint from the root
+    // symlinks, .cards copy, and the (node_modules-excluded) ignored-path symlinks
+    // — so it is safe to start at settle entry rather than waiting for wave 2. It
+    // reuses the enumeration already in flight (reroutedPromise) instead of
+    // re-reading package.json and re-lstat-ing every package.
+    const reroutePromise = perf.measure('settle:rerouteAllNodeModules', async () =>
+      rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot, entries: await reroutedPromise })
+    );
+    reroutePromise.catch(() => undefined);
 
-    const result: CreateWorktreeResult = {
-      branch: ref,
-      worktree: worktreeDir,
-      baseSha,
-      copiedFromInclude,
-      reroutedSymlinks: reroutedCount
-    };
+    try {
+      // Wave 1: await the source-only discovery already in flight (started before
+      // `git worktree add`), and run the worktree-writing copies that needed the
+      // worktree to exist. discoverIgnoredPaths / enumerateReroutedNodeModules
+      // typically resolve during the checkout, so this wave is bounded by the copies.
+      const [ignored, reroutedNodeModules] = await perf.measure('settle:wave1', () =>
+        Promise.all([
+          ignoredPromise,
+          reroutedPromise,
+          perf.measure('settle:copyExistingSymlinks', () => copyExistingSymlinks(sourceRoot, worktreeDir)),
+          perf.measure('settle:copyCardsDirectory', () => copyCardsDirectory(sourceRoot, worktreeDir))
+        ])
+      );
 
-    return result;
-  })();
+      // Synchronization: compute filteredIgnored once both discovery results are in hand.
+      // .cards is copied rather than symlinked so each worktree gets an independent copy.
+      // node_modules owned by the rerouter are excluded here — the rerouter rebuilds
+      // them as real directories; symlinking first and then unlinking wastes syscalls
+      // and creates an ordering dependency between the two steps.
+      const ownedNodeModules = new Set(reroutedNodeModules.map((e) => e.relativePath));
+      const filteredIgnored: IgnoredPaths = {
+        directories: ignored.directories.filter(
+          (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedNodeModules.has(d)
+        ),
+        files: ignored.files.filter((f) => !f.startsWith('.cards/'))
+      };
+
+      // Wave 2: symlink the remaining ignored paths (node_modules already excluded
+      // from filteredIgnored and rerouted concurrently above).
+      await perf.measure('settle:symlinkIgnoredPaths', () =>
+        symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored })
+      );
+
+      // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
+      // on any overlapping gitignored paths; the exclude-file content write needs symlinks in
+      // place. The git config was already enabled above (excludePathPromise), so only the cheap
+      // filesystem append remains in the tail.
+      const [copiedFromInclude] = await perf.measure('settle:wave3', () =>
+        Promise.all([
+          perf.measure('settle:applyWorktreeInclude', () => applyWorktreeInclude({ sourceRoot, worktreeDir })),
+          perf.measure('settle:writeWorktreeExcludeFile', async () =>
+            writeWorktreeExcludeFile(await excludePathPromise, worktreeDir, ignored.directories, ignored.files)
+          )
+        ])
+      );
+
+      const [baseSha, reroutedCount] = await Promise.all([basePromise, reroutePromise]);
+
+      const result: CreateWorktreeResult = {
+        branch: ref,
+        worktree: worktreeDir,
+        baseSha,
+        copiedFromInclude,
+        reroutedSymlinks: reroutedCount
+      };
+
+      return result;
+    } finally {
+      // No spawned work may outlive settle. When a wave rejects early, the hoisted
+      // promises (resolveHead, node_modules reroute, and the prepareWorktreeExcludes
+      // git-config subprocesses) are still in flight; awaiting their settlement here
+      // guarantees no background git/fs operation races worktree teardown or the
+      // consumer's use of the directory. allSettled because their failures, if any,
+      // are already surfaced on the success path — here we only need them quiescent.
+      await Promise.allSettled([ignoredPromise, reroutedPromise, basePromise, excludePathPromise, reroutePromise]);
+    }
+  });
 
   return { path: worktreeDir, settle };
 }
@@ -569,6 +662,40 @@ export async function checkBranchExists(repoRoot: string, branchName: string): P
 }
 
 /**
+ * Checks whether a tag with the given name exists in the repository.
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param ref - Tag name to query.
+ * @returns True when `git tag --list` returns a matching tag.
+ */
+export async function checkTagExists(repoRoot: string, ref: string): Promise<boolean> {
+  const { stdout } = await execFileAsync('git', ['tag', '--list', ref], {
+    cwd: repoRoot,
+    timeout: 30_000
+  });
+  return stdout.trim().length > 0;
+}
+
+/**
+ * Checks whether a ref resolves to a commit object (`<ref>^{commit}`).
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param ref - Candidate commit-ish to verify.
+ * @returns True when `git rev-parse --verify <ref>^{commit}` succeeds.
+ */
+export async function checkCommitResolves(repoRoot: string, ref: string): Promise<boolean> {
+  try {
+    await execFileAsync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
+      cwd: repoRoot,
+      timeout: 5_000
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Determines whether a git ref is a branch, tag, or commit SHA.
  *
  * Checks local branches first, then tags, then falls back to verifying
@@ -580,24 +707,10 @@ export async function checkBranchExists(repoRoot: string, branchName: string): P
  * @returns The ref type: `'branch'`, `'tag'`, or `'commit'`.
  */
 export async function resolveRefType(repoRoot: string, ref: string): Promise<'branch' | 'tag' | 'commit'> {
-  const branchExists = await checkBranchExists(repoRoot, ref);
-  if (branchExists) return 'branch';
-
-  const { stdout: tagOutput } = await execFileAsync('git', ['tag', '--list', ref], {
-    cwd: repoRoot,
-    timeout: 30_000
-  });
-  if (tagOutput.trim().length > 0) return 'tag';
-
-  try {
-    await execFileAsync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
-      cwd: repoRoot,
-      timeout: 5_000
-    });
-    return 'commit';
-  } catch {
-    throw new Error(`Error: '${ref}' does not resolve to a branch, tag, or commit.`);
-  }
+  if (await checkBranchExists(repoRoot, ref)) return 'branch';
+  if (await checkTagExists(repoRoot, ref)) return 'tag';
+  if (await checkCommitResolves(repoRoot, ref)) return 'commit';
+  throw new Error(`Error: '${ref}' does not resolve to a branch, tag, or commit.`);
 }
 
 interface AddWorktreeOptions {
@@ -1128,6 +1241,28 @@ export async function provisionSharedHooksDir(
 ): Promise<void> {
   await fs.mkdir(sharedHooksDir, { recursive: true });
 
+  // Content-addressed skip: the provisioned files are a pure function of the
+  // dispatcher template (versioned by DISPATCHER_SCHEMA_VERSION) and the compiled
+  // `.mjs` inputs. Key on the version plus each source's size+mtime (a stat, no
+  // read) and record it in a marker written last. A matching marker means the dir
+  // already holds byte-identical output, so the ~20 writes are skipped. This needs
+  // no invalidation: a rebuilt `.mjs` changes its stat → a different key → a
+  // natural miss; a stale key is simply never matched, never expired. Fail-closed:
+  // the marker is written only after every file lands, so a crash mid-provision
+  // leaves no marker and the next call re-provisions.
+  const markerPath = path.join(sharedHooksDir, MARKER_NAME);
+  const provisionKey = await computeHooksProvisionKey(compiledScriptPaths);
+  try {
+    const existing = await fs.readFile(markerPath, 'utf-8');
+    if (existing === provisionKey) {
+      return;
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
   const atomicWrite = async (destName: string, content: string, mode: number): Promise<void> => {
     const destPath = path.join(sharedHooksDir, destName);
     const tmpPath = path.join(sharedHooksDir, `.${destName}.${process.pid}.${randomUUID()}.tmp`);
@@ -1157,6 +1292,49 @@ export async function provisionSharedHooksDir(
       await atomicWrite(`${hookType}.mjs`, content, 0o644);
     })
   );
+
+  // Marker written LAST so its presence proves a complete provision (fail-closed).
+  await atomicWrite(MARKER_NAME, provisionKey, 0o644);
+}
+
+/**
+ * Filename of the {@link provisionSharedHooksDir} content-addressed marker.
+ * Dot-prefixed so it never collides with a hook-type dispatcher script.
+ */
+const MARKER_NAME = '.provisioned';
+
+/**
+ * Bump whenever {@link buildDispatcherScript}, {@link CLIENT_SIDE_HOOK_TYPES},
+ * or {@link RESOLVE_NODE} change so a stale shared-hooks dir is re-provisioned
+ * even when the compiled `.mjs` inputs are unchanged. The dispatcher script
+ * content is otherwise invisible to the stat-based key.
+ */
+const DISPATCHER_SCHEMA_VERSION = 1;
+
+/**
+ * Computes the content-addressed provisioning key for {@link provisionSharedHooksDir}.
+ *
+ * The key identifies the exact byte output the dir should hold: the dispatcher
+ * schema version, the full ordered hook-type list, and — for each compiled
+ * `.mjs` input — its size and mtime (a `stat`, never a content read). A rebuilt
+ * `.mjs` changes its mtime/size and so the key, which is what makes the cache
+ * invalidation-free: a changed input yields a different key rather than needing
+ * an explicit expiry.
+ *
+ * @param compiledScriptPaths - Map of hook name to compiled `.mjs` source path.
+ * @returns Hex sha-256 digest over the version and per-input stat metadata.
+ * @throws When a compiled `.mjs` source cannot be stat-ed (fail-closed; the same
+ *   missing input would also break the read in the provisioning body).
+ */
+async function computeHooksProvisionKey(compiledScriptPaths: Record<string, string>): Promise<string> {
+  const hash = createHash('sha256');
+  hash.update(`v${DISPATCHER_SCHEMA_VERSION}\n`);
+  hash.update(`${CLIENT_SIDE_HOOK_TYPES.join(',')}\n`);
+  for (const [hookType, sourcePath] of Object.entries(compiledScriptPaths).sort((a, b) => a[0].localeCompare(b[0]))) {
+    const stats = await fs.stat(sourcePath);
+    hash.update(`${hookType}:${stats.size}:${stats.mtimeMs}\n`);
+  }
+  return hash.digest('hex');
 }
 
 interface SymlinkIgnoredPathsOptions {
@@ -1527,6 +1705,13 @@ interface RerouteAllNodeModulesOptions {
   sourceRoot: string;
   worktreeDir: string;
   repoRoot: string;
+  /**
+   * Pre-enumerated entries from {@link enumerateReroutedNodeModules}. When
+   * supplied, the redundant internal enumeration is skipped — {@link createWorktree}
+   * already enumerates once (concurrently with the checkout) and reuses the result
+   * here so the same `package.json` read and per-package `lstat`s do not run twice.
+   */
+  entries?: ReroutedNodeModulesEntry[];
 }
 
 /**
@@ -1534,30 +1719,34 @@ interface RerouteAllNodeModulesOptions {
  *
  * The operation is skipped when the repository has no workspace configuration.
  *
- * @param opts - Source root, destination worktree root, and repo root.
+ * @param opts - Source root, destination worktree root, repo root, and optional pre-enumerated entries.
  * @returns Total number of recreated internal workspace symlinks.
  */
 export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions): Promise<number> {
-  const { sourceRoot, worktreeDir, repoRoot } = opts;
+  const { sourceRoot, worktreeDir, repoRoot, entries } = opts;
 
-  const reroutedEntries = await enumerateReroutedNodeModules({ sourceRoot, repoRoot });
+  const reroutedEntries = entries ?? (await enumerateReroutedNodeModules({ sourceRoot, repoRoot }));
   if (reroutedEntries.length === 0) {
     return 0;
   }
 
-  let totalCount = 0;
+  // Each entry mirrors into a distinct destination node_modules tree (the root
+  // and one per workspace package), so they write disjoint paths and run
+  // concurrently rather than one-after-another. Previously the big root tree
+  // blocked the small per-package trees behind it; now they overlap.
+  const counts = await Promise.all(
+    reroutedEntries.map(async (entry) => {
+      const destNodeModules = path.join(worktreeDir, entry.relativePath);
+      const destParent = path.dirname(destNodeModules);
+      await fs.mkdir(destParent, { recursive: true });
+      return rerouteNodeModules({
+        sourceNodeModules: entry.sourceNodeModules,
+        destNodeModules
+      });
+    })
+  );
 
-  for (const entry of reroutedEntries) {
-    const destNodeModules = path.join(worktreeDir, entry.relativePath);
-    const destParent = path.dirname(destNodeModules);
-    await fs.mkdir(destParent, { recursive: true });
-    totalCount += await rerouteNodeModules({
-      sourceNodeModules: entry.sourceNodeModules,
-      destNodeModules
-    });
-  }
-
-  return totalCount;
+  return counts.reduce((sum, c) => sum + c, 0);
 }
 
 interface UpdateGitExcludeOptions {
@@ -1569,56 +1758,29 @@ interface UpdateGitExcludeOptions {
 }
 
 /**
- * Appends symlinked ignored paths to the worktree-specific git exclude file.
+ * Resolves the worktree's `info/exclude` path and enables the worktree-local
+ * git config needed for injected symlinks to be ignored by `git status`.
  *
- * Also enables `extensions.worktreeConfig` and sets worktree-local
- * `core.excludesFile` so git status in the worktree ignores injected links.
+ * This is the subprocess-heavy half of {@link updateGitExclude} — a
+ * `rev-parse --git-dir` plus two ordered `git config` writes — and it depends
+ * only on the worktree existing, not on any symlink being in place. Splitting it
+ * out lets {@link createWorktree} start it at settle entry so the three git
+ * subprocesses overlap the symlink/copy waves instead of running in the tail.
  *
- * @param opts - Worktree path, repo root, and ignored path candidates.
- * @returns No value.
+ * `extensions.worktreeConfig` MUST be enabled before the `--worktree
+ * core.excludesFile` write (D9); both are idempotent and retried on config-lock
+ * contention against `outfitWorktreeForCard`, which sets the same repo key.
+ *
+ * @param worktreeDir - Absolute worktree root.
+ * @param repoRoot - Primary repository root.
+ * @returns Absolute path to the worktree's `info/exclude` file.
  */
-export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<void> {
-  const { worktreeDir, repoRoot, directories, files, additionalExcludes } = opts;
-
+export async function prepareWorktreeExcludes(worktreeDir: string, repoRoot: string): Promise<string> {
   const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreeDir, 'rev-parse', '--git-dir'], {
     timeout: 5_000
   });
   const excludePath = path.join(gitDir.trim(), 'info', 'exclude');
   await fs.mkdir(path.dirname(excludePath), { recursive: true });
-
-  const lines = ['# Symlinks created by instant-worktree'];
-
-  for (const dir of directories) {
-    if (!dir) continue;
-    try {
-      const stats = await fs.lstat(path.join(worktreeDir, dir));
-      if (stats.isSymbolicLink()) lines.push(dir);
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-
-  for (const file of files) {
-    if (!file) continue;
-    try {
-      const stats = await fs.lstat(path.join(worktreeDir, file));
-      if (stats.isSymbolicLink()) lines.push(file);
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-
-  if (additionalExcludes) {
-    for (const entry of additionalExcludes) {
-      if (entry) lines.push(entry);
-    }
-  }
-
-  await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
 
   try {
     await gitConfigWithRetry(['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true']);
@@ -1635,4 +1797,75 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
       `create-worktree: failed to set core.excludesFile: ${error instanceof Error ? error.message : String(error)}\n`
     );
   }
+
+  return excludePath;
+}
+
+/**
+ * Appends the symlinked ignored paths to the worktree's `info/exclude` file.
+ *
+ * This is the symlink-dependent half of {@link updateGitExclude}: it `lstat`s
+ * each candidate and lists only the entries that are actually symlinks (the ones
+ * the settle phase injected), so it must run after the symlink wave. No git
+ * subprocess — pure filesystem — so it is cheap to run in the tail.
+ *
+ * @param excludePath - Path returned by {@link prepareWorktreeExcludes}.
+ * @param worktreeDir - Absolute worktree root.
+ * @param directories - Candidate ignored directories (relative to the worktree).
+ * @param files - Candidate ignored files (relative to the worktree).
+ * @param additionalExcludes - Extra literal exclude lines to append unconditionally.
+ */
+export async function writeWorktreeExcludeFile(
+  excludePath: string,
+  worktreeDir: string,
+  directories: string[],
+  files: string[],
+  additionalExcludes?: string[]
+): Promise<void> {
+  const lines = ['# Symlinks created by instant-worktree'];
+
+  const pushIfSymlink = async (entry: string): Promise<void> => {
+    if (!entry) return;
+    try {
+      const stats = await fs.lstat(path.join(worktreeDir, entry));
+      if (stats.isSymbolicLink()) lines.push(entry);
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  };
+
+  for (const dir of directories) {
+    await pushIfSymlink(dir);
+  }
+  for (const file of files) {
+    await pushIfSymlink(file);
+  }
+
+  if (additionalExcludes) {
+    for (const entry of additionalExcludes) {
+      if (entry) lines.push(entry);
+    }
+  }
+
+  await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
+}
+
+/**
+ * Appends symlinked ignored paths to the worktree-specific git exclude file.
+ *
+ * Also enables `extensions.worktreeConfig` and sets worktree-local
+ * `core.excludesFile` so git status in the worktree ignores injected links.
+ * Thin wrapper composing {@link prepareWorktreeExcludes} and
+ * {@link writeWorktreeExcludeFile}; {@link createWorktree} calls the two halves
+ * separately so the config writes overlap the settle waves.
+ *
+ * @param opts - Worktree path, repo root, and ignored path candidates.
+ * @returns No value.
+ */
+export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<void> {
+  const { worktreeDir, repoRoot, directories, files, additionalExcludes } = opts;
+  const excludePath = await prepareWorktreeExcludes(worktreeDir, repoRoot);
+  await writeWorktreeExcludeFile(excludePath, worktreeDir, directories, files, additionalExcludes);
 }

@@ -105,6 +105,26 @@ describe('Stop Hook', () => {
       expect(stdout.systemMessage).toContain('no HEAD SHA');
     });
 
+    it('approves fail-open when readSessionHeadSha throws a non-ENOENT error', async () => {
+      // Reproduces hooks-01: readSessionHeadSha rethrows non-ENOENT errors
+      // (EACCES, EISDIR, ...). The Stop hook invokes it bare, so the exception
+      // escapes the hook instead of being handled gracefully like every other
+      // I/O call in the file. The hook should fail open with a graceful
+      // approve, as the sibling post-tool-use hook does for the same call.
+      const eaccesError = Object.assign(new Error('permission denied'), { code: 'EACCES' });
+      mockReadSessionHeadSha.mockImplementation(() => {
+        throw eaccesError;
+      });
+      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      const result = await hook(mockInput, context);
+
+      expect(result).toHaveProperty('_type', 'Stop');
+      const stdout = result!.stdout as { decision?: string };
+      expect(stdout.decision).toBe('approve');
+    });
+
     it('returns null when no commits since HEAD SHA', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockGetCommitsSince.mockReturnValue([]);

@@ -367,24 +367,33 @@ export async function resolveOrCreateWorktree(
 }
 
 /**
- * Kills processes whose current working directory is inside the given directory.
+ * Finds processes whose current working directory is at or inside the given
+ * directory.
  *
- * Scans `/proc/[pid]/cwd` symlinks to find processes rooted under `dirPath`,
- * sends SIGTERM, waits briefly, then SIGKILL any survivors. Skips the current
- * process. Non-fatal: errors reading `/proc` entries are silently ignored.
+ * Scans `/proc/[pid]/cwd` symlinks for processes rooted under `dirPath`,
+ * skipping the current process. Returns an empty array when `/proc` is
+ * unavailable (non-Linux) or when `dirPath` does not resolve — callers must
+ * treat "no processes found" as best-effort, not a guarantee of emptiness.
  *
- * @param dirPath - Absolute path to the directory whose child processes should be killed.
+ * @param dirPath - Absolute path to the directory to scan for rooted processes.
  * @param logger - Logger for diagnostic output.
+ * @returns The pids whose cwd is at or under `dirPath`.
  */
-async function killProcessesInDirectory(dirPath: string, logger: ActionContext['logger']): Promise<void> {
-  const resolvedDir = fsSyncNs.realpathSync(dirPath);
-  const pidsToKill: number[] = [];
+async function findProcessesInDirectory(dirPath: string, logger: ActionContext['logger']): Promise<number[]> {
+  const pids: number[] = [];
+
+  let resolvedDir: string;
+  try {
+    resolvedDir = fsSyncNs.realpathSync(dirPath);
+  } catch {
+    return pids; // worktree path does not resolve — nothing to find
+  }
 
   let entries: string[];
   try {
     entries = await fs.readdir('/proc');
   } catch {
-    return; // /proc not available (non-Linux)
+    return pids; // /proc not available (non-Linux)
   }
 
   for (const entry of entries) {
@@ -395,7 +404,7 @@ async function killProcessesInDirectory(dirPath: string, logger: ActionContext['
     try {
       const cwdLink = await fs.readlink(`/proc/${pid}/cwd`);
       if (cwdLink === resolvedDir || cwdLink.startsWith(`${resolvedDir}/`)) {
-        pidsToKill.push(pid);
+        pids.push(pid);
       }
     } catch (error: unknown) {
       const code = (error as NodeJS.ErrnoException).code;
@@ -403,6 +412,21 @@ async function killProcessesInDirectory(dirPath: string, logger: ActionContext['
       logger.debug('Failed to read /proc cwd symlink', { pid, error: errorMessage(error) });
     }
   }
+
+  return pids;
+}
+
+/**
+ * Kills processes whose current working directory is inside the given directory.
+ *
+ * Sends SIGTERM to every process rooted under `dirPath`, waits briefly, then
+ * SIGKILLs any survivors. Non-fatal: failures are logged, not thrown.
+ *
+ * @param dirPath - Absolute path to the directory whose child processes should be killed.
+ * @param logger - Logger for diagnostic output.
+ */
+async function killProcessesInDirectory(dirPath: string, logger: ActionContext['logger']): Promise<void> {
+  const pidsToKill = await findProcessesInDirectory(dirPath, logger);
 
   if (pidsToKill.length === 0) return;
 
@@ -556,8 +580,24 @@ export async function cleanupMergedBranches(
       elapsedMs: Math.round(performance.now() - t0)
     });
 
-    // Branch is merged — clean up worktree, branch ref, and branch record
+    // Branch is merged — but the per-card sweep must never reclaim a worktree
+    // that another action on this card is still using. A sibling action's
+    // branch sitting at zero commits beyond its parent is trivially an ancestor
+    // of that parent, so "merged" alone is too weak a signal to act on. Gate on
+    // actual liveness: if a process is currently rooted in the worktree, the
+    // owning action is still running — skip the entire reclamation rather than
+    // SIGKILL the agent and delete its worktree out from under it.
     if (branchData.worktree) {
+      const liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
+      if (liveProcesses.length > 0) {
+        logger.info('Skipping cleanup — worktree is in use by a running action', {
+          branch: branchName,
+          worktree: branchData.worktree,
+          pids: liveProcesses
+        });
+        continue;
+      }
+
       t0 = performance.now();
       await tryCleanupStep(
         () => killProcessesInDirectory(branchData.worktree!, logger),

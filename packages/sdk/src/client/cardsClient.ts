@@ -38,24 +38,25 @@ import type {
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
 
-/** Default fetch timeout in milliseconds for each individual request attempt. */
-const DEFAULT_REQUEST_TIMEOUT_MS = 3_000;
+/** Default initial fetch timeout in milliseconds for each individual request attempt. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 /**
- * Resolves the per-request fetch timeout, honoring the
+ * Resolves the initial per-request fetch timeout, honoring the
  * `CARDS_REQUEST_TIMEOUT_MS` env override when it is a positive finite number.
  *
- * The 3 s default is correct for real users hitting a warm, already-running
- * extension server. It is too short, however, for a *cold* server whose first
- * `createCard` POST must spawn the git-plumbing compare-and-swap path
+ * The 10 s default is correct for real users hitting a warm, already-running
+ * extension server. It can be too short, however, for a *cold* server whose
+ * first `createCard` POST must spawn the git-plumbing compare-and-swap path
  * (`commitWithCas` / index reconcile) — on a slow host (notably Windows, where
- * `git` subprocess spawning is expensive) that one-time cost can exceed 3 s and
- * abort the request. The QA harness (and slow CI) therefore set a larger value
- * via `CARDS_REQUEST_TIMEOUT_MS` so the raw `card` CLI tolerates the cold start,
- * while end users keep the tight 3 s bound. Invalid values (non-numeric, zero,
- * negative, infinite) fall back to the default — fail-closed to the safe bound.
+ * `git` subprocess spawning is expensive) that one-time cost can approach or
+ * exceed the bound and abort the request. The QA harness (and slow CI)
+ * therefore raise it via `CARDS_REQUEST_TIMEOUT_MS` so the raw `card` CLI
+ * subprocess tolerates the cold start, while end users keep the tight 10 s
+ * bound. Invalid values (non-numeric, zero, negative, infinite) fall back to
+ * the default — fail-closed to the safe bound.
  *
- * @returns The resolved request timeout in milliseconds.
+ * @returns The resolved initial request timeout in milliseconds.
  */
 function resolveRequestTimeoutMs(): number {
   const raw = process.env['CARDS_REQUEST_TIMEOUT_MS'];
@@ -65,8 +66,17 @@ function resolveRequestTimeoutMs(): number {
   return DEFAULT_REQUEST_TIMEOUT_MS;
 }
 
-/** Fetch timeout in milliseconds for each individual request attempt. */
+/** Initial fetch timeout in milliseconds for each individual request attempt. */
 const REQUEST_TIMEOUT_MS = resolveRequestTimeoutMs();
+
+/**
+ * Maximum per-request fetch timeout in milliseconds. The per-attempt timeout
+ * starts at {@link REQUEST_TIMEOUT_MS} and doubles on each consecutive network
+ * failure, capped at this value. The cap tracks the resolved initial timeout so
+ * a `CARDS_REQUEST_TIMEOUT_MS` override larger than the 10 s baseline is never
+ * clamped *downward* on the first backoff step.
+ */
+const MAX_REQUEST_TIMEOUT_MS = Math.max(10_000, REQUEST_TIMEOUT_MS);
 
 /** Initial delay before retrying a failed network request (3 seconds). */
 const INITIAL_RETRY_DELAY_MS = 3_000;
@@ -124,8 +134,20 @@ function isNonRecoverableError(error: unknown): boolean {
 export class CardsClient {
   private readonly _httpClient?: HttpClient;
 
-  /** Current fetch timeout in milliseconds. Reset to {@link REQUEST_TIMEOUT_MS} on each successful response. */
-  private _currentTimeoutMs = REQUEST_TIMEOUT_MS;
+  /**
+   * The caller-configured per-request timeout. {@link _currentTimeoutMs} starts
+   * at this value and doubles on each consecutive network failure (capped at
+   * {@link MAX_REQUEST_TIMEOUT_MS}), resetting to this value on each successful
+   * response.
+   */
+  private readonly _initialTimeoutMs: number;
+
+  /**
+   * Current per-request fetch timeout in milliseconds. Doubles on each
+   * consecutive network failure (capped at {@link MAX_REQUEST_TIMEOUT_MS}) and
+   * resets to {@link _initialTimeoutMs} on each successful response.
+   */
+  private _currentTimeoutMs: number;
 
   /**
    * Creates a new CardsClient instance.
@@ -138,6 +160,8 @@ export class CardsClient {
     httpClient?: HttpClient
   ) {
     this._httpClient = httpClient;
+    this._initialTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+    this._currentTimeoutMs = this._initialTimeoutMs;
   }
 
   /**
@@ -180,17 +204,17 @@ export class CardsClient {
   }
 
   /**
-   * Records a successful request and resets the timeout backoff.
+   * Records a successful request and resets the timeout backoff to the
+   * caller-configured initial value.
    */
   private onRequestSuccess(): void {
-    this._currentTimeoutMs = REQUEST_TIMEOUT_MS;
+    this._currentTimeoutMs = this._initialTimeoutMs;
   }
 
   /**
    * Default HTTP client implementation using fetch + JSON payloads.
    *
-   * Each fetch call includes an AbortSignal.timeout that starts at 3 seconds
-   * and doubles on consecutive failures up to 10 seconds.
+   * Each fetch call includes an AbortSignal.timeout of 10 seconds.
    */
   private defaultHttpClient: HttpClient = {
     get: async <T>(url: string, options?: RequestInit): Promise<T> => {
@@ -371,7 +395,11 @@ export class CardsClient {
         }
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
         retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
-        this.onRequestSuccess();
+        // Double the per-request fetch timeout on each consecutive network
+        // failure (capped at MAX_REQUEST_TIMEOUT_MS) so a congested server gets
+        // progressively more time to respond. Do NOT reset here — only an
+        // actual success resets the backoff.
+        this._currentTimeoutMs = Math.min(this._currentTimeoutMs * 2, MAX_REQUEST_TIMEOUT_MS);
       }
     }
   }
