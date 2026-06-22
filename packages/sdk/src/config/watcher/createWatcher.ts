@@ -84,7 +84,14 @@ export async function createWatcher(
   // 3. Connect to the Unix socket (named pipe on Windows — see socketEndpoint).
   const socket = net.createConnection(socketEndpoint(socketPath));
 
-  // 4. Perform the hello handshake
+  // 4. Perform the hello handshake.
+  //
+  // A stream socket does not preserve message boundaries: the server may write
+  // (or the OS may coalesce) `hello-ack\n` and a subsequent message such as an
+  // immediate `control: stop` into a single read. Any bytes that arrive after
+  // the first newline must be carried over to run()'s parser instead of being
+  // discarded, otherwise the batched message is silently lost.
+  let handshakeRemainder = '';
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
       socket.destroy();
@@ -103,7 +110,7 @@ export async function createWatcher(
       if (newlineIdx === -1) return;
 
       const line = lineBuffer.slice(0, newlineIdx);
-      lineBuffer = lineBuffer.slice(newlineIdx + 1);
+      handshakeRemainder = lineBuffer.slice(newlineIdx + 1);
       socket.removeListener('data', onData);
 
       let msg: ServerToWatcherMessage;
@@ -190,10 +197,12 @@ export async function createWatcher(
           }
         };
 
-        // Listen for incoming control messages from server
-        let lineBuffer = '';
-        socket.on('data', (chunk: Buffer) => {
-          lineBuffer += chunk.toString();
+        // Listen for incoming control messages from server. Seed the parser with
+        // any bytes that were batched after `hello-ack` during the handshake but
+        // not yet consumed — a stream socket may coalesce the ack with a
+        // subsequent message, and those trailing bytes are never re-emitted.
+        let lineBuffer = handshakeRemainder;
+        const processBuffer = () => {
           for (;;) {
             const newlineIdx = lineBuffer.indexOf('\n');
             if (newlineIdx === -1) break;
@@ -241,6 +250,10 @@ export async function createWatcher(
               }
             }
           }
+        };
+        socket.on('data', (chunk: Buffer) => {
+          lineBuffer += chunk.toString();
+          processBuffer();
         });
 
         socket.on('close', () => {
@@ -266,6 +279,13 @@ export async function createWatcher(
             return Promise.reject(err as Error);
           }
         })();
+
+        // Drain any handshake-batched bytes now that the handler has had the
+        // chance to register its onControl handler. Deferring to the next tick
+        // mirrors how live 'data' events are delivered after the handler starts.
+        if (lineBuffer.length > 0) {
+          setImmediate(processBuffer);
+        }
 
         handlerResult.then(
           () => {

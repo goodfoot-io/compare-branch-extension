@@ -293,7 +293,11 @@ export class TestWebSocketServer {
         return;
       }
 
+      const clients = Array.from(this.wss.clients);
+
       const timeoutId = setTimeout(() => {
+        clearInterval(checkMessages);
+        cleanup();
         reject(new Error(`Timeout waiting for message after ${timeout}ms`));
       }, timeout);
 
@@ -301,23 +305,30 @@ export class TestWebSocketServer {
         if (this.receivedMessages.length > 0) {
           clearInterval(checkMessages);
           clearTimeout(timeoutId);
+          cleanup();
           const message = this.receivedMessages.shift();
           resolve(message?.data);
         }
       }, 10);
 
-      // Also set up listener for new messages
       const onMessage = () => {
         if (this.receivedMessages.length > 0) {
           clearInterval(checkMessages);
           clearTimeout(timeoutId);
+          cleanup();
           const message = this.receivedMessages.shift();
           resolve(message?.data);
         }
       };
 
-      for (const client of this.wss.clients) {
+      for (const client of clients) {
         client.once('message', onMessage);
+      }
+
+      function cleanup(): void {
+        for (const client of clients) {
+          client.off('message', onMessage);
+        }
       }
     });
   }

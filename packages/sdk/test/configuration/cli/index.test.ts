@@ -683,7 +683,8 @@ export default {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    // settings.json should point to the bundled output directory
+    // settings.json should point to the bundled output directory, keyed by
+    // stream name (www/<stream>).
     const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
     expect(settings.environments.default.streams['my-stream'].wwwRoot).toBe('./www/my-stream');
 
@@ -693,6 +694,74 @@ export default {
     expect(copiedHtml).toContain('src="./helpers.js"');
 
     expect(readFileSync(join(outdir, 'www', 'my-stream', 'helpers.js'), 'utf-8')).toContain('Hello, ');
+  });
+
+  it('fails closed when two environments define a stream with the same name', async () => {
+    // Stream output directories are keyed by stream name alone (www/<stream>),
+    // so two environments defining a stream with the same name ('claude-session')
+    // would write to the same directory — a last-writer-wins merge. The build
+    // must reject this up front instead of silently corrupting one renderer.
+    const defaultWww = join(testDir, 'renderers', 'default-session');
+    const prodWww = join(testDir, 'renderers', 'prod-session');
+    mkdirSync(defaultWww, { recursive: true });
+    mkdirSync(prodWww, { recursive: true });
+
+    writeFileSync(
+      join(defaultWww, 'index.html'),
+      `<!DOCTYPE html><html><body><div id="default-marker"></div></body></html>`
+    );
+    writeFileSync(join(prodWww, 'index.html'), `<!DOCTYPE html><html><body><div id="prod-marker"></div></body></html>`);
+
+    const actionHandlerPath = join(testDir, 'action.ts');
+    writeFileSync(
+      actionHandlerPath,
+      `export default { factoryType: 'action', actionName: 'Test', handler: async () => {} };`
+    );
+
+    const configPath = join(testDir, 'settings.config.ts');
+    writeFileSync(
+      configPath,
+      `
+import action from './action.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [action],
+      streams: {
+        'claude-session': {
+          version: 1,
+          wwwRoot: './renderers/default-session'
+        }
+      }
+    },
+    production: {
+      version: 1,
+      actions: [action],
+      streams: {
+        'claude-session': {
+          version: 1,
+          wwwRoot: './renderers/prod-session'
+        }
+      }
+    }
+  }
+};
+      `.trim()
+    );
+
+    const outdir = join(testDir, 'output');
+    const result = await build({ config: configPath, outdir });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    // The error must name the offending stream and both environments so the
+    // author knows exactly what to rename.
+    expect(result.error).toContain('claude-session');
+    expect(result.error).toContain('default');
+    expect(result.error).toContain('production');
   });
 
   it('should pass through wwwRoot path unchanged when directory does not exist', async () => {

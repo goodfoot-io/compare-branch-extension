@@ -38,8 +38,15 @@ import type {
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
 
-/** Fetch timeout in milliseconds for each individual request attempt. */
-const REQUEST_TIMEOUT_MS = 3_000;
+/** Initial fetch timeout in milliseconds for each individual request attempt. */
+const REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * Maximum per-request fetch timeout in milliseconds. The per-attempt timeout
+ * starts at {@link REQUEST_TIMEOUT_MS} and doubles on each consecutive network
+ * failure, capped at this value.
+ */
+const MAX_REQUEST_TIMEOUT_MS = 10_000;
 
 /** Initial delay before retrying a failed network request (3 seconds). */
 const INITIAL_RETRY_DELAY_MS = 3_000;
@@ -97,8 +104,20 @@ function isNonRecoverableError(error: unknown): boolean {
 export class CardsClient {
   private readonly _httpClient?: HttpClient;
 
-  /** Current fetch timeout in milliseconds. Reset to {@link REQUEST_TIMEOUT_MS} on each successful response. */
-  private _currentTimeoutMs = REQUEST_TIMEOUT_MS;
+  /**
+   * The caller-configured per-request timeout. {@link _currentTimeoutMs} starts
+   * at this value and doubles on each consecutive network failure (capped at
+   * {@link MAX_REQUEST_TIMEOUT_MS}), resetting to this value on each successful
+   * response.
+   */
+  private readonly _initialTimeoutMs: number;
+
+  /**
+   * Current per-request fetch timeout in milliseconds. Doubles on each
+   * consecutive network failure (capped at {@link MAX_REQUEST_TIMEOUT_MS}) and
+   * resets to {@link _initialTimeoutMs} on each successful response.
+   */
+  private _currentTimeoutMs: number;
 
   /**
    * Creates a new CardsClient instance.
@@ -111,6 +130,8 @@ export class CardsClient {
     httpClient?: HttpClient
   ) {
     this._httpClient = httpClient;
+    this._initialTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+    this._currentTimeoutMs = this._initialTimeoutMs;
   }
 
   /**
@@ -153,17 +174,17 @@ export class CardsClient {
   }
 
   /**
-   * Records a successful request and resets the timeout backoff.
+   * Records a successful request and resets the timeout backoff to the
+   * caller-configured initial value.
    */
   private onRequestSuccess(): void {
-    this._currentTimeoutMs = REQUEST_TIMEOUT_MS;
+    this._currentTimeoutMs = this._initialTimeoutMs;
   }
 
   /**
    * Default HTTP client implementation using fetch + JSON payloads.
    *
-   * Each fetch call includes an AbortSignal.timeout that starts at 3 seconds
-   * and doubles on consecutive failures up to 10 seconds.
+   * Each fetch call includes an AbortSignal.timeout of 10 seconds.
    */
   private defaultHttpClient: HttpClient = {
     get: async <T>(url: string, options?: RequestInit): Promise<T> => {
@@ -344,7 +365,11 @@ export class CardsClient {
         }
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
         retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
-        this.onRequestSuccess();
+        // Double the per-request fetch timeout on each consecutive network
+        // failure (capped at MAX_REQUEST_TIMEOUT_MS) so a congested server gets
+        // progressively more time to respond. Do NOT reset here — only an
+        // actual success resets the backoff.
+        this._currentTimeoutMs = Math.min(this._currentTimeoutMs * 2, MAX_REQUEST_TIMEOUT_MS);
       }
     }
   }
