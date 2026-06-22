@@ -23,6 +23,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
  * current code; the genuinely-finished-branch assertion documents behavior to
  * preserve.
  *
+ * Linux-only: the liveness gate that protects the sibling relies on
+ * `findProcessesInDirectory`, which scans `/proc` and returns empty on any
+ * non-Linux platform (see `claude-session.ts`). On macOS/Windows the protection
+ * cannot engage and the test's `/proc/<pid>/cwd` setup probe does not exist, so
+ * the case is skipped off Linux rather than failing spuriously.
+ *
  * @summary Reproduction: closing one action's terminal must not end a sibling.
  */
 
@@ -117,42 +123,45 @@ afterEach(() => {
 });
 
 describe('cleanupMergedBranches — sibling-action isolation', () => {
-  it('must not kill or reclaim a sibling action whose worktree hosts a live process', async () => {
-    const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
+  it.skipIf(process.platform !== 'linux')(
+    'must not kill or reclaim a sibling action whose worktree hosts a live process',
+    async () => {
+      const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
 
-    const wt1 = fsSyncNs.realpathSync(path.join(wsRepo, '.worktrees', '1'));
-    const wt2Path = path.join(wsRepo, '.worktrees', '2');
+      const wt1 = fsSyncNs.realpathSync(path.join(wsRepo, '.worktrees', '1'));
+      const wt2Path = path.join(wsRepo, '.worktrees', '2');
 
-    // The "sibling agent": a long-lived process rooted inside worktree 1.
-    sibling = spawn(process.execPath, ['-e', 'setInterval(()=>{}, 1e9)'], {
-      cwd: wt1,
-      stdio: 'ignore'
-    });
-    const pid = sibling.pid;
-    if (pid === undefined) throw new Error('failed to spawn sibling process');
+      // The "sibling agent": a long-lived process rooted inside worktree 1.
+      sibling = spawn(process.execPath, ['-e', 'setInterval(()=>{}, 1e9)'], {
+        cwd: wt1,
+        stdio: 'ignore'
+      });
+      const pid = sibling.pid;
+      if (pid === undefined) throw new Error('failed to spawn sibling process');
 
-    // Give /proc/<pid>/cwd a moment to settle, then verify it points into wt1.
-    await delay(100);
-    const procCwd = fsSyncNs.readlinkSync(`/proc/${pid}/cwd`);
-    if (procCwd !== wt1 && !procCwd.startsWith(`${wt1}/`)) {
-      throw new Error(`setup failure: /proc/${pid}/cwd is ${procCwd}, expected inside ${wt1}`);
+      // Give /proc/<pid>/cwd a moment to settle, then verify it points into wt1.
+      await delay(100);
+      const procCwd = fsSyncNs.readlinkSync(`/proc/${pid}/cwd`);
+      if (procCwd !== wt1 && !procCwd.startsWith(`${wt1}/`)) {
+        throw new Error(`setup failure: /proc/${pid}/cwd is ${procCwd}, expected inside ${wt1}`);
+      }
+
+      // Worktree 2 has no live process — it is the genuinely-finished branch.
+
+      await cleanupMergedBranches(baseInput(), cardRepo, createMockLogger());
+
+      // DESIRED post-fix behavior — these assertions FAIL on current code.
+      // Sibling process must still be alive (kill(pid, 0) probes existence).
+      expect(() => process.kill(pid, 0)).not.toThrow();
+      // Sibling worktree directory must still exist.
+      expect(fsSyncNs.existsSync(wt1)).toBe(true);
+      // Sibling branch must still exist.
+      expect(execFileSync('git', ['branch', '--list', 'cards/test/1'], { cwd: wsRepo }).toString().trim()).not.toBe('');
+
+      // Behavior to PRESERVE — the genuinely-finished branch IS cleaned up
+      // (this should currently PASS; it guards against over-correction).
+      expect(fsSyncNs.existsSync(wt2Path)).toBe(false);
+      expect(execFileSync('git', ['branch', '--list', 'cards/test/2'], { cwd: wsRepo }).toString().trim()).toBe('');
     }
-
-    // Worktree 2 has no live process — it is the genuinely-finished branch.
-
-    await cleanupMergedBranches(baseInput(), cardRepo, createMockLogger());
-
-    // DESIRED post-fix behavior — these assertions FAIL on current code.
-    // Sibling process must still be alive (kill(pid, 0) probes existence).
-    expect(() => process.kill(pid, 0)).not.toThrow();
-    // Sibling worktree directory must still exist.
-    expect(fsSyncNs.existsSync(wt1)).toBe(true);
-    // Sibling branch must still exist.
-    expect(execFileSync('git', ['branch', '--list', 'cards/test/1'], { cwd: wsRepo }).toString().trim()).not.toBe('');
-
-    // Behavior to PRESERVE — the genuinely-finished branch IS cleaned up
-    // (this should currently PASS; it guards against over-correction).
-    expect(fsSyncNs.existsSync(wt2Path)).toBe(false);
-    expect(execFileSync('git', ['branch', '--list', 'cards/test/2'], { cwd: wsRepo }).toString().trim()).toBe('');
-  });
+  );
 });
