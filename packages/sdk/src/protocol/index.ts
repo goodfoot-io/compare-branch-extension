@@ -114,6 +114,8 @@ export type {
   HookConfig,
   HookEvent,
   HookScript,
+  HtmlInfoFile,
+  HtmlInfoValidationResult,
   HttpClient,
   LaunchClaudeAction,
   ListCardsRequest,
@@ -183,5 +185,6 @@ export {
   MAX_SUMMARY_LENGTH,
   MAX_TAG_LENGTH,
   MAX_TITLE_LENGTH,
-  TAG_PATTERN
+  TAG_PATTERN,
+  validateHtmlInfo
 } from './types/index.js';

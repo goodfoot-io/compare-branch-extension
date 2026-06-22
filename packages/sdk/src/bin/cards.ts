@@ -1113,6 +1113,26 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
 }
 
 /**
+ * Thin router for the `card html` subcommand.
+ *
+ * Resolves `dist/html-files/check.mjs` from the installed extension path via
+ * the same `~/.cards/VSCODE_NODE` lookup used by other SDK callers, then
+ * delegates to it via `execFileSync` with passthrough stdio, propagating exit
+ * codes 0/1/2 verbatim.
+ *
+ * Exit codes from `check.mjs`:
+ * - 0: all checks passed
+ * - 1: content failure (fix the HTML file or sidecar)
+ * - 2: infrastructure failure (reinstall the extension)
+ *
+ * @param _args - CLI arguments after the `html` subcommand (e.g. `['check', path]).
+ * @throws `'Not Implemented'` — implementation lands in Phase 2.4.
+ */
+async function htmlCommand(_args: string[]): Promise<void> {
+  throw new Error('Not Implemented');
+}
+
+/**
  * Executes an action on a card and prints the result to stdout.
  *
  * @param cardId - The card identifier.
@@ -1302,6 +1322,9 @@ if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
   // is one-shot and must exit once its work settles (see the run handler below).
   let isWatch = false;
   switch (command) {
+    case 'html':
+      run = htmlCommand(process.argv.slice(3));
+      break;
     case 'create':
       run = createCard(process.argv.slice(3));
       break;
