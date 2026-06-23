@@ -148,7 +148,7 @@ describe('cleanupMergedBranches — sibling-action isolation', () => {
 
       // Worktree 2 has no live process — it is the genuinely-finished branch.
 
-      await cleanupMergedBranches(baseInput(), cardRepo, createMockLogger());
+      await cleanupMergedBranches(baseInput(), cardRepo, createMockLogger(), undefined, { backoffMaxMs: 2000 });
 
       // DESIRED post-fix behavior — these assertions FAIL on current code.
       // Sibling process must still be alive (kill(pid, 0) probes existence).

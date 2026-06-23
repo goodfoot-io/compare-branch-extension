@@ -482,6 +482,19 @@ async function tryCleanupStep(
 }
 
 /**
+ * Options for {@link cleanupMergedBranches}.
+ */
+export interface CleanupOptions {
+  /**
+   * Maximum total elapsed time (ms) for the exponential-backoff liveness
+   * gate.  When a worktree is in use the sweep retries with doubling delay
+   * until the blocking processes exit or this total has elapsed, whichever
+   * happens first.  Default: 3,600,000 (1 hour).
+   */
+  backoffMaxMs?: number;
+}
+
+/**
  * Removes branches that are fully merged into their parent branch.
  *
  * For each merged branch the worktree directory is removed, the local branch
@@ -499,12 +512,14 @@ async function tryCleanupStep(
  * @param cardRepoPath - Absolute path to the card's git repository.
  * @param logger - Logger for diagnostic output.
  * @param sessionId - Claude Code session ID set as CARDS_SESSION_ID in the git subprocess environment so the card repo post-commit hook can attribute the commit.
+ * @param options - Optional configuration (backoffMaxMs for the liveness gate).
  */
 export async function cleanupMergedBranches(
   input: Pick<ActionInput, 'cardId' | 'repoRoot'>,
   cardRepoPath: string,
   logger: ActionContext['logger'],
-  sessionId?: string
+  sessionId?: string,
+  options?: CleanupOptions
 ): Promise<void> {
   let t0 = performance.now();
 
@@ -588,14 +603,48 @@ export async function cleanupMergedBranches(
     // owning action is still running — skip the entire reclamation rather than
     // SIGKILL the agent and delete its worktree out from under it.
     if (branchData.worktree) {
-      const liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
+      let liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
       if (liveProcesses.length > 0) {
-        logger.info('Skipping cleanup — worktree is in use by a running action', {
+        const BACKOFF_START_MS = 1000;
+        const BACKOFF_MAX_MS = options?.backoffMaxMs ?? 3_600_000; // 1 hour
+        let retries = 0;
+        const backoffStart = performance.now();
+
+        while (liveProcesses.length > 0) {
+          const elapsed = performance.now() - backoffStart;
+          if (elapsed >= BACKOFF_MAX_MS) break;
+
+          const delay = Math.min(2 ** retries * BACKOFF_START_MS, BACKOFF_MAX_MS - elapsed);
+          logger.info('Worktree in use — retrying with exponential backoff', {
+            branch: branchName,
+            worktree: branchData.worktree,
+            pids: liveProcesses,
+            retry: retries + 1,
+            delayMs: Math.round(delay),
+            elapsedS: Math.round(elapsed / 1000)
+          });
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
+          retries++;
+        }
+
+        if (liveProcesses.length > 0) {
+          logger.warn('Worktree still in use after backoff retries — skipping cleanup', {
+            branch: branchName,
+            worktree: branchData.worktree,
+            pids: liveProcesses,
+            retries,
+            elapsedS: Math.round((performance.now() - backoffStart) / 1000)
+          });
+          continue;
+        }
+
+        logger.info('Worktree liveness gate passed after backoff', {
           branch: branchName,
           worktree: branchData.worktree,
-          pids: liveProcesses
+          retries,
+          elapsedS: Math.round((performance.now() - backoffStart) / 1000)
         });
-        continue;
       }
 
       t0 = performance.now();

@@ -81,44 +81,70 @@ export function spawnBranchCleanupWatcher(params: BranchCleanupParams): void {
 // Detached entry point
 // ============================================================================
 
+// How long the detached process waits for params on stdin before giving up.
+const STDIN_TIMEOUT_MS = 10_000;
+
 if (process.argv.includes('--branch-cleanup')) {
   const chunks: Buffer[] = [];
+  let stdinTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Fail-safe: if the parent dies before writing params, don't hang forever.
+  stdinTimer = setTimeout(() => {
+    // Write directly to the log file when we can't even parse params yet.
+    // This path is extremely unlikely — the parent is the action handler which
+    // writes params and calls stdin.end() in the same tick.
+    process.exitCode = 1;
+    process.exit(1);
+  }, STDIN_TIMEOUT_MS);
 
   process.stdin.on('data', (chunk: Buffer) => {
     chunks.push(chunk);
   });
 
   process.stdin.on('end', () => {
+    if (stdinTimer) clearTimeout(stdinTimer);
+
     void (async () => {
       const raw = Buffer.concat(chunks).toString('utf8');
       let params: BranchCleanupParams;
       try {
         params = JSON.parse(raw) as BranchCleanupParams;
-      } catch (error) {
-        console.error(`[branch-cleanup-watcher] Failed to parse params: ${errorMessage(error)}`);
+      } catch (_error) {
+        // Fatal: can't parse params, can't even create a logger (no repoRoot).
+        // The parent has already unref'd and exited; no channel survives.
+        process.exitCode = 1;
         process.exit(1);
       }
 
       const { cardId, repoRoot, cardRepoPath, sessionId } = params;
-
       const input = { cardId, repoRoot };
-
-      const client = await createCardsClient();
-      if (!client) {
-        throw new Error('Cards API discovery failed — cannot run branch cleanup');
-      }
-
-      const logger = new Logger({
-        logFilePath: path.join(repoRoot, '.cards', 'logs', 'cards-default-configuration-hooks.log')
-      });
+      const logFilePath = path.join(repoRoot, '.cards', 'logs', 'cards-default-configuration-hooks.log');
+      let logger: Logger | undefined;
 
       try {
+        logger = new Logger({ logFilePath });
+        logger.info('Branch-cleanup watcher started', { cardId, sessionId });
+
+        const client = await createCardsClient();
+        if (!client) {
+          throw new Error('Cards API discovery failed — cannot run branch cleanup');
+        }
+
+        const startedAt = performance.now();
         await cleanupMergedBranches(input, cardRepoPath, logger, sessionId);
+        logger.info('Branch-cleanup watcher completed successfully', {
+          cardId,
+          sessionId,
+          elapsedMs: Math.round(performance.now() - startedAt)
+        });
       } catch (error) {
         const message = errorMessage(error);
-        logger.error('Branch cleanup watcher failed', { error: message, sessionId });
+        if (logger) {
+          logger.error('Branch-cleanup watcher failed', { error: message, cardId, sessionId });
+        }
+        process.exitCode = 1;
       } finally {
-        logger.close();
+        if (logger) logger.close();
       }
     })();
   });
