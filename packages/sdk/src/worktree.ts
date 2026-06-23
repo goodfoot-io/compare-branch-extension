@@ -38,29 +38,61 @@ export class WorktreeScopeError extends Error {
 const execFileAsync = promisify(execFile);
 
 /**
+ * True when a failed `git config` invocation lost a race for `.git/config`
+ * and should simply be retried.
+ *
+ * Two distinct manifestations of the same contention:
+ *
+ * - POSIX / git's own lock: git takes an exclusive `config.lock` for every
+ *   config write and fails immediately with
+ *   `error: could not lock config file ...: File exists` when another writer
+ *   holds it.
+ * - Windows file lock: another process (a file watcher, an antivirus scan,
+ *   the cards server) holds `.git/config` open with a sharing violation, so
+ *   git cannot read or write it and prints
+ *   `warning: unable to access '<...>/config': Permission denied`. For a
+ *   `--worktree` write this then cascades into
+ *   `fatal: --worktree cannot be used with multiple working trees unless the
+ *   config extension worktreeConfig is enabled` — not because the extension is
+ *   actually unset (outfit enables it first), but because git could not READ
+ *   the locked config to confirm it. Both clear once the holder releases.
+ *
+ * @param message - The error message from the failed git invocation.
+ * @returns True when the failure is transient lock contention worth retrying.
+ */
+export function isRetryableConfigLock(message: string): boolean {
+  if (message.includes('could not lock config file')) return true;
+  // Windows sharing-violation on .git/config (and the worktreeConfig cascade).
+  const deniedConfigAccess = /unable to access[^\n]*config/i.test(message) && /permission denied/i.test(message);
+  return deniedConfigAccess || /worktreeConfig is enabled/i.test(message);
+}
+
+/**
  * Runs `git config <args>` and retries on `.git/config` lock contention.
  *
- * Git takes an exclusive `config.lock` for every config write and fails
- * immediately — `error: could not lock config file ...: File exists` — when
- * another process holds it. Two writers race on the same repo config by
- * design here: {@link createWorktree}'s `settle` phase (via
- * `updateGitExclude`) and `outfitWorktreeForCard` both set
- * `extensions.worktreeConfig` on the repo root, and outfit deliberately runs
- * before `settle` resolves (the A2 early path). The write is idempotent, so
- * the loser of the lock race only needs to retry, not fail.
+ * Two writers race on the same repo config by design here:
+ * {@link createWorktree}'s `settle` phase (via `updateGitExclude`) and
+ * `outfitWorktreeForCard` both set `extensions.worktreeConfig` on the repo
+ * root, and outfit deliberately runs before `settle` resolves (the A2 early
+ * path). The write is idempotent, so the loser of the lock race only needs to
+ * retry, not fail. See {@link isRetryableConfigLock} for the POSIX and Windows
+ * forms of the contention.
  *
  * @param args - Full git argument list (e.g. `['-C', repo, 'config', key, value]`).
  * @param attempts - Maximum tries before the lock error propagates.
  */
-export async function gitConfigWithRetry(args: string[], attempts = 5): Promise<void> {
+export async function gitConfigWithRetry(args: string[], attempts = 8): Promise<void> {
   for (let attempt = 1; ; attempt++) {
     try {
       await execFileAsync('git', args, { timeout: 5_000 });
       return;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      if (attempt < attempts && message.includes('could not lock config file')) {
-        await new Promise((resolve) => setTimeout(resolve, 20 * attempt));
+      if (attempt < attempts && isRetryableConfigLock(message)) {
+        // Linear backoff. A Windows file lock from a watcher/AV scan can hold
+        // longer than git's own sub-millisecond config.lock, so allow up to
+        // ~1.8s total across the default 8 attempts.
+        await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
         continue;
       }
       throw error;
