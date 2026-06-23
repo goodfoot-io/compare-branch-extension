@@ -10,6 +10,7 @@
 
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve as resolvePath } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards.management/sdk';
@@ -1116,20 +1117,52 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
  * Thin router for the `card html` subcommand.
  *
  * Resolves `dist/html-files/check.mjs` from the installed extension path via
- * the same `~/.cards/VSCODE_NODE` lookup used by other SDK callers, then
- * delegates to it via `execFileSync` with passthrough stdio, propagating exit
- * codes 0/1/2 verbatim.
+ * `resolveExtensionPath()` (reads `~/.cards/EXTENSION_PATH`), then delegates
+ * to it via `execFileSync` with passthrough stdio, propagating exit codes
+ * 0/1/2 verbatim.
  *
  * Exit codes from `check.mjs`:
  * - 0: all checks passed
  * - 1: content failure (fix the HTML file or sidecar)
  * - 2: infrastructure failure (reinstall the extension)
  *
- * @param _args - CLI arguments after the `html` subcommand (e.g. `['check', path]).
- * @throws `'Not Implemented'` — implementation lands in Phase 2.4.
+ * @param args - CLI arguments after the `html` subcommand (e.g. `['check', path]`).
+ *   The leading `'check'` token is stripped before forwarding to check.mjs.
  */
-async function htmlCommand(_args: string[]): Promise<void> {
-  throw new Error('Not Implemented');
+async function htmlCommand(args: string[]): Promise<void> {
+  const extensionPath = await resolveExtensionPath();
+  const checkMjs = join(extensionPath, 'dist', 'html-files', 'check.mjs');
+
+  if (!existsSync(checkMjs)) {
+    process.stderr.write(`card html: check.mjs not found at ${checkMjs}. Reinstall or rebuild the Cards extension.\n`);
+    process.exit(2);
+  }
+
+  // Resolve the Node.js binary: prefer VSCODE_NODE (written by the extension on
+  // activation — same lookup as HybridStore.writeSharedHooks()), fall back to
+  // the process's own Node binary.
+  let nodeBin = process.execPath;
+  const vsCodeNodePath = join(homedir(), '.cards', 'VSCODE_NODE');
+  if (existsSync(vsCodeNodePath)) {
+    try {
+      const candidate = readFileSync(vsCodeNodePath, 'utf-8').trim();
+      if (candidate) nodeBin = candidate;
+    } catch {
+      // Fall back to process.execPath
+    }
+  }
+
+  // Strip the leading 'check' token if present — check.mjs parses process.argv[2..].
+  const forwardArgs = args[0] === 'check' ? args.slice(1) : args;
+
+  try {
+    execFileSync(nodeBin, [checkMjs, ...forwardArgs], { stdio: 'inherit' });
+  } catch (err) {
+    // execFileSync throws a ChildProcessError when exit code is non-zero.
+    // Propagate the exit code verbatim (1 = content failure, 2 = infra failure).
+    const code = (err as NodeJS.ErrnoException & { status?: number }).status ?? 1;
+    process.exit(code);
+  }
 }
 
 /**
