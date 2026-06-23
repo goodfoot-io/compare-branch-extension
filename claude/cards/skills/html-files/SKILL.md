@@ -58,15 +58,23 @@ images, fonts, and binary assets, or reference relative paths within the card re
 
 The iframe runs under a real Content-Security-Policy injected at render time
 (`default-src 'none'; connect-src 'none'; img-src data:`, plus a per-panel
-`script-src 'nonce-…'`). The nonce is a genuine boundary, not advisory:
+`script-src 'nonce-…'`). The CSP is a genuine runtime boundary — but it confines
+the network, not the page's own scripts:
 
-- With `scripts` omitted or `true`, the builder stamps its nonce onto the
-  `<script>` tags it emits, and those scripts execute. The sandbox is
-  `allow-scripts allow-same-origin`.
-- A `<script>` that does **not** carry the builder's nonce (e.g. one pasted in
-  by hand or injected at runtime) will **not** execute — the CSP blocks it.
-- Setting `"scripts": false` drops `allow-scripts` from the sandbox entirely, so
-  no JavaScript runs at all, nonce or not.
+- **All JavaScript in the file you commit runs, and the page is trusted.** With
+  `scripts` omitted or `true`, the builder stamps the per-panel nonce onto
+  **every** static `<script>` in the file — there is no "builder vs. author"
+  distinction, so whatever script you write *or paste* executes. The sandbox is
+  `allow-scripts allow-same-origin`, so that script can reach the webview origin.
+  Do **not** paste untrusted third-party `<script>` you don't intend to run.
+- **The CSP blocks the network and runtime-injected scripts.** `default-src
+  'none'` / `connect-src 'none'` mean no `fetch`, beacon, or external asset load
+  at runtime — assets must be inline or `data:`. A script injected at runtime
+  (e.g. `document.createElement('script')`) carries no nonce and is blocked, as
+  are inline event handlers and `eval`.
+- **`"scripts": false` is the only way to disable JavaScript.** It drops
+  `allow-scripts` from the sandbox entirely — no script runs at all. Use it for
+  any page that should not execute JavaScript.
 
 External resources are enforced by the same CSP at runtime (see *Inline assets
 only* above); the commit-time URL check is an early author convenience, not the
