@@ -13,6 +13,14 @@ import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { applyWorktreeInclude, WorktreeIncludeError } from '../src/worktreeInclude.js';
 
+// Some specs depend on POSIX permission enforcement (chmod 0o000 / 0o500 must
+// actually deny access). Two environments cannot provide that: Windows does not
+// implement POSIX file modes, and the superuser (uid 0) bypasses POSIX DAC
+// permission checks entirely — root can read a 0o000 file and write into a 0o500
+// directory, so the expected rejection never occurs. Skip honestly in both; the
+// POSIX path itself is unchanged.
+const cannotEnforcePosixPermissions = process.platform === 'win32' || process.getuid?.() === 0;
+
 /**
  * Creates an isolated tmp directory pair: sourceRoot and worktreeDir.
  *
@@ -223,11 +231,10 @@ describe('applyWorktreeInclude', () => {
     expect(linkTarget).toBe('.env.real');
   });
 
-  // Skipped on Windows: this depends on POSIX permission enforcement. Windows
-  // does not implement POSIX file modes, so `fs.chmod(path, 0o000)` is largely
-  // a no-op and the subsequent read still succeeds — the expected rejection
-  // never occurs. Skipping honestly; the POSIX path is unchanged.
-  it.skipIf(process.platform === 'win32')(
+  // Depends on POSIX permission enforcement; skipped where it cannot be enforced
+  // (Windows or root — see cannotEnforcePosixPermissions). `fs.chmod(path, 0o000)`
+  // does not deny the subsequent read there, so the expected rejection never occurs.
+  it.skipIf(cannotEnforcePosixPermissions)(
     'throws WorktreeIncludeError when .worktreeinclude is unreadable',
     async () => {
       ({ sourceRoot, worktreeDir } = await makeTmpPair('unreadable'));
@@ -241,11 +248,10 @@ describe('applyWorktreeInclude', () => {
     }
   );
 
-  // Skipped on Windows: this depends on POSIX permission enforcement. Windows
-  // does not implement POSIX file modes, so `fs.chmod(worktreeDir, 0o500)` is
-  // largely a no-op and the copy into the destination still succeeds — the
-  // expected rejection never occurs. Skipping honestly; POSIX path unchanged.
-  it.skipIf(process.platform === 'win32')(
+  // Depends on POSIX permission enforcement; skipped where it cannot be enforced
+  // (Windows or root — see cannotEnforcePosixPermissions). `fs.chmod(worktreeDir,
+  // 0o500)` does not deny the copy there, so the expected rejection never occurs.
+  it.skipIf(cannotEnforcePosixPermissions)(
     'throws WorktreeIncludeError when copying into a read-only destination fails',
     async () => {
       ({ sourceRoot, worktreeDir } = await makeTmpPair('readonly-dest'));

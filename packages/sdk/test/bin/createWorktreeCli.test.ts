@@ -220,10 +220,11 @@ describe('create-worktree CLI', () => {
     CLI_TEST_TIMEOUT_MS
   );
 
-  // Relies on POSIX file-mode unreadability (chmod 0o000). Windows has no
-  // equivalent — chmod cannot remove read access — so this guarantee is
-  // genuinely POSIX-semantic and is skipped there rather than faked.
-  it.skipIf(process.platform === 'win32')(
+  // Relies on POSIX file-mode unreadability (chmod 0o000). Two environments
+  // cannot enforce it: Windows has no equivalent (chmod cannot remove read
+  // access), and the superuser (uid 0) bypasses POSIX DAC and reads a 0o000 file
+  // anyway — so the expected exit-3 never occurs. Skipped honestly in both.
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'exits 3 and writes an error message to stderr when .worktreeinclude is unreadable',
     async () => {
       tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
