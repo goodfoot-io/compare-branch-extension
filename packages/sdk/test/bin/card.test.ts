@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
@@ -1068,6 +1068,27 @@ describe('card binary', () => {
         Object.defineProperty(process, 'stdin', { value: original, writable: true, configurable: true });
       }
     }
+
+    // The ambient-cwd createCard tests below assume resolveBindTarget's
+    // cwd-primary leg finds NO linked worktree (so creation is untracked and
+    // prints the result JSON). That holds in a normal checkout, but `yarn
+    // validate` can run from inside a linked git worktree (git-dir ≠
+    // common-dir), where the bind gate instead refuses for lack of a recorded
+    // parent branch and createCard prints nothing. Pin cwd to a non-git temp
+    // dir so these tests are independent of where the suite is invoked. The
+    // nested "worktree binding" describe chdirs into its own real repos and
+    // restores to this pinned cwd via its own afterEach.
+    let createCwdOrig: string;
+    let createCwdTmp: string;
+    beforeEach(() => {
+      createCwdOrig = process.cwd();
+      createCwdTmp = realpathSync(mkdtempSync(join(realTmpdir(), 'card-bin-create-')));
+      process.chdir(createCwdTmp);
+    });
+    afterEach(() => {
+      process.chdir(createCwdOrig);
+      forceRemoveSync(createCwdTmp);
+    });
 
     it('returns only server-generated fields plus repositoryPath', async () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});

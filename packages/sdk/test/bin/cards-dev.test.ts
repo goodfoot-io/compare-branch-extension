@@ -11,8 +11,19 @@
 
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { defaultScreenshotPath, parseFlags } from '../../src/bin/cards-dev.js';
+
+// Wrap os.tmpdir with a spy that defaults to the real implementation, so the
+// "real temp dir" test below still observes the genuine platform temp dir while
+// the non-hardcoding test can force a sentinel return. A plain value assertion
+// cannot catch a hardcoded '/tmp/screenshot.png' regression on Linux (where
+// os.tmpdir() IS '/tmp'); overriding the return is the only platform-agnostic
+// way to prove the path is derived from os.tmpdir() at call time.
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return { ...actual, tmpdir: vi.fn(actual.tmpdir) };
+});
 
 describe('parseFlags', () => {
   it('parses a single key-value flag', () => {
@@ -85,7 +96,11 @@ describe('defaultScreenshotPath', () => {
     expect(p.startsWith(tmpdir())).toBe(true); // lives under a real, existing temp dir
   });
 
-  it('does not return the bare POSIX /tmp default', () => {
-    expect(defaultScreenshotPath()).not.toBe('/tmp/screenshot.png');
+  it('derives the path from os.tmpdir() rather than a hardcoded constant', () => {
+    // Force a non-default temp dir; a hardcoded '/tmp/screenshot.png' would
+    // ignore this and fail. This catches the regression on every platform,
+    // including Linux where os.tmpdir() coincidentally equals '/tmp'.
+    vi.mocked(tmpdir).mockReturnValueOnce(join('/sentinel', 'custom-tmp'));
+    expect(defaultScreenshotPath()).toBe(join('/sentinel', 'custom-tmp', 'screenshot.png'));
   });
 });
