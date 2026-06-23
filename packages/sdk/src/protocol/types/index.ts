@@ -117,8 +117,15 @@ export type {
 // --- Hook Configuration Types ---
 export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 // --- HTML File Types ---
-export type { HtmlInfoFile, HtmlInfoValidationResult } from './html.js';
-export { validateHtmlInfo } from './html.js';
+export type { HtmlContentCheckResult, HtmlInfoFile, HtmlInfoValidationResult } from './html.js';
+export {
+  checkHtmlContent,
+  filterStructuralParseErrors,
+  findExternalResources,
+  INFORMATIONAL_PARSE5_CODES,
+  parseAspectRatio,
+  validateHtmlInfo
+} from './html.js';
 // --- HTTP Client Types ---
 export type { HttpClient } from './http.js';
 // --- Per-Card Journal / Subscribe-Replay Protocol Types ---

@@ -49,13 +49,28 @@ No per-card setup. Write daisyUI component classes (`btn`, `card`, `badge`, …)
 
 ## Inline assets only
 
-External URLs (`https://`, `http://`, `//`) in `src` and `href` attributes are forbidden and rejected at commit time. Use `data:` URIs for images, fonts, and binary assets, or reference files that are relative paths within the card repo.
+External URLs (`https://`, `http://`, `//`) are forbidden. The commit-time check
+flags them in `src`/`href`/`srcset` attributes and in CSS `url()` / `@import`
+references; the runtime CSP blocks any that slip past. Use `data:` URIs for
+images, fonts, and binary assets, or reference relative paths within the card repo.
 
-## `scripts: false` opt-out
+## Scripts, nonces, and the CSP
 
-Setting `"scripts": false` in the sidecar drops `allow-scripts` from the iframe sandbox. The iframe then runs with `allow-same-origin` only — no JavaScript executes.
+The iframe runs under a real Content-Security-Policy injected at render time
+(`default-src 'none'; connect-src 'none'; img-src data:`, plus a per-panel
+`script-src 'nonce-…'`). The nonce is a genuine boundary, not advisory:
 
-By default (`scripts` omitted or `true`) the sandbox is `allow-scripts allow-same-origin`. Agent-authored scripts receive a CSP nonce at render time and execute normally.
+- With `scripts` omitted or `true`, the builder stamps its nonce onto the
+  `<script>` tags it emits, and those scripts execute. The sandbox is
+  `allow-scripts allow-same-origin`.
+- A `<script>` that does **not** carry the builder's nonce (e.g. one pasted in
+  by hand or injected at runtime) will **not** execute — the CSP blocks it.
+- Setting `"scripts": false` drops `allow-scripts` from the sandbox entirely, so
+  no JavaScript runs at all, nonce or not.
+
+External resources are enforced by the same CSP at runtime (see *Inline assets
+only* above); the commit-time URL check is an early author convenience, not the
+security boundary.
 
 ## Checking before commit
 
@@ -80,6 +95,16 @@ Exit codes:
 | `2` | Infrastructure failure — Tailwind/daisyUI packages unavailable; reinstall the extension |
 
 The pre-commit hook runs the same checks automatically on every staged `html/**` file.
+
+## Well-formedness check — what it catches
+
+The checker runs the source through the HTML5 parser (parse5) and rejects only
+genuine structural failures — truncated or broken-EOF markup such as an
+unterminated tag (`<div` with no `>`) or an unclosed `<script>`. It does **not**
+catch every mis-nesting: the HTML5 parser auto-closes many unclosed or
+mis-ordered tags (`<li>` without `</li>`, mis-nested inline elements) and those
+pass. Verify your structure yourself; a clean check means "not truncated," not
+"perfectly nested."
 
 ## Scanner limitation — no dynamic class concatenation
 
