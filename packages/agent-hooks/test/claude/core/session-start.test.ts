@@ -51,8 +51,10 @@ describe('session-start hook', () => {
   let binDir: string;
 
   beforeEach(() => {
+    // Mirror the shipped layout: dist/marketplace/claude/cards/hooks/bin/ for the compiled hook
+    // and dist/bin/ for the CLI wrappers (five directories up from hooks/bin/).
     testDir = join(tmpdir(), `session-start-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    hookBinDir = join(testDir, 'hooks', 'bin');
+    hookBinDir = join(testDir, 'marketplace', 'claude', 'cards', 'hooks', 'bin');
     binDir = join(testDir, 'bin');
     mkdirSync(hookBinDir, { recursive: true });
     mockPersistEnvVar.mockReset();

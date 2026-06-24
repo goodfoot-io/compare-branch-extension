@@ -21,17 +21,16 @@ import { persistSessionEnv } from '../../shared/session-env.js';
 const CLI_WRAPPERS = [{ envVar: 'CARDS_DEV_CLI', filename: 'cards-dev-cli' }] as const;
 
 /**
- * Resolves the absolute path to a CLI wrapper script in the plugin `bin/` directory.
+ * Resolves the absolute path to a CLI wrapper script in the extension's `dist/bin/` directory.
  *
- * The compiled hook lives at `claude/cards/hooks/bin/<hash>.mjs` and
- * wrappers are at `claude/cards/bin/<name>`, two directories up
- * from the compiled hook location.
+ * The compiled hook is shipped at `dist/marketplace/claude/cards/hooks/bin/<hash>.mjs`.
+ * Five directories up from that location is `dist/`, and wrappers live at `dist/bin/<name>`.
  *
  * @param filename - Wrapper script filename (e.g. `cards-dev-cli`).
  * @returns Absolute path to the wrapper.
  */
 function resolveCliWrapper(filename: string): string {
-  return resolve(dirname(fileURLToPath(import.meta.url)), '../../bin', filename);
+  return resolve(dirname(fileURLToPath(import.meta.url)), '../../../../../bin', filename);
 }
 
 export default sessionStartHook({}, (input, { logger, persistEnvVar }) => {
