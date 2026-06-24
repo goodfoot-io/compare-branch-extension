@@ -15,8 +15,8 @@
 
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { resolveGlobalCardsConfigDir } from '../cards-config.js';
 import type { ActionInput, CardsAssistantInput } from './inputs.js';
 
 // ============================================================================
@@ -582,13 +582,20 @@ export async function resolveExtensionPath(): Promise<string> {
   const fromEnv = (process.env[CARDS_ENV_VARS.EXTENSION_PATH] ?? '').trim();
   if (fromEnv) return fromEnv;
 
-  const filePath = join(homedir(), '.cards', 'EXTENSION_PATH');
+  // Honor $CARDS_HOME (then XDG, then ~/.cards) via the shared resolver — NOT a
+  // bare homedir()/.cards. On the host leg the OS HOME stays real while the Cards
+  // server is isolated under $CARDS_HOME; the extension writes EXTENSION_PATH
+  // there, so a homedir-based read looks in the wrong (often empty) place.
+  const filePath = join(resolveGlobalCardsConfigDir(), 'EXTENSION_PATH');
   let fromFile: string;
   try {
     fromFile = (await readFile(filePath, 'utf-8')).trim();
-  } catch {
+  } catch (error) {
+    // Only "file absent" means "extension never activated"; surface anything else
+    // (e.g. a permission error) rather than misreporting it as not-installed.
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     throw new Error(
-      `Cannot resolve extension path: EXTENSION_PATH env var is not set and ~/.cards/EXTENSION_PATH does not exist. ` +
+      `Cannot resolve extension path: EXTENSION_PATH env var is not set and ${filePath} does not exist. ` +
         `Ensure the Cards extension is installed and has been activated at least once.`
     );
   }
