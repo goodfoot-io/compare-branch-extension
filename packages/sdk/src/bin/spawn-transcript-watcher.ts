@@ -25,16 +25,14 @@ export interface TranscriptWatcherLogger {
 }
 
 /**
- * Resolves the absolute path to the `transcript-watcher` wrapper within a
- * packaged marketplace.
+ * Resolves the absolute path to the `transcript-watcher` wrapper within the
+ * extension's bin directory.
  *
- * The wrapper is published by the `cards` plugin's bin tree. The runtime
- * plugin's SessionStart hook cannot rely on it being on PATH — a background
- * Launch action enables only the `runtime` plugin, so the `cards` plugin's
- * `bin/` is never prepended to PATH. Resolving an absolute path from the
- * action's `marketplacePath` removes that cross-plugin PATH dependency.
- *
- * Mirrors the marketplace-path convention used by `resolveScaffoldDir`.
+ * The wrapper is produced by the extension build into `<extensionPath>/dist/bin`.
+ * The runtime plugin's SessionStart hook cannot rely on it being on PATH — a
+ * background Launch action enables only the `runtime` plugin, so the `cards`
+ * plugin's bin is never prepended to PATH. Resolving an absolute path from the
+ * caller-supplied `binPath` removes that cross-plugin PATH dependency.
  *
  * The bin tree publishes a platform pair of wrappers: an extension-less POSIX
  * script (`transcript-watcher`) and a Windows batch sibling
@@ -42,12 +40,12 @@ export interface TranscriptWatcherLogger {
  * the `.cmd` sibling is selected on win32. Both wrappers honour the identical
  * positional-argument and env-var contract.
  *
- * @param marketplacePath - Absolute path to the bundled marketplace directory.
+ * @param binPath - Absolute path to the extension's `dist/bin` directory.
  * @returns Absolute path to the platform-correct `transcript-watcher` wrapper
- *   under `<marketplacePath>/claude/cards/bin/`.
+ *   under `<binPath>/`.
  */
-export function resolveTranscriptWatcher(marketplacePath: string): string {
-  return join(marketplacePath, 'claude', 'cards', 'bin', transcriptWatcherWrapperName());
+export function resolveTranscriptWatcher(binPath: string): string {
+  return join(binPath, transcriptWatcherWrapperName());
 }
 
 /**

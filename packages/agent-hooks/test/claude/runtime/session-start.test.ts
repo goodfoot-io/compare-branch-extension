@@ -27,8 +27,8 @@ vi.mock('node:child_process', async (importOriginal) => ({
 
 // The launch-mode watcher availability probe (spawnTranscriptWatcher) resolves
 // the wrapper by ABSOLUTE path and checks it with `fs.existsSync` — not a
-// `spawnSync` PATH probe. The watcher lives under the action's MARKETPLACE_PATH
-// (`/tmp/extension/dist/marketplace/...`), which does not exist on disk in this
+// `spawnSync` PATH probe. The watcher lives under the action's EXTENSION_PATH
+// dist/bin (`/tmp/extension/dist/bin/...`), which does not exist on disk in this
 // test, so `existsSync` is mocked and defaults to "present"; the not-resolvable
 // cases flip it to false. Other `node:fs` members (mkdirSync/writeFileSync used
 // by beforeAll) keep their real implementations.
@@ -57,8 +57,8 @@ const isWin = process.platform === 'win32';
 //   is then `node.exe <transcript-watcher.mjs>`, so the `.mjs` is argv[0] of the
 //   args array, and the wrapper-path regex matches that instead.
 const WATCHER_PATH_RE = isWin
-  ? /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher\.mjs$/
-  : /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/;
+  ? /[/\\]dist[/\\]bin[/\\]transcript-watcher\.mjs$/
+  : /[/\\]dist[/\\]bin[/\\]transcript-watcher$/;
 
 // On win32 the detached interpreter is resolved fail-closed (VSCODE_NODE env →
 // ~/.cards/VSCODE_NODE → PATH node). Pin it deterministically in tests via the
@@ -342,7 +342,7 @@ describe('SessionStart Hook', () => {
     // `runtime` plugin, so the `cards` plugin's bin/ — which publishes the
     // `transcript-watcher` wrapper — is never on PATH. Spawning by bare name
     // therefore exits 127 and the watcher never starts. The hook must instead
-    // resolve the watcher by absolute path under the marketplace cards bin.
+    // resolve the watcher by absolute path under the extension dist/bin.
     it('spawns transcript-watcher by absolute path under the cards plugin bin, not a bare PATH name', async () => {
       vi.mocked(spawn).mockClear();
       mockFindClaudePid.mockReturnValue(42);
@@ -363,11 +363,11 @@ describe('SessionStart Hook', () => {
       }
       expect(
         isAbsolute(watcherPath),
-        `expected an absolute watcher path resolved from MARKETPLACE_PATH; got: ${watcherPath}`
+        `expected an absolute watcher path resolved from EXTENSION_PATH; got: ${watcherPath}`
       ).toBe(true);
       expect(watcherPath).toMatch(WATCHER_PATH_RE);
-      // Anchored on the action's MARKETPLACE_PATH (ACTION_ENV).
-      expect(watcherPath).toContain(join('/tmp/extension/dist/marketplace', 'claude', 'cards', 'bin'));
+      // Anchored on the action's EXTENSION_PATH dist/bin (ACTION_ENV).
+      expect(watcherPath).toContain(join('/tmp/extension', 'dist', 'bin'));
     });
 
     // Reproduction (main-98): spawnWatcher logged "Spawned transcript watcher"

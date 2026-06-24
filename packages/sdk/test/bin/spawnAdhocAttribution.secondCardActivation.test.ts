@@ -92,6 +92,7 @@ describe('spawnAdhocAttribution — second card bound in the same session', () =
     // session-scoped de-dupe lock short-circuits the whole spawn path, so
     // this assertion fails against the unfixed code.
     expect(spawnAdhocCleanup).toHaveBeenCalledWith(
+      expect.any(String),
       agentPid,
       sessionId,
       'main-B',

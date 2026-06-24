@@ -218,6 +218,19 @@ export const CARDS_ENV_VARS = {
   MARKETPLACE_PATH: 'MARKETPLACE_PATH',
 
   /**
+   * Absolute path to the extension's cards CLI bin directory
+   * (`<extensionPath>/dist/bin`).
+   *
+   * Set by the extension host on the action env. The cards CLI bin tree (the
+   * `.mjs` bundles and shell shims) is produced by the extension build and ships
+   * here, no longer under the marketplace plugin tree. Read on win32 by the
+   * detached `adhoc-cleanup` spawn to locate the sibling `adhoc-cleanup.mjs`.
+   *
+   * Available in actions only (not type hooks).
+   */
+  CARDS_BIN_PATH: 'CARDS_BIN_PATH',
+
+  /**
    * Absolute path to the Cards hooks log file.
    *
    * Set by ActionDispatcher at runtime. Read by the Logger singleton

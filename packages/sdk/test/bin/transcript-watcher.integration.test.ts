@@ -41,7 +41,7 @@ const execFileAsync = promisify(execFile);
 // leading-slash, percent-encoded path like /C:/... that path APIs reject.
 const BUILT_BINARY = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../../../claude/cards/bin/transcript-watcher.mjs'
+  '../../../../../packages/extension/dist/bin/transcript-watcher.mjs'
 );
 
 interface ParsedMessage {
@@ -195,7 +195,7 @@ describe('transcript-watcher binary integration', () => {
   beforeEach(async () => {
     if (!existsSync(BUILT_BINARY)) {
       throw new Error(
-        `Built transcript-watcher binary not found at ${BUILT_BINARY}. Run 'yarn build' in public/packages/sdk first.`
+        `Built transcript-watcher binary not found at ${BUILT_BINARY}. Run the extension build (e.g. 'yarn build' in packages/extension) to produce dist/bin first.`
       );
     }
     sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;

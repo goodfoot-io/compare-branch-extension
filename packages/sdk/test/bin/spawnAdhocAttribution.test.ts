@@ -109,6 +109,7 @@ describe('spawnAdhocAttribution', () => {
     // lock path marks it a non-owner so teardown never releases another
     // bind's session lock.
     expect(spawnAdhocCleanup).toHaveBeenCalledWith(
+      '',
       params.agentPid,
       params.sessionId,
       params.cardId,
@@ -185,6 +186,7 @@ describe('spawnAdhocAttribution', () => {
     await spawnAdhocAttribution(params, logger);
 
     expect(spawnAdhocCleanup).toHaveBeenCalledWith(
+      '',
       params.agentPid,
       params.sessionId,
       params.cardId,
@@ -192,5 +194,33 @@ describe('spawnAdhocAttribution', () => {
       params.lockPath,
       logger
     );
+  });
+
+  it('forwards CARDS_BIN_PATH as the binPath cleanup arg when set', async () => {
+    vi.mocked(readCardStatus).mockResolvedValue('active');
+    vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
+    vi.mocked(acquireLock).mockResolvedValue(true);
+    vi.mocked(spawnTranscriptWatcher).mockReturnValue(true);
+
+    const previous = process.env['CARDS_BIN_PATH'];
+    process.env['CARDS_BIN_PATH'] = '/tmp/ext/dist/bin';
+    try {
+      const logger = makeLogger();
+      const params = makeParams();
+      await spawnAdhocAttribution(params, logger);
+
+      expect(spawnAdhocCleanup).toHaveBeenCalledWith(
+        '/tmp/ext/dist/bin',
+        params.agentPid,
+        params.sessionId,
+        params.cardId,
+        params.cardRepoPath,
+        params.lockPath,
+        logger
+      );
+    } finally {
+      if (previous === undefined) delete process.env['CARDS_BIN_PATH'];
+      else process.env['CARDS_BIN_PATH'] = previous;
+    }
   });
 });

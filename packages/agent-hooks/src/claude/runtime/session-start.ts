@@ -9,6 +9,7 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
+import { join } from 'node:path';
 import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
 import { execFileSyncNoWindow } from '@cards/sdk/bin/child-process';
 import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
@@ -77,7 +78,7 @@ function spawnWatcher(
     // only the `runtime` plugin, so the `cards` plugin bin that publishes the
     // `transcript-watcher` wrapper is never on PATH. The success log is gated on
     // the spawn actually happening so a skipped spawn is not reported as success.
-    const watcher = resolveTranscriptWatcher(actionInput.marketplacePath);
+    const watcher = resolveTranscriptWatcher(join(actionInput.extensionPath, 'dist', 'bin'));
     const spawned = spawnTranscriptWatcher(
       watcher,
       agentPid,

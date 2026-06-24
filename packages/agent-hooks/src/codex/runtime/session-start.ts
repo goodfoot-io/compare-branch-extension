@@ -8,6 +8,7 @@
  * @summary SessionStart hook implementation
  */
 
+import { join } from 'node:path';
 import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
 import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import type { ActionInput } from '@cards/sdk/config';
@@ -47,7 +48,7 @@ function spawnWatcher(
     // only the `runtime` plugin, so the `cards` plugin bin that publishes the
     // `transcript-watcher` wrapper is never on PATH. The success log is gated on
     // the spawn actually happening so a skipped spawn is not reported as success.
-    const watcher = resolveTranscriptWatcher(actionInput.marketplacePath);
+    const watcher = resolveTranscriptWatcher(join(actionInput.extensionPath, 'dist', 'bin'));
     const spawned = spawnTranscriptWatcher(
       watcher,
       agentPid,

@@ -63,6 +63,7 @@ describe('env', () => {
         WORKSPACE_BRANCH: 'WORKSPACE_BRANCH',
         EXTENSION_PATH: 'EXTENSION_PATH',
         MARKETPLACE_PATH: 'MARKETPLACE_PATH',
+        CARDS_BIN_PATH: 'CARDS_BIN_PATH',
         HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE'
       });
     });

@@ -146,7 +146,13 @@ export async function spawnAdhocAttribution(
   //    lock-owning bind forwards the lock path; non-owners pass an empty path
   //    so their teardown never unlinks a lock owned by an earlier card's
   //    cleanup (which would break the watcher de-dupe invariant).
-  spawnAdhocCleanup(agentPid, sessionId, cardId, cardRepoPath, acquired ? lockPath : '', logger);
+  //
+  //    win32 `.mjs` resolution needs the extension's `dist/bin`. Attach mode
+  //    runs with the cards bin on PATH, so the extension injects CARDS_BIN_PATH
+  //    (`<extensionPath>/dist/bin`) into the action env; the empty-string
+  //    fallback lets resolveWin32AdhocMjs use the on-PATH `where` lookup.
+  const binPath = (process.env['CARDS_BIN_PATH'] ?? '').trim();
+  spawnAdhocCleanup(binPath, agentPid, sessionId, cardId, cardRepoPath, acquired ? lockPath : '', logger);
 
   return { activated: true };
 }
