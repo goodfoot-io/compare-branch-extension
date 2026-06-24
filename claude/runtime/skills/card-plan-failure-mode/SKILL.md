@@ -39,7 +39,7 @@ The orchestrator decides when the contest closes — there is no settlement hand
 
 Before yielding your turn between `PLAN: READY` arrivals, launch `card $CARD_ID watch "plans/**"` from `$CARD_REPO_PATH` with `Bash` `run_in_background: true` so it does not block inbound DMs. The watch exits as soon as a planner commits a revision and the completion notification wakes you, even when the corresponding `PLAN: READY` DM fails to deliver.
 
-When the orchestrator DMs you `{"type": "shutdown_request"}`, the contest has ended (you have already DM'd `WINNER:` or the contest reached an all-blocked outcome). Stop any in-flight analysis and exit cleanly. The orchestrator waits for your shutdown before exiting.
+Once the contest has ended (you have already DM'd `WINNER:` or the contest reached an all-blocked outcome), you are done — end your turn and you go idle and stop on your own; the orchestrator needs nothing further from you to promote the winner. The orchestrator may also DM `{"type": "shutdown_request"}` as an optional early kill while you are still mid-analysis — stop and exit cleanly when you receive it.
 
 Every streamed finding is DM'd to the originating planner with the marker `FINDING: <label> for:[PLANNER] round-K` in `summary` and as the first line of the `message` body (round-tagged so the planner can match each finding to the round under review). Every verdict DM names both `main` and the targeted planner — `main` first — with the marker in `summary` and as the first line of the `message` body. The single exception in routing is `VERDICT: BLOCKED for:[PLANNER]`, which is also DM'd to every other live planner so they update their live-set tracking; that verdict is round-agnostic and terminates the planner regardless of round.
 
@@ -279,7 +279,7 @@ Sender: plan-failure-mode
 </invoke>
 ```
 
-The planners learn the contest outcome via the orchestrator's subsequent `shutdown_request` DM, not via this winner DM.
+The planners are not told the outcome — by contest close they have settled and gone idle, and the orchestrator promotes the winner without notifying them. This winner DM is for the orchestrator alone.
 
 ## 7. Re-Reviewing a Revised Plan
 

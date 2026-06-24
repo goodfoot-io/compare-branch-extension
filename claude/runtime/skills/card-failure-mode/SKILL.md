@@ -11,7 +11,7 @@ description: Identify potential failure modes in card implementations
 - **Never create extra artifacts** unless the task explicitly requires them
 - **Follow repository conventions** when judging what is risky or incorrect
 - **Account for verification limits or blockers** explicitly in the verdict DM
-- **Remain alive until `main` sends `{"type": "shutdown_request"}`** — you are a long-running evaluator dispatched in the background for the life of the evaluation. DMing a `VERDICT:` does not end your run; the orchestrator may trigger re-evaluation after a developer wave lands. Only a `shutdown_request` from the orchestrator ends the evaluation. When you receive it, stop any in-flight analysis and exit cleanly. The orchestrator waits for your shutdown before proceeding. Do not self-terminate.
+- **Yield your turn when a round is done — a DM re-wakes you** — after DMing a `VERDICT:`, stop working and end your turn. You go idle and your process stops on its own (the orchestrator sees an `idle_notification`); do not busy-wait for messages or keep yourself alive. DMing a `VERDICT:` does not end the evaluation — when the orchestrator triggers re-evaluation after a developer wave lands, its DM wakes you with your prior context and you resume per "When Resuming for a Fixed Implementation". A `{"type": "shutdown_request"}` from the orchestrator is an optional early kill while you are still mid-analysis — approve it and exit; once you have gone idle there is nothing to shut down.
 
 </critical-constraints>
 

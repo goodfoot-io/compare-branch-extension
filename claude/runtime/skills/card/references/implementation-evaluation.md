@@ -38,11 +38,11 @@ Diff the workspace against the baseline to see the full scope of changes. Select
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
-The evaluators form an ad-hoc group purely by being named; they persist across every revision round and are torn down only on terminal exit (Step 9: Finalize, or the BLOCKED branch in Step 5). Developers dispatched in Step 6 are **not** part of this group.
+The evaluators form an ad-hoc group purely by being named. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and its process stops on its own. It re-wakes — with its prior context — when your Step 8 re-evaluation DM arrives, so the group reconstitutes itself across rounds by name without you keeping it alive. Developers dispatched in Step 6 are **not** part of this group.
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
 
-Evaluators run in the background so you can collect inbound DMs from them while they work. Both evaluators stay alive across revision rounds — re-evaluation in later rounds is triggered by a per-evaluator DM (Step 8: Trigger Re-Evaluation), so each evaluator's "When Resuming for a Fixed Implementation" section in its skill can resume against the updated workspace.
+Evaluators run in the background so you can collect inbound DMs from them while they work. After each round an evaluator DMs its `VERDICT:`, goes idle, and stops; re-evaluation in later rounds is triggered by a per-evaluator DM (Step 8: Trigger Re-Evaluation) that wakes the stopped evaluator, so each evaluator's "When Resuming for a Fixed Implementation" section in its skill resumes against the updated workspace.
 
 Based on depth:
 - **Standard**: Dispatch one `failure-mode` evaluator.
@@ -132,7 +132,7 @@ A mixed set — one evaluator approves while another requests changes — is CHA
 Based on the aggregated verdicts:
 - **All APPROVED** (every dispatched evaluator has DM'd `VERDICT: APPROVED`): Proceed to Step 9: Finalize. This is the only path to Finalize. Do not accept fewer than the full evaluator set.
 - **Any CHANGES_REQUESTED** (at least one evaluator has DM'd `VERDICT: CHANGES_REQUESTED`, regardless of other evaluators' verdicts): Proceed to Step 6: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.
-- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, tear down the evaluators per Step 9: Finalize (send each a `shutdown_request` and wait for each to exit), and **STOP**.
+- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, then **STOP**. An evaluator that has DM'd its verdict has already gone idle and stopped; if a peer evaluator is still working and you want to stop it early, DM it a `shutdown_request` per Step 9.
 
 ## 6. Dispatch Developer Wave
 
@@ -247,7 +247,7 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path — including after applying fixes yourself — return to Step 5 and collect the remaining verdicts.
 
-Shut down every still-running evaluator by sending each a `shutdown_request` — the evaluator's own skill handles its exit. On Standard depth this is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
+Every evaluator that DM'd `VERDICT: APPROVED` for this round has already gone idle and stopped on its own, so there is normally nothing to tear down — proceed directly. Only if an evaluator is still actively working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits). On Standard depth there is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
 
 ```xml
 <invoke name="SendMessage">
@@ -256,8 +256,6 @@ Shut down every still-running evaluator by sending each a `shutdown_request` —
   <parameter name="message">{"type": "shutdown_request", "reason": "Evaluation complete"}</parameter>
 </invoke>
 ```
-
-Send each still-running evaluator a `shutdown_request` and wait for each to exit before proceeding.
 
 Do not modify gates in `CARD.meta.json`.
 

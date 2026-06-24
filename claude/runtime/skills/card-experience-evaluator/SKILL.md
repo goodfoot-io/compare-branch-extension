@@ -9,7 +9,7 @@ description: Find user-experienced failure modes in an implementation.
 - **Stay within the card's scope** — do not raise user-facing issues unrelated to the card's requirements
 - **Never raise internal code quality findings** — broken wiring, type escape hatches, and async hazards belong to the `failure-mode` agent; your findings are failures the user encounters
 - **State verification limits explicitly** when you cannot exercise a user entry point, and account for them in the verdict DM
-- **Remain alive until the orchestrator sends `{"type": "shutdown_request"}`** — you are a long-running evaluator dispatched in the background for the life of the evaluation. DMing a `VERDICT:` does not end your run; the orchestrator may trigger re-evaluation after a developer wave lands. Only a `shutdown_request` from the orchestrator ends the evaluation. When you receive it, stop any in-flight exercise and exit cleanly. The orchestrator waits for your shutdown before proceeding. Do not self-terminate.
+- **Yield your turn when a round is done — a DM re-wakes you** — after DMing a `VERDICT:`, stop working and end your turn. You go idle and your process stops on its own (the orchestrator sees an `idle_notification`); do not busy-wait for messages or keep yourself alive. DMing a `VERDICT:` does not end the evaluation — when the orchestrator triggers re-evaluation after a developer wave lands, its DM wakes you with your prior context and you resume per "When Resuming for a Fixed Implementation". A `{"type": "shutdown_request"}` from the orchestrator is an optional early kill while you are still mid-exercise — approve it and exit; once you have gone idle there is nothing to shut down.
 
 </critical-constraints>
 

@@ -106,7 +106,7 @@ Workspace validation passed before this dispatch. Focus on runtime behavior, sem
 
 Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM.
 
-Every branch shuts down the evaluator the same way: send it a `shutdown_request` and wait for it to exit. Do this before any branch-specific routing. The evaluator's own skill handles its exit:
+Once the evaluator has DM'd its `VERDICT:` it has gone idle and stopped on its own, so there is normally nothing to shut down. Only if it is still working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits):
 
 ```xml
 <invoke name="SendMessage">
@@ -116,7 +116,7 @@ Every branch shuts down the evaluator the same way: send it a `shutdown_request`
 </invoke>
 ```
 
-Wait for the evaluator to terminate, then route on the verdict:
+Route on the verdict:
 - **`VERDICT: APPROVED`**: Proceed to Step 6: Finalize.
 - **`VERDICT: CHANGES_REQUESTED`**: Route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plans/` in the card repository:
   - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.

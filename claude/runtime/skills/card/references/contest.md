@@ -43,7 +43,7 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 
 Read the card from the card repository. Create a plan at `plans/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to your peers as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.
 
-Follow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and shutdown handling.
+Follow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and contest-end handling.
 
 ## Peers
 Your peer planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]` (excluding yourself). The reviewer is `plan-failure-mode`. The orchestrator is `main`. Track the live set from the `BLOCKED` DMs you receive — there is no roster file to read.
@@ -65,7 +65,7 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 <parameter name="prompt">
 [N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.
 
-Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and shutdown handling.
+Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and contest-end handling.
 
 ## Peers
 The planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `main`. Track the live set from the `PLAN: BLOCKED` / `VERDICT: BLOCKED for:planner-N` DMs you receive — there is no roster file to read.
@@ -150,7 +150,9 @@ A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for tha
 
 This step runs on every exit path from Step 3 and Step 4 (winner, all-blocked, lone survivor).
 
-Shut down every still-running subagent — each live `planner-N` and the `plan-failure-mode` reviewer — by sending each a `shutdown_request`. The teammate's own skill handles its exit:
+By the time the contest closes the subagents have already settled and gone idle — a settled `planner-N` and a reviewer that has DM'd `WINNER:` each stop on their own — so there is normally nothing to tear down and no shutdown to wait for. Proceed directly to promoting the winner.
+
+Only if a subagent is still actively working when you need to close — and you want to stop it early rather than let it finish — DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits):
 
 ```xml
 <invoke name="SendMessage">
@@ -159,8 +161,6 @@ Shut down every still-running subagent — each live `planner-N` and the `plan-f
   <parameter name="message">{"type": "shutdown_request", "reason": "Contest closed"}</parameter>
 </invoke>
 ```
-
-Send each still-running subagent a `shutdown_request` and wait for each to exit before proceeding.
 
 If there is a winner, promote the winning plan and delete every other plan file. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` DM body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:
 

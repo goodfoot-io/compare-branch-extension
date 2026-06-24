@@ -117,7 +117,7 @@ Do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
 
 ## 4. Handle Incoming Messages
 
-After Step 3, continue to handle incoming messages until the orchestrator sends you a shutdown request. Route by message type.
+After Step 3, handle incoming messages until the contest ends. Route by message type. When you have nothing left to do between messages, end your turn — you go idle and your process stops on its own; an inbound DM (a verdict, a finding, or a peer's `PLAN: READY`) wakes you again with your prior context. Do not busy-wait to stay alive.
 
 **Message ordering.** Process inbound messages serially in arrival order. Do not batch findings: each streamed finding (§4.1) gets its own revise-and-commit before the next is processed — the reviewer reads commit history and benefits from per-finding granularity. If a peer DM or new finding arrives while you are mid-revision on an earlier finding, finish the current revise-and-commit first, then handle the next message. The single exception is a `VERDICT: BLOCKED for:[AGENT_NAME]` arriving mid-revision: that is terminal and overrides any in-flight work; stop and proceed to §4.6 immediately.
 
@@ -191,10 +191,10 @@ A peer's `PLAN: BLOCKED` or a `VERDICT: BLOCKED for:peer-N` ruling removes that 
 
 ### 4.6 After DMing or Receiving `PLAN: BLOCKED`
 
-If you self-declared `PLAN: BLOCKED` at Step 3, or the reviewer ruled `VERDICT: BLOCKED for:[AGENT_NAME]` at §4.2, you have dropped out of contention. Stop revising your plan and stop DMing critiques of peer plans. Continue to read incoming messages, but do not act on them — there is no path back into contention from `BLOCKED`. Idle until the orchestrator sends the shutdown request described in §4.7.
+If you self-declared `PLAN: BLOCKED` at Step 3, or the reviewer ruled `VERDICT: BLOCKED for:[AGENT_NAME]` at §4.2, you have dropped out of contention. Stop revising your plan and stop DMing critiques of peer plans. There is no path back into contention from `BLOCKED`, so end your turn — you go idle and stop on your own. Nothing further is required of you.
 
-### 4.7 Shutdown Request from the Orchestrator
+### 4.7 Contest End
 
-When the orchestrator DMs you `{"type": "shutdown_request"}`, the contest has ended. Stop any in-flight revision or critique work, commit nothing further, and exit cleanly. The orchestrator waits for your shutdown before proceeding.
+When the contest ends, you are simply done — once you have settled (DMed your last `PLAN: READY` and sent nothing further, or dropped out via `BLOCKED`) you go idle and your process stops on its own; the orchestrator promotes the winner and deletes the losing plan files without needing anything from you. The orchestrator may also DM `{"type": "shutdown_request"}` as an optional early kill while you are still mid-revision — approve it, commit nothing further, and exit cleanly.
 
 </instructions>
