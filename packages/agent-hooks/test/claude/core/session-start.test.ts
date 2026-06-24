@@ -1,32 +1,15 @@
 /**
- * Tests for the SessionStart hook that persists CLI env vars.
+ * Tests for the SessionStart hook that persists session identity env vars.
  *
- * Verifies that the hook resolves all CLI wrapper paths and persists
- * them via persistEnvVar, and warns when any wrapper is missing.
+ * Verifies that the hook persists CARDS_SESSION_ID and CARDS_TRANSCRIPT_PATH
+ * via persistEnvVar on every session. CLI tools reach sessions through the
+ * `dist/bin`-on-PATH mechanism, so the hook no longer resolves any wrapper path.
  *
- * @summary Tests for CLI env var SessionStart hook
+ * @summary Tests for the session-identity SessionStart hook
  */
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { Logger } from '@goodfoot/claude-code-hooks';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('node:url', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:url')>();
-  return {
-    ...actual,
-    fileURLToPath: vi.fn(actual.fileURLToPath)
-  };
-});
-
-import { fileURLToPath } from 'node:url';
-
-const mockFileURLToPath = vi.mocked(fileURLToPath);
-
-const WRAPPER_FILES = ['cards-dev-cli'] as const;
-const ENV_VARS = ['CARDS_DEV_CLI'] as const;
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('session-start hook', () => {
   const mockPersistEnvVar = vi.fn();
@@ -46,42 +29,14 @@ describe('session-start hook', () => {
     source: 'startup' as const
   };
 
-  let testDir: string;
-  let hookBinDir: string;
-  let binDir: string;
-
   beforeEach(() => {
-    // Mirror the shipped layout: dist/marketplace/claude/cards/hooks/bin/ for the compiled hook
-    // and dist/bin/ for the CLI wrappers (five directories up from hooks/bin/).
-    testDir = join(tmpdir(), `session-start-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    hookBinDir = join(testDir, 'marketplace', 'claude', 'cards', 'hooks', 'bin');
-    binDir = join(testDir, 'bin');
-    mkdirSync(hookBinDir, { recursive: true });
     mockPersistEnvVar.mockReset();
     mockPersistEnvVars.mockReset();
     vi.mocked(mockLogger.info).mockReset();
     vi.mocked(mockLogger.warn).mockReset();
   });
 
-  afterEach(() => {
-    mockFileURLToPath.mockRestore();
-    rmSync(testDir, { recursive: true, force: true });
-  });
-
-  /**
-   * Creates wrapper files in the test bin directory.
-   *
-   * @param filenames - Wrapper filenames to create.
-   */
-  function createWrappers(filenames: readonly string[]): void {
-    mkdirSync(binDir, { recursive: true });
-    for (const name of filenames) {
-      writeFileSync(join(binDir, name), '#!/bin/sh\necho test');
-    }
-  }
-
   function runHook() {
-    mockFileURLToPath.mockReturnValue(join(hookBinDir, 'hook.mjs'));
     return import('../../../src/claude/core/session-start.js').then((m) =>
       m.default(baseInput, {
         logger: mockLogger,
@@ -96,35 +51,11 @@ describe('session-start hook', () => {
     expect(hookFn.hookEventName).toBe('SessionStart');
   });
 
-  it('persists session identity env vars unconditionally', async () => {
-    createWrappers(WRAPPER_FILES);
-    await runHook();
-
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_SESSION_ID', baseInput.session_id);
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_TRANSCRIPT_PATH', baseInput.transcript_path);
-  });
-
-  it('persists session env vars even when CLI wrappers are missing', async () => {
-    await runHook();
-
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_SESSION_ID', baseInput.session_id);
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_TRANSCRIPT_PATH', baseInput.transcript_path);
-  });
-
-  it('persists all CLI env vars when all wrappers exist', async () => {
-    createWrappers(WRAPPER_FILES);
+  it('persists session identity env vars and returns null', async () => {
     const result = await runHook();
 
-    for (let i = 0; i < WRAPPER_FILES.length; i++) {
-      expect(mockPersistEnvVar).toHaveBeenCalledWith(ENV_VARS[i]!, join(binDir, WRAPPER_FILES[i]!));
-    }
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_SESSION_ID', baseInput.session_id);
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_TRANSCRIPT_PATH', baseInput.transcript_path);
     expect(result).toBeNull();
-  });
-
-  it('warns and returns systemMessage when all wrappers are missing', async () => {
-    const result = await runHook();
-
-    expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledTimes(1);
-    expect(result!.stdout.systemMessage).toContain('cards-dev-cli');
   });
 });

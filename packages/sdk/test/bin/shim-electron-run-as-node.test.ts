@@ -22,7 +22,7 @@ const BIN_DIR = path.resolve(__dirname, '../../src/bin');
 
 const CMD_SHIMS = [
   'card.cmd',
-  'cards-dev-cli.cmd',
+  'cards-dev.cmd',
   'cards-extension-cli.cmd',
   'create-worktree.cmd',
   'remove-worktree.cmd',
@@ -31,7 +31,7 @@ const CMD_SHIMS = [
 
 const SH_SHIMS = [
   'card.sh',
-  'cards-dev-cli.sh',
+  'cards-dev.sh',
   'cards-extension-cli.sh',
   'create-worktree.sh',
   'remove-worktree.sh',
