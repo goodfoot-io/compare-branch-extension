@@ -98,8 +98,10 @@ Based on discovery file + PID + TCP probe + health check result. Schema details 
 
 ## Escalation
 
+File via `cards-extension issue`. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template and evidence collection) before filing.
+
 Escalate if any of these are true:
-- Server won't start after 3 window reloads → Check VS Code extension host logs for activation errors
-- Database corruption recurs after rebuild → Filesystem may be full or read-only
-- Port conflict persists across reloads → Another process is using the port
-- Discovery file oscillates (created/deleted rapidly) → Two windows may be fighting for ownership
+- **Server won't start after 3 window reloads**: Include the last 100 lines of the Cards output channel and `find ~/.vscode-server/data/logs -name 'Cards.log' -exec tail -50 {} \;`.
+- **Database corruption recurs after rebuild**: Include `ls -la ~/.cards/cards.db*` and the server startup log showing the corruption error.
+- **Port conflict persists across reloads**: Include `lsof -i :<port>` output and the discovery file contents.
+- **Discovery file oscillates (created/deleted rapidly)**: Include `tail -100 ${WORKSPACE}/.cards/logs/claude-code-cards-api-hooks.log` and `ls -la ~/.cards/cards-api.json*`.

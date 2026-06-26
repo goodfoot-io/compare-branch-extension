@@ -130,11 +130,13 @@ Ranked by probability:
 
 ## Escalation
 
+File via `cards-extension issue`. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template and evidence collection) before filing.
+
 Escalate if:
-- Bind lock persists after confirming no bind operation is running → Filesystem or permissions issue
-- Worktree creation consistently fails with no collision → `repoId` hash computation may be wrong
-- Hooks refuse to run after multiple re-outfit attempts → `core.hooksPath` may be locked by git config scope
-- Worktree removal fails with `git worktree remove` → fallback `rm -rf` may be needed (verify worktree is not in use)
+- **Bind lock persists after confirming no bind operation is running**: Include `ls -la ~/.cards/bind-locks/` and `git worktree list`.
+- **Worktree creation consistently fails with no collision**: Include `create-worktree` stderr output and the worktree directory listing.
+- **Hooks refuse to run after multiple re-outfit attempts**: Include `git config core.hooksPath` and `cat .cards/CARD_ORIGINAL_HOOK_PATH`.
+- **Worktree removal fails with `git worktree remove`**: Include `git worktree list` and the specific error from `rm -rf` fallback.
 
 ## Out of Scope
 

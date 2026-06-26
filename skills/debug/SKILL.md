@@ -5,7 +5,7 @@ description: This skill should be used when the user asks to "debug the cards as
 
 <tools>
 cards — Card operations CLI (get, create, list, search, bind, watch, action)
-cards-extension — VS Code extension control CLI (editor, notify, workspace, debug, panel)
+cards-extension — VS Code extension control CLI (editor, notify, issue, workspace, debug, panel)
 curl — HTTP health checks against the Cards API server
 jq — Parse JSON discovery files and JSON Lines logs
 git rev-parse --show-toplevel — Resolve workspace root
@@ -48,6 +48,8 @@ Each file below is loaded on demand. Load the one matching the symptom first.
 | `references/inspect-plugin-cache.md` | Reference | Plugin cache staging, version management, marketplace registration | Plugin not loading, "unknown plugin", stale cached version |
 | `references/inspect-cli-tools.md` | Reference | CLI locations, shell shims, workspace discovery, authentication | CLI command fails, "command not found", interpreter broken |
 | `references/cards-api-server.md` | Reference | Discovery file schema, database settings, liveness states, recovery constants | Understanding server internals, writing automation, verifying schema |
+| `references/issue-report-guide.md` | How-to | Structure for filing a well-formed bug report via `cards-extension issue` — report sections, writing principles, template | Filing a bug report about the Cards extension, composing an issue body |
+| `references/interview-issue-report.md` | How-to | Interview process to gather signal for a bug report before filing | Before filing an issue, user reports a bug but details are unclear, need to gather evidence |
 | `references/platform-reference.md` | Reference | Path differences, IPC, Node interpreter selection for Linux/macOS/Windows | Path differences across machines or OS, cross-platform debugging |
 
 ## 3. Route by Symptom
@@ -66,6 +68,7 @@ Based on symptom:
 - **Card stuck in active state, daemon crashed, cleanup not happening**: Load `references/find-session-state.md` — the ad-hoc session monitoring section covers the reconciliation sweep that settles stranded cards when the adhoc-cleanup daemon crashes.
 - **CLI command fails, "command not found"**: Load `references/inspect-cli-tools.md` — CLI inventory with auth, workspace discovery, shell shim patterns, and platform-specific behavior.
 - **Path differences across machines or OS**: Load `references/platform-reference.md` — cross-platform path tables, IPC mechanisms, Node interpreter selection, shell variable syntax.
+- **Need to file a bug report about the Cards extension**: Load `references/interview-issue-report.md` (interview process — gather signal before filing) and `references/issue-report-guide.md` (report structure and template). File via `cards-extension issue` with the body template.
 - **Symptom unclear, spans multiple layers**: Load `references/diagnose-agent-launch.md` (covers the full spawn chain end-to-end) and `references/find-logs.md` (covers evidence collection at every layer). If the symptom involves server health, also load `references/diagnose-server-health.md`.
 
 ## 4. Route by Subsystem
@@ -87,5 +90,7 @@ Trace the defining source function for any unlisted path:
 ```bash
 grep -r "functionName\|PATH_CONSTANT" packages/extension/src/ public/packages/sdk/src/ --include="*.ts" -l
 ```
+
+If the skill cannot diagnose the problem after exhausting the reference files and source code, collect the evidence from §1 and file a bug report. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template). The template includes log collection, environment fingerprint, and discovery file state — all auto-captured from §1 evidence.
 
 </instructions>

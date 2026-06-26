@@ -138,11 +138,13 @@ Set by `cardsApiCommands.ts` lines 230-236. **Status: all current**.
 
 ## Escalation
 
+File via `cards-extension issue`. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template and evidence collection) before filing.
+
 Escalate if any of these are true after all recovery steps:
-- Handler binary is present but won't execute → Filesystem may be read-only or permissions wrong
-- Agent CLI is on PATH but ENOENT persists → Check `cross-spawn` version and platform
-- Terminal opens but no agent output appears → Agent CLI may be waiting for input or hung. Check `ps aux | grep claude`
-- Launch succeeds but hook doesn't fire → Load `diagnose-hooks.md`
+- **Handler binary is present but won't execute**: Include `ls -la "$(cat ~/.cards/EXTENSION_PATH 2>/dev/null)/dist/config/bin/"` and `cat ~/.cards/VSCODE_NODE`.
+- **Agent CLI is on PATH but ENOENT persists**: Include `which claude codex` output and the handler log tail at `${WORKSPACE}/.cards/logs/cards-default-configuration-hooks.log`.
+- **Terminal opens but no agent output appears**: Include `ps aux | grep claude` and `tail -50 ${WORKSPACE}/.cards/logs/claude-code-cards-runtime-hooks.log`.
+- **Launch succeeds but hook doesn't fire**: Load `diagnose-hooks.md` first. If root cause is not identified, file an issue with the hook log tail.
 
 ## Out of Scope
 

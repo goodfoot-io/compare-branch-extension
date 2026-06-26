@@ -47,11 +47,23 @@ All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows
 
 **Purpose**: communicate with the VS Code extension to control editors, send notifications, manage attribution, and run debug sessions.
 
-**Subcommands**: `attribution`, `editor`, `execute-command`, `notify`, `panel`, `workspace`, `debug`.
+**Subcommands**: `attribution`, `editor`, `execute-command`, `issue`, `notify`, `panel`, `workspace`, `debug`.
 
 **Auth**: Bearer token from `~/.cards/cards-api.json`.
 
 **API routes**: `/api/notifications`, `/editor`, `/editor/open`, `/editor/select`, `/workspaces`, `/execute-command`, `/debug/start`, `/debug/stop`, `/debug/state`, `/panel/show`.
+
+### `issue`
+
+Opens a pre-filled GitHub issue in the default browser. Reads a JSON object from stdin with required `title` and `body` fields (both non-empty strings). The body is supplemented with system information (extension version, VS Code version, platform, node version) by `generateCardUrl()` — sensitive file paths are redacted.
+
+```bash
+cards-extension issue <<'EOF'
+{"title": "Login fails on Ubuntu", "body": "## What happened\n\n..."}
+EOF
+```
+
+Routes through `POST /execute-command` with `{command: "cards.reportIssue", args: [title, body]}`. Unknown JSON fields are rejected. Missing or empty `title`/`body` produce an error to stderr and exit code 1.
 
 ### `create-worktree`
 

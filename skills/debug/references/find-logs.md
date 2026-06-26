@@ -35,7 +35,7 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 | **Status** | current |
 | **Child channels** | `Cards.Git`, `Cards.Router`, `Cards.Runtime`, `Cards.Server` |
 | **Source** | `packages/vscode-logging/src/logger.ts`::`createLogger()` — `window.createOutputChannel(name, { log: true })` |
-| **Note** | The channel output is NOT written to disk by the extension itself. VS Code may persist it based on log level and user settings. The extension maintains an in-memory ring buffer (last 500 entries) for error-reporting prefill via `logBuffer.ts`. |
+| **Note** | The channel output is NOT written to disk by the extension itself. VS Code may persist it based on log level and user settings. The extension maintains an in-memory ring buffer (last 500 entries via `logBuffer.ts`) that is pre-filled into issue reports opened by `cards-extension issue`. For filing a bug report about log-related problems, use the template in `issue-report-guide.md` — the log buffer contents appear automatically in the issue body. |
 
 ### Claude API Hooks
 

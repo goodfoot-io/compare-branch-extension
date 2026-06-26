@@ -174,11 +174,13 @@ Based on symptom, ranked by probability:
 
 ## Escalation
 
+File via `cards-extension issue`. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template and evidence collection) before filing.
+
 Escalate if:
-- Hook binary exists and is executable but agent still can't find it → Claude/Codex plugin discovery bug
-- Trust interstitial appears on every launch despite unchanged binary → Hash computation mismatch (platform-specific command selection)
-- Hook log shows repeated crash entries with same error → Bug in hook code; check the hook source
-- No hooks fire for any plugin → Agent CLI may not support hooks in the current mode
+- **Hook binary exists and is executable but agent still can't find it**: Include `find ~/.claude/plugins/cache ~/.codex/plugins/cache -name 'hooks.json' -type f` and the relevant `hooks.json` content.
+- **Trust interstitial appears on every launch despite unchanged binary**: Include `cat ~/.codex/cards.config.toml` (the profile config with trusted hashes) and `sha256sum` of the staged hook `.mjs` file.
+- **Hook log shows repeated crash entries with same error**: Include `tail -100 ${WORKSPACE}/.cards/logs/claude-code-cards-api-hooks.log | jq 'select(.level == "error")'`.
+- **No hooks fire for any plugin**: Include the agent settings file showing plugin enablement and the hook log showing zero SessionStart entries.
 
 ## Out of Scope
 
