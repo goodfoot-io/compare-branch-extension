@@ -1259,6 +1259,28 @@ export async function provisionSharedHooksDir(
 ): Promise<void> {
   await fs.mkdir(sharedHooksDir, { recursive: true });
 
+  // Content-addressed skip: the provisioned files are a pure function of the
+  // dispatcher template (versioned by DISPATCHER_SCHEMA_VERSION) and the compiled
+  // `.mjs` inputs. Key on the version plus each source's size+mtime (a stat, no
+  // read) and record it in a marker written last. A matching marker means the dir
+  // already holds byte-identical output, so the writes are skipped. This needs
+  // no invalidation: a rebuilt `.mjs` changes its stat → a different key → a
+  // natural miss; a stale key is simply never matched, never expired. Fail-closed:
+  // the marker is written only after every file lands, so a crash mid-provision
+  // leaves no marker and the next call re-provisions.
+  const markerPath = path.join(sharedHooksDir, MARKER_NAME);
+  const provisionKey = await computeHooksProvisionKey(compiledScriptPaths);
+  try {
+    const existing = await fs.readFile(markerPath, 'utf-8');
+    if (existing === provisionKey) {
+      return;
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
   await Promise.all(
     CLIENT_SIDE_HOOK_TYPES.map(async (hookType) => {
       const hasCardsHook = compiledScriptPaths[hookType] !== undefined;
@@ -1275,7 +1297,7 @@ export async function provisionSharedHooksDir(
   );
 
   // Marker written LAST so its presence proves a complete provision (fail-closed).
-  await atomicWrite(MARKER_NAME, provisionKey, 0o644);
+  await atomicWriteHookFile(fs, sharedHooksDir, MARKER_NAME, provisionKey, 0o644);
 }
 
 /**
@@ -1286,7 +1308,7 @@ const MARKER_NAME = '.provisioned';
 
 /**
  * Bump whenever {@link buildDispatcherScript}, {@link CLIENT_SIDE_HOOK_TYPES},
- * or {@link RESOLVE_NODE} change so a stale shared-hooks dir is re-provisioned
+ * or {@link RESOLVE_NODE_BASH} change so a stale shared-hooks dir is re-provisioned
  * even when the compiled `.mjs` inputs are unchanged. The dispatcher script
  * content is otherwise invisible to the stat-based key.
  */
