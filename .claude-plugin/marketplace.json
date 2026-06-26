@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.784",
+    "version": "1.0.785",
     "pluginRoot": "./claude"
   },
   "plugins": [
     {
       "name": "cards",
-      "version": "1.0.296",
+      "version": "1.0.297",
       "source": "./claude/cards",
       "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {
@@ -42,7 +42,7 @@
     },
     {
       "name": "cards-assistant",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./claude/cards-assistant",
       "description": "Cards Assistant session-start announcement plugin",
       "author": {
