@@ -17,7 +17,7 @@ If you discover a security vulnerability in the Cards extension, please report i
 
 ### How to Report
 
-1. **Email**: Send details to security@goodfoot.io (if available) or create a [private security advisory](https://github.com/goodfoot-io/compare-branch-extension/security/advisories/new)
+1. **Email**: Send details to security@goodfoot.io (if available) or create a [private security advisory](https://github.com/goodfoot-io/cards.management/security/advisories/new)
 2. **Include**:
    - Description of the vulnerability
    - Steps to reproduce
@@ -54,4 +54,4 @@ No security vulnerabilities have been reported or fixed to date.
 
 ## Questions
 
-For questions about this security policy, please open a [GitHub Discussion](https://github.com/goodfoot-io/compare-branch-extension/discussions).
+For questions about this security policy, please open a [GitHub Discussion](https://github.com/goodfoot-io/cards.management/discussions).

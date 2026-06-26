@@ -19,7 +19,7 @@ For bug reports and feature requests, please use GitHub Issues:
 
 For questions, ideas, and community discussion:
 
-- [GitHub Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)
+- [GitHub Discussions](https://github.com/goodfoot-io/cards.management/discussions)
 
 Use Discussions for:
 

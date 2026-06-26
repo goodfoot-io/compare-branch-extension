@@ -12,7 +12,7 @@ Cards is a performance-optimized VS Code extension that provides comprehensive b
 
 ### Flexible Branch Comparison
 
-<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/branch.gif" alt="Compare git branches in VS Code - automatic upstream branch detection and manual branch selection for pull request preview" width="100%">
+<img src="https://github.com/goodfoot-io/cards.management/raw/main/images/branch.gif" alt="Compare git branches in VS Code - automatic upstream branch detection and manual branch selection for pull request preview" width="100%">
 
 Compare against any branch, commit, or tag. Automatic upstream detection with manual override when needed.
 
@@ -20,7 +20,7 @@ Compare against any branch, commit, or tag. Automatic upstream detection with ma
 
 ### Integrated Search
 
-<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/search.gif" alt="Search changed files in VS Code branch comparison - quickly find modified files in large AI-generated changesets" width="100%">
+<img src="https://github.com/goodfoot-io/cards.management/raw/main/images/search.gif" alt="Search changed files in VS Code branch comparison - quickly find modified files in large AI-generated changesets" width="100%">
 
 Quickly locate specific files within large changesets.
 
@@ -28,7 +28,7 @@ Quickly locate specific files within large changesets.
 
 ### Dual View Modes
 
-<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/modes.gif" alt="Git diff tree view modes - toggle between changed files only and complete directory tree with changes highlighted" width="100%">
+<img src="https://github.com/goodfoot-io/cards.management/raw/main/images/modes.gif" alt="Git diff tree view modes - toggle between changed files only and complete directory tree with changes highlighted" width="100%">
 
 Toggle between "Changed Files" for focused review or "All Files" to see changes within full directory context.
 
@@ -36,7 +36,7 @@ Toggle between "Changed Files" for focused review or "All Files" to see changes 
 
 ### Pin Current Commit as Baseline
 
-<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/pin.gif" alt="Pin current commit as baseline - lock comparison point for tracking cumulative changes" width="100%">
+<img src="https://github.com/goodfoot-io/cards.management/raw/main/images/pin.gif" alt="Pin current commit as baseline - lock comparison point for tracking cumulative changes" width="100%">
 
 One-click pinning of your current HEAD commit as a fixed comparison baseline. Track all subsequent changes from a known-good state, perfect for monitoring cumulative progress during iterative development or AI-assisted coding sessions.
 
@@ -44,7 +44,7 @@ One-click pinning of your current HEAD commit as a fixed comparison baseline. Tr
 
 ### Status-Based Filtering
 
-<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/filter.gif" alt="Filter git changes by status - view only modified, added, deleted, or renamed files in branch comparison" width="100%">
+<img src="https://github.com/goodfoot-io/cards.management/raw/main/images/filter.gif" alt="Filter git changes by status - view only modified, added, deleted, or renamed files in branch comparison" width="100%">
 
 Filter by modified, added, deleted, or renamed files.
 
@@ -52,7 +52,7 @@ Filter by modified, added, deleted, or renamed files.
 
 ### Native Diff Integration
 
-<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/diff.gif" alt="VS Code git diff viewer integration - single-click side-by-side branch comparison for any file" width="100%">
+<img src="https://github.com/goodfoot-io/cards.management/raw/main/images/diff.gif" alt="VS Code git diff viewer integration - single-click side-by-side branch comparison for any file" width="100%">
 
 Single-click access to VS Code's diff viewer for any file.
 
@@ -149,7 +149,7 @@ Available for VSCodium and privacy-focused distributions.
 
 ### From GitHub Releases
 
-Download the `.vsix` file from [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases), verify the checksum (see [Security Verification](#security-verification) below), then install via Extensions → `...` → Install from VSIX.
+Download the `.vsix` file from [Releases](https://github.com/goodfoot-io/cards.management/releases), verify the checksum (see [Security Verification](#security-verification) below), then install via Extensions → `...` → Install from VSIX.
 
 **Platform Compatibility:**
 
@@ -254,9 +254,9 @@ For security disclosures, see [SECURITY.md](SECURITY.md).
 
 Have questions or need assistance?
 
-- 💬 **[Ask in GitHub Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)** — Community support and general questions
-- 🐛 **[Report bugs via Issues](https://github.com/goodfoot-io/compare-branch-extension/issues)** — Bug reports and feature requests
-- 📖 **[Read the documentation](https://github.com/goodfoot-io/compare-branch-extension#readme)** — Complete usage guide
+- 💬 **[Ask in GitHub Discussions](https://github.com/goodfoot-io/cards.management/discussions)** — Community support and general questions
+- 🐛 **[Report bugs via Issues](https://github.com/goodfoot-io/cards.management/issues)** — Bug reports and feature requests
+- 📖 **[Read the documentation](https://github.com/goodfoot-io/cards.management#readme)** — Complete usage guide
 
 ### Reporting Issues
 
@@ -311,8 +311,8 @@ Yes. Works with Cursor, Windsurf, VSCodium, and other VS Code-based editors. Ava
 
 While Cards is proprietary software, community participation is valuable:
 
-- **Report bugs** — [Open an issue](https://github.com/goodfoot-io/compare-branch-extension/issues/new)
-- **Request features** — [Start a discussion](https://github.com/goodfoot-io/compare-branch-extension/discussions/new?category=ideas)
+- **Report bugs** — [Open an issue](https://github.com/goodfoot-io/cards.management/issues/new)
+- **Request features** — [Start a discussion](https://github.com/goodfoot-io/cards.management/discussions/new?category=ideas)
 - **Share feedback** — Help us understand how you use the extension
 - **Spread the word** — Star this repository and share with colleagues
 
@@ -326,7 +326,7 @@ When reporting bugs, include:
 - Expected vs. actual behavior
 - Screenshots (if relevant)
 
-**[→ Report an issue](https://github.com/goodfoot-io/compare-branch-extension/issues/new)**
+**[→ Report an issue](https://github.com/goodfoot-io/cards.management/issues/new)**
 
 ### Feature Requests
 
@@ -336,11 +336,11 @@ Describe:
 - Proposed solution
 - Alternatives considered
 
-**[→ Request a feature](https://github.com/goodfoot-io/compare-branch-extension/discussions/new?category=ideas)**
+**[→ Request a feature](https://github.com/goodfoot-io/cards.management/discussions/new?category=ideas)**
 
 ## Changelog
 
-See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases) for version history and release notes.
+See [Releases](https://github.com/goodfoot-io/cards.management/releases) for version history and release notes.
 
 ---
 
@@ -356,9 +356,9 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 
 - 🏪 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards)
 - 🌐 [Open VSX Registry](https://open-vsx.org/extension/goodfoot/compare-branch)
-- 📦 [GitHub Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
-- 💬 [Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)
-- 🐛 [Issue Tracker](https://github.com/goodfoot-io/compare-branch-extension/issues)
+- 📦 [GitHub Releases](https://github.com/goodfoot-io/cards.management/releases)
+- 💬 [Discussions](https://github.com/goodfoot-io/cards.management/discussions)
+- 🐛 [Issue Tracker](https://github.com/goodfoot-io/cards.management/issues)
 - 🔒 [Security Policy](SECURITY.md)
 - 📞 [Support Guidelines](SUPPORT.md)
 
