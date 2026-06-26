@@ -55,7 +55,7 @@ All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows
 
 ### `issue`
 
-Opens a pre-filled GitHub issue in the default browser. Reads a JSON object from stdin with required `title` and `body` fields (both non-empty strings). The body is supplemented with system information (extension version, VS Code version, platform, node version) by `generateCardUrl()` — sensitive file paths are redacted.
+Opens a pre-filled card in the `cards.management` repository from the default browser. Reads a JSON object from stdin with required `title` and `body` fields (both non-empty strings). The body is supplemented with system information (extension version, VS Code version, platform, node version) by `generateCardUrl()` — file paths are redacted from the URL.
 
 ```bash
 cards-extension issue <<'EOF'
