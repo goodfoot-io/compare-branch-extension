@@ -100,7 +100,7 @@ DM `main` (the orchestrator) first:
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">main</parameter>
+  <parameter name="to">team-lead</parameter>
   <parameter name="summary">FINDING: [short label] round-K</parameter>
   <parameter name="message">
 FINDING: [short label] round-K
@@ -141,7 +141,7 @@ The orchestrator routes fixes based on your verdict — it does not override it.
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">main</parameter>
+  <parameter name="to">team-lead</parameter>
   <parameter name="summary">VERDICT: APPROVED</parameter>
   <parameter name="message">
 VERDICT: APPROVED

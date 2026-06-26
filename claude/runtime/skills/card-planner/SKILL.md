@@ -72,7 +72,7 @@ The marker `FINDING: [short label]` goes in the `summary` field and as the first
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">main</parameter>
+  <parameter name="to">team-lead</parameter>
   <parameter name="summary">FINDING: [short label]</parameter>
   <parameter name="message">
 FINDING: [short label]
@@ -98,7 +98,7 @@ For both READY and BLOCKED, the marker (`PLAN: READY for:[AGENT_NAME] round-K` o
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">main</parameter>
+  <parameter name="to">team-lead</parameter>
   <parameter name="summary">PLAN: READY for:[AGENT_NAME] round-K</parameter>
   <parameter name="message">
 PLAN: READY for:[AGENT_NAME] round-K

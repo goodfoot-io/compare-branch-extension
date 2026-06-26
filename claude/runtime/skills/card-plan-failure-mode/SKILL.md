@@ -179,7 +179,7 @@ Use `APPROVED` only when you have no blocking findings to raise against that pla
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">main</parameter>
+  <parameter name="to">team-lead</parameter>
   <parameter name="summary">VERDICT: APPROVED for:[PLANNER] round-K</parameter>
   <parameter name="message">
 VERDICT: APPROVED for:[PLANNER] round-K
@@ -217,7 +217,7 @@ DM the verdict to `main` first, then the targeted planner, then every other live
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">main</parameter>
+  <parameter name="to">team-lead</parameter>
   <parameter name="summary">VERDICT: BLOCKED for:[PLANNER] because:<short cause></parameter>
   <parameter name="message">
 VERDICT: BLOCKED for:[PLANNER] because:<short cause>
@@ -268,7 +268,7 @@ DM `main` with the winner. The marker `WINNER: [PLANNER]` is in `summary` and as
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">main</parameter>
+  <parameter name="to">team-lead</parameter>
   <parameter name="summary">WINNER: [PLANNER]</parameter>
   <parameter name="message">
 WINNER: [PLANNER]
