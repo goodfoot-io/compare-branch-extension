@@ -35,6 +35,7 @@ vi.mock('@cards/sdk/client/discovery', () => {
 });
 
 import { runAttribution } from '../../src/bin/cards-extension/attribution.js';
+import { runIssue } from '../../src/bin/cards-extension/issue.js';
 import { runNotify } from '../../src/bin/cards-extension/notify.js';
 import { main } from '../../src/bin/cards-extension.js';
 
@@ -134,6 +135,18 @@ describe('cards-extension dispatcher (main)', () => {
     const calls = collectOutput(stderrSpy);
     expect(calls).toContain('cards-extension notify:');
     expect(calls).toContain('--type');
+  });
+
+  it('issue routes to the issue handler', async () => {
+    // TTY stdin causes "expected JSON on stdin" — no stdin fixture provided
+    const mockStdinWithTTY = mockStdin('');
+    Object.defineProperty(process.stdin, 'isTTY', { get: () => true, configurable: true });
+    const code = await main(['issue']);
+    mockStdinWithTTY();
+    expect(code).toBe(1);
+    const calls = collectOutput(stderrSpy);
+    expect(calls).toContain('cards-extension issue:');
+    expect(calls).toContain('expected JSON on stdin');
   });
 
   it('thrown error from a handler is caught and returns 1 with stderr message', async () => {
@@ -434,6 +447,161 @@ describe('runNotify handler', () => {
     });
 
     const code = await runNotify(['--type', 'info', '--title', 't', '--message', 'm', '--source', 's']);
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('server responded with 500');
+  });
+});
+
+describe('runIssue handler', () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    stdoutSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mockDiscoverApiInfo.mockReset();
+    mockDiscoverApiInfo.mockResolvedValue(apiInfoFixture);
+    mockFetch.mockReset();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    stderrSpy.mockRestore();
+    stdoutSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('--help returns 0 and prints subcommand help', async () => {
+    const code = await runIssue(['--help']);
+    expect(code).toBe(0);
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('cards-extension issue');
+    expect(stdout).toContain('Usage');
+  });
+
+  it('--help wins over stdin — no fetch call', async () => {
+    const restore = mockStdin('{"title": "x", "body": "y"}');
+    const code = await runIssue(['--help']);
+    restore();
+    expect(code).toBe(0);
+    expect(mockFetch).not.toHaveBeenCalled();
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('cards-extension issue');
+  });
+
+  it('happy path — valid JSON → POST to /execute-command with correct body', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => '',
+      json: async () => ({ result: { success: true } })
+    });
+
+    const restore = mockStdin('{"title": "Login fails on Ubuntu", "body": "When I click login nothing happens."}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+
+    expect(code).toBe(0);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toContain('/execute-command?workspacePath=');
+    expect(url).toContain(encodeURIComponent('/tmp/test'));
+    expect((init as RequestInit).method).toBe('POST');
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      command: 'cards.reportIssue',
+      args: ['Login fails on Ubuntu', 'When I click login nothing happens.']
+    });
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('success');
+  });
+
+  it('missing title — returns 1 and stderr mentions "title"', async () => {
+    const restore = mockStdin('{"body": "some description"}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('missing required field "title"');
+  });
+
+  it('empty (whitespace-only) title — returns 1', async () => {
+    const restore = mockStdin('{"title": "   ", "body": "some description"}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('field "title" must be a non-empty string');
+  });
+
+  it('missing body — returns 1 and stderr mentions "body"', async () => {
+    const restore = mockStdin('{"title": "good title"}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('missing required field "body"');
+  });
+
+  it('empty (whitespace-only) body — returns 1', async () => {
+    const restore = mockStdin('{"title": "good title", "body": "  "}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('field "body" must be a non-empty string');
+  });
+
+  it('unknown field — returns 1 with "unknown fields" listing', async () => {
+    const restore = mockStdin('{"title": "t", "body": "b", "extra": "x"}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('unknown fields: "extra"');
+    expect(collectOutput(stderrSpy)).toContain('valid fields: title, body');
+  });
+
+  it('malformed JSON — returns 1 and stderr mentions "failed to parse JSON"', async () => {
+    const restore = mockStdin('not-json');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('failed to parse JSON from stdin');
+  });
+
+  it('empty stdin — returns 1 and stderr mentions "expected JSON on stdin"', async () => {
+    const restore = mockStdin('');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('expected JSON on stdin');
+  });
+
+  it('TTY stdin — returns 1 and stderr mentions "expected JSON on stdin"', async () => {
+    const restore = mockStdin('');
+    Object.defineProperty(process.stdin, 'isTTY', { get: () => true, configurable: true });
+    const code = await runIssue([]);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('expected JSON on stdin');
+  });
+
+  it('discovery failure — returns 1 and stderr includes discovery message', async () => {
+    mockDiscoverApiInfo.mockResolvedValueOnce(null);
+    const restore = mockStdin('{"title": "t", "body": "b"}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
+    expect(code).toBe(1);
+    expect(collectOutput(stderrSpy)).toContain('API discovery failed');
+  });
+
+  it('HTTP error — returns 1 with status code in stderr', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: async () => 'bad',
+      json: async () => ({})
+    });
+
+    const restore = mockStdin('{"title": "t", "body": "b"}');
+    const code = await runIssue(['--workspace', '/tmp/test']);
+    restore();
     expect(code).toBe(1);
     expect(collectOutput(stderrSpy)).toContain('server responded with 500');
   });

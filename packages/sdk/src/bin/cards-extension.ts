@@ -14,6 +14,7 @@ import { runAttribution } from './cards-extension/attribution.js';
 import { runDebug } from './cards-extension/debug.js';
 import { runEditor } from './cards-extension/editor.js';
 import { runExecuteCommand } from './cards-extension/execute-command.js';
+import { runIssue } from './cards-extension/issue.js';
 import { runNotify } from './cards-extension/notify.js';
 import { runPanel } from './cards-extension/panel.js';
 import { runWorkspace } from './cards-extension/workspace.js';
@@ -29,6 +30,7 @@ Subcommands:
   workspace <list>               List workspaces registered with VS Code
   editor <info|open|select>      Inspect or control the active editor
   execute-command <commandId>    Execute a VS Code command
+  issue                           Open a pre-filled GitHub issue (reads JSON {title, body} from stdin)
   panel <show>                   Show a VS Code panel
   debug <start|stop|state>       Control the VS Code debugger
 
@@ -47,6 +49,9 @@ Examples:
   cards-extension editor open src/auth.ts --line 42
   cards-extension editor select src/index.ts --start 10:0 --end 15:20
   cards-extension execute-command editor.action.formatDocument
+  cards-extension issue <<'EOF'
+  {"title": "Login fails on Ubuntu", "body": "When I click login nothing happens."}
+  EOF
   cards-extension panel show problems
   cards-extension debug start --config "My Config"
   cards-extension debug stop
@@ -78,6 +83,7 @@ export async function main(argv: string[]): Promise<number> {
     if (sub === 'workspace') return await runWorkspace(rest);
     if (sub === 'editor') return await runEditor(rest);
     if (sub === 'execute-command') return await runExecuteCommand(rest);
+    if (sub === 'issue') return await runIssue(rest);
     if (sub === 'panel') return await runPanel(rest);
     if (sub === 'debug') return await runDebug(rest);
 
