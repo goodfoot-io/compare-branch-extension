@@ -8,7 +8,7 @@
  * @summary Unit tests for the spawnAdhocAttribution shared helper
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ─── Module mocks ────────────────────────────────────────────────────────────
 // All four collaborators are mocked at the module level before the SUT is
@@ -62,7 +62,17 @@ function makeLogger() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('spawnAdhocAttribution', () => {
+  let savedCardsBinPath: string | undefined;
+
+  beforeEach(() => {
+    savedCardsBinPath = process.env['CARDS_BIN_PATH'];
+    delete process.env['CARDS_BIN_PATH'];
+  });
+
   afterEach(() => {
+    if (savedCardsBinPath !== undefined) {
+      process.env['CARDS_BIN_PATH'] = savedCardsBinPath;
+    }
     vi.resetAllMocks();
   });
 
