@@ -1,8 +1,3 @@
----
-name: extension
-description: Control the Cards extension and use VS Code's internal command service - vscode.commands.executeCommand, vscode.window.showTextDocument, vscode.debug.*, vscode.Range, vscode.Selection, vscode.window.showInformationMessage, and compare branches.
----
-
 # Cards Extension CLI
 
 `cards-extension` is a CLI for controlling the VS Code extension host from the terminal. All subcommands communicate with the extension over the Cards server relay; the target workspace is identified by `--workspace`.

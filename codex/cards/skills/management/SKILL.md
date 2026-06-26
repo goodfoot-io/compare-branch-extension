@@ -10,7 +10,7 @@ Use the CLI binary below to manage cards. For direct card content operations
 Card Repository below.
 
 For controlling VS Code (opening files, running commands, sending notifications,
-managing panels, controlling the debugger, etc.), load the `$cards:extension` skill.
+managing panels, controlling the debugger, etc.), load `./references/extension-cli.md`.
 
 The user is notified when you create a card or add a comment.
 
