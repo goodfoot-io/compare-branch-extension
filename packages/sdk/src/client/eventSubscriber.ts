@@ -62,7 +62,6 @@ export class EventSubscriber {
   private hasConnected: boolean = false;
   private readonly maxReconnectAttempts: number;
   private readonly logger: EventSubscriberLogger;
-  private rawHandlers: Array<(message: Record<string, unknown>) => void> = [];
   /**
    * Monotonically increasing counter incremented on every manual `connect()` call.
    * Each scheduled reconnect timer captures the generation at scheduling time and
@@ -392,22 +391,6 @@ export class EventSubscriber {
   }
 
   /**
-   * Registers a handler invoked for every successfully parsed incoming message,
-   * regardless of type. Fires after typed callbacks, and is not suppressed by
-   * errors thrown inside typed callbacks.
-   *
-   * @param handler - Function called with the raw parsed message object.
-   * @returns Unsubscribe function to remove this handler.
-   */
-  onRawMessage(handler: (message: Record<string, unknown>) => void): () => void {
-    this.rawHandlers.push(handler);
-    return () => {
-      const i = this.rawHandlers.indexOf(handler);
-      if (i !== -1) this.rawHandlers.splice(i, 1);
-    };
-  }
-
-  /**
    * Handles incoming WebSocket messages and dispatches to registered callbacks.
    *
    * Messages are expected to be JSON with a `type` field matching {@link EventMap}.
@@ -516,12 +499,6 @@ export class EventSubscriber {
           this.logger.warn(`Event callback for '${String(message.type)}' threw:`, error);
         }
       }
-    }
-
-    // Raw handlers fire after typed callbacks and are not suppressed by errors
-    // thrown inside them.
-    for (const handler of this.rawHandlers) {
-      handler(message as Record<string, unknown>);
     }
   }
 }

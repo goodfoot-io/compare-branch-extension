@@ -120,20 +120,6 @@ export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 export type { HttpClient } from './http.js';
 // --- Notification Types ---
 export type { NotificationCreateRequest, NotificationSeverity } from './notifications.js';
-// --- Remote Programmatic API Types ---
-export type {
-  DistributedRemote,
-  RemoteCommandMessage,
-  RemoteCreateMessage,
-  RemoteDetailMessage,
-  RemoteDialogClearMessage,
-  RemoteDialogPreloadMessage,
-  RemoteEditorMessage,
-  RemoteListMessage,
-  RemoteMessage,
-  RemoteStreamMessage,
-  RemoteWizardMessage
-} from './remote.js';
 // --- Response Envelope Types ---
 export type { ApiError, ApiSuccess, FieldError } from './response.js';
 // --- Settings Types ---
