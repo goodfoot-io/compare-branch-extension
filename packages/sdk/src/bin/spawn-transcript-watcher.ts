@@ -1,7 +1,7 @@
 /**
  * Extracted helper for spawning the detached transcript watcher process.
  *
- * Shared between `session-start.ts` (launch-mode) and `card.ts` (attach-mode)
+ * Shared between `session-start.ts` (launch-mode) and `cards.ts` (attach-mode)
  * so neither must import from the other's package.
  *
  * @summary Spawn the detached transcript-watcher subprocess

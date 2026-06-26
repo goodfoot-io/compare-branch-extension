@@ -73,7 +73,7 @@ async function resolveLinkedWorktreeDir(): Promise<string | null> {
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
-const HELP = `Usage: card [options] <command>
+const HELP = `Usage: cards [options] <command>
 
 Read, create, list, search, and act on cards via the Cards API.
 Locates the server through ~/.cards/cards-api.json, executes the command,
@@ -1263,7 +1263,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   }
 }
 
-if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
+if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
   const command = process.argv[2];
 
   if (!command || command === '-h' || command === '--help' || command === 'help') {
@@ -1298,7 +1298,7 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
       if (verb === 'action') {
         const actionId = process.argv[4];
         if (!actionId) {
-          console.error('card action: missing action ID argument');
+          console.error('cards action: missing action ID argument');
           process.exit(1);
         }
         const actionFlags = parseFlags(process.argv.slice(5), new Set(['background', 'exit-when-done']));
@@ -1318,7 +1318,7 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
         const getFlags = parseFlags(process.argv.slice(3));
         run = getCard(command, getFlags['jsonpath']?.[0]);
       } else if (verb) {
-        console.error(`card: unknown verb "${verb}"`);
+        console.error(`cards: unknown verb "${verb}"`);
         process.exit(1);
       } else {
         run = getCard(command);

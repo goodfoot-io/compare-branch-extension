@@ -77,7 +77,7 @@ import {
   listCards,
   parseCardCreateInput,
   searchCards
-} from '../../src/bin/card.js';
+} from '../../src/bin/cards.js';
 
 /**
  * Collects the full request body as a string.
@@ -442,7 +442,7 @@ describe('card binary', () => {
 
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
-        const { getCard: getCardFn } = await import('../../src/bin/card.js');
+        const { getCard: getCardFn } = await import('../../src/bin/cards.js');
         await getCardFn('card-1');
         expect(logSpy).toHaveBeenCalledWith(JSON.stringify(card, null, 2));
       } finally {
@@ -456,7 +456,7 @@ describe('card binary', () => {
 
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
-        const { getCard: getCardFn } = await import('../../src/bin/card.js');
+        const { getCard: getCardFn } = await import('../../src/bin/cards.js');
         await getCardFn('card-2', '$.repositoryPath');
         expect(logSpy).toHaveBeenCalledWith('/repos/card-2');
       } finally {
@@ -1014,7 +1014,7 @@ describe('card binary', () => {
   });
 
   describe('help mechanisms', () => {
-    const cardBinPath = fileURLToPath(new URL('../../src/bin/card.ts', import.meta.url));
+    const cardBinPath = fileURLToPath(new URL('../../src/bin/cards.ts', import.meta.url));
 
     function runCard(args: string[]): { stdout: string; exitCode: number } {
       try {

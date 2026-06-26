@@ -67,7 +67,7 @@ vi.mock('@cards/sdk', async (importOriginal) => {
   };
 });
 
-import { createCard } from '../../src/bin/card.js';
+import { createCard } from '../../src/bin/cards.js';
 
 /**
  * Collects the full request body as a string.

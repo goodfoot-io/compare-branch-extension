@@ -59,7 +59,7 @@ vi.mock('@cards/sdk', async (importOriginal) => {
   };
 });
 
-import { bindCard } from '../../src/bin/card.js';
+import { bindCard } from '../../src/bin/cards.js';
 
 /**
  * Restores an environment variable to a previously-saved value, deleting it

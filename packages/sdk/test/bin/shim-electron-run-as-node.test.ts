@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 const BIN_DIR = path.resolve(__dirname, '../../src/bin');
 
 const CMD_SHIMS = [
-  'card.cmd',
+  'cards.cmd',
   'cards-dev.cmd',
   'cards-extension-cli.cmd',
   'create-worktree.cmd',
@@ -30,7 +30,7 @@ const CMD_SHIMS = [
 ];
 
 const SH_SHIMS = [
-  'card.sh',
+  'cards.sh',
   'cards-dev.sh',
   'cards-extension-cli.sh',
   'create-worktree.sh',
