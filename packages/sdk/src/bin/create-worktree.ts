@@ -18,34 +18,14 @@
  */
 
 import { execFile } from 'node:child_process';
-import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { resolveExtensionPath } from '@cards/sdk';
+import { compiledHookScriptPaths, resolveExtensionPath } from '@cards/sdk';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { createWorktree } from '@cards/sdk/worktree';
 import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { WorktreeIncludeError } from '../worktreeInclude.js';
 
 const execFileAsync = promisify(execFile);
-
-/**
- * Builds the `compiledScriptPaths` map for `createWorktree({ cardId })`.
- *
- * Resolves the extension path via env var or the `~/.cards/EXTENSION_PATH` file
- * written by the extension on activation. Fail-closed: throws if the extension
- * path cannot be determined, preventing silent hook-provisioning loss (D10a).
- *
- * @returns Map of hook name to absolute compiled `.mjs` path.
- */
-async function buildCompiledScriptPaths(): Promise<Record<string, string>> {
-  const extensionPath = await resolveExtensionPath();
-  const gitHooksDir = path.join(extensionPath, 'dist', 'git-hooks');
-  return {
-    'pre-commit': path.join(gitHooksDir, 'pre-commit.mjs'),
-    'post-commit': path.join(gitHooksDir, 'post-commit.mjs'),
-    'post-rewrite': path.join(gitHooksDir, 'post-rewrite.mjs')
-  };
-}
 
 const USAGE = 'Usage: create-worktree [--card-id <id>] [--parent-branch <name>] <branch|tag|sha>\n';
 
@@ -132,7 +112,7 @@ async function resolveParentBranch(): Promise<string> {
 
 async function main(): Promise<void> {
   if (cardId !== undefined) {
-    const compiledScriptPaths = await buildCompiledScriptPaths();
+    const compiledScriptPaths = compiledHookScriptPaths(await resolveExtensionPath());
 
     // Fail-closed: a card-bound worktree must never exist on disk without a
     // branch record. Exit 2 if the API cannot be discovered. retryOnNetworkError

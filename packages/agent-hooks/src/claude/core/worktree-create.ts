@@ -16,12 +16,12 @@
  */
 
 import { execFile } from 'node:child_process';
-import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
 import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
 import { resolveCardsParentBranch, writeCardsParentConfig } from '@cards/sdk/cards-parent-branch';
 import { createCardsClient } from '@cards/sdk/client/discovery';
+import { compiledHookScriptPaths } from '@cards/sdk/git-hooks';
 import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
 import { createWorktree, type EarlyWorktreeResult } from '@cards/sdk/worktree';
 import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
@@ -129,12 +129,7 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
 
   if (cardId) {
     const extensionPath = await resolveExtensionPath();
-    const gitHooksDir = path.join(extensionPath, 'dist', 'git-hooks');
-    const compiledScriptPaths = {
-      'pre-commit': path.join(gitHooksDir, 'pre-commit.mjs'),
-      'post-commit': path.join(gitHooksDir, 'post-commit.mjs'),
-      'post-rewrite': path.join(gitHooksDir, 'post-rewrite.mjs')
-    };
+    const compiledScriptPaths = compiledHookScriptPaths(extensionPath);
 
     // Fail-closed: a card-bound worktree must never exist on disk without a
     // branch record. If the API cannot be discovered, abort launch rather than
