@@ -15,6 +15,7 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
+import { CARDS_ENV_VARS } from '@cards/sdk/config';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { applyCodexConfig } from './applyCodexConfig.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
@@ -40,6 +41,11 @@ export interface CodexSessionOptions {
    * alongside the global `~/.codex/AGENTS.md` and any `<workspace>/AGENTS.md`.
    */
   appendSystemPrompt?: string;
+  /**
+   * When true, overrides `EXIT_WHEN_DONE` to `'false'` in the child process
+   * environment.
+   */
+  suppressExitWhenDone?: boolean;
 }
 
 /**
@@ -758,7 +764,8 @@ export async function spawnCodexSession(
       WORKSPACE_PATH: cwd,
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,
-      WORKSPACE_BRANCH: branchName
+      WORKSPACE_BRANCH: branchName,
+      ...(options.suppressExitWhenDone ? { [CARDS_ENV_VARS.EXIT_WHEN_DONE]: 'false' } : {})
     }
   });
 

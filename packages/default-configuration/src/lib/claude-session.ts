@@ -756,6 +756,12 @@ export interface ClaudeSessionOptions {
    * When provided, appended after all other arguments.
    */
   appendSystemPrompt?: string;
+  /**
+   * When true, overrides `EXIT_WHEN_DONE` to `'false'` in the child process
+   * environment so the Agent context block and stop hook agree that
+   * exit-when-done is disabled for the session.
+   */
+  suppressExitWhenDone?: boolean;
 }
 
 /**
@@ -795,6 +801,12 @@ export async function spawnClaudeSession(
     executionMode: input.executionMode,
     sessionId
   });
+
+  if (options.suppressExitWhenDone && input.exitWhenDone) {
+    context.logger.info('stop-exit-when-done: exit-when-done accepted but ignored for interactive action', {
+      actionName: input.actionName
+    });
+  }
 
   const client = await createCardsClient(context.logger);
   if (!client) {
@@ -846,7 +858,8 @@ export async function spawnClaudeSession(
       CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '1',
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,
-      WORKSPACE_BRANCH: branchName
+      WORKSPACE_BRANCH: branchName,
+      ...(options.suppressExitWhenDone ? { [CARDS_ENV_VARS.EXIT_WHEN_DONE]: 'false' } : {})
     }
   });
 

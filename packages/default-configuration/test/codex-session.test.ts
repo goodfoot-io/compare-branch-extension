@@ -7,6 +7,10 @@
  * @summary Tests Codex session library helpers
  */
 
+import type { ChildProcess } from 'node:child_process';
+import type { ActionContext, ActionInput } from '@cards/sdk/config';
+import { Logger } from '@cards/sdk/config';
+import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Bundled hook definitions, imported as JSON modules (not via the mocked
 // `node:fs`) so the trust-seeding tests below feed production code the real
@@ -62,6 +66,16 @@ vi.mock('node:fs/promises', () => ({
   rm: vi.fn(),
   stat: vi.fn(),
   writeFile: vi.fn()
+}));
+
+vi.mock('@cards/sdk/worktree', () => ({
+  findGitRoots: vi.fn(),
+  checkWorktreeExists: vi.fn(),
+  createWorktree: vi.fn()
+}));
+
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn()
 }));
 
 beforeEach(async () => {
@@ -423,5 +437,196 @@ describe('codex-session library', () => {
     expect(notesSkill).not.toContain('$CARD_CLI');
     expect(implementationSkill).not.toContain('$CREATE_WORKTREE_CLI');
     expect(blockedSkill).not.toContain('$CARD_CLI');
+  });
+
+  describe('spawnCodexSession', () => {
+    const originalFetch = globalThis.fetch;
+    let savedExitWhenDone: string | undefined;
+
+    beforeEach(async () => {
+      vi.clearAllMocks();
+      process.env['EXTENSION_PATH'] = '/test/extension';
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
+      process.env['API_TEST_MODE'] = '1';
+      process.env['CODEX_HOME'] = '/test/codexhome';
+      delete process.env['CARDS_HOME'];
+      delete process.env['XDG_DATA_HOME'];
+      delete process.env['XDG_CONFIG_HOME'];
+      savedExitWhenDone = process.env['EXIT_WHEN_DONE'];
+
+      const fs = await import('node:fs/promises');
+
+      // API: workspace discovery + branches
+      globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+          );
+        }
+        if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
+          return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
+        }
+        return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+      });
+
+      // Git commands: rev-parse for resolveBaseBranch
+      const { execFile } = await import('node:child_process');
+      vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1];
+        const cmd = args[0] as string;
+        const cmdArgs = args[1] as string[];
+        const key = `${cmd} ${cmdArgs.join(' ')}`;
+        if (typeof cb === 'function') {
+          if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
+            cb(null, { stdout: 'main\n', stderr: '' });
+          } else {
+            cb(new Error(`mock: unhandled command: ${key}`));
+          }
+        }
+        return {} as ReturnType<typeof execFile>;
+      });
+
+      // Worktree
+      const { findGitRoots, checkWorktreeExists, createWorktree } = await import('@cards/sdk/worktree');
+      vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
+      vi.mocked(checkWorktreeExists).mockResolvedValue(false);
+      vi.mocked(createWorktree).mockResolvedValue({
+        path: '/test/workspace/.worktrees/cards/card-123/1',
+        settle: Promise.resolve({
+          branch: 'cards/card-123/1',
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          baseSha: 'abc123'
+        })
+      });
+
+      // createWorktreeForCard forwards to createWorktree mock
+      const { createWorktreeForCard } = await import('@cards/sdk/worktree-for-card');
+      vi.mocked(createWorktreeForCard).mockImplementation((_client, ref, opts) =>
+        createWorktree(ref, {
+          cwd: opts.cwd,
+          cardId: opts.cardId,
+          compiledScriptPaths: opts.compiledScriptPaths
+        })
+      );
+
+      // Plugin cache: manifests resolve
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+
+      // Plugin manifests are read from three locations during populateCodexPluginCache:
+      // 1. Source bundle: <bundlePath>/<plugin>/.codex-plugin/plugin.json
+      // 2. Staging temp dir: .plugin-install-XXXX/<version>/.codex-plugin/plugin.json
+      // 3. Published cache: <plugin>/<version>/.codex-plugin/plugin.json
+      // The staging path does not carry the plugin name, so serve manifests in the
+      // order installPluginToCache is called (cards first, then runtime).
+      let stagingReadIndex = 0;
+      const stagingPluginNames = ['cards', 'runtime'];
+
+      vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+        const p = toPosix(filePath);
+        // Staging read (from mkdtemp .plugin-install-XXXX)
+        if (p.endsWith('.codex-plugin/plugin.json') && p.includes('.plugin-install-')) {
+          const name = stagingPluginNames[stagingReadIndex++];
+          if (name === undefined) {
+            throw new Error(`Unexpected staging read: ${p}`);
+          }
+          return JSON.stringify({ name, version: '1.0.0' });
+        }
+        if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)cards\//.test(p) || /\/cards-test-version\//.test(p))) {
+          return JSON.stringify({ name: 'cards', version: '1.0.0' });
+        }
+        if (
+          p.endsWith('.codex-plugin/plugin.json') &&
+          (/(^|\/)runtime\//.test(p) || /\/runtime-test-version\//.test(p))
+        ) {
+          return JSON.stringify({ name: 'runtime', version: '1.0.0' });
+        }
+        if (p.endsWith('marketplace.json')) {
+          return JSON.stringify({ name: 'local' });
+        }
+        if (p.endsWith('/config.toml')) {
+          throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+        }
+        throw Object.assign(new Error(`mock: unhandled readFile: ${p}`), { code: 'ENOENT' });
+      });
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.mkdtemp).mockImplementation(async (prefix: unknown) => `${toPosix(prefix)}XXXXXX`);
+      vi.mocked(fs.cp).mockResolvedValue(undefined);
+      vi.mocked(fs.rename).mockResolvedValue(undefined);
+      vi.mocked(fs.rm).mockResolvedValue(undefined);
+      vi.mocked(fs.readdir).mockResolvedValue([]);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      // AGENTS.md for readCardRepoAgentsMd
+      const syncFs = await import('node:fs');
+      vi.mocked(syncFs.readFileSync).mockImplementation((filePath: string | Buffer | URL) => {
+        if (toPosix(filePath) === '/test/repo/AGENTS.md') {
+          return '# Card Repo\n';
+        }
+        throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
+      });
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+      delete process.env['API_TEST_MODE'];
+      delete process.env['CODEX_HOME'];
+      if (savedExitWhenDone !== undefined) {
+        process.env['EXIT_WHEN_DONE'] = savedExitWhenDone;
+      } else {
+        delete process.env['EXIT_WHEN_DONE'];
+      }
+    });
+
+    function createMockContext(): ActionContext {
+      return {
+        logger: new Logger(),
+        cwd: process.cwd(),
+        onCancel: vi.fn(),
+        onSwitchToInteractive: vi.fn()
+      };
+    }
+
+    it('sets EXIT_WHEN_DONE=false in child env when suppressExitWhenDone is true', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnCodexSession } = await import('../src/lib/codex-session.js');
+
+      const handlers = new Map<string, (...args: unknown[]) => void>();
+      const child = {
+        pid: 12345,
+        on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+          handlers.set(event, cb);
+        }),
+        kill: vi.fn(),
+        stdout: null,
+        stderr: null,
+        emit(event: string, ...args: unknown[]) {
+          handlers.get(event)?.(...args);
+          return true;
+        }
+      } as unknown as ChildProcess;
+
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const input: ActionInput = {
+        cardId: 'card-123',
+        actionName: 'Chat',
+        environment: 'default',
+        executionMode: 'interactive',
+        repoRoot: '/test/workspace',
+        cardRepoPath: '/test/repo',
+        configPath: '/test/config',
+        extensionPath: '/test/extension',
+        exitWhenDone: true
+      };
+
+      const promise = spawnCodexSession(input, createMockContext(), { suppressExitWhenDone: true });
+      await flushMicrotasks();
+
+      const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string> };
+      expect(spawnOpts.env.EXIT_WHEN_DONE).toBe('false');
+
+      child.emit('close', 0);
+      await promise;
+    });
   });
 });

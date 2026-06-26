@@ -1282,5 +1282,70 @@ describe('claude-session shared utilities', () => {
         await promise;
       });
     });
+
+    it('sets EXIT_WHEN_DONE=false in child env when suppressExitWhenDone is true', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      process.env['EXTENSION_PATH'] = '/test/extension';
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: false,
+        suppressExitWhenDone: true
+      });
+      await flushMicrotasks();
+
+      const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string> };
+      expect(spawnOpts.env.EXIT_WHEN_DONE).toBe('false');
+
+      child.emit('close', 0);
+      await promise;
+    });
+
+    it('does not override EXIT_WHEN_DONE in child env when suppressExitWhenDone is omitted', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      process.env['EXTENSION_PATH'] = '/test/extension';
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
+
+      const savedExitWhenDone = process.env['EXIT_WHEN_DONE'];
+      process.env['EXIT_WHEN_DONE'] = 'true';
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: false
+        // suppressExitWhenDone deliberately omitted
+      });
+      await flushMicrotasks();
+
+      const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string> };
+      // When suppressExitWhenDone is not set, EXIT_WHEN_DONE flows from process.env
+      // — it is never explicitly overridden to 'false'.
+      expect(spawnOpts.env.EXIT_WHEN_DONE).toBe('true');
+
+      child.emit('close', 0);
+      await promise;
+
+      if (savedExitWhenDone !== undefined) {
+        process.env['EXIT_WHEN_DONE'] = savedExitWhenDone;
+      } else {
+        delete process.env['EXIT_WHEN_DONE'];
+      }
+    });
   });
 });

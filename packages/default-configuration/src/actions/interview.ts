@@ -47,6 +47,7 @@ export default defineAction(
 
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {
+        suppressExitWhenDone: true,
         prompt: 'Load the `$runtime:interview` skill and follow the `<routing-instructions>`.'
       });
       return;
@@ -56,7 +57,8 @@ export default defineAction(
       prompt: 'Load the `runtime:interview` skill and follow the `<routing-instructions>`.',
       sessionId: randomUUID(),
       resume: false,
-      supportsSwitchToInteractive: false
+      supportsSwitchToInteractive: false,
+      suppressExitWhenDone: true
     });
   }
 );

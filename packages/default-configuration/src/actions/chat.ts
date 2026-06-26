@@ -60,6 +60,7 @@ export default defineAction(
 
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {
+        suppressExitWhenDone: true,
         appendSystemPrompt: CHAT_ROUTING_SKILL_CODEX
       });
       return;
@@ -69,6 +70,7 @@ export default defineAction(
       sessionId: randomUUID(),
       resume: false,
       supportsSwitchToInteractive: false,
+      suppressExitWhenDone: true,
       appendSystemPrompt: CHAT_ROUTING_SKILL
     });
   }
