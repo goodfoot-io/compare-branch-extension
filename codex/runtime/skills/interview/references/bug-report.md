@@ -1,1 +1,1 @@
-../../../../cards/skills/management/references/bug-report.md
+../../../../cards/skills/cards/references/bug-report.md

@@ -1,1 +1,1 @@
-../../../../cards/skills/management/references/documentation.md
+../../../../cards/skills/cards/references/documentation.md

@@ -1,1 +1,1 @@
-../../../../cards/skills/management/references/enhancement.md
+../../../../cards/skills/cards/references/enhancement.md
