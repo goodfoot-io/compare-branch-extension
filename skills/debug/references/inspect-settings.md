@@ -115,7 +115,7 @@ For Claude Code sessions, the handler passes settings inline rather than relying
 {
   "enabledPlugins": {
     "cards@cards.cards": true,
-    "cards-assistant@cards.management": true
+    "cards-assistant@cards.cards": true
   },
   "extraKnownMarketplaces": {
     "cards.management": {
@@ -129,7 +129,7 @@ For Claude Code sessions, the handler passes settings inline rather than relying
 ```json
 {
   "enabledPlugins": {
-    "runtime@cards.management": true
+    "runtime@cards.cards": true
   },
   "extraKnownMarketplaces": {
     "cards.management": {

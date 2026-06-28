@@ -771,7 +771,7 @@ describe('claude-session shared utilities', () => {
     it('produces JSON with marketplace directory source', async () => {
       const { buildPluginSettings } = await import('../src/lib/claude-session.js');
       const settings = JSON.parse(buildPluginSettings('/ext/dist/marketplace'));
-      expect(settings.enabledPlugins).toEqual({ 'runtime@cards.management': true });
+      expect(settings.enabledPlugins).toEqual({ 'runtime@cards.cards': true });
       expect(settings.extraKnownMarketplaces['cards.management'].source).toEqual({
         source: 'directory',
         path: '/ext/dist/marketplace'

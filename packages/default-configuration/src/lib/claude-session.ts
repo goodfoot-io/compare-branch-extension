@@ -100,7 +100,7 @@ export function resolveMarketplacePath(): string {
  */
 export function buildPluginSettings(marketplacePath: string): string {
   return JSON.stringify({
-    enabledPlugins: { 'runtime@cards.management': true },
+    enabledPlugins: { 'runtime@cards.cards': true },
     extraKnownMarketplaces: {
       'cards.management': {
         source: { source: 'directory', path: marketplacePath }
@@ -143,7 +143,7 @@ export function buildArgs(
   args.push('--disallowed-tools', 'EnterPlanMode, ExitPlanMode, NotebookEdit, TodoWrite');
   args.push('--teammate-mode', 'in-process');
   // Temporarily disable as this creates an interactive warning dialog
-  // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
+  // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.cards');
   if (mode === 'background') {
     args.push('--print');
   }

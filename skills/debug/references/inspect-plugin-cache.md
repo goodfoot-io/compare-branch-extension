@@ -34,9 +34,9 @@ The Cards extension ships four Claude Code plugins and four Codex plugins:
 ```
 {ext}/dist/marketplace/claude/
   cards/                 → Plugin "cards@cards.cards"       Status: current
-  cards-assistant/       → Plugin "cards-assistant@cards.management"  Status: current
-  cards-sdk/             → Plugin "cards-sdk@cards.management"       Status: current
-  runtime/               → Plugin "runtime@cards.management"         Status: current
+  cards-assistant/       → Plugin "cards-assistant@cards.cards"  Status: current
+  cards-sdk/             → Plugin "cards-sdk@cards.cards"       Status: current
+  runtime/               → Plugin "runtime@cards.cards"         Status: current
 
 {ext}/dist/codex/
   cards/                 → Codex plugin "cards"                  Status: current
@@ -116,9 +116,9 @@ The `cards-sdk` plugin is NOT staged — it's only consumed at build time.
 
 | Mode | Plugin names | Purpose | Status |
 |------|-------------|---------|--------|
-| **Action launch** (Claude) | `runtime@cards.management` | Runtime hooks (session management, transcript streaming, commit attribution) | current |
+| **Action launch** (Claude) | `runtime@cards.cards` | Runtime hooks (session management, transcript streaming, commit attribution) | current |
 | **Action launch** (Codex) | `cards`, `runtime` | Same, Codex equivalents | current |
-| **Cards Assistant** (Claude) | `cards@cards.cards`, `cards-assistant@cards.management` | Card management + interview bootstrapping | current |
+| **Cards Assistant** (Claude) | `cards@cards.cards`, `cards-assistant@cards.cards` | Card management + interview bootstrapping | current |
 | **Cards Assistant** (Codex) | `cards`, `cards-assistant` | Same, Codex equivalents | current |
 
 ## Staleness & Cleanup
