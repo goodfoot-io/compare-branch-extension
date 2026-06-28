@@ -100,7 +100,7 @@ describe('spawnAgentCli', () => {
     // JSON and the agent rejects it ("Invalid JSON") before its session starts.
     // cross-spawn escapes each arg correctly, so it round-trips byte-for-byte.
     const settings = JSON.stringify({
-      enabledPlugins: { 'runtime@cards.cards': true },
+      enabledPlugins: { 'runtime@cards.management': true },
       extraKnownMarketplaces: { 'cards.management': { source: { source: 'directory', path: 'C:\\some path\\mp' } } }
     });
     const argv = await runAndCaptureArgv(['--print', '--settings', settings, 'say ok']);

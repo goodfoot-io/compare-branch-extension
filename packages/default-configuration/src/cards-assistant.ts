@@ -3,7 +3,7 @@
  *
  * Branches on `input.codingAgent` via {@link resolveCodingAgent}:
  * - Claude: calls `updateMarketplaceRegistration`, then spawns the `claude` CLI
- *   with both the `cards@cards.cards` and `cards-assistant@cards.cards`
+ *   with both the `cards@cards.management` and `cards-assistant@cards.management`
  *   plugins enabled, passing the interview instructions via `--append-system-prompt`.
  * - Codex: stages the `cards` and `cards-assistant` plugins into a managed
  *   `CODEX_HOME`, writes a `cards-assistant` profile, and spawns `codex` with
@@ -105,8 +105,8 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
 
   const settingsJson = JSON.stringify({
     enabledPlugins: {
-      'cards@cards.cards': true,
-      'cards-assistant@cards.cards': true
+      'cards@cards.management': true,
+      'cards-assistant@cards.management': true
     },
     extraKnownMarketplaces: {
       'cards.management': {

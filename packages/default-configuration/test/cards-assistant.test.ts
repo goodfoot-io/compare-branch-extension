@@ -204,7 +204,7 @@ describe('cards-assistant handler', () => {
       enabledPlugins: Record<string, boolean>;
       extraKnownMarketplaces: Record<string, { source: { source: string; path: string } }>;
     };
-    expect(settings.enabledPlugins['cards@cards.cards']).toBe(true);
+    expect(settings.enabledPlugins['cards@cards.management']).toBe(true);
     expect(settings.extraKnownMarketplaces['cards.management'].source.path).toBe('/global/storage/marketplace');
 
     child.emit('close', 0);
