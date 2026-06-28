@@ -1,5 +1,5 @@
 ---
-name: management
+name: cards
 description: You must load this skill whenever the user asks to create, read, comment on, or modify a card
 ---
 
