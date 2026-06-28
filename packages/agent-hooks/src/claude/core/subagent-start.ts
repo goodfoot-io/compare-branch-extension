@@ -44,7 +44,7 @@ export default subagentStartHook({}, async (input) => {
   // the hash-keyed entry is simply overwritten with the same data.
   await addUnboundCandidate(input.session_id, worktreeDir, input.transcript_path);
 
-  const nudge = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:management\` skill to create a new card for these changes.`;
+  const nudge = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
 
   // Emit the one-time nudge: systemMessage surfaces to the user, additionalContext
   // is injected into the subagent's context.

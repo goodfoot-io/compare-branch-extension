@@ -1,10 +1,10 @@
 # Issue Report Structure
 
-Scope: structure for filing a well-formed bug report about the Cards extension via `cards-extension issue`. Adapted from `cards:management`'s bug-report structure with the same sections, targeting an issue body string instead of a CARD.md file.
+Scope: structure for filing a well-formed bug report about the Cards extension via `cards-extension issue`. Adapted from `cards:cards`'s bug-report structure with the same sections, targeting an issue body string instead of a CARD.md file.
 
 Source of truth: this file owns the issue body template. The escalation sections in every troubleshoot reference file delegate to this template.
 
-Completeness: covers every section a `cards-extension issue` body should contain. Excludes card creation workflows (see `cards:management` skill).
+Completeness: covers every section a `cards-extension issue` body should contain. Excludes card creation workflows (see `cards:cards` skill).
 
 Cross-refs: `interview-issue-report.md` (gathering signal before filing), `inspect-cli-tools.md` (`cards-extension` CLI reference), `find-logs.md` (log evidence collection).
 
@@ -56,6 +56,6 @@ EOF
 
 ## Out of Scope
 
-- Card creation workflows → `cards:management` skill
+- Card creation workflows → `cards:cards` skill
 - Interview process for gathering signal → `interview-issue-report.md`
 - `cards-extension` CLI reference → `inspect-cli-tools.md`

@@ -49,7 +49,7 @@ Run the implementation where possible. Static reading tells you what the code in
 
 Exercise failure paths, not just the happy path. When you cannot run a path, read it carefully and note the limit in your findings.
 
-**Out-of-scope issues**: If you encounter a user-facing failure in code or a flow this card does not interact with, do not include it in your findings. Instead, load the `$cards:management` skill and create a new card describing the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
+**Out-of-scope issues**: If you encounter a user-facing failure in code or a flow this card does not interact with, do not include it in your findings. Instead, load the `$cards:cards` skill and create a new card describing the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
 ## 3. Evaluate the Implementation Against the Questions
 

@@ -47,7 +47,7 @@ cat ~/.agents/plugins/marketplace.json 2>/dev/null | jq '.plugins'
 **Format**: JSON with comment preservation (`comment-json` library). The Cards extension reads with `comment-json` and writes atomically via temp file + rename to avoid comment loss.
 
 **Keys written by Cards** (`ClaudeSettingsService.installPlugin()` at `packages/extension/src/services/ClaudeSettingsService.ts`):
-- `enabledPlugins["cards@cards.management"] = true` — status: current
+- `enabledPlugins["cards@cards.cards"] = true` — status: current
 - `extraKnownMarketplaces["cards.management"] = { source: { source: "directory", path: <marketplacePath> } }` — status: current
 - `env.CARDS_CLAUDE_CODE_HOOKS_LOG_FILE = "<workspace>/.cards/logs/claude-code-cards-api-hooks.log"` — status: current
 
@@ -114,7 +114,7 @@ For Claude Code sessions, the handler passes settings inline rather than relying
 ```json
 {
   "enabledPlugins": {
-    "cards@cards.management": true,
+    "cards@cards.cards": true,
     "cards-assistant@cards.management": true
   },
   "extraKnownMarketplaces": {

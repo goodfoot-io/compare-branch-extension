@@ -1,10 +1,10 @@
 # Interview Before Filing an Issue
 
-Scope: interview process to gather enough signal for a well-formed bug report about the Cards extension before filing via `cards-extension issue`. Adapted from `cards:management`'s interview-bug-report with the same principles, targeting an issue body instead of a CARD.md file.
+Scope: interview process to gather enough signal for a well-formed bug report about the Cards extension before filing via `cards-extension issue`. Adapted from `cards:cards`'s interview-bug-report with the same principles, targeting an issue body instead of a CARD.md file.
 
 Source of truth: this file owns the interview process for Cards extension bug reports. The report structure this interview drives toward is `issue-report-guide.md`.
 
-Completeness: covers every step from research dispatch through issue filing. Excludes card creation workflows (see `cards:management` skill).
+Completeness: covers every step from research dispatch through issue filing. Excludes card creation workflows (see `cards:cards` skill).
 
 Cross-refs: `issue-report-guide.md` (the report structure this interview drives toward), `inspect-cli-tools.md` (`cards-extension` CLI reference), `find-logs.md` (log evidence collection).
 
@@ -33,7 +33,7 @@ Do not block on research. Proceed to Step 2: Load Writing Skills while subagents
 
 ## 2. Load Writing Skills
 
-Load the writing guide `./issue-report-guide.md`. The writing guide defines the issue body structure this interview is driving toward. Do NOT load the `cards:management` variants — those target card creation.
+Load the writing guide `./issue-report-guide.md`. The writing guide defines the issue body structure this interview is driving toward. Do NOT load the `cards:cards` variants — those target card creation.
 
 ## 3. Interview and Accumulate Findings
 
@@ -108,7 +108,7 @@ After `cards-extension issue` succeeds, the issue opens in the default browser. 
 
 ## Out of Scope
 
-- Card creation workflows → `cards:management` skill
+- Card creation workflows → `cards:cards` skill
 - Report structure reference → `issue-report-guide.md`
 - `cards-extension` CLI reference → `inspect-cli-tools.md`
 - Decisions about whether a bug is in the Cards extension vs. another component — the debug skill's routing tables answer this before reaching the interview

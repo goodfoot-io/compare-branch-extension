@@ -33,7 +33,7 @@ The Cards extension ships four Claude Code plugins and four Codex plugins:
 
 ```
 {ext}/dist/marketplace/claude/
-  cards/                 → Plugin "cards@cards.management"       Status: current
+  cards/                 → Plugin "cards@cards.cards"       Status: current
   cards-assistant/       → Plugin "cards-assistant@cards.management"  Status: current
   cards-sdk/             → Plugin "cards-sdk@cards.management"       Status: current
   runtime/               → Plugin "runtime@cards.management"         Status: current
@@ -88,7 +88,7 @@ For background (headless) `claude --print` sessions that don't auto-sync marketp
 
 ```bash
 claude plugin marketplace add <marketplacePath> --scope <scope>
-claude plugin install cards@cards.management --scope <scope>
+claude plugin install cards@cards.cards --scope <scope>
 ```
 
 This populates the plugin store so `--print` sessions can discover the plugins.
@@ -118,7 +118,7 @@ The `cards-sdk` plugin is NOT staged — it's only consumed at build time.
 |------|-------------|---------|--------|
 | **Action launch** (Claude) | `runtime@cards.management` | Runtime hooks (session management, transcript streaming, commit attribution) | current |
 | **Action launch** (Codex) | `cards`, `runtime` | Same, Codex equivalents | current |
-| **Cards Assistant** (Claude) | `cards@cards.management`, `cards-assistant@cards.management` | Card management + interview bootstrapping | current |
+| **Cards Assistant** (Claude) | `cards@cards.cards`, `cards-assistant@cards.management` | Card management + interview bootstrapping | current |
 | **Cards Assistant** (Codex) | `cards`, `cards-assistant` | Same, Codex equivalents | current |
 
 ## Staleness & Cleanup

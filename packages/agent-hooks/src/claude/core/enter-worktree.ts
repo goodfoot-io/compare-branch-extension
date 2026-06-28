@@ -101,8 +101,8 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
   // re-enter: the hash-keyed entry is simply overwritten with the same data.
   await addUnboundCandidate(input.session_id, worktreeDir, input.transcript_path);
 
-  const systemMessage = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:management\` skill to create a new card for these changes.`;
-  const additionalContext = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:management\` skill to create a new card for these changes.`;
+  const systemMessage = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
+  const additionalContext = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
 
   // Emit the one-time nudge.
   return postToolUseOutput({

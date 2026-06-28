@@ -175,7 +175,7 @@ describe('cards-assistant handler', () => {
     expect(promptIdx).toBeGreaterThan(-1);
 
     const prompt = args[promptIdx + 1];
-    expect(prompt).toContain('Load the `cards:management` skill');
+    expect(prompt).toContain('Load the `cards:cards` skill');
     // cross-spawn escapes embedded newlines for cmd.exe, so the prompt is passed
     // verbatim — the previous single-line collapse (a shell:true workaround) is
     // gone. The multi-line structure must survive to reach the agent unchanged.
@@ -204,7 +204,7 @@ describe('cards-assistant handler', () => {
       enabledPlugins: Record<string, boolean>;
       extraKnownMarketplaces: Record<string, { source: { source: string; path: string } }>;
     };
-    expect(settings.enabledPlugins['cards@cards.management']).toBe(true);
+    expect(settings.enabledPlugins['cards@cards.cards']).toBe(true);
     expect(settings.extraKnownMarketplaces['cards.management'].source.path).toBe('/global/storage/marketplace');
 
     child.emit('close', 0);

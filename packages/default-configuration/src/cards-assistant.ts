@@ -3,7 +3,7 @@
  *
  * Branches on `input.codingAgent` via {@link resolveCodingAgent}:
  * - Claude: calls `updateMarketplaceRegistration`, then spawns the `claude` CLI
- *   with both the `cards@cards.management` and `cards-assistant@cards.management`
+ *   with both the `cards@cards.cards` and `cards-assistant@cards.management`
  *   plugins enabled, passing the interview instructions via `--append-system-prompt`.
  * - Codex: stages the `cards` and `cards-assistant` plugins into a managed
  *   `CODEX_HOME`, writes a `cards-assistant` profile, and spawns `codex` with
@@ -30,14 +30,14 @@ import { resolveCodingAgent } from './lib/coding-agent.js';
 import { spawnAgentCli } from './lib/spawn-cli.js';
 
 const INTERVIEW_INSTRUCTIONS = `<instructions>
-    Load the \`cards:management\` skill. The user has requested that you interview them about every aspect of their task until you've reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+    Load the \`cards:cards\` skill. The user has requested that you interview them about every aspect of their task until you've reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
 
     Guidelines:
     - Ask the questions one at a time.
     - If a question can be answered by exploring the codebase, explore the codebase instead.
     - Use the AskUserQuestion tool for asking questions to the user.
     - If the user specifies a card, use the \`card\` CLI to explore that card
-    - If the user discusses a potential task or project, load the appropriate 'interview' reference from the \`cards:management\` skill
+    - If the user discusses a potential task or project, load the appropriate 'interview' reference from the \`cards:cards\` skill
 
     Do not implement a card unless instructed to do so by the user.
 
@@ -105,7 +105,7 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
 
   const settingsJson = JSON.stringify({
     enabledPlugins: {
-      'cards@cards.management': true,
+      'cards@cards.cards': true,
       'cards-assistant@cards.management': true
     },
     extraKnownMarketplaces: {

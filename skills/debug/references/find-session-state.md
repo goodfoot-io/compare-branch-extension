@@ -171,4 +171,4 @@ When a session ends (SessionEnd hook + exit-when-done):
 - Worktree binding → `diagnose-worktree.md`
 - Server health → `diagnose-server-health.md`
 - Agent internal session data → Claude Code / Codex documentation
-- Card repository structure (plans, comments, attachments) → `cards:management` skill
+- Card repository structure (plans, comments, attachments) → `cards:cards` skill

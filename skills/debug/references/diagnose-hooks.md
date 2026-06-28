@@ -120,7 +120,7 @@ Based on symptom, ranked by probability:
 
 **Cause**: The plugin wasn't staged into the cache. `populateCodexPluginCache()` didn't run (Codex), or the Claude plugin store wasn't materialized.
 
-**Recovery**: Re-run the agent launch — the pre-spawn setup stages the plugin cache. For Claude background sessions, run `claude plugin install cards@cards.management` to materialize the store.
+**Recovery**: Re-run the agent launch — the pre-spawn setup stages the plugin cache. For Claude background sessions, run `claude plugin install cards@cards.cards` to materialize the store.
 **Risk**: **safe**.
 
 **Post-fix verification**: `find ~/.claude/plugins/cache -name "session-start.mjs"` returns at least one path.

@@ -47,7 +47,7 @@ As research subagents return and as the conversation settles pieces of the desti
 
 ## 4. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `$cards:management` skill. Compose CARD.md against `./bug-report.md`. Include research excerpts, rejected hypotheses, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plans/` files — planning happens in a later step.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `$cards:cards` skill. Compose CARD.md against `./bug-report.md`. Include research excerpts, rejected hypotheses, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plans/` files — planning happens in a later step.
 
 ## 5. Constraints
 
