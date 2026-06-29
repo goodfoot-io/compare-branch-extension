@@ -12,6 +12,9 @@ Card Repository below.
 For controlling VS Code (opening files, running commands, sending notifications,
 managing panels, controlling the debugger, etc.), load `./references/extension-cli.md`.
 
+To file a GitHub issue with the Cards extension developer, use `cards-extension issue`
+(see `./references/extension-cli.md`).
+
 The user is notified when you create a card or add a comment.
 
 ## Card Type References

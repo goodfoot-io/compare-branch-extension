@@ -105,6 +105,29 @@ echo '["file:///workspace/src/index.ts"]' | cards-extension execute-command vsco
 
 ---
 
+## issue
+
+Open a pre-filled GitHub issue form in VS Code. Pipe a JSON object with `title` and `body` to stdin.
+
+```
+cards-extension issue [--workspace <path>] <<'EOF'
+{"title": "Issue title", "body": "Detailed description of the issue"}
+EOF
+```
+
+Both `title` and `body` are required strings. The command opens the issue in the active VS Code window; `--workspace` selects which window's adapter receives the call but does not further scope where the issue is filed.
+
+Returns `null` (the command opens a UI form rather than returning a structured result).
+
+Example:
+```
+cards-extension issue <<'EOF'
+{"title": "Login fails on Ubuntu", "body": "When I click login nothing happens."}
+EOF
+```
+
+---
+
 ## notify
 
 Send a notification to the VS Code UI.
