@@ -54,13 +54,13 @@ Read `$CARD_REPO_PATH/CARD.meta.json` for current `gates.*` and `tags`. Obtain t
 |--------|------------|
 | HAS_QUESTION | Latest user comment contains a genuine information-seeking question (not rhetorical, not "Can you fix X?", not "Could you implement Y?") |
 | IS_BLOCKED | `tags` contains "blocked" |
-| HAS_WORK | `commits.csv` contains one or more commit SHAs, OR `git status --porcelain` reports any uncommitted changes in the workspace |
-| HAS_IMPLEMENTATION_FEEDBACK | `commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
+| HAS_WORK | `commits/` directory contains one or more commit files, OR `git status --porcelain` reports any uncommitted changes in the workspace |
+| HAS_IMPLEMENTATION_FEEDBACK | `commits/` directory contains at least one commit file AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
 | REVIEW_APPROVED | `gates.mergeApproved` in CARD.meta.json |
 | PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
 | PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
 | HAS_PLAN | `plans/` directory in the card repository contains at least one `.md` file |
-| USER_RESPONDED_TO_PLAN | `plans/` directory contains at least one `.md` file AND there exists a user-authored commit — more recent than the most recent `plans/*.md` file's commit — that adds or modifies non-metadata files. Metadata files (`CARD.meta.json`, `branches.json`, `commits.csv`, and their sidecars) are excluded; gate changes and status transitions do not constitute a plan response. |
+| USER_RESPONDED_TO_PLAN | `plans/` directory contains at least one `.md` file AND there exists a user-authored commit — more recent than the most recent `plans/*.md` file's commit — that adds or modifies non-metadata files. Metadata files (`CARD.meta.json`, `branches/` directory, `commits/` directory, and their contents) are excluded; gate changes and status transitions do not constitute a plan response. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card describes an expected-vs-actual behavior gap on a named surface (file, component, command, or user action). Stack traces and error messages count; so does an observable wrong behavior. "Sometimes" and "intermittent" do not disqualify — they describe the race the test must force. |
 

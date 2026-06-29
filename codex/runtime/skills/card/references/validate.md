@@ -1,7 +1,6 @@
-
 <instructions>
 
-This reference fires when card work exists (`commits.csv` has commit SHAs and/or the worktree has uncommitted changes) and no stronger signal claims the card — typically after the card emerged from a `blocked` state, after a session crashed or terminated mid-flow, or when work exists without an approved plan or pending merge approval.
+This reference fires when card work exists (the `commits/` directory has commit files and/or the worktree has uncommitted changes) and no stronger signal claims the card — typically after the card emerged from a `blocked` state, after a session crashed or terminated mid-flow, or when work exists without an approved plan or pending merge approval.
 
 **Output asymmetry.** This skill may route backward to planning or implementation on the orchestrator's judgment alone. It cannot route forward to merge on its own — finalize requires a `$runtime:card-failure-mode` `VERDICT: APPROVED`.
 
@@ -11,13 +10,13 @@ This reference fires when card work exists (`commits.csv` has commit SHAs and/or
 
 ### 1.1 Baseline Tag
 
-If `implement/$CARD_ID/baseline` does not exist, create it at the prior committed state — the latest commit recorded in `commits.csv` when present, otherwise current `HEAD` (which represents the workspace branch tip before any uncommitted work is staged in Step 1.2).
+If `implement/$CARD_ID/baseline` does not exist, create it at the prior committed state — the latest commit in the `commits/` directory when present, otherwise current `HEAD` (which represents the workspace branch tip before any uncommitted work is staged in Step 1.2).
 
 ```bash
 if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
   echo "Baseline tag already exists — resuming from prior checkpoint."
 else
-  baseline_sha=$(tail -n 1 "$CARD_REPO_PATH/commits.csv" 2>/dev/null | cut -d, -f1)
+  baseline_sha=$(git -C "$CARD_REPO_PATH" log --name-only --format= -- commits/ 2>/dev/null | grep -v '^$' | head -n 1 | xargs basename 2>/dev/null)
   if [ -z "$baseline_sha" ]; then
     baseline_sha=$(git rev-parse HEAD)
   fi
@@ -53,7 +52,7 @@ Based on the result:
 
 ## 3. Optional Escape Hatch — Orchestrator Judgment
 
-Before dispatching the evaluator, you may bail out if your reading of `plans/`, `commits.csv`, `CARD.md`, the diff against `implement/$CARD_ID/baseline`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
+Before dispatching the evaluator, you may bail out if your reading of `plans/`, the `commits/` directory, `CARD.md`, the diff against `implement/$CARD_ID/baseline`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
 
 This skill cannot finalize the card on its own. The escape hatch may only re-route backward, never forward to merge:
 
@@ -133,7 +132,7 @@ Based on `gates.mergeRequestRequired`:
 
 | Tag | Created At | Advances | Purpose |
 |-----|------------|----------|---------|
-| `implement/[CARD_ID]/baseline` | Step 1.1: Baseline Tag (if missing) | Never | Comparison ref for the failure-mode evaluator and rollback target if Step 3's escape hatch fires. Pinned at last commits.csv SHA, or HEAD when commits.csv is empty. |
+| `implement/[CARD_ID]/baseline` | Step 1.1: Baseline Tag (if missing) | Never | Comparison ref for the failure-mode evaluator and rollback target if Step 3's escape hatch fires. Pinned at the latest commit in the `commits/` directory, or HEAD when the directory is empty. |
 
 </rollback>
 

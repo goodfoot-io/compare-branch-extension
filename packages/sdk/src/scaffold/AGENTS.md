@@ -25,8 +25,8 @@ CARD.md                     # Description (pure markdown, NO frontmatter)
 plans/                      # Plan documents (continuation-based)
   [name].md                 # Semantically-named plan files
   [name].md.meta.json       # Sidecar with display title
-branches.json               # Branches associated with the card
-commits.csv                 # Git commit SHAs associated with the card
+branches/                   # JSON state per tracked branch
+commits/                    # Attributed commit files, one file per SHA
 comments/                   # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
 attachments/                # Created on first attachment
@@ -38,7 +38,7 @@ streams/                    # Append-only JSONL
     {filename}.meta.json
 ```
 
-`commits.csv` and `branches.json` are automatically updated by Cards infrastructure. Do not modify them directly.
+The `commits/` and `branches/` directories are automatically updated by Cards infrastructure. Do not modify them directly.
 
 ## CARD.meta.json
 
