@@ -15,7 +15,6 @@ import { defineConfig } from '@cards/sdk/config';
 import chat from './src/actions/chat.js';
 import interview from './src/actions/interview.js';
 import launch from './src/actions/launch.js';
-import slice from './src/actions/slice.js';
 // Cards assistant handler
 import cardsAssistant from './src/cards-assistant.js';
 
@@ -25,7 +24,7 @@ export default defineConfig({
     default: {
       version: 1,
       description: 'Standard Claude Code workflows',
-      actions: [launch, interview, slice, chat],
+      actions: [launch, interview, chat],
       types: {
         'adaptive-card': {
           version: '1.0.0'
