@@ -7,7 +7,7 @@
  * failure (no client) throws rather than leaving an unregistered worktree on
  * disk. Unbound worktrees skip the API entirely: the parent branch is recorded
  * as `branch.<name>.cardsParent` git config and the worktree is added to the
- * per-session unbound-candidate set so `card create` can bind it later. The
+ * per-session unbound-candidate set so `cards create` can bind it later. The
  * worktree path is returned only after `settle` resolves, ensuring symlinks and
  * node_modules rerouting are complete before the agent uses the directory.
  *
@@ -114,7 +114,7 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
   // resolve byte-for-byte the same id so they can never disagree about which
   // card a given worktree belongs to. When neither source yields an id the
   // worktree is created unbound: its parent branch is recorded as git config
-  // and it is added to the per-session unbound-candidate set so `card create`
+  // and it is added to the per-session unbound-candidate set so `cards create`
   // can bind it later.
   const cardId = process.env['CARD_ID']?.trim() || (await resolveWorktreeCardId(input.cwd));
 
@@ -163,13 +163,13 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
     created = await createWorktree(input.name, { cwd: input.cwd });
 
     // Record the parent branch as durable git config on the new branch, so
-    // bind-time `card create` can recover it via `resolveCardsParentBranch`.
+    // bind-time `cards create` can recover it via `resolveCardsParentBranch`.
     // Written after the branch exists on disk (createWorktree created it). The
     // new branch name matches input.name (createWorktree names it after the
     // worktree). Fails closed — any write failure aborts launch.
     await writeCardsParentConfig(created.path, input.name, parentBranch);
 
-    // Feed the per-session unbound-candidate set so `card create` invoked from
+    // Feed the per-session unbound-candidate set so `cards create` invoked from
     // outside this worktree can discover and bind it. The session is the
     // worktree-creating session; the transcript is recorded for attribution at
     // bind time.

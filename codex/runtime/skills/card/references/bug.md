@@ -51,13 +51,21 @@ If every hypothesis reduces to "the described behavior is not implemented anywhe
 
 ### 1.4 Assess Reproduction Suitability
 
-Reproduction is the default; fail closed — when in doubt, reproduce. Divert to `./plan.md` only when one disqualifier holds **for every viable hypothesis** and no **outcome-level** test (asserting observable behavior, not which API was called) exists either:
+Reproduction is the default; fail closed — when in doubt, reproduce.
 
-- **Tautological** — the fix *is* the mechanism change, so any test only restates the implementation. Fix is "stop calling `fs.watch`" → test asserts `fs.watch` uncalled.
-- **Dangerous** — a faithful reproduction must perform an unsafe or irreversible act: resource exhaustion (fork/watch/fd/memory storms, DoS load), data loss, or mutating an external or credentialed system.
-- **Cost-prohibitive or environment-bound** — faithful reproduction needs infeasible fixtures or scale, or the symptom is platform/kernel/hardware-specific so the test probes *where* it runs, not whether the bug is present.
+**First principle — reproduce only if a discriminating test can exist.** Before writing any reproduction, state, in one sentence, the test you would write and confirm all three properties hold for it:
 
-"Hard", "slow", "obvious", and "I'm confident" are not disqualifiers — reproduce anyway.
+1. **Discriminates** — it fails *because* the bug is present and passes *only* when the fix is applied. A test that would pass on the unfixed code, or that restates the fix rather than observing its effect, discriminates nothing.
+2. **Observes behavior** — it asserts an observable outcome, not which API/config/internal was used. If the fix and the assertion are the same edit phrased twice, it observes nothing.
+3. **Runs faithfully here** — it exercises the real failure in this environment without an unsafe or irreversible act. A test that can only pass/fail based on *where* it runs, or that must crash the machinery to be faithful, runs nothing.
+
+If you cannot write that one sentence — if every candidate test drops at least one property — then no reproduction exists to write, and you divert to `./plan.md`. This is the general rule; the disqualifiers below are just the three recurring ways a property fails. Divert only when the failure holds **for every viable hypothesis** and no **outcome-level** test (asserting observable behavior, not which API was called) survives all three properties either:
+
+- **Tautological** (fails property 1–2) — the fix *is* the mechanism or config change, so any test only restates the implementation. Fix is "stop calling `fs.watch`" → test asserts `fs.watch` uncalled. Fix is a config/build/CI setting → test asserts the setting; there is no behavioral layer between the setting and the result.
+- **Dangerous** (fails property 3) — a faithful reproduction must perform an unsafe or irreversible act: resource exhaustion (fork/watch/fd/memory storms, OOM, DoS load), data loss, or mutating an external or credentialed system.
+- **Cost-prohibitive or environment-bound** (fails property 3) — faithful reproduction needs infeasible fixtures or scale, or the symptom is platform/kernel/hardware/CI-specific so the test probes *where* it runs, not whether the bug is present.
+
+These three are the common ways a property fails; they are examples, not an exhaustive whitelist — apply the first principle directly when a bug fits none of them by name. "Hard", "slow", "obvious", and "I'm confident" are not disqualifiers — reproduce anyway. But confidence that reproduction is *feasible* never overrides a missing property: a tautological or environment-probing test you *can* write is still not a reproduction.
 
 On divert: write a comment naming the disqualifier and why no outcome-level test fits, commit, and Read `./plan.md` (the planning path picks an outcome guard where one is meaningful). Otherwise proceed to Step 1.5.
 

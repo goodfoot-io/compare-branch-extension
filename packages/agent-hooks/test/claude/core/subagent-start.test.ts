@@ -121,7 +121,7 @@ describe('SubagentStart hook — bindable linked worktree', () => {
     const ctx = getAdditionalContext(result);
     expect(typeof ctx).toBe('string');
     expect(ctx).toMatch(/create a new card/);
-    expect(ctx).toMatch(/card <id> bind/);
+    expect(ctx).toMatch(/cards <id> bind/);
   });
 
   it('re-entering the same worktree re-feeds the candidate set (idempotent) and re-nudges', async () => {

@@ -39,12 +39,12 @@ export default subagentStartHook({}, async (input) => {
   const worktreeDir = await resolveBindableWorktreeDir(input.cwd);
   if (!worktreeDir) return null;
 
-  // Feed the per-session unbound-candidate set so `card create` (run from inside
+  // Feed the per-session unbound-candidate set so `cards create` (run from inside
   // or outside this worktree) can discover and bind it. Idempotent on re-enter:
   // the hash-keyed entry is simply overwritten with the same data.
   await addUnboundCandidate(input.session_id, worktreeDir, input.transcript_path);
 
-  const nudge = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
+  const nudge = `If you know the id of an existing card this work belongs to, run \`cards <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
 
   // Emit the one-time nudge: systemMessage surfaces to the user, additionalContext
   // is injected into the subagent's context.

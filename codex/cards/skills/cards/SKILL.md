@@ -32,7 +32,7 @@ Determine the card type using the first matching signal:
 | Infrastructure, CI/CD, deploy, monitoring, scaling | `./references/interview-operations.md` | `./references/operations.md` |
 | Otherwise | `./references/interview-enhancement.md` | `./references/enhancement.md` |
 
-Run the interview first. When enough signal has been gathered, invoke the `card create` flow below and compose CARD.md against the writing guide in the same initial commit. The interview is not optional — every card created through this skill goes through it.
+Run the interview first. When enough signal has been gathered, invoke the `cards create` flow below and compose CARD.md against the writing guide in the same initial commit. The interview is not optional — every card created through this skill goes through it.
 
 ## CLI Binaries
 
@@ -40,15 +40,15 @@ The commands below are plugin-provided executables on `PATH`. Invoke them direct
 
 | Command | Purpose |
 |---------|---------|
-| `card` | Card operations (get, create, list, search, bind, action, watch) |
+| `cards` | Card operations (get, create, list, search, bind, action, watch) |
 
-### `card` — Card operations
+### `cards` — Card operations
 
 #### Commands
 
 **Get a card** — Fetch card details by ID. The response includes `repositoryPath` for filesystem access:
 ```
-card <card-id>
+cards <card-id>
 ```
 
 The response includes:
@@ -57,7 +57,7 @@ The response includes:
 
 **Create a card** — Pipe JSON to stdin with `title` (required). Optional: `tags`, `environment`, `gates`, `relations`:
 ```
-card create <<'EOF'
+cards create <<'EOF'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 ```
@@ -68,7 +68,7 @@ The response includes `repositoryPath`. After creation:
 2. Write card content and commit:
 
 ```bash
-REPO=$(card create --jsonpath '$.repositoryPath' <<'EOF'
+REPO=$(cards create --jsonpath '$.repositoryPath' <<'EOF'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 )
@@ -83,15 +83,15 @@ cd "$REPO" && git add CARD.md && git commit -m "Added description [single senten
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
 ```
-card create <<'EOF'
+cards create <<'EOF'
 { "title": "Unify tag layout", "relations": [{ "type": "related", "cardId": "main-67" }] }
 EOF
 ```
 
 **Bind a card to a worktree** — Attach an existing card to the current linked worktree:
 ```
-card <card-id> bind
-card <card-id> bind --parent-branch <ref>
+cards <card-id> bind
+cards <card-id> bind --parent-branch <ref>
 ```
 
 Binding installs hooks, registers the worktree branch with the card, and enables session streaming. The command succeeds only if:
@@ -104,17 +104,17 @@ The command outputs card-repo-log and workspace-repo-log context blocks to stdou
 
 Example:
 ```
-$ cd my-worktree && card main-42 bind
-card bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.
+$ cd my-worktree && cards main-42 bind
+cards bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.
 $ git log --oneline -3
 ```
 
 **Search cards** — Search cards using a unified query syntax with `#tag`, `@relation`, and free text:
 ```
-card search "login bug"
-card search "#auth @main-5 login" --status active
-card search "#planning" --limit 20
-card search "@main-42"
+cards search "login bug"
+cards search "#auth @main-5 login" --status active
+cards search "#planning" --limit 20
+cards search "@main-42"
 ```
 
 The query is parsed into free text, `#tag` tokens, and `@relation` tokens. Stored tags and text (3+ chars) are sent to the server. Derived tags (`planning`, `merge-requested`, `merged`, `unmerged`) and relation filters are applied client-side.
@@ -131,9 +131,9 @@ Use `--workspace-path` only if the user explicitly requests creating a card in a
 
 **Execute an action** — Execute an action on a card via the server relay:
 ```
-card <card-id> action <action-id>
-card <card-id> action <action-id> --background
-card <card-id> action <action-id> --background --exit-when-done
+cards <card-id> action <action-id>
+cards <card-id> action <action-id> --background
+cards <card-id> action <action-id> --background --exit-when-done
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
@@ -141,15 +141,15 @@ Actions run interactively by default. `--background` runs the action in the back
 
 **Watch for commits** — Block until the next unattributed commit on a card's repository:
 ```
-card <card-id> watch
-card <card-id> watch "src/auth/**"
-card <card-id> watch "src/auth/**" "tests/auth/**"
+cards <card-id> watch
+cards <card-id> watch "src/auth/**"
+cards <card-id> watch "src/auth/**" "tests/auth/**"
 ```
 Blocks until the first eligible commit, outputs formatted commit details, attributes the commit to the current session, then exits 0. When unattributed commits already exist at invocation time, they are output immediately without subscribing. Optional glob patterns restrict output to commits where at least one changed file matches; multiple globs are OR-combined. Requires an active card session. Exits non-zero on connection failure or missing session.
 
 ## Card Repository
 
-Each card is an isolated Git repository. The `repositoryPath` field from `card <id>`
+Each card is an isolated Git repository. The `repositoryPath` field from `cards <id>`
 gives the absolute path to this repository.
 
 ### Directory Layout
@@ -210,7 +210,7 @@ The `commits/` and `branches/` directories are written by Cards infrastructure, 
 Comments are pure markdown files with descriptive slug filenames. Authorship is determined by git commit ownership.
 
 ```bash
-REPO=$(card <card-id> --jsonpath '$.repositoryPath')
+REPO=$(cards <card-id> --jsonpath '$.repositoryPath')
 mkdir -p "$REPO/comments"
 cat <<'COMMENT_EOF' > "$REPO/comments/my-slug-name.md"
 Your comment content here (plain markdown, no frontmatter).
@@ -224,7 +224,7 @@ Attachments use UUID4 identifiers with a sanitized original filename, plus a
 `.meta.json` sidecar describing the file.
 
 ```bash
-REPO=$(card <card-id> --jsonpath '$.repositoryPath')
+REPO=$(cards <card-id> --jsonpath '$.repositoryPath')
 ATT_UUID=$(cat /proc/sys/kernel/random/uuid)  # UUID4
 ATT_NAME="att-${ATT_UUID}_screenshot.png"
 mkdir -p "$REPO/attachments"

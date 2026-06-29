@@ -11,7 +11,7 @@
  *   linked git worktree, `--git-dir` ≠ `--git-common-dir`, with no
  *   `.cards/CARD_ID`) → adds the worktree to the per-session unbound-candidate
  *   set (carrying this session's `transcriptPath`) then emits a one-time
- *   `additionalContext` nudge instructing the agent to run `card create`.
+ *   `additionalContext` nudge instructing the agent to run `cards create`.
  *   Re-entering the same unbound worktree in the same session simply overwrites
  *   the candidate entry — the write is idempotent. This detects hand-made
  *   worktrees (`git worktree add`) that no WorktreeCreate hook ever fed.
@@ -96,13 +96,13 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
   const worktreeDir = await resolveBindableWorktreeDir(input.cwd);
   if (!worktreeDir) return null;
 
-  // Feed the per-session unbound-candidate set so `card create` (run from
+  // Feed the per-session unbound-candidate set so `cards create` (run from
   // inside or outside this worktree) can discover and bind it. Idempotent on
   // re-enter: the hash-keyed entry is simply overwritten with the same data.
   await addUnboundCandidate(input.session_id, worktreeDir, input.transcript_path);
 
-  const systemMessage = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
-  const additionalContext = `If you know the id of an existing card this work belongs to, run \`card <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
+  const systemMessage = `If you know the id of an existing card this work belongs to, run \`cards <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
+  const additionalContext = `If you know the id of an existing card this work belongs to, run \`cards <id> bind\` to attach it. Otherwise, load the \`cards:cards\` skill to create a new card for these changes.`;
 
   // Emit the one-time nudge.
   return postToolUseOutput({
