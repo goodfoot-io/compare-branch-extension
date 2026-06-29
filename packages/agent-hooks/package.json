@@ -20,7 +20,7 @@
     "@goodfoot/claude-code-hooks": "^1.7.1",
     "@goodfoot/codex-hooks": "1.1.1",
     "esbuild": "^0.28.0",
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.3.0",
     "ws": "^8.20.0"
   },
   "devDependencies": {
