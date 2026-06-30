@@ -9,6 +9,7 @@ import { hasSessionExitWhenDoneNudgeFired, markSessionExitWhenDoneNudgeFired } f
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/stop-exit-when-done.js';
+import { isSessionIdle } from '../../../src/shared/session-idle.js';
 
 vi.mock('@cards/sdk/config', () => ({
   extractActionInput: vi.fn()
@@ -19,9 +20,14 @@ vi.mock('@cards/sessions/card-repo', () => ({
   markSessionExitWhenDoneNudgeFired: vi.fn()
 }));
 
+vi.mock('../../../src/shared/session-idle.js', () => ({
+  isSessionIdle: vi.fn()
+}));
+
 const mockExtractActionInput = vi.mocked(extractActionInput);
 const mockHasSessionExitWhenDoneNudgeFired = vi.mocked(hasSessionExitWhenDoneNudgeFired);
 const mockMarkSessionExitWhenDoneNudgeFired = vi.mocked(markSessionExitWhenDoneNudgeFired);
+const mockIsSessionIdle = vi.mocked(isSessionIdle);
 
 const logger = new Logger();
 
@@ -47,6 +53,7 @@ describe('Stop Exit-When-Done Hook', () => {
     mockExtractActionInput.mockReturnValue(baseActionInput);
     mockHasSessionExitWhenDoneNudgeFired.mockReturnValue(false);
     mockMarkSessionExitWhenDoneNudgeFired.mockReturnValue(undefined);
+    mockIsSessionIdle.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -105,27 +112,21 @@ describe('Stop Exit-When-Done Hook', () => {
     });
   });
 
-  describe('waiting guard suppression', () => {
-    it('returns null when last_assistant_message contains a waiting phrase', async () => {
-      const waitingInput = {
-        ...mockInput,
-        last_assistant_message: "I'm waiting for the build to finish before proceeding."
-      } as Parameters<typeof hook>[0];
+  describe('session-idle guard', () => {
+    it('returns null when session is not idle (suppresses nudge)', async () => {
+      mockIsSessionIdle.mockReturnValue(false);
 
-      const result = await hook(waitingInput, { logger });
+      const result = await hook(mockInput, { logger });
 
       expect(result).toBeNull();
       expect(mockHasSessionExitWhenDoneNudgeFired).not.toHaveBeenCalled();
       expect(mockMarkSessionExitWhenDoneNudgeFired).not.toHaveBeenCalled();
     });
 
-    it('fires normally when last_assistant_message does not contain a waiting phrase', async () => {
-      const activeInput = {
-        ...mockInput,
-        last_assistant_message: 'All tests pass. The implementation is complete.'
-      } as Parameters<typeof hook>[0];
+    it('fires normally when session is idle', async () => {
+      mockIsSessionIdle.mockReturnValue(true);
 
-      const result = await hook(activeInput, { logger });
+      const result = await hook(mockInput, { logger });
 
       expect(result).not.toBeNull();
     });

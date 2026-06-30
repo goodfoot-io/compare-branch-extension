@@ -14,6 +14,7 @@
 import { readFile } from 'node:fs/promises';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { extractActionInput } from '@cards/sdk/config';
+import { removeActiveSubagent } from '@cards/sessions/card-repo';
 import { subagentStopHook } from '@goodfoot/claude-code-hooks';
 
 /**
@@ -71,6 +72,16 @@ export default subagentStopHook({}, async (input, { logger }) => {
     });
   } catch (error) {
     logger.warn('Failed to upload transcript', {
+      sessionId: input.session_id,
+      agentId: input.agent_id,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+
+  try {
+    await removeActiveSubagent(input.session_id, input.agent_id);
+  } catch (error) {
+    logger.warn('Failed to remove active subagent', {
       sessionId: input.session_id,
       agentId: input.agent_id,
       error: error instanceof Error ? error.message : String(error)

@@ -8,6 +8,7 @@
  */
 
 import { extractActionInput } from '@cards/sdk/config';
+import { addActiveSubagent } from '@cards/sessions/card-repo';
 import { subagentStartHook, subagentStartOutput } from '@goodfoot/codex-hooks';
 import { buildAdditionalContext, CardRepoAccessError } from '../../shared/context.js';
 
@@ -35,6 +36,16 @@ export default subagentStartHook({}, async (_input, { logger }) => {
       });
     }
     throw error;
+  }
+
+  try {
+    await addActiveSubagent(_input.session_id, _input.agent_id);
+  } catch (error) {
+    logger.warn('Failed to record active subagent', {
+      sessionId: _input.session_id,
+      agentId: _input.agent_id,
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 
   return subagentStartOutput({
