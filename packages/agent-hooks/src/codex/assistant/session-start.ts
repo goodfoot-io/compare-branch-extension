@@ -10,8 +10,11 @@
 
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/codex-hooks';
 
-export const ANNOUNCEMENT =
-  'The Cards Assistant can help create or update cards, or help you provide feedback on the Cards extension.';
+export const ANNOUNCEMENT = `I can help you:
+- create or update a card
+- start work on an existing card
+- use the extension
+- send feedback or file a bug report`;
 
 export default sessionStartHook({}, async (input) => {
   if (input.source !== 'startup') {
