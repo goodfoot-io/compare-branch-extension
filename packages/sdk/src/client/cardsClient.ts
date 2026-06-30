@@ -217,13 +217,36 @@ export class CardsClient {
   }
 
   /**
+   * Wraps `fetch` so a connection failure (refused, DNS, TLS, timeout) names
+   * the URL it was trying to reach. Native `fetch` rejections carry that
+   * detail only in an opaque `cause` (e.g. `ECONNREFUSED`) with a message of
+   * just `"fetch failed"` — useless on its own once it reaches a CLI's
+   * top-level error print. A non-ok HTTP response is returned normally (not
+   * thrown) so the existing `response.ok` handling in each call site is
+   * unaffected; only the fetch-level rejection is annotated.
+   *
+   * @param url - The request URL, included in the error message on failure.
+   * @param init - Standard `fetch` request options.
+   * @returns The `fetch` response, on success.
+   */
+  private async fetchWithUrlContext(url: string, init: RequestInit): Promise<Response> {
+    try {
+      return await fetch(url, init);
+    } catch (error) {
+      throw new Error(`request to ${url} failed: ${error instanceof Error ? error.message : String(error)}`, {
+        cause: error
+      });
+    }
+  }
+
+  /**
    * Default HTTP client implementation using fetch + JSON payloads.
    *
    * Each fetch call includes an AbortSignal.timeout of 10 seconds.
    */
   private defaultHttpClient: HttpClient = {
     get: async <T>(url: string, options?: RequestInit): Promise<T> => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         ...options,
         headers: { ...this.getHeaders(), ...options?.headers },
         signal: this.getTimeoutSignal(options?.signal)
@@ -232,7 +255,7 @@ export class CardsClient {
       return response.json() as Promise<T>;
     },
     post: async <T>(url: string, body: unknown, options?: RequestInit): Promise<T> => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         ...options,
         method: 'POST',
         headers: { ...this.getHeaders(), ...options?.headers },
@@ -243,7 +266,7 @@ export class CardsClient {
       return response.json() as Promise<T>;
     },
     put: async <T>(url: string, body: unknown, options?: RequestInit): Promise<T> => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         ...options,
         method: 'PUT',
         headers: { ...this.getHeaders(), ...options?.headers },
@@ -254,7 +277,7 @@ export class CardsClient {
       return response.json() as Promise<T>;
     },
     patch: async <T>(url: string, body: unknown, options?: RequestInit): Promise<T> => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         ...options,
         method: 'PATCH',
         headers: { ...this.getHeaders(), ...options?.headers },
@@ -265,7 +288,7 @@ export class CardsClient {
       return response.json() as Promise<T>;
     },
     delete: async (url: string, options?: RequestInit): Promise<void> => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         ...options,
         method: 'DELETE',
         headers: { ...this.getHeaders(), ...options?.headers },
@@ -623,7 +646,7 @@ export class CardsClient {
     }
 
     return this.request(async () => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         method: 'PUT',
         headers: {
           ...this.getHeaders(),
@@ -651,7 +674,7 @@ export class CardsClient {
   async getAttachment(cardId: string, attachmentId: string): Promise<Blob> {
     const url = this.buildUrl(`/cards/${cardId}/attachments/${attachmentId}`);
     return this.request(async () => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         headers: this.getHeaders(),
         signal: this.getTimeoutSignal()
       });
@@ -1079,7 +1102,7 @@ export class CardsClient {
   async getCompare(): Promise<CompareState | null> {
     const url = this.buildUrl('/compare');
     return this.request(async () => {
-      const response = await fetch(url, {
+      const response = await this.fetchWithUrlContext(url, {
         headers: this.getHeaders() as Record<string, string>,
         signal: this.getTimeoutSignal()
       });

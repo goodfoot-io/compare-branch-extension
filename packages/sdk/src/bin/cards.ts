@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
-import { requestProcessExit } from '@cards/sdk/bin/process-utils';
+import { formatErrorForCli, requestProcessExit } from '@cards/sdk/bin/process-utils';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { toCardListSummaries } from '@cards/sdk/card-summary';
 import { resolveCardsParentBranch } from '@cards/sdk/cards-parent-branch';
@@ -1333,7 +1333,7 @@ if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
       }
     })
     .catch((error: unknown) => {
-      console.error('card:', error instanceof Error ? error.message : String(error));
+      console.error('card:', formatErrorForCli(error));
       requestProcessExit(1);
     });
 }

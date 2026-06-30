@@ -18,6 +18,7 @@ import { runIssue } from './cards-extension/issue.js';
 import { runNotify } from './cards-extension/notify.js';
 import { runPanel } from './cards-extension/panel.js';
 import { runWorkspace } from './cards-extension/workspace.js';
+import { formatErrorForCli } from './process-utils.js';
 
 const HELP = `Usage: cards-extension <subcommand> [options]
 
@@ -91,7 +92,7 @@ export async function main(argv: string[]): Promise<number> {
     console.error(HELP);
     return 1;
   } catch (error) {
-    console.error('cards-extension:', error instanceof Error ? error.message : String(error));
+    console.error('cards-extension:', formatErrorForCli(error));
     return 1;
   }
 }

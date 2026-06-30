@@ -355,3 +355,28 @@ export async function transitionCardStatus(cardRepoPath: string, logger?: Proces
     throw error instanceof Error ? error : new Error(String(error));
   }
 }
+
+/**
+ * Render a caught error for top-level CLI output, walking the `cause` chain.
+ *
+ * Node's `fetch` throws a `TypeError` whose own `.message` is just
+ * `"fetch failed"` — the actionable detail (ECONNREFUSED, DNS failure, TLS
+ * error, etc.) lives on `.cause`, sometimes nested several levels deep. A
+ * bare `error.message` print discards that detail and leaves the operator
+ * with nothing to debug from.
+ *
+ * @param error - The caught value to render.
+ * @returns A human-readable message including any chained causes.
+ */
+export function formatErrorForCli(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+  const parts = [error.message];
+  let cause = error.cause;
+  while (cause !== undefined && cause !== null) {
+    parts.push(cause instanceof Error ? cause.message : String(cause));
+    cause = cause instanceof Error ? cause.cause : undefined;
+  }
+  return parts.join(' — caused by: ');
+}
