@@ -121,3 +121,5 @@ export {
   removeUnboundCandidate,
   type UnboundWorktreeCandidate
 } from './unboundWorktreeCandidates.js';
+// --- Worktree ---
+export { SymlinkPrivilegeError } from './worktree.js';
