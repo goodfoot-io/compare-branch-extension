@@ -10,6 +10,7 @@ import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards/se
 import { Logger } from '@goodfoot/codex-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/stop-route-nudge.js';
+import { isSessionIdle } from '../../../src/shared/session-idle.js';
 
 vi.mock('node:child_process', () => ({
   execFileSync: vi.fn()
@@ -37,6 +38,10 @@ vi.mock('@cards/sessions/card-repo', () => ({
   markSessionRouteNudgeFired: vi.fn()
 }));
 
+vi.mock('../../../src/shared/session-idle.js', () => ({
+  isSessionIdle: vi.fn()
+}));
+
 const mockExecFileSync = vi.mocked(execFileSync);
 const mockGetCardRepoPath = vi.mocked(getCardRepoPath);
 const mockGetWorkspacePath = vi.mocked(getWorkspacePath);
@@ -44,6 +49,7 @@ const mockGetBaseBranch = vi.mocked(getBaseBranch);
 const mockGetWorkspaceBranch = vi.mocked(getWorkspaceBranch);
 const mockHasSessionRouteNudgeFired = vi.mocked(hasSessionRouteNudgeFired);
 const mockMarkSessionRouteNudgeFired = vi.mocked(markSessionRouteNudgeFired);
+const mockIsSessionIdle = vi.mocked(isSessionIdle);
 
 // Import readFileSync after mocking so we get the mock instance
 import { readFileSync } from 'node:fs';
@@ -77,6 +83,7 @@ describe('Stop Route Nudge Hook', () => {
     mockMarkSessionRouteNudgeFired.mockReturnValue(undefined);
     mockReadFileSync.mockReturnValue(JSON.stringify(baseCardMeta) as ReturnType<typeof readFileSync>);
     mockExecFileSync.mockReturnValue('3\n' as ReturnType<typeof execFileSync>);
+    mockIsSessionIdle.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -188,40 +195,22 @@ describe('Stop Route Nudge Hook', () => {
     });
   });
 
-  describe('waiting-message suppression', () => {
-    const waitingPhrases = [
-      'Waiting for the test suite to complete.',
-      'I will await the build output before proceeding.',
-      'Polling the deploy status now.',
-      'Monitoring the run for failures.',
-      'The job is pending; I will check back shortly.',
-      'Standing by for your confirmation.',
-      'Holding off until the migration finishes.',
-      'In the meantime, I will not modify anything.',
-      'ETA roughly 5 minutes.'
-    ];
+  describe('session-idle guard', () => {
+    it('returns null when session is not idle (suppresses nudge)', async () => {
+      mockIsSessionIdle.mockReturnValue(false);
 
-    for (const message of waitingPhrases) {
-      it(`returns null when last_assistant_message contains "${message}"`, async () => {
-        const result = await hook({ ...mockInput, last_assistant_message: message } as Parameters<typeof hook>[0], {
-          logger
-        });
-        expect(result).toBeUndefined();
-        expect(mockHasSessionRouteNudgeFired).not.toHaveBeenCalled();
-        expect(mockMarkSessionRouteNudgeFired).not.toHaveBeenCalled();
-      });
-    }
+      const result = await hook(mockInput, { logger });
 
-    it('still fires when last_assistant_message has no waiting stems', async () => {
-      const result = await hook(
-        { ...mockInput, last_assistant_message: 'Done — pushed the commits.' } as Parameters<typeof hook>[0],
-        { logger }
-      );
-      expect(result).not.toBeUndefined();
+      expect(result).toBeUndefined();
+      expect(mockHasSessionRouteNudgeFired).not.toHaveBeenCalled();
+      expect(mockMarkSessionRouteNudgeFired).not.toHaveBeenCalled();
     });
 
-    it('still fires when last_assistant_message is undefined', async () => {
+    it('fires normally when session is idle', async () => {
+      mockIsSessionIdle.mockReturnValue(true);
+
       const result = await hook(mockInput, { logger });
+
       expect(result).not.toBeUndefined();
     });
   });

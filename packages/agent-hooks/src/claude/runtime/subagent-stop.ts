@@ -11,7 +11,10 @@
  * @summary SubagentStop hook — uploads subagent transcript to Cards API
  */
 
+import { rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { extractActionInput } from '@cards/sdk/config';
 import { removeActiveSubagent } from '@cards/sessions/card-repo';
@@ -86,6 +89,20 @@ export default subagentStopHook({}, async (input, { logger }) => {
       agentId: input.agent_id,
       error: error instanceof Error ? error.message : String(error)
     });
+
+    // Recovery: if the structured remove failed, unlink the whole file to
+    // prevent a permanent stale entry that blocks the session from reaching
+    // idle. Future subagents will re-create the file atomically.
+    const subagentsPath = join(homedir(), '.cards', 'card-repo-commits', `${input.session_id}.subagents`);
+    try {
+      rmSync(subagentsPath, { force: true });
+    } catch (recoveryError) {
+      logger.warn('Recovery unlink of subagents file also failed — session may be stuck', {
+        sessionId: input.session_id,
+        path: subagentsPath,
+        error: recoveryError instanceof Error ? recoveryError.message : String(recoveryError)
+      });
+    }
   }
 
   return null;

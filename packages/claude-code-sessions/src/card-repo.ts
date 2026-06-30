@@ -15,7 +15,7 @@
  * @module card-repo
  */
 
-import { appendFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { acquireLock, hasErrnoCode, releaseLock } from './internal.js';
@@ -284,11 +284,13 @@ function getSessionSubagentsLockPath(sessionId: string): string {
 
 /**
  * Reads the subagents array for a session from its JSON file.
- * Returns an empty array when the file does not exist.
+ * Returns an empty array when the file does not exist or is corrupt.
+ *
+ * Corrupt files (truncated JSON from a mid-crash write) are self-healed by
+ * returning `[]` — the next atomic write replaces the corrupt file.
  *
  * @param sessionId - Session whose subagents should be read.
- * @returns Array of active agent IDs.
- * @throws Error on read or parse failures other than `ENOENT`.
+ * @returns Array of active agent IDs. Returns `[]` when the file is absent or unreadable.
  */
 function readSubagents(sessionId: string): string[] {
   try {
@@ -296,7 +298,9 @@ function readSubagents(sessionId: string): string[] {
     return JSON.parse(content) as string[];
   } catch (error) {
     if (hasErrnoCode(error, 'ENOENT')) return [];
-    throw error;
+    // Corrupt file or parse error — self-heal by treating as empty.
+    // The next atomic write replaces the corrupt file.
+    return [];
   }
 }
 
@@ -324,7 +328,9 @@ export async function addActiveSubagent(sessionId: string, agentId: string): Pro
 
     if (!subagents.includes(agentId)) {
       subagents.push(agentId);
-      writeFileSync(path, JSON.stringify(subagents), { mode: 0o600 });
+      const tmpPath = `${path}.tmp`;
+      writeFileSync(tmpPath, JSON.stringify(subagents), { mode: 0o600 });
+      renameSync(tmpPath, path);
     }
   } finally {
     releaseLock(lockPath);
@@ -358,8 +364,16 @@ export async function removeActiveSubagent(sessionId: string, agentId: string): 
 
     if (filtered.length === 0) {
       unlinkSync(path);
+      // Clean up any stale temp file from a prior interrupted write
+      try {
+        unlinkSync(`${path}.tmp`);
+      } catch (_) {
+        /* best-effort */
+      }
     } else {
-      writeFileSync(path, JSON.stringify(filtered), { mode: 0o600 });
+      const tmpPath = `${path}.tmp`;
+      writeFileSync(tmpPath, JSON.stringify(filtered), { mode: 0o600 });
+      renameSync(tmpPath, path);
     }
   } finally {
     releaseLock(lockPath);
