@@ -20,19 +20,21 @@ Before creating a card, load the `$cards:markdown` skill, `./references/commande
 - An **interview** guide describing how to reach enough signal for the card.
 - A **writing** guide describing the target CARD.md structure.
 
-Determine the card type using the first matching signal:
+Route by the card's deliverable — what the user wants to exist when the work is done — not by surface wording. A feasibility or research question embedded in a request for a concrete change is yours to resolve (Glob/Grep/Read/git/web): answer it, fold the finding into scoping, and route by the change. When the deliverable is ambiguous, confirm in plain language what the card will do before creating it — never name the card type to the user.
+
+Match the first applicable row:
 
 | Card type | Interview (process) | Writing (target) |
 |-----------|---------------------|------------------|
 | Bug, error, crash, regression, broken behavior | `./references/interview-bug-report.md` | `./references/bug-report.md` |
 | Feature, improvement, new capability | `./references/interview-enhancement.md` | `./references/enhancement.md` |
-| Research, spike, unknown root cause, feasibility | `./references/interview-investigation.md` | `./references/investigation.md` |
+| Research the user explicitly asks to capture as a card, or too large to resolve in one session | `./references/interview-investigation.md` | `./references/investigation.md` |
 | Documentation, guides, runbooks, API reference | `./references/interview-documentation.md` | `./references/documentation.md` |
 | Refactor, cleanup, tech debt, upgrade, migration | `./references/interview-maintenance.md` | `./references/maintenance.md` |
 | Infrastructure, CI/CD, deploy, monitoring, scaling | `./references/interview-operations.md` | `./references/operations.md` |
 | Otherwise | `./references/interview-enhancement.md` | `./references/enhancement.md` |
 
-Run the interview first. When enough signal has been gathered, invoke the `cards create` flow below and compose CARD.md against the writing guide in the same initial commit. The interview is not optional — every card created through this skill goes through it.
+Run the interview when creating a card interactively with a user: gather enough signal, then invoke the `cards create` flow below and compose CARD.md against the writing guide in the same initial commit. Skip the interview when the user asks to capture something quickly, or when another workflow dispatches here to record an issue it hit — create the card directly from what you already know, still composing CARD.md against the matching writing guide.
 
 ## CLI Binaries
 
