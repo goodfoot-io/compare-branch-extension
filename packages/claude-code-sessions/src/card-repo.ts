@@ -291,6 +291,7 @@ function getSessionSubagentsLockPath(sessionId: string): string {
  *
  * @param sessionId - Session whose subagents should be read.
  * @returns Array of active agent IDs. Returns `[]` when the file is absent or unreadable.
+ * @throws Error when the read fails for reasons other than `ENOENT` or `SyntaxError`.
  */
 function readSubagents(sessionId: string): string[] {
   try {
@@ -298,9 +299,8 @@ function readSubagents(sessionId: string): string[] {
     return JSON.parse(content) as string[];
   } catch (error) {
     if (hasErrnoCode(error, 'ENOENT')) return [];
-    // Corrupt file or parse error — self-heal by treating as empty.
-    // The next atomic write replaces the corrupt file.
-    return [];
+    if (error instanceof SyntaxError) return []; // self-heal corrupt JSON
+    throw error;
   }
 }
 
@@ -388,8 +388,8 @@ export async function removeActiveSubagent(sessionId: string, agentId: string): 
  * been dispatched).
  *
  * @param sessionId - Session to count active subagents for.
- * @returns Number of active subagents. Returns `0` on `ENOENT`.
- * @throws Error when the read fails for reasons other than `ENOENT`.
+ * @returns Number of active subagents. Returns `0` on `ENOENT` or `SyntaxError`.
+ * @throws Error when the read fails for reasons other than `ENOENT` or `SyntaxError`.
  */
 export function getActiveSubagentCount(sessionId: string): number {
   return readSubagents(sessionId).length;
