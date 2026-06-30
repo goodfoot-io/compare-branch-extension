@@ -269,3 +269,64 @@ export function removeSessionExitWhenDoneNudge(sessionId: string): void {
     if (!hasErrnoCode(error, 'ENOENT')) throw error;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Per-session active subagent tracking
+// ---------------------------------------------------------------------------
+
+function _getSessionSubagentsPath(sessionId: string): string {
+  return join(getCardRepoCommitsDir(), `${sessionId}.subagents`);
+}
+
+function _getSessionSubagentsLockPath(sessionId: string): string {
+  return join(getCardRepoCommitsDir(), `${sessionId}.subagents.lock`);
+}
+
+// Suppress TS6133 during stub phase — helpers are consumed by implementation in a later phase.
+void _getSessionSubagentsPath;
+void _getSessionSubagentsLockPath;
+
+/**
+ * Records a subagent as actively dispatched for a session.
+ *
+ * Appends the agent ID to the session's subagents file under a per-session
+ * lock so concurrent SubagentStart hooks don't produce interleaved writes.
+ * Creates the directory and file if they don't exist.
+ *
+ * @param _sessionId - Session the subagent belongs to.
+ * @param _agentId - Subagent identifier to record.
+ * @returns Resolves once the agent ID is persisted.
+ * @throws Error on lock acquisition or write failures.
+ */
+export async function addActiveSubagent(_sessionId: string, _agentId: string): Promise<void> {
+  throw new Error('Not Implemented');
+}
+
+/**
+ * Removes a subagent from the active set for a session.
+ *
+ * Reads the current set, removes the agent ID, and writes the remaining
+ * entries back under a per-session lock.
+ *
+ * @param _sessionId - Session the subagent belongs to.
+ * @param _agentId - Subagent identifier to remove.
+ * @returns Resolves once the agent ID is removed.
+ * @throws Error on lock acquisition, read, or write failures.
+ */
+export async function removeActiveSubagent(_sessionId: string, _agentId: string): Promise<void> {
+  throw new Error('Not Implemented');
+}
+
+/**
+ * Returns the count of active subagents for a session.
+ *
+ * Reads the session's subagents file and counts non-empty lines.
+ * Returns `0` when the file is absent (no subagents have been dispatched).
+ *
+ * @param _sessionId - Session to count active subagents for.
+ * @returns Number of active subagents. Returns `0` on `ENOENT`.
+ * @throws Error when the read fails for reasons other than `ENOENT`.
+ */
+export function getActiveSubagentCount(_sessionId: string): number {
+  throw new Error('Not Implemented');
+}
