@@ -274,17 +274,31 @@ export function removeSessionExitWhenDoneNudge(sessionId: string): void {
 // Per-session active subagent tracking
 // ---------------------------------------------------------------------------
 
-function _getSessionSubagentsPath(sessionId: string): string {
+function getSessionSubagentsPath(sessionId: string): string {
   return join(getCardRepoCommitsDir(), `${sessionId}.subagents`);
 }
 
-function _getSessionSubagentsLockPath(sessionId: string): string {
+function getSessionSubagentsLockPath(sessionId: string): string {
   return join(getCardRepoCommitsDir(), `${sessionId}.subagents.lock`);
 }
 
-// Suppress TS6133 during stub phase — helpers are consumed by implementation in a later phase.
-void _getSessionSubagentsPath;
-void _getSessionSubagentsLockPath;
+/**
+ * Reads the subagents array for a session from its JSON file.
+ * Returns an empty array when the file does not exist.
+ *
+ * @param sessionId - Session whose subagents should be read.
+ * @returns Array of active agent IDs.
+ * @throws Error on read or parse failures other than `ENOENT`.
+ */
+function readSubagents(sessionId: string): string[] {
+  try {
+    const content = readFileSync(getSessionSubagentsPath(sessionId), 'utf-8');
+    return JSON.parse(content) as string[];
+  } catch (error) {
+    if (hasErrnoCode(error, 'ENOENT')) return [];
+    throw error;
+  }
+}
 
 /**
  * Records a subagent as actively dispatched for a session.
@@ -293,40 +307,76 @@ void _getSessionSubagentsLockPath;
  * lock so concurrent SubagentStart hooks don't produce interleaved writes.
  * Creates the directory and file if they don't exist.
  *
- * @param _sessionId - Session the subagent belongs to.
- * @param _agentId - Subagent identifier to record.
+ * @param sessionId - Session the subagent belongs to.
+ * @param agentId - Subagent identifier to record.
  * @returns Resolves once the agent ID is persisted.
  * @throws Error on lock acquisition or write failures.
  */
-export async function addActiveSubagent(_sessionId: string, _agentId: string): Promise<void> {
-  throw new Error('Not Implemented');
+export async function addActiveSubagent(sessionId: string, agentId: string): Promise<void> {
+  mkdirSync(getCardRepoCommitsDir(), { recursive: true, mode: 0o700 });
+
+  const lockPath = getSessionSubagentsLockPath(sessionId);
+  await acquireLock(lockPath, LOCK_TIMEOUT_MS);
+
+  try {
+    const path = getSessionSubagentsPath(sessionId);
+    const subagents = readSubagents(sessionId);
+
+    if (!subagents.includes(agentId)) {
+      subagents.push(agentId);
+      writeFileSync(path, JSON.stringify(subagents), { mode: 0o600 });
+    }
+  } finally {
+    releaseLock(lockPath);
+  }
 }
 
 /**
  * Removes a subagent from the active set for a session.
  *
  * Reads the current set, removes the agent ID, and writes the remaining
- * entries back under a per-session lock.
+ * entries back under a per-session lock. Deletes the file when the set
+ * becomes empty.
  *
- * @param _sessionId - Session the subagent belongs to.
- * @param _agentId - Subagent identifier to remove.
+ * @param sessionId - Session the subagent belongs to.
+ * @param agentId - Subagent identifier to remove.
  * @returns Resolves once the agent ID is removed.
  * @throws Error on lock acquisition, read, or write failures.
  */
-export async function removeActiveSubagent(_sessionId: string, _agentId: string): Promise<void> {
-  throw new Error('Not Implemented');
+export async function removeActiveSubagent(sessionId: string, agentId: string): Promise<void> {
+  const lockPath = getSessionSubagentsLockPath(sessionId);
+  await acquireLock(lockPath, LOCK_TIMEOUT_MS);
+
+  try {
+    const path = getSessionSubagentsPath(sessionId);
+    const subagents = readSubagents(sessionId);
+
+    // No file yet — nothing to remove.
+    if (subagents.length === 0) return;
+
+    const filtered = subagents.filter((id) => id !== agentId);
+
+    if (filtered.length === 0) {
+      unlinkSync(path);
+    } else {
+      writeFileSync(path, JSON.stringify(filtered), { mode: 0o600 });
+    }
+  } finally {
+    releaseLock(lockPath);
+  }
 }
 
 /**
  * Returns the count of active subagents for a session.
  *
- * Reads the session's subagents file and counts non-empty lines.
- * Returns `0` when the file is absent (no subagents have been dispatched).
+ * Reads the session's subagents JSON file and returns the length of the
+ * agent ID array. Returns `0` when the file is absent (no subagents have
+ * been dispatched).
  *
- * @param _sessionId - Session to count active subagents for.
+ * @param sessionId - Session to count active subagents for.
  * @returns Number of active subagents. Returns `0` on `ENOENT`.
  * @throws Error when the read fails for reasons other than `ENOENT`.
  */
-export function getActiveSubagentCount(_sessionId: string): number {
-  throw new Error('Not Implemented');
+export function getActiveSubagentCount(sessionId: string): number {
+  return readSubagents(sessionId).length;
 }

@@ -9,6 +9,8 @@
  * @module session-idle
  */
 
+import { getActiveSubagentCount } from '@cards/sessions/card-repo';
+
 /**
  * Returns `true` when the session has no active subagents or background
  * processes — i.e., the agent is genuinely idle and safe to nudge toward
@@ -17,10 +19,14 @@
  * Fail-open: if the underlying state read throws, the error is caught
  * and `true` is returned (treat as idle rather than blocking indefinitely).
  *
- * @param _sessionId - Session to check for active work.
+ * @param sessionId - Session to check for active work.
  * @returns `true` when the session is idle.
- * @throws {Error} Not Implemented — stub.
  */
-export function isSessionIdle(_sessionId: string): boolean {
-  throw new Error('Not Implemented');
+export function isSessionIdle(sessionId: string): boolean {
+  try {
+    return getActiveSubagentCount(sessionId) === 0;
+  } catch (error) {
+    console.warn('isSessionIdle: error reading subagent state, treating as idle:', error);
+    return true;
+  }
 }

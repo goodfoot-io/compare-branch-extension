@@ -1,11 +1,10 @@
 /**
  * Tests for isSessionIdle and backing subagent-tracking storage operations.
  *
- * All tests are skipped — this is Phase 2 of a TDD bootstrap. The stubs
- * currently throw "Not Implemented". These tests document the contract that
- * the Phase 3 implementation must satisfy.
+ * Phase 3 contract tests for isSessionIdle and backing subagent-tracking
+ * storage operations. All tests are live and passing.
  *
- * @summary Skipped tests for session-idle
+ * @summary Contract tests for session-idle and subagent tracking
  */
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -41,7 +40,7 @@ describe('isSessionIdle', () => {
   });
 
   describe('empty session', () => {
-    it.skip('returns true when no subagents file exists', () => {
+    it('returns true when no subagents file exists', () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
@@ -50,7 +49,7 @@ describe('isSessionIdle', () => {
   });
 
   describe('active subagents', () => {
-    it.skip('returns false after adding an active subagent', async () => {
+    it('returns false after adding an active subagent', async () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
@@ -59,7 +58,7 @@ describe('isSessionIdle', () => {
       expect(isSessionIdle(sessionId)).toBe(false);
     });
 
-    it.skip('returns true after all subagents are removed', async () => {
+    it('returns true after all subagents are removed', async () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
@@ -71,7 +70,7 @@ describe('isSessionIdle', () => {
   });
 
   describe('idempotency', () => {
-    it.skip('addActiveSubagent is idempotent — adding the same agent twice results in one entry, and session is not idle', async () => {
+    it('addActiveSubagent is idempotent — adding the same agent twice results in one entry, and session is not idle', async () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
@@ -87,7 +86,7 @@ describe('isSessionIdle', () => {
       expect(isSessionIdle(sessionId)).toBe(true);
     });
 
-    it.skip('removeActiveSubagent is idempotent — removing a non-existent agent does not throw, and session remains idle', async () => {
+    it('removeActiveSubagent is idempotent — removing a non-existent agent does not throw, and session remains idle', async () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
@@ -99,7 +98,7 @@ describe('isSessionIdle', () => {
   });
 
   describe('fail-open error handling', () => {
-    it.skip('returns true when the underlying file read encounters an unexpected error (EISDIR)', () => {
+    it('returns true when the underlying file read encounters an unexpected error (EISDIR)', () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
@@ -112,7 +111,7 @@ describe('isSessionIdle', () => {
       expect(isSessionIdle(sessionId)).toBe(true);
     });
 
-    it.skip('returns true when the subagents file contains malformed JSON', () => {
+    it('returns true when the subagents file contains malformed JSON', () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
@@ -126,7 +125,7 @@ describe('isSessionIdle', () => {
   });
 
   describe('concurrent add/remove sequences', () => {
-    it.skip('produces correct idle state across interleaved add and remove operations', async () => {
+    it('produces correct idle state across interleaved add and remove operations', async () => {
       const sessionId = uniqueSessionId();
       sessionIds.push(sessionId);
 
