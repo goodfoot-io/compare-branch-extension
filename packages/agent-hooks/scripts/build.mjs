@@ -1,10 +1,10 @@
 // Manifest-driven multi-target build for @cards/agent-hooks.
 //
-// Emits all five plugin payloads — the three Claude targets (core, assistant,
-// runtime) and the two Codex targets (assistant, runtime) — into their existing
-// output directories under public/, with the exact per-target flags inherited
-// from the five former package.json `build` scripts. Each target globs only its
-// own handler directory; shared leaves in src/shared/ are pulled into every
+// Emits all six plugin payloads — the three Claude targets (core, assistant,
+// runtime) and the three Codex targets (core, assistant, runtime) — into their
+// existing output directories under public/, with the exact per-target flags
+// inherited from the former package.json `build` scripts. Each target globs only
+// its own handler directory; shared leaves in src/shared/ are pulled into every
 // bundle through normal imports, never added to an input glob (matching today,
 // where the hook CLI ignores non-hook modules).
 //
@@ -102,6 +102,16 @@ const targets = [
     clean: ['hooks', 'bin', 'content'],
     loaders: TEXT_LOADERS,
     logEnvVar: null
+  },
+  {
+    name: 'codex-core',
+    cli: codexCli,
+    input: 'src/codex/core/**/*.ts',
+    outBase: '../../codex/cards',
+    output: '../../codex/cards/hooks/hooks.json',
+    clean: ['hooks'],
+    loaders: [],
+    logEnvVar: null
   }
 ];
 
@@ -148,5 +158,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     buildTarget(target);
   }
 
-  console.log('\n[agent-hooks] all five targets built');
+  console.log('\n[agent-hooks] all six targets built');
 }
