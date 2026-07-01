@@ -15,7 +15,8 @@
  *
  * When a signal is found, the hook injects an `additionalContext` nudge
  * instructing the agent to load the skill, and lists any confirmed card IDs
- * with their repo paths.
+ * with their repo paths. The same content is mirrored as `systemMessage` so
+ * the user sees the nudge too.
  *
  * Fail-open: any unexpected error is logged and the hook returns `null`.
  *
@@ -151,7 +152,9 @@ export default userPromptSubmitHook({}, async (input, { logger }) => {
 
     const additionalContext = buildNudgeContext(cardIds);
 
+    // systemMessage surfaces to the user, additionalContext is injected into the agent's context.
     return userPromptSubmitOutput({
+      systemMessage: additionalContext,
       hookSpecificOutput: { additionalContext }
     });
   } catch (error) {
