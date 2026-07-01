@@ -116,7 +116,7 @@ describe('canCreateSymlinks', () => {
       vi.mocked(fs.symlink).mockRejectedValueOnce(unexpectedError);
       const chunks: string[] = [];
       const origWrite = process.stderr.write.bind(process.stderr);
-      process.stderr.write = ((chunk: any) => {
+      process.stderr.write = ((chunk: string | Uint8Array) => {
         chunks.push(typeof chunk === 'string' ? chunk : chunk.toString());
         return true;
       }) as typeof process.stderr.write;
@@ -137,7 +137,7 @@ describe('canCreateSymlinks', () => {
       vi.mocked(fs.symlink).mockRejectedValueOnce(noCodeError);
       const chunks: string[] = [];
       const origWrite = process.stderr.write.bind(process.stderr);
-      process.stderr.write = ((chunk: any) => {
+      process.stderr.write = ((chunk: string | Uint8Array) => {
         chunks.push(typeof chunk === 'string' ? chunk : chunk.toString());
         return true;
       }) as typeof process.stderr.write;
