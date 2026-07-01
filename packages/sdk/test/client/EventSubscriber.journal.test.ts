@@ -9,7 +9,7 @@
  * @module test/client/EventSubscriber.journal
  */
 
-import { TestWebSocketServer } from '@cards/test-utils';
+import { TestWebSocketServer } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventSubscriber } from '../../src/client/eventSubscriber.js';
 import type { CardStalenessEvent } from '../../src/client/types/events.js';
