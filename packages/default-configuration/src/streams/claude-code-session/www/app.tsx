@@ -11,7 +11,7 @@
  * @summary React SPA entry point for claude-code-session stream rendering
  */
 
-import { streamStore } from '@cards/sdk/stream-store';
+import { streamStore } from '@cards.management/sdk/stream-store';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './components/App';

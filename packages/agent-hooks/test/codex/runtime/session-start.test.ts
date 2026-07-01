@@ -8,8 +8,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { findAgentPid } from '@cards/sdk/process-tree';
-import { TestGitWorkspace } from '@cards/test-utils';
+import { findAgentPid } from '@cards.management/sdk/process-tree';
+import { TestGitWorkspace } from '@cards.management/test-utils';
 import { Logger } from '@goodfoot/codex-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/session-start.js';
@@ -34,7 +34,7 @@ vi.mock('node:fs', async (importOriginal) => ({
   existsSync: vi.fn(() => true)
 }));
 
-vi.mock('@cards/sdk/process-tree', () => ({
+vi.mock('@cards.management/sdk/process-tree', () => ({
   findAgentPid: vi.fn()
 }));
 

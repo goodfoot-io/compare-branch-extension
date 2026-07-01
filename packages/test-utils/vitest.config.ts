@@ -1,5 +1,5 @@
 /**
- * Vitest configuration for @cards/test-utils.
+ * Vitest configuration for @cards.management/test-utils.
  *
  * Why: keep test behavior (timeouts, environment, reporters) consistent across
  * the package's integration-heavy test suite.
@@ -7,7 +7,7 @@
  * Behavior: runs Node-based tests with a longer
  * timeout to accommodate filesystem and socket operations.
  *
- * @summary Vitest configuration for @cards/test-utils
+ * @summary Vitest configuration for @cards.management/test-utils
  */
 
 import { defineConfig } from 'vitest/config';

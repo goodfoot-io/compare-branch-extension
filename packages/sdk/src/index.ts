@@ -19,7 +19,7 @@ export * from './protocol/index.js';
 
 // Re-export configuration exports, excluding names that collide with protocol.
 // The colliding configuration types (Action, Command, Environment, Settings,
-// StreamDefinition) are available via the `@cards/sdk/config` subpath export.
+// StreamDefinition) are available via the `@cards.management/sdk/config` subpath export.
 
 // --- Card Repo Layout ---
 export {

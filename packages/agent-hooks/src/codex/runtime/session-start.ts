@@ -9,11 +9,11 @@
  */
 
 import { join } from 'node:path';
-import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
-import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
-import type { ActionInput } from '@cards/sdk/config';
-import { extractActionInput } from '@cards/sdk/config';
-import { findAgentPid } from '@cards/sdk/process-tree';
+import { runReconciliationSweep } from '@cards.management/sdk/bin/adhoc-refs';
+import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards.management/sdk/bin/spawn-transcript-watcher';
+import type { ActionInput } from '@cards.management/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
+import { findAgentPid } from '@cards.management/sdk/process-tree';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/codex-hooks';
 import {
   buildAdditionalContext,

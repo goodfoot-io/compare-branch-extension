@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Cross-platform build for @cards/default-configuration.
+ * Cross-platform build for @cards.management/default-configuration.
  *
  * Replaces the bash one-liner that was the package's `build` script so it runs
  * on native Windows as well as macOS/Linux (PowerShell/CMD have no `rm -rf`,

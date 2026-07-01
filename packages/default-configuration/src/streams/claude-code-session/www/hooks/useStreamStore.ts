@@ -8,8 +8,8 @@
  * @module hooks/useStreamStore
  */
 
-import type { StreamStoreState } from '@cards/sdk/stream-store';
-import { streamStore } from '@cards/sdk/stream-store';
+import type { StreamStoreState } from '@cards.management/sdk/stream-store';
+import { streamStore } from '@cards.management/sdk/stream-store';
 import { useStore } from 'zustand';
 
 /**

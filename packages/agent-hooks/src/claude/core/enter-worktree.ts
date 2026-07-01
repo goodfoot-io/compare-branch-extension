@@ -34,15 +34,15 @@
  */
 
 import { join } from 'node:path';
-import { findAgentPid, resolveGlobalCardsConfigDir } from '@cards/sdk';
-import { resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
-import { isKnownAgentComm } from '@cards/sdk/bin/process-utils';
-import { spawnAdhocAttribution } from '@cards/sdk/bin/spawn-adhoc-attribution';
-import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
+import { findAgentPid, resolveGlobalCardsConfigDir } from '@cards.management/sdk';
+import { resolveCardRepoPath, resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
+import { isKnownAgentComm } from '@cards.management/sdk/bin/process-utils';
+import { spawnAdhocAttribution } from '@cards.management/sdk/bin/spawn-adhoc-attribution';
+import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 import { resolveBindableWorktreeDir } from '../../shared/bindable-worktree.js';
 
-export { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
+export { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
 
 export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { logger }) => {
   // ─── BOUND PATH ───────────────────────────────────────────────────────────

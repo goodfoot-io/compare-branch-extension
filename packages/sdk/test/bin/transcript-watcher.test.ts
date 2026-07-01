@@ -29,13 +29,13 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, execFileSync: (...args: unknown[]) => mockExecFileSync(...args) };
 });
 
-// Mock @cards/sessions/card-repo so the cleanup tests remain unit-level and
+// Mock @cards.management/sessions/card-repo so the cleanup tests remain unit-level and
 // do not touch the real ~/.cards/card-repo-commits directory.
 const mockRemoveSessionHeadSha = vi.fn<(sessionId: string) => void>();
 const mockRemoveSessionCsv = vi.fn<(sessionId: string) => void>();
 const mockRemoveSessionRouteNudge = vi.fn<(sessionId: string) => void>();
 const mockRemoveSessionExitWhenDoneNudge = vi.fn<(sessionId: string) => void>();
-vi.mock('@cards/sessions/card-repo', () => ({
+vi.mock('@cards.management/sessions/card-repo', () => ({
   removeSessionHeadSha: (sessionId: string) => mockRemoveSessionHeadSha(sessionId),
   removeSessionCsv: (sessionId: string) => mockRemoveSessionCsv(sessionId),
   removeSessionRouteNudge: (sessionId: string) => mockRemoveSessionRouteNudge(sessionId),

@@ -1,8 +1,8 @@
 import type { ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
-import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { Logger } from '@cards/sdk/config';
-import { flushMicrotasks } from '@cards/test-utils';
+import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
+import { flushMicrotasks } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -37,7 +37,7 @@ vi.mock('node:fs/promises', () => ({
   rm: vi.fn()
 }));
 
-vi.mock('@cards/sdk/worktree', () => ({
+vi.mock('@cards.management/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
@@ -49,7 +49,7 @@ vi.mock('@cards/sdk/worktree', () => ({
 // so mock it as a thin adapter that forwards to the low-level `createWorktree`
 // mock — preserving the "worktree created for <card>/<slot> with these compiled
 // scripts" contract these tests assert on without the outfit side effects.
-vi.mock('@cards/sdk/worktree-for-card', () => ({
+vi.mock('@cards.management/sdk/worktree-for-card', () => ({
   createWorktreeForCard: vi.fn()
 }));
 
@@ -105,7 +105,7 @@ async function setupDefaultMocks(): Promise<void> {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards.management/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
   vi.mocked(createWorktree).mockResolvedValue({
@@ -120,7 +120,7 @@ async function setupDefaultMocks(): Promise<void> {
   // Forward the orchestrator to the low-level createWorktree mock with the
   // outfit-bearing options, so per-case `createWorktree` overrides and
   // assertions keep working against the pure-primitive call shape.
-  const { createWorktreeForCard } = await import('@cards/sdk/worktree-for-card');
+  const { createWorktreeForCard } = await import('@cards.management/sdk/worktree-for-card');
   vi.mocked(createWorktreeForCard).mockImplementation((_client, ref, opts) =>
     createWorktree(ref, {
       cwd: opts.cwd,
@@ -319,7 +319,7 @@ describe('claude-session shared utilities', () => {
 
     it('falls back to card-level parentBranch when branch records are absent', async () => {
       const { resolveBaseBranch } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
+      const { CardsClient } = await import('@cards.management/sdk/client');
 
       await configureExecFile({
         'git rev-parse --abbrev-ref HEAD': { stdout: 'cards/card-123/1\n' }
@@ -347,7 +347,7 @@ describe('claude-session shared utilities', () => {
 
     it('rejects card-level parentBranch that is itself a cards/* branch', async () => {
       const { resolveBaseBranch } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
+      const { CardsClient } = await import('@cards.management/sdk/client');
 
       await configureExecFile({
         'git rev-parse --abbrev-ref HEAD': { stdout: 'cards/card-123/1\n' }
@@ -377,7 +377,7 @@ describe('claude-session shared utilities', () => {
 
     it('throws when getCard API call fails and branch records are absent', async () => {
       const { resolveBaseBranch } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
+      const { CardsClient } = await import('@cards.management/sdk/client');
 
       await configureExecFile({
         'git rev-parse --abbrev-ref HEAD': { stdout: 'cards/card-123/1\n' }
@@ -405,9 +405,9 @@ describe('claude-session shared utilities', () => {
   describe('resolveOrCreateWorktree', () => {
     it('reuses existing branch with valid worktree on disk', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
+      const { CardsClient } = await import('@cards.management/sdk/client');
       const { access } = await import('node:fs/promises');
-      const { createWorktree } = await import('@cards/sdk/worktree');
+      const { createWorktree } = await import('@cards.management/sdk/worktree');
 
       configureBranchesResponse([
         {
@@ -432,8 +432,8 @@ describe('claude-session shared utilities', () => {
 
     it('creates new worktree when no branches exist', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
-      const { createWorktree } = await import('@cards/sdk/worktree');
+      const { CardsClient } = await import('@cards.management/sdk/client');
+      const { createWorktree } = await import('@cards.management/sdk/worktree');
 
       configureBranchesResponse([]);
 
@@ -452,8 +452,8 @@ describe('claude-session shared utilities', () => {
 
     it('skips occupied git slots when API and git are out of sync', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
-      const { createWorktree, checkWorktreeExists } = await import('@cards/sdk/worktree');
+      const { CardsClient } = await import('@cards.management/sdk/client');
+      const { createWorktree, checkWorktreeExists } = await import('@cards.management/sdk/worktree');
 
       configureBranchesResponse([]);
 
@@ -482,8 +482,8 @@ describe('claude-session shared utilities', () => {
 
     it('reattaches worktree for existing branch when worktree is missing from disk', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
-      const { createWorktree } = await import('@cards/sdk/worktree');
+      const { CardsClient } = await import('@cards.management/sdk/client');
+      const { createWorktree } = await import('@cards.management/sdk/worktree');
       const { access } = await import('node:fs/promises');
 
       configureBranchesResponse([

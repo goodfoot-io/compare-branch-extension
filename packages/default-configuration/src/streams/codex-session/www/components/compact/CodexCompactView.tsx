@@ -16,7 +16,7 @@
  * @module streams/codex-session/www/components/compact/CodexCompactView
  */
 
-import { close, streamStore } from '@cards/sdk/stream-store';
+import { close, streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { CodexCompactState, CodexTailEvent } from '../../lib/compact-state';

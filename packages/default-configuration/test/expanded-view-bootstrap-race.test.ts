@@ -107,7 +107,7 @@ function populatedStoreState() {
 
 // ---- Mock stream-store ----
 
-vi.mock('@cards/sdk/stream-store', () => ({
+vi.mock('@cards.management/sdk/stream-store', () => ({
   streamStore: {
     getState: mockGetState,
     subscribe: mockSubscribe.mockImplementation(() => () => {})

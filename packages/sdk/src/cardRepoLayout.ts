@@ -18,7 +18,7 @@
  * exists — callers use these constants and nothing else.
  *
  * This module has zero imports and is safe for browser contexts. Import via
- * the `@cards/sdk/card-repo-layout` subpath export.
+ * the `@cards.management/sdk/card-repo-layout` subpath export.
  *
  * @summary Single source of truth for card-repo document directory names
  * @module

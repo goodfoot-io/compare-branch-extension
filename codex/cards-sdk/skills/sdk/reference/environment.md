@@ -1,13 +1,13 @@
 <instructions>
 
-This document describes the environment variable system in `@cards/sdk/config`.
+This document describes the environment variable system in `@cards.management/sdk/config`.
 
 ## Environment Variable Constants
 
 The `CARDS_ENV_VARS` object provides the canonical names for all environment variables.
 
 ```typescript
-import { CARDS_ENV_VARS } from '@cards/sdk/config';
+import { CARDS_ENV_VARS } from '@cards.management/sdk/config';
 
 // All environment variable names
 CARDS_ENV_VARS.CARD_ID                       // 'CARD_ID'
@@ -59,12 +59,12 @@ CARDS_ENV_VARS.HOOKS_LOG_FILE                // 'CARDS_HOOKS_LOG_FILE'
 ## Individual Getters
 
 Each environment variable has a dedicated getter function with validation. The
-individual getters live in the `@cards/sdk/config/env` subpath. The package root
-(`@cards/sdk/config`) re-exports only the commonly used ones (`CARDS_ENV_VARS`,
+individual getters live in the `@cards.management/sdk/config/env` subpath. The package root
+(`@cards.management/sdk/config`) re-exports only the commonly used ones (`CARDS_ENV_VARS`,
 `extractActionInput`, `extractCardsAssistantInput`, `getBaseBranch`,
 `getCardRepoPath`, `getExecutionMode`, `getWorkspaceBranch`, `getWorkspacePath`,
 `readSwitchToInteractiveData`), so import the full getter set from
-`@cards/sdk/config/env`.
+`@cards.management/sdk/config/env`.
 
 ### Common Variables (All Handlers)
 
@@ -72,7 +72,7 @@ individual getters live in the `@cards/sdk/config/env` subpath. The package root
 import {
   getCardId,
   getEnvironment
-} from '@cards/sdk/config/env';
+} from '@cards.management/sdk/config/env';
 
 // All throw Error if missing or empty
 const cardId = getCardId();
@@ -82,7 +82,7 @@ const environment = getEnvironment();
 ### Common Variables (All Handlers) — continued
 
 ```typescript
-import { getVscodeNodePath } from '@cards/sdk/config/env';
+import { getVscodeNodePath } from '@cards.management/sdk/config/env';
 
 // Path to VS Code's bundled Node.js interpreter
 // Used in settings.json command paths ($VSCODE_NODE ./bin/handler.mjs)
@@ -107,7 +107,7 @@ import {
   getWorkspaceBranch,
   getExtensionPath,
   getMarketplacePath
-} from '@cards/sdk/config/env';
+} from '@cards.management/sdk/config/env';
 
 // Throws if missing, returns the action button display name
 const actionName = getActionName();          // e.g., 'Launch Claude'
@@ -139,7 +139,7 @@ const switchData = readSwitchToInteractiveData();
 ```
 
 > For CLI contexts where `EXTENSION_PATH` is not injected (e.g. terminal tools),
-> use the async `resolveExtensionPath()` (also from `@cards/sdk/config/env`),
+> use the async `resolveExtensionPath()` (also from `@cards.management/sdk/config/env`),
 > which falls back to the `~/.cards/EXTENSION_PATH` file written by the extension
 > on activation.
 
@@ -150,7 +150,7 @@ For convenience, extract complete typed input objects.
 ### Action Input
 
 ```typescript
-import { extractActionInput } from '@cards/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
 
 // Returns ActionInput with all action variables
 const input = extractActionInput();
@@ -172,7 +172,7 @@ const input = extractActionInput();
 ### Cards Assistant Input
 
 ```typescript
-import { extractCardsAssistantInput } from '@cards/sdk/config';
+import { extractCardsAssistantInput } from '@cards.management/sdk/config';
 
 // Returns CardsAssistantInput — workspace-scoped, no card context
 const input = extractCardsAssistantInput();
@@ -208,7 +208,7 @@ try {
 To make API calls, use the Cards client discovery function:
 
 ```typescript
-import { createCardsClient } from '@cards/sdk/client/discovery';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
 
 async (input, { logger }) => {
   // Create a Cards API client via discovery
@@ -230,7 +230,7 @@ async (input, { logger }) => {
 Actions can exit with specific codes to signal different outcomes:
 
 ```typescript
-import { EXIT_CODES } from '@cards/sdk/config';
+import { EXIT_CODES } from '@cards.management/sdk/config';
 
 export default defineAction(
   { actionName: 'My Action' },

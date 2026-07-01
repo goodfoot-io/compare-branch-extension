@@ -7,7 +7,7 @@
  * @summary Tests for defineCardsAssistant factory function
  */
 
-import { flushMicrotasks } from '@cards/test-utils';
+import { flushMicrotasks } from '@cards.management/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import { defineCardsAssistant } from '../../../src/config/factories/cards-assistant.js';
 import type { CardsAssistantContext, CardsAssistantInput } from '../../../src/config/inputs.js';

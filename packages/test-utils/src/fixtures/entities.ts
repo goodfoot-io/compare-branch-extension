@@ -20,8 +20,8 @@
  * @module test-utils/fixtures/entities
  */
 import { randomUUID } from 'node:crypto';
-import type { Card, CardMetadata } from '@cards/sdk/protocol';
-import { DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
+import type { Card, CardMetadata } from '@cards.management/sdk/protocol';
+import { DEFAULT_CARD_GATES } from '@cards.management/sdk/protocol';
 import { now } from './time.js';
 
 // --- Card Factories ---

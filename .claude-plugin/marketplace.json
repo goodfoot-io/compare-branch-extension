@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.793",
+    "version": "1.0.794",
     "pluginRoot": "./claude"
   },
   "plugins": [
@@ -22,9 +22,9 @@
     },
     {
       "name": "cards-sdk",
-      "version": "1.0.29",
+      "version": "1.0.30",
       "source": "./claude/cards-sdk",
-      "description": "SDK documentation and development guidance for @cards/sdk/config library - type-safe configuration for Cards Extension with actions, type validators, and lifecycle hooks",
+      "description": "SDK documentation and development guidance for @cards.management/sdk/config library - type-safe configuration for Cards Extension with actions, type validators, and lifecycle hooks",
       "author": {
         "name": "Goodfoot",
         "email": "contact@goodfoot.io"

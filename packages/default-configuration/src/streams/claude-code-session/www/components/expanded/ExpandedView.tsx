@@ -9,7 +9,7 @@
  * @module components/expanded/ExpandedView
  */
 
-import { streamStore } from '@cards/sdk/stream-store';
+import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SessionMsg } from '../../lib/parse-session';

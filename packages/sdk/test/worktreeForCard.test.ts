@@ -40,7 +40,7 @@ vi.mock('../src/worktree.js', () => ({
 
 // Override only `execFile` (used for the git rev-parse in the bind path) but
 // keep every other real export. The cross-process bind lock's liveness check
-// (`isProcessAlive` in @cards/sessions) calls `execFileSync('tasklist')` on
+// (`isProcessAlive` in @cards.management/sessions) calls `execFileSync('tasklist')` on
 // Windows; replacing the whole module with `{ execFile }` would make
 // `execFileSync` undefined, so the lock's stale-detection would throw, treat the
 // live holder as dead, and break mutual exclusion — failing the serialization

@@ -9,8 +9,8 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { resolveWorktreeDir } from '@cards/sdk';
-import { TestGitWorkspace } from '@cards/test-utils';
+import { resolveWorktreeDir } from '@cards.management/sdk';
+import { TestGitWorkspace } from '@cards.management/test-utils';
 import * as fsExtra from 'fs-extra';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -41,7 +41,7 @@ import {
   symlinkIgnoredPaths,
   updateGitExclude,
   validateBranchName
-} from '@cards/sdk/worktree';
+} from '@cards.management/sdk/worktree';
 
 describe('create-worktree stubs', () => {
   it('exports all expected functions', () => {

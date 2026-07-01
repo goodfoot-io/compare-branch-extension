@@ -36,7 +36,7 @@ export default defineConfig({
     }
   },
   resolve: {
-    // Suites that load the logger pull in `@cards/vscode-logging`, whose
+    // Suites that load the logger pull in `@cards.management/vscode-logging`, whose
     // `import { window } from 'vscode'` has no runtime module outside VS Code.
     // Alias `vscode` to the shared shim so these tests load — mirroring the
     // cards server/git-hooks/hybrid-store configs.

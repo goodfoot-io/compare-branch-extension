@@ -1,5 +1,5 @@
 /**
- * Configures vitest behavior for the @cards/agent-hooks package.
+ * Configures vitest behavior for the @cards.management/agent-hooks package.
  * Settings are centralized here so tooling and runtime assumptions remain consistent across
  * environments. This is the superset of the five former agent-hook package configs: it carries
  * the text-asset loader (`.md`/`.txt` → text), the `vscode` → shim alias, and the 30s timeouts
@@ -42,7 +42,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // Tests reach `@cards/vscode-logging` transitively, which would otherwise
+      // Tests reach `@cards.management/vscode-logging` transitively, which would otherwise
       // pull in the real `vscode` module that only exists in the extension
       // host. Alias `vscode` to the shared shim, matching the other packages
       // whose test chains reach `vscode-logging`.

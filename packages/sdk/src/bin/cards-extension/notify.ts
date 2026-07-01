@@ -6,8 +6,8 @@
  * @summary Notify subcommand handler for cards-extension
  */
 
-import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import type { NotificationSeverity } from '@cards/sdk/protocol';
+import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
+import type { NotificationSeverity } from '@cards.management/sdk/protocol';
 
 const VALID_TYPES: readonly NotificationSeverity[] = ['error', 'warning', 'info'];
 

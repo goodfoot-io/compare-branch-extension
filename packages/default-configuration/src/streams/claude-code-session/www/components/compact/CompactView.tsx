@@ -13,7 +13,7 @@
  * @module components/compact/CompactView
  */
 
-import { close, streamStore } from '@cards/sdk/stream-store';
+import { close, streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { CompactState, FoldedState } from './compact-state';

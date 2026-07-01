@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 /**
  * Returns the scaffold fixture directory within a packaged marketplace.
  *
- * Follows the marketplace-path convention used across `@cards/default-configuration`
+ * Follows the marketplace-path convention used across `@cards.management/default-configuration`
  * (e.g. `buildPluginSettings()`). Use this resolver in all production sites
  * where a `marketplacePath` is available (e.g. `cardsApiLifecycle.ts`).
  *

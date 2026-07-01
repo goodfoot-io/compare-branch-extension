@@ -6,18 +6,18 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extractActionInput } from '@cards/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
 import {
   removeSessionCsv,
   removeSessionExitWhenDoneNudge,
   removeSessionHeadSha,
   removeSessionRouteNudge
-} from '@cards/sessions/card-repo';
+} from '@cards.management/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/session-end.js';
 
-vi.mock('@cards/sdk/config', () => ({
+vi.mock('@cards.management/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 
@@ -26,7 +26,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('@cards/sessions/card-repo', () => ({
+vi.mock('@cards.management/sessions/card-repo', () => ({
   removeSessionCsv: vi.fn(),
   removeSessionExitWhenDoneNudge: vi.fn(),
   removeSessionHeadSha: vi.fn(),

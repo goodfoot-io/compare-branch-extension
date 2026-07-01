@@ -6,9 +6,9 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PLANS_PREFIX } from '@cards/sdk/card-repo-layout';
-import { BRANCHES_DIR, COMMITS_DIR } from '@cards/sdk/protocol';
-import { TestGitWorkspace } from '@cards/test-utils';
+import { PLANS_PREFIX } from '@cards.management/sdk/card-repo-layout';
+import { BRANCHES_DIR, COMMITS_DIR } from '@cards.management/sdk/protocol';
+import { TestGitWorkspace } from '@cards.management/test-utils';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 /**

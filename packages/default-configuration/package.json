@@ -1,5 +1,5 @@
 {
-  "name": "@cards/default-configuration",
+  "name": "@cards.management/default-configuration",
   "version": "1.0.0",
   "type": "module",
   "private": true,
@@ -18,8 +18,8 @@
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l"
   },
   "dependencies": {
-    "@cards/sdk": "workspace:*",
-    "@cards/sessions": "workspace:*",
+    "@cards.management/sdk": "workspace:*",
+    "@cards.management/sessions": "workspace:*",
     "@vscode/codicons": "^0.0.45",
     "cross-spawn": "^7.0.6",
     "js-yaml": "^4.3.0",
@@ -35,7 +35,7 @@
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.34",
     "@biomejs/biome": "^2.4.14",
-    "@cards/test-utils": "workspace:*",
+    "@cards.management/test-utils": "workspace:*",
     "@types/bun": "^1.3.13",
     "@types/cross-spawn": "^6.0.6",
     "@types/fs-extra": "^11.0.4",

@@ -10,11 +10,11 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ActionInput } from '@cards/sdk/config';
-import { CARDS_ENV_VARS } from '@cards/sdk/config';
-import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards/sdk/context';
+import type { ActionInput } from '@cards.management/sdk/config';
+import { CARDS_ENV_VARS } from '@cards.management/sdk/config';
+import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
 
-export { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards/sdk/context';
+export { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
 
 /**
  * Error thrown when the card repository cannot be read.

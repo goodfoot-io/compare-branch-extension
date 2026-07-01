@@ -12,20 +12,20 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { CardsClient } from '@cards/sdk/client';
+import type { CardsClient } from '@cards.management/sdk/client';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@cards/sdk/worktree', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk/worktree')>();
+vi.mock('@cards.management/sdk/worktree', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/worktree')>();
   return {
     ...actual,
     removeWorktree: vi.fn()
   };
 });
 
-vi.mock('@cards/sdk/worktree-for-card', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk/worktree-for-card')>();
+vi.mock('@cards.management/sdk/worktree-for-card', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/worktree-for-card')>();
   return {
     // Keep the real BranchUnregisterError so the hook's instanceof phase
     // classification works against the same class the tests construct.
@@ -34,13 +34,13 @@ vi.mock('@cards/sdk/worktree-for-card', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/sdk/client/discovery', () => ({
+vi.mock('@cards.management/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { removeWorktree, WorktreeScopeError } from '@cards/sdk/worktree';
-import { BranchUnregisterError, removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { removeWorktree, WorktreeScopeError } from '@cards.management/sdk/worktree';
+import { BranchUnregisterError, removeWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import hookFn from '../../../src/claude/core/worktree-remove.js';
 
 /** A non-null fake client; the hook only checks for null. */

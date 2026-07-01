@@ -17,7 +17,7 @@
  * @module post-tool-use-skill
  */
 
-import { markSessionSkillLoaded } from '@cards/sessions/card-repo';
+import { markSessionSkillLoaded } from '@cards.management/sessions/card-repo';
 import { postToolUseHook } from '@goodfoot/codex-hooks';
 
 // ---------------------------------------------------------------------------

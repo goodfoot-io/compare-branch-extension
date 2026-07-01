@@ -15,7 +15,7 @@
  * @summary Skipped unit tests for the attachment classifier pure transform
  */
 
-import { PLANS_PREFIX } from '@cards/sdk/card-repo-layout';
+import { PLANS_PREFIX } from '@cards.management/sdk/card-repo-layout';
 import { describe, expect, it } from 'vitest';
 import { classifyAttachment } from '../src/streams/claude-code-session/www/lib/classify-attachment.js';
 import type {

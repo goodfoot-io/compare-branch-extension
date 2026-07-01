@@ -31,8 +31,8 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards/sdk/config';
-import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards/sessions/card-repo';
+import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards.management/sdk/config';
+import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards.management/sessions/card-repo';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { isSessionIdle } from '../../shared/session-idle.js';
 

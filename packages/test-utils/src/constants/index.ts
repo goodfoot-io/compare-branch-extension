@@ -6,7 +6,7 @@
  * @summary Define stable test constants and status vocabularies for Cards V2
  */
 
-import type { CardStatus } from '@cards/sdk/protocol';
+import type { CardStatus } from '@cards.management/sdk/protocol';
 
 /**
  * Common test constants for use across test suites.
@@ -18,7 +18,7 @@ import type { CardStatus } from '@cards/sdk/protocol';
  *
  * @example
  * ```typescript
- * import { TEST_CONSTANTS } from '@cards/test-utils';
+ * import { TEST_CONSTANTS } from '@cards.management/test-utils';
  *
  * const context = createContext({
  *   cardId: TEST_CONSTANTS.CARD_ID,
@@ -43,7 +43,7 @@ export const TEST_CONSTANTS = {
  *
  * @example
  * ```typescript
- * import { CARD_STATUSES } from '@cards/test-utils';
+ * import { CARD_STATUSES } from '@cards.management/test-utils';
  *
  * for (const status of CARD_STATUSES) {
  *   it(`handles ${status} status`, () => { ... });

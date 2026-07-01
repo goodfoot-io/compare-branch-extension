@@ -17,14 +17,14 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { resolveExtensionPath } from '@cards/sdk';
-import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
-import { resolveCardsParentBranch, writeCardsParentConfig } from '@cards/sdk/cards-parent-branch';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { compiledHookScriptPaths } from '@cards/sdk/git-hooks';
-import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
-import { createWorktree, type EarlyWorktreeResult } from '@cards/sdk/worktree';
-import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { resolveExtensionPath } from '@cards.management/sdk';
+import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
+import { resolveCardsParentBranch, writeCardsParentConfig } from '@cards.management/sdk/cards-parent-branch';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { compiledHookScriptPaths } from '@cards.management/sdk/git-hooks';
+import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
+import { createWorktree, type EarlyWorktreeResult } from '@cards.management/sdk/worktree';
+import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
 
 const execFileAsync = promisify(execFile);

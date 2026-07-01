@@ -13,7 +13,7 @@ import type { FileHandle } from 'node:fs/promises';
 import { mkdir, open, readFile, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { isProcessAlive } from '@cards/sdk/bin/process-utils';
+import { isProcessAlive } from '@cards.management/sdk/bin/process-utils';
 
 /** Maximum number of parent directories to walk searching for `.cards/CARD_ID`. */
 export const MAX_WALK_LEVELS = 20;

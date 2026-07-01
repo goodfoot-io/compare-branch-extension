@@ -7,9 +7,9 @@
  * @summary Attribution subcommand handlers for cards-extension
  */
 
-import { CardsClient } from '@cards/sdk/client';
-import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import type { CompareRequest, CompareState } from '@cards/sdk/protocol';
+import { CardsClient } from '@cards.management/sdk/client';
+import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
+import type { CompareRequest, CompareState } from '@cards.management/sdk/protocol';
 
 export const ATTRIBUTION_HELP = `Usage: cards-extension attribution <command>
 

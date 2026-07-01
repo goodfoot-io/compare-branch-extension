@@ -1,5 +1,5 @@
 {
-  "name": "@cards/agent-hooks",
+  "name": "@cards.management/agent-hooks",
   "version": "1.0.0",
   "type": "module",
   "sideEffects": false,
@@ -14,9 +14,9 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@cards/sdk": "workspace:*",
-    "@cards/sessions": "workspace:*",
-    "@cards/web": "workspace:*",
+    "@cards.management/sdk": "workspace:*",
+    "@cards.management/sessions": "workspace:*",
+    "@cards.management/web": "workspace:*",
     "@goodfoot/claude-code-hooks": "^1.7.1",
     "@goodfoot/codex-hooks": "1.1.1",
     "esbuild": "^0.28.0",
@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
-    "@cards/test-utils": "workspace:*",
+    "@cards.management/test-utils": "workspace:*",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",

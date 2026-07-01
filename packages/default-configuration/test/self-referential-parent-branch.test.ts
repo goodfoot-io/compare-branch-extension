@@ -1,8 +1,8 @@
 import * as fsSyncNs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { Logger } from '@cards/sdk/config';
+import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -32,7 +32,7 @@ vi.mock('node:child_process', () => ({
   execFile: vi.fn()
 }));
 
-vi.mock('@cards/sdk/worktree', () => ({
+vi.mock('@cards.management/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()

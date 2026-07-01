@@ -22,13 +22,13 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extractActionInput } from '@cards/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
 import {
   removeSessionCsv,
   removeSessionExitWhenDoneNudge,
   removeSessionHeadSha,
   removeSessionRouteNudge
-} from '@cards/sessions/card-repo';
+} from '@cards.management/sessions/card-repo';
 import { sessionEndHook } from '@goodfoot/claude-code-hooks';
 
 /**

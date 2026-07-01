@@ -30,12 +30,12 @@ const mockLogger = {
   logError: vi.fn()
 } as unknown as Logger;
 
-vi.mock('@cards/sdk/unbound-worktree-candidates', () => ({
+vi.mock('@cards.management/sdk/unbound-worktree-candidates', () => ({
   addUnboundCandidate: vi.fn().mockResolvedValue(undefined)
 }));
 
 async function importMocks() {
-  const { addUnboundCandidate } = await import('@cards/sdk/unbound-worktree-candidates');
+  const { addUnboundCandidate } = await import('@cards.management/sdk/unbound-worktree-candidates');
   return { addUnboundCandidate: addUnboundCandidate as ReturnType<typeof vi.fn> };
 }
 

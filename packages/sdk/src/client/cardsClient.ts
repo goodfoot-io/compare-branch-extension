@@ -59,7 +59,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
  * @returns The resolved initial request timeout in milliseconds.
  */
 function resolveRequestTimeoutMs(): number {
-  // `cardsClient` is bundled into the browser webviews (via `@cards/web`), where
+  // `cardsClient` is bundled into the browser webviews (via `@cards.management/web`), where
   // there is no Node `process` global. Reading bare `process.env` there throws a
   // `ReferenceError` at module load and blanks the entire webview. The
   // `CARDS_REQUEST_TIMEOUT_MS` override is only meaningful in Node (CLI / QA

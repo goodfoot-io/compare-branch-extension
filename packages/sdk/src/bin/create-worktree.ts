@@ -19,10 +19,10 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { compiledHookScriptPaths, resolveExtensionPath } from '@cards/sdk';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { createWorktree } from '@cards/sdk/worktree';
-import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { compiledHookScriptPaths, resolveExtensionPath } from '@cards.management/sdk';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { createWorktree } from '@cards.management/sdk/worktree';
+import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import { WorktreeIncludeError } from '../worktreeInclude.js';
 
 const execFileAsync = promisify(execFile);

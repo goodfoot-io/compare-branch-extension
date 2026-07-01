@@ -18,7 +18,7 @@ const { mockDiscoverApiInfo, mockExecFile } = vi.hoisted(() => ({
   mockExecFile: vi.fn()
 }));
 
-vi.mock('@cards/sdk/client/discovery', () => ({
+vi.mock('@cards.management/sdk/client/discovery', () => ({
   discoverApiInfo: mockDiscoverApiInfo
 }));
 

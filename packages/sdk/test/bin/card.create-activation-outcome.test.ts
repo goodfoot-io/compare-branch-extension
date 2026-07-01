@@ -42,7 +42,7 @@ vi.mock('node:os', async (importOriginal) => {
 // Mock the worktree-outfit orchestrator so we can have it RETURN (not throw) a
 // skipped-activation outcome: branch registered but card never activated.
 const outfitWorktreeForCard = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve());
-vi.mock('@cards/sdk/worktree-for-card', () => ({
+vi.mock('@cards.management/sdk/worktree-for-card', () => ({
   outfitWorktreeForCard: (...args: unknown[]) => outfitWorktreeForCard(...args)
 }));
 
@@ -52,15 +52,15 @@ const readUnboundCandidates = vi.fn<
   (...args: unknown[]) => Promise<{ worktreeDir: string; sessionId: string; transcriptPath: string }[]>
 >(() => Promise.resolve([]));
 const removeUnboundCandidate = vi.fn<(...args: unknown[]) => Promise<void>>(() => Promise.resolve());
-vi.mock('@cards/sdk/unbound-worktree-candidates', () => ({
+vi.mock('@cards.management/sdk/unbound-worktree-candidates', () => ({
   readUnboundCandidates: (...args: unknown[]) => readUnboundCandidates(...args),
   removeUnboundCandidate: (...args: unknown[]) => removeUnboundCandidate(...args)
 }));
 
 // resolveExtensionPath is invoked only to build compiledScriptPaths for the
 // (mocked) outfit call; stub it so it never touches the real install.
-vi.mock('@cards/sdk', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk')>();
+vi.mock('@cards.management/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk')>();
   return {
     ...actual,
     resolveExtensionPath: vi.fn(() => Promise.resolve('/tmp/ext-install'))

@@ -10,8 +10,8 @@
  *
  * @example
  * ```typescript
- * import { defineConfig } from '@cards/sdk/config';
- * import { defineAction } from '@cards/sdk/config/factories';
+ * import { defineConfig } from '@cards.management/sdk/config';
+ * import { defineAction } from '@cards.management/sdk/config/factories';
  *
  * const launch = defineAction({ actionName: 'Launch' }, async () => {});
  *

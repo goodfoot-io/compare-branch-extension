@@ -6,7 +6,7 @@
  * @summary Debug subcommand handler for cards-extension
  */
 
-import { discoverApiInfo } from '@cards/sdk/client/discovery';
+import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
 import { buildFetchOptions, getFlagValue, handleErrorResponse, resolveWorkspacePath } from './utils.js';
 
 /**

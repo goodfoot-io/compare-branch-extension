@@ -6,14 +6,14 @@
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { extractActionInput } from '@cards/sdk/config';
-import { TestGitWorkspace } from '@cards/test-utils';
+import { extractActionInput } from '@cards.management/sdk/config';
+import { TestGitWorkspace } from '@cards.management/test-utils';
 import { Logger } from '@goodfoot/codex-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/subagent-start.js';
 
-vi.mock('@cards/sdk/config', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk/config')>();
+vi.mock('@cards.management/sdk/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/config')>();
   return {
     ...actual,
     extractActionInput: vi.fn()

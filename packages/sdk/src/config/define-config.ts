@@ -11,8 +11,8 @@
  *
  * @example
  * ```typescript
- * import { defineConfig } from '@cards/sdk/config';
- * import { defineAction } from '@cards/sdk/config/factories';
+ * import { defineConfig } from '@cards.management/sdk/config';
+ * import { defineAction } from '@cards.management/sdk/config/factories';
  *
  * const launch = defineAction({ actionName: 'Launch' }, async () => {});
  *
@@ -151,7 +151,7 @@ function serializeEnvironment(envConfig: EnvironmentConfig): Environment {
  *
  * @example
  * ```typescript
- * import { defineConfig } from '@cards/sdk/config';
+ * import { defineConfig } from '@cards.management/sdk/config';
  *
  * export default defineConfig({
  *   environments: {

@@ -23,7 +23,7 @@ import {
   removeSessionExitWhenDoneNudge,
   removeSessionHeadSha,
   removeSessionRouteNudge
-} from '@cards/sessions/card-repo';
+} from '@cards.management/sessions/card-repo';
 import { createWatcher } from '../config/watcher/createWatcher.js';
 import { execFileNoWindowAsync } from './childProcess.js';
 import { isProcessAlive } from './process-utils.js';

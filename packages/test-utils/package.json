@@ -1,5 +1,5 @@
 {
-  "name": "@cards/test-utils",
+  "name": "@cards.management/test-utils",
   "version": "1.0.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -16,9 +16,9 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@cards/hybrid-store": "workspace:*",
-    "@cards/sdk": "workspace:*",
-    "@cards/server": "workspace:*",
+    "@cards.management/hybrid-store": "workspace:*",
+    "@cards.management/sdk": "workspace:*",
+    "@cards.management/server": "workspace:*",
     "fs-extra": "^11.3.4",
     "simple-git": "^3.36.0",
     "uuid": "^13.0.0",

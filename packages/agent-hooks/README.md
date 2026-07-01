@@ -1,4 +1,4 @@
-# @cards/agent-hooks
+# @cards.management/agent-hooks
 
 The single home for Cards agent-hook source. It consolidates the five former
 `@cards/{claude-code-hooks-api,claude-code-hooks-assistant,claude-code-hooks-runtime,codex-hooks-assistant,codex-hooks-runtime}`

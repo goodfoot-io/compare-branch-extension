@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Satisfy the import graph for session-end.ts without mocking fs.
-vi.mock('@cards/sdk/config', () => ({
+vi.mock('@cards.management/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 

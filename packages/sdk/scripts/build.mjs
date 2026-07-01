@@ -1,11 +1,11 @@
-// Single-pass build for @cards/sdk.
+// Single-pass build for @cards.management/sdk.
 //
 // Bundles the `cards-sdk` CLI entry (esbuild Profile A → dist/cli.js) and
 // copies the scaffold. The cards CLI bin tree (the `.mjs` bundles and shell
 // shims) is no longer produced here — the extension build owns it and emits it
 // to `packages/extension/dist/bin` (see scripts/build/cards-bin.js).
 //
-// Plain Node ESM, consistent with @cards/agent-hooks/scripts/build.mjs.
+// Plain Node ESM, consistent with @cards.management/agent-hooks/scripts/build.mjs.
 
 import { createRequire } from 'node:module';
 import { mkdirSync, rmSync, cpSync } from 'node:fs';

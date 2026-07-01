@@ -2,7 +2,7 @@
  * Node-only card repository utilities.
  *
  * Functions in this module use `execFileSync` and are not safe for browser
- * contexts. Import from `@cards/sdk/card-repo` to keep the `@cards/sdk/client`
+ * contexts. Import from `@cards.management/sdk/card-repo` to keep the `@cards.management/sdk/client`
  * subpath browser-safe.
  *
  * @summary Node-only card repository utilities

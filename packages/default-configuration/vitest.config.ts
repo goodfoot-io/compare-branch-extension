@@ -23,7 +23,7 @@ const repoRoot = resolve(__dirname, '../../..');
  * @summary Vitest logic for package
  */
 
-// Mirror the working `@cards/agent-hooks` plugin: no custom
+// Mirror the working `@cards.management/agent-hooks` plugin: no custom
 // `resolveId` (returning a raw absolute path there is what makes Vite
 // synthesize the broken `C:\@fs\C:\...` URL on Windows). Vite's default
 // resolver hands `load` the resolved id; normalize a `/@fs/` prefix and a
@@ -58,8 +58,8 @@ export default defineConfig({
     }
   },
   resolve: {
-    // Suites that load the logger (transitively via `@cards/sdk`) pull in
-    // `@cards/vscode-logging`, whose `import { window } from 'vscode'` has no
+    // Suites that load the logger (transitively via `@cards.management/sdk`) pull in
+    // `@cards.management/vscode-logging`, whose `import { window } from 'vscode'` has no
     // runtime module outside VS Code. Alias `vscode` to the shared shim so
     // these tests load — mirroring the cards server/git-hooks/hybrid-store configs.
     alias: {

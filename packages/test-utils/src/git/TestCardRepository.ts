@@ -21,10 +21,10 @@
  */
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { resolveScaffoldDirFromSource } from '@cards/sdk';
-import { COMMENTS_DIR } from '@cards/sdk/card-repo-layout';
-import type { CardGates, CardStatus } from '@cards/sdk/protocol';
-import { COMMITS_DIR, DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
+import { resolveScaffoldDirFromSource } from '@cards.management/sdk';
+import { COMMENTS_DIR } from '@cards.management/sdk/card-repo-layout';
+import type { CardGates, CardStatus } from '@cards.management/sdk/protocol';
+import { COMMITS_DIR, DEFAULT_CARD_GATES } from '@cards.management/sdk/protocol';
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4 } from 'uuid';

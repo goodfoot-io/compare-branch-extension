@@ -15,9 +15,9 @@ import { rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { extractActionInput } from '@cards/sdk/config';
-import { removeActiveSubagent } from '@cards/sessions/card-repo';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { extractActionInput } from '@cards.management/sdk/config';
+import { removeActiveSubagent } from '@cards.management/sessions/card-repo';
 import { subagentStopHook } from '@goodfoot/claude-code-hooks';
 
 /**

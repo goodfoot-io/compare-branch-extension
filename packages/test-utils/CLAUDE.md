@@ -1,4 +1,4 @@
-# @cards/test-utils
+# @cards.management/test-utils
 
 Shared test utilities for Issues V2 packages.
 
@@ -76,7 +76,7 @@ if (harness.isStarted) {
 
 **Context factory helper:**
 ```typescript
-import { createStreamInitContext } from '@cards/test-utils';
+import { createStreamInitContext } from '@cards.management/test-utils';
 
 // Create context with defaults
 const ctx = createStreamInitContext();

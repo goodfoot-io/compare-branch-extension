@@ -15,27 +15,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Same collaborator mocks as spawnAdhocAttribution.test.ts; vitest hoists
 // vi.mock calls above imports automatically.
 
-vi.mock('@cards/sdk/bin/process-utils', () => ({
+vi.mock('@cards.management/sdk/bin/process-utils', () => ({
   readCardStatus: vi.fn(),
   isAdhocActivatableStatus: vi.fn()
 }));
 
-vi.mock('@cards/sdk/adhoc-attribution', () => ({
+vi.mock('@cards.management/sdk/adhoc-attribution', () => ({
   acquireLock: vi.fn()
 }));
 
-vi.mock('@cards/sdk/bin/spawn-transcript-watcher', () => ({
+vi.mock('@cards.management/sdk/bin/spawn-transcript-watcher', () => ({
   spawnTranscriptWatcher: vi.fn(),
   transcriptWatcherWrapperName: vi.fn(() => 'transcript-watcher')
 }));
 
-vi.mock('@cards/sdk/bin/spawn-adhoc-cleanup', () => ({
+vi.mock('@cards.management/sdk/bin/spawn-adhoc-cleanup', () => ({
   spawnAdhocCleanup: vi.fn()
 }));
 
-import { acquireLock } from '@cards/sdk/adhoc-attribution';
-import { isAdhocActivatableStatus, readCardStatus } from '@cards/sdk/bin/process-utils';
-import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
+import { acquireLock } from '@cards.management/sdk/adhoc-attribution';
+import { isAdhocActivatableStatus, readCardStatus } from '@cards.management/sdk/bin/process-utils';
+import { spawnTranscriptWatcher } from '@cards.management/sdk/bin/spawn-transcript-watcher';
 import { type SpawnAdhocAttributionParams, spawnAdhocAttribution } from '../../src/bin/spawnAdhocAttribution.js';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────

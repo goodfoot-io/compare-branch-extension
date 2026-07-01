@@ -5,8 +5,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards/sdk/config';
-import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards/sessions/card-repo';
+import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards.management/sdk/config';
+import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards.management/sessions/card-repo';
 import { Logger } from '@goodfoot/codex-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/stop-route-nudge.js';
@@ -26,14 +26,14 @@ vi.mock('node:path', async (importOriginal) => {
   return await importOriginal<typeof import('node:path')>();
 });
 
-vi.mock('@cards/sdk/config', () => ({
+vi.mock('@cards.management/sdk/config', () => ({
   getCardRepoPath: vi.fn(),
   getWorkspacePath: vi.fn(),
   getBaseBranch: vi.fn(),
   getWorkspaceBranch: vi.fn()
 }));
 
-vi.mock('@cards/sessions/card-repo', () => ({
+vi.mock('@cards.management/sessions/card-repo', () => ({
   hasSessionRouteNudgeFired: vi.fn(),
   markSessionRouteNudgeFired: vi.fn()
 }));

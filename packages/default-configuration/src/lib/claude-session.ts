@@ -14,19 +14,19 @@ import type { ChildProcess } from 'node:child_process';
 import * as fsSyncNs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { type ActionContext, type ActionInput, CARDS_ENV_VARS, resolveWorktreeDir } from '@cards/sdk';
-import { execFileNoWindowAsync } from '@cards/sdk/bin/child-process';
-import type { CardsClient } from '@cards/sdk/client';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { compiledHookScriptPaths } from '@cards/sdk/git-hooks';
-import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
-import { BRANCHES_DIR } from '@cards/sdk/protocol';
+import { type ActionContext, type ActionInput, CARDS_ENV_VARS, resolveWorktreeDir } from '@cards.management/sdk';
+import { execFileNoWindowAsync } from '@cards.management/sdk/bin/child-process';
+import type { CardsClient } from '@cards.management/sdk/client';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { compiledHookScriptPaths } from '@cards.management/sdk/git-hooks';
+import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards.management/sdk/marketplace';
+import { BRANCHES_DIR } from '@cards.management/sdk/protocol';
 
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
-import type { CreateWorktreeResult } from '@cards/sdk/worktree';
-import { checkWorktreeExists, findGitRoots } from '@cards/sdk/worktree';
-import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import type { CreateWorktreeResult } from '@cards.management/sdk/worktree';
+import { checkWorktreeExists, findGitRoots } from '@cards.management/sdk/worktree';
+import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { spawnAgentCli } from './spawn-cli.js';
 

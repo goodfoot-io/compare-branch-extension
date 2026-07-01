@@ -16,7 +16,7 @@
  * @module streams/codex-session/www/components/expanded/CodexExpandedView
  */
 
-import { streamStore } from '@cards/sdk/stream-store';
+import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { TranscriptItem } from '../../lib/render-transcript';

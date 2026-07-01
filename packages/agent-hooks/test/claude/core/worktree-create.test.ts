@@ -11,7 +11,7 @@
  */
 
 import * as path from 'node:path';
-import type { CardsClient } from '@cards/sdk/client';
+import type { CardsClient } from '@cards.management/sdk/client';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -52,49 +52,49 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/sdk/worktree', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk/worktree')>();
+vi.mock('@cards.management/sdk/worktree', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/worktree')>();
   return {
     ...actual,
     createWorktree: vi.fn()
   };
 });
 
-vi.mock('@cards/sdk/worktree-for-card', () => ({
+vi.mock('@cards.management/sdk/worktree-for-card', () => ({
   createWorktreeForCard: vi.fn()
 }));
 
-vi.mock('@cards/sdk/client/discovery', () => ({
+vi.mock('@cards.management/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 
-vi.mock('@cards/sdk', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk')>();
+vi.mock('@cards.management/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk')>();
   return {
     ...actual,
     resolveExtensionPath: vi.fn()
   };
 });
 
-vi.mock('@cards/sdk/cards-parent-branch', () => ({
+vi.mock('@cards.management/sdk/cards-parent-branch', () => ({
   writeCardsParentConfig: vi.fn()
 }));
 
-vi.mock('@cards/sdk/unbound-worktree-candidates', () => ({
+vi.mock('@cards.management/sdk/unbound-worktree-candidates', () => ({
   addUnboundCandidate: vi.fn()
 }));
 
-vi.mock('@cards/sdk/adhoc-attribution', () => ({
+vi.mock('@cards.management/sdk/adhoc-attribution', () => ({
   resolveWorktreeCardId: vi.fn()
 }));
 
-import { resolveExtensionPath } from '@cards/sdk';
-import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
-import { writeCardsParentConfig } from '@cards/sdk/cards-parent-branch';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
-import { createWorktree } from '@cards/sdk/worktree';
-import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { resolveExtensionPath } from '@cards.management/sdk';
+import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
+import { writeCardsParentConfig } from '@cards.management/sdk/cards-parent-branch';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
+import { createWorktree } from '@cards.management/sdk/worktree';
+import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import hookFn from '../../../src/claude/core/worktree-create.js';
 
 /** A non-null fake client; the hook only checks for null, never calls methods on it. */

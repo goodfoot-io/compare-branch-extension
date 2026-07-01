@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { acquireLock, releaseLock } from '@cards/sessions/internal';
+import { acquireLock, releaseLock } from '@cards.management/sessions/internal';
 import { resolveCardRepoPath } from './adhocAttribution.js';
 import { isKnownAgentComm } from './bin/process-utils.js';
 import { spawnAdhocAttribution } from './bin/spawnAdhocAttribution.js';

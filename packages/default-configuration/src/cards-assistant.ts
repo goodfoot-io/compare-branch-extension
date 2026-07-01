@@ -17,7 +17,7 @@
  * @module
  */
 
-import { defineCardsAssistant } from '@cards/sdk/config';
+import { defineCardsAssistant } from '@cards.management/sdk/config';
 import { updateMarketplaceRegistration } from './lib/claude-session.js';
 import {
   CODEX_ASSISTANT_PLUGIN_NAMES,

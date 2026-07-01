@@ -27,7 +27,7 @@
  *
  * @example
  * ```typescript
- * import { compileHandler } from '@cards/sdk/config/cli/compiler';
+ * import { compileHandler } from '@cards.management/sdk/config/cli/compiler';
  *
  * const result = await compileHandler({
  *   sourcePath: '/path/to/handler.ts',

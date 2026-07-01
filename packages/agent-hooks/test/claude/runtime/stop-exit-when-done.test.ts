@@ -4,18 +4,21 @@
  * @summary Tests for stop-exit-when-done hook
  */
 
-import { extractActionInput } from '@cards/sdk/config';
-import { hasSessionExitWhenDoneNudgeFired, markSessionExitWhenDoneNudgeFired } from '@cards/sessions/card-repo';
+import { extractActionInput } from '@cards.management/sdk/config';
+import {
+  hasSessionExitWhenDoneNudgeFired,
+  markSessionExitWhenDoneNudgeFired
+} from '@cards.management/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/stop-exit-when-done.js';
 import { isSessionIdle } from '../../../src/shared/session-idle.js';
 
-vi.mock('@cards/sdk/config', () => ({
+vi.mock('@cards.management/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 
-vi.mock('@cards/sessions/card-repo', () => ({
+vi.mock('@cards.management/sessions/card-repo', () => ({
   hasSessionExitWhenDoneNudgeFired: vi.fn(),
   markSessionExitWhenDoneNudgeFired: vi.fn()
 }));

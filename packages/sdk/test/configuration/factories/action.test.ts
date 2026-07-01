@@ -7,7 +7,7 @@
  * @summary Tests for defineAction factory function
  */
 
-import { flushMicrotasks } from '@cards/test-utils';
+import { flushMicrotasks } from '@cards.management/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import { defineAction } from '../../../src/config/factories/action.js';
 import type { ActionContext, ActionInput } from '../../../src/config/inputs.js';

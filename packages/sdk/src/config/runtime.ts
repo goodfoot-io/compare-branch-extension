@@ -28,7 +28,7 @@
  * @example
  * ```typescript
  * // This is what compiled handlers look like internally
- * import { executeCommand } from '@cards/sdk/config/runtime';
+ * import { executeCommand } from '@cards.management/sdk/config/runtime';
  * import myCommand from './my-command.js';
  *
  * executeCommand(myCommand);
@@ -182,7 +182,7 @@ function handleHandlerError(error: unknown): never {
  * @example
  * ```typescript
  * // Generated wrapper code (produced by CLI)
- * import { executeCommand } from '@cards/sdk/config/runtime';
+ * import { executeCommand } from '@cards.management/sdk/config/runtime';
  * import command from './user-command.js';
  *
  * // This call never returns in production

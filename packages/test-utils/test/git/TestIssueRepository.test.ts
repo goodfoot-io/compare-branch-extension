@@ -10,8 +10,8 @@
  */
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ATTACHMENTS_DIR, COMMENTS_DIR, COMMENTS_PREFIX, PLANS_DIR } from '@cards/sdk/card-repo-layout';
-import { COMMITS_DIR } from '@cards/sdk/protocol';
+import { ATTACHMENTS_DIR, COMMENTS_DIR, COMMENTS_PREFIX, PLANS_DIR } from '@cards.management/sdk/card-repo-layout';
+import { COMMITS_DIR } from '@cards.management/sdk/protocol';
 import * as fs from 'fs-extra';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TestCardRepository } from '../../src/git/TestCardRepository.js';

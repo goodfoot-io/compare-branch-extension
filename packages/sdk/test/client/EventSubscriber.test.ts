@@ -4,7 +4,7 @@
  * @summary Tests for EventSubscriber WebSocket client
  */
 
-import { TestWebSocketServer } from '@cards/test-utils';
+import { TestWebSocketServer } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { calculateBackoffMs, EventSubscriber } from '../../src/client/eventSubscriber.js';
 

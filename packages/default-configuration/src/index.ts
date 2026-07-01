@@ -1,4 +1,4 @@
-// Handlers are compiled to standalone binaries by @cards/sdk/config build system.
+// Handlers are compiled to standalone binaries by @cards.management/sdk/config build system.
 // This package does not export library functions.
 
 /**

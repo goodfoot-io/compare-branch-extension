@@ -1,4 +1,4 @@
-import type { Card } from '@cards/sdk/protocol';
+import type { Card } from '@cards.management/sdk/protocol';
 import { describe, expect, it } from 'vitest';
 import { toCardListSummaries, toCardListSummary } from '../src/cardSummary.js';
 

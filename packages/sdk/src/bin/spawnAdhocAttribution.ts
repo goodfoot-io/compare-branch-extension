@@ -15,10 +15,13 @@
  * @module spawnAdhocAttribution
  */
 
-import { acquireLock } from '@cards/sdk/adhoc-attribution';
-import { isAdhocActivatableStatus, readCardStatus } from '@cards/sdk/bin/process-utils';
-import { spawnAdhocCleanup } from '@cards/sdk/bin/spawn-adhoc-cleanup';
-import { spawnTranscriptWatcher, transcriptWatcherWrapperName } from '@cards/sdk/bin/spawn-transcript-watcher';
+import { acquireLock } from '@cards.management/sdk/adhoc-attribution';
+import { isAdhocActivatableStatus, readCardStatus } from '@cards.management/sdk/bin/process-utils';
+import { spawnAdhocCleanup } from '@cards.management/sdk/bin/spawn-adhoc-cleanup';
+import {
+  spawnTranscriptWatcher,
+  transcriptWatcherWrapperName
+} from '@cards.management/sdk/bin/spawn-transcript-watcher';
 
 /**
  * Minimal logger interface required by spawnAdhocAttribution.

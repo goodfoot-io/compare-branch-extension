@@ -5,9 +5,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { getCommitsSince } from '@cards/sdk/card-repo';
-import { getUnattributedCommits } from '@cards/sdk/client';
-import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
+import { getCommitsSince } from '@cards.management/sdk/card-repo';
+import { getUnattributedCommits } from '@cards.management/sdk/client';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards.management/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/post-tool-use.js';
@@ -16,21 +16,21 @@ vi.mock('node:child_process', () => ({
   execFileSync: vi.fn()
 }));
 
-vi.mock('@cards/sessions/card-repo', () => ({
+vi.mock('@cards.management/sessions/card-repo', () => ({
   getSessionCommits: vi.fn(),
   appendCommitToSession: vi.fn(),
   readSessionHeadSha: vi.fn()
 }));
 
-vi.mock('@cards/sdk/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk/client')>();
+vi.mock('@cards.management/sdk/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/client')>();
   return {
     ...actual,
     getUnattributedCommits: vi.fn()
   };
 });
 
-vi.mock('@cards/sdk/card-repo', () => ({
+vi.mock('@cards.management/sdk/card-repo', () => ({
   getCommitsSince: vi.fn()
 }));
 

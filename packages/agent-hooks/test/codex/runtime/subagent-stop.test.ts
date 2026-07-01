@@ -5,16 +5,16 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { extractActionInput } from '@cards/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
 import { Logger } from '@goodfoot/codex-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/subagent-stop.js';
 
-vi.mock('@cards/sdk/config', () => ({
+vi.mock('@cards.management/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 
-vi.mock('@cards/sdk/client/discovery', () => ({
+vi.mock('@cards.management/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 
@@ -22,7 +22,7 @@ vi.mock('node:fs/promises', () => ({
   readFile: vi.fn()
 }));
 
-import { createCardsClient } from '@cards/sdk/client/discovery';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
 
 const mockExtractActionInput = vi.mocked(extractActionInput);
 const mockCreateCardsClient = vi.mocked(createCardsClient);

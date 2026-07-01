@@ -28,7 +28,7 @@
  * @module subagent-start
  */
 
-import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
+import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
 import { subagentStartHook, subagentStartOutput } from '@goodfoot/claude-code-hooks';
 import { resolveBindableWorktreeDir } from '../../shared/bindable-worktree.js';
 

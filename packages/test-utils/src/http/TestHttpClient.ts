@@ -14,7 +14,7 @@
  * @summary Test utility for HTTP client mocking
  * @module test-utils/http/TestHttpClient
  */
-import type { HttpClient } from '@cards/sdk/protocol';
+import type { HttpClient } from '@cards.management/sdk/protocol';
 
 /**
  * Recorded HTTP request information.

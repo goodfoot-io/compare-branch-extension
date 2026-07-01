@@ -42,16 +42,16 @@ const mockLogger = {
 // vi.mock declarations are hoisted to the top of the module regardless of
 // source order, so all mocks are in effect when the hook is imported.
 
-vi.mock('@cards/sdk/bin/spawn-adhoc-attribution', () => ({
+vi.mock('@cards.management/sdk/bin/spawn-adhoc-attribution', () => ({
   spawnAdhocAttribution: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('@cards/sdk/unbound-worktree-candidates', () => ({
+vi.mock('@cards.management/sdk/unbound-worktree-candidates', () => ({
   addUnboundCandidate: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('@cards/sdk', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk')>();
+vi.mock('@cards.management/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk')>();
   return {
     ...actual,
     findAgentPid: vi.fn().mockReturnValue(1234),
@@ -59,16 +59,16 @@ vi.mock('@cards/sdk', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/sdk/bin/process-utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk/bin/process-utils')>();
+vi.mock('@cards.management/sdk/bin/process-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/bin/process-utils')>();
   return {
     ...actual,
     isKnownAgentComm: vi.fn().mockReturnValue(true)
   };
 });
 
-vi.mock('@cards/sdk/adhoc-attribution', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk/adhoc-attribution')>();
+vi.mock('@cards.management/sdk/adhoc-attribution', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/adhoc-attribution')>();
   return {
     ...actual,
     resolveCardRepoPath: vi.fn(),
@@ -81,11 +81,11 @@ vi.mock('@cards/sdk/adhoc-attribution', async (importOriginal) => {
 // ---------------------------------------------------------------------------
 
 async function importMocks() {
-  const { spawnAdhocAttribution } = await import('@cards/sdk/bin/spawn-adhoc-attribution');
-  const { addUnboundCandidate } = await import('@cards/sdk/unbound-worktree-candidates');
-  const { findAgentPid, resolveGlobalCardsConfigDir } = await import('@cards/sdk');
-  const { isKnownAgentComm } = await import('@cards/sdk/bin/process-utils');
-  const { resolveCardRepoPath, resolveWorktreeCardId } = await import('@cards/sdk/adhoc-attribution');
+  const { spawnAdhocAttribution } = await import('@cards.management/sdk/bin/spawn-adhoc-attribution');
+  const { addUnboundCandidate } = await import('@cards.management/sdk/unbound-worktree-candidates');
+  const { findAgentPid, resolveGlobalCardsConfigDir } = await import('@cards.management/sdk');
+  const { isKnownAgentComm } = await import('@cards.management/sdk/bin/process-utils');
+  const { resolveCardRepoPath, resolveWorktreeCardId } = await import('@cards.management/sdk/adhoc-attribution');
   return {
     spawnAdhocAttribution: spawnAdhocAttribution as ReturnType<typeof vi.fn>,
     addUnboundCandidate: addUnboundCandidate as ReturnType<typeof vi.fn>,
@@ -403,7 +403,7 @@ describe('EnterWorktree hook — non-bindable cwd', () => {
 // Re-exported helpers — real-filesystem tests (unchanged contract)
 //
 // These use the real implementations, imported directly from the SDK so the
-// vi.mock for '@cards/sdk/adhoc-attribution' (which only stubs
+// vi.mock for '@cards.management/sdk/adhoc-attribution' (which only stubs
 // resolveCardRepoPath / resolveWorktreeCardId on the mocked copy) does not
 // interfere. acquireLock is re-exported un-mocked, so it works directly.
 // ---------------------------------------------------------------------------
@@ -413,7 +413,9 @@ const {
   resolveWorktreeCardId: realResolveWorktreeCardId,
   resolveCardRepoPath: realResolveCardRepoPath,
   acquireLock: realAcquireLock
-} = await vi.importActual<typeof import('@cards/sdk/adhoc-attribution')>('@cards/sdk/adhoc-attribution');
+} = await vi.importActual<typeof import('@cards.management/sdk/adhoc-attribution')>(
+  '@cards.management/sdk/adhoc-attribution'
+);
 
 // acquireLock re-export is the real function, but to be safe use the actual import.
 import { acquireLock } from '../../../src/claude/core/enter-worktree.js';

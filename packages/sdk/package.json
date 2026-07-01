@@ -1,5 +1,5 @@
 {
-  "name": "@cards/sdk",
+  "name": "@cards.management/sdk",
   "version": "1.0.0",
   "type": "module",
   "engines": {
@@ -56,7 +56,7 @@
     "test": "vitest-unchanged"
   },
   "dependencies": {
-    "@cards/sessions": "workspace:*",
+    "@cards.management/sessions": "workspace:*",
     "@typescript/native-preview": "^7.0.0-dev",
     "esbuild": "^0.28.0",
     "glob": "^13.0.0",
@@ -69,7 +69,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
-    "@cards/test-utils": "workspace:*",
+    "@cards.management/test-utils": "workspace:*",
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",
     "jsdom": "^29.1.1",

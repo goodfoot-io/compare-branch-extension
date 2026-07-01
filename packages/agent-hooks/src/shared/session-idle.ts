@@ -9,7 +9,7 @@
  * @module session-idle
  */
 
-import { getActiveSubagentCount } from '@cards/sessions/card-repo';
+import { getActiveSubagentCount } from '@cards.management/sessions/card-repo';
 
 /**
  * Returns `true` when the session has no active subagents or background

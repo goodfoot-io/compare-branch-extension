@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock only the spawns and the status guard; the lock logic under test
 // (acquireLock + the gate in spawnAdhocAttribution) runs for real.
-vi.mock('@cards/sdk/bin/process-utils', () => ({
+vi.mock('@cards.management/sdk/bin/process-utils', () => ({
   readCardStatus: vi.fn(),
   isAdhocActivatableStatus: vi.fn(),
   // acquireLock consults this to decide whether the lock owner is alive. The
@@ -32,17 +32,17 @@ vi.mock('@cards/sdk/bin/process-utils', () => ({
   isProcessAlive: vi.fn(() => true)
 }));
 
-vi.mock('@cards/sdk/bin/spawn-transcript-watcher', () => ({
+vi.mock('@cards.management/sdk/bin/spawn-transcript-watcher', () => ({
   spawnTranscriptWatcher: vi.fn(() => true),
   transcriptWatcherWrapperName: vi.fn(() => 'transcript-watcher')
 }));
 
-vi.mock('@cards/sdk/bin/spawn-adhoc-cleanup', () => ({
+vi.mock('@cards.management/sdk/bin/spawn-adhoc-cleanup', () => ({
   spawnAdhocCleanup: vi.fn()
 }));
 
-import { isAdhocActivatableStatus, readCardStatus } from '@cards/sdk/bin/process-utils';
-import { spawnAdhocCleanup } from '@cards/sdk/bin/spawn-adhoc-cleanup';
+import { isAdhocActivatableStatus, readCardStatus } from '@cards.management/sdk/bin/process-utils';
+import { spawnAdhocCleanup } from '@cards.management/sdk/bin/spawn-adhoc-cleanup';
 import { spawnAdhocAttribution } from '../../src/bin/spawnAdhocAttribution.js';
 
 describe('spawnAdhocAttribution — second card bound in the same session', () => {

@@ -6,7 +6,7 @@
  * @summary Panel subcommand handler for cards-extension
  */
 
-import { discoverApiInfo } from '@cards/sdk/client/discovery';
+import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
 import { buildFetchOptions, handleErrorResponse, resolveWorkspacePath } from './utils.js';
 
 const VALID_PANELS = new Set(['problems', 'terminal', 'debug', 'output']);

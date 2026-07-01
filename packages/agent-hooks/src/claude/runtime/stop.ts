@@ -16,11 +16,11 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { getCommitsSince } from '@cards/sdk/card-repo';
-import { BOOKKEEPING_PATHSPEC_EXCLUSIONS, getUnattributedCommits } from '@cards/sdk/client';
-import type { ActionInput } from '@cards/sdk/config';
-import { extractActionInput } from '@cards/sdk/config';
-import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
+import { getCommitsSince } from '@cards.management/sdk/card-repo';
+import { BOOKKEEPING_PATHSPEC_EXCLUSIONS, getUnattributedCommits } from '@cards.management/sdk/client';
+import type { ActionInput } from '@cards.management/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards.management/sessions/card-repo';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { CommitLogError, CommitRecordError } from '../../shared/errors.js';
 import { formatCommitLog } from '../../shared/file-tree.js';

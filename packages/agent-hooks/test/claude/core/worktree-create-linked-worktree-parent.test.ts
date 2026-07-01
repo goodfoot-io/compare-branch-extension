@@ -23,36 +23,36 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import type { CardsClient } from '@cards/sdk/client';
+import type { CardsClient } from '@cards.management/sdk/client';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 
-vi.mock('@cards/sdk/worktree-for-card', () => ({
+vi.mock('@cards.management/sdk/worktree-for-card', () => ({
   createWorktreeForCard: vi.fn()
 }));
 
-vi.mock('@cards/sdk/client/discovery', () => ({
+vi.mock('@cards.management/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 
-vi.mock('@cards/sdk', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sdk')>();
+vi.mock('@cards.management/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk')>();
   return {
     ...actual,
     resolveExtensionPath: vi.fn()
   };
 });
 
-vi.mock('@cards/sdk/adhoc-attribution', () => ({
+vi.mock('@cards.management/sdk/adhoc-attribution', () => ({
   resolveWorktreeCardId: vi.fn()
 }));
 
-import { resolveExtensionPath } from '@cards/sdk';
-import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { resolveExtensionPath } from '@cards.management/sdk';
+import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import hookFn from '../../../src/claude/core/worktree-create.js';
 
 /** A non-null fake client; the hook only checks for null. */

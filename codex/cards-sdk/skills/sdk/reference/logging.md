@@ -1,6 +1,6 @@
 <instructions>
 
-This document describes the logging system in `@cards/sdk/config`.
+This document describes the logging system in `@cards.management/sdk/config`.
 
 ## Logger Overview
 
@@ -27,7 +27,7 @@ interface ILogger {
 The logger is available via context in all handlers:
 
 ```typescript
-import { defineAction } from '@cards/sdk/config';
+import { defineAction } from '@cards.management/sdk/config';
 
 export default defineAction(
   { actionName: 'My Action' },
@@ -90,7 +90,7 @@ interface LogEventError {
 The log file path is resolved at Logger construction time. Sources are listed from highest to lowest priority:
 
 ```typescript
-import { Logger, logger } from '@cards/sdk/config';
+import { Logger, logger } from '@cards.management/sdk/config';
 
 // 1. setLogFile() — runtime override, takes precedence over everything below
 logger.setLogFile('/var/log/hooks.log');
@@ -132,7 +132,7 @@ file output rather than writing to a wrong path.
 Subscribe to log events programmatically:
 
 ```typescript
-import { logger } from '@cards/sdk/config';
+import { logger } from '@cards.management/sdk/config';
 
 // Subscribe to specific level
 const unsubscribe = logger.on('error', (event) => {
@@ -149,7 +149,7 @@ unsubscribe();
 ### Forward to External Logger
 
 ```typescript
-import { logger } from '@cards/sdk/config';
+import { logger } from '@cards.management/sdk/config';
 import pino from 'pino';
 
 const pinoLogger = pino({ level: 'debug' });

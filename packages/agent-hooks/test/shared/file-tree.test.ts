@@ -4,7 +4,7 @@
  * @summary Tests for lib/file-tree
  */
 
-import { COMMENTS_PREFIX } from '@cards/sdk/card-repo-layout';
+import { COMMENTS_PREFIX } from '@cards.management/sdk/card-repo-layout';
 import { describe, expect, it } from 'vitest';
 import { formatCommitLog, formatFileTree } from '../../src/shared/file-tree.js';
 

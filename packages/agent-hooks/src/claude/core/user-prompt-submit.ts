@@ -8,7 +8,7 @@
  *
  * 1. **Term match** — the standalone word "cards" (case-insensitive,
  *    bounded by whitespace or string start/end, not `\b`, so it won't match
- *    inside identifiers/paths like `@cards/sessions`).
+ *    inside identifiers/paths like `@cards.management/sessions`).
  * 2. **Card ID detection** — regex-captures `<prefix>-<counter>` tokens,
  *    validates the counter with last-hyphen split logic (mirroring
  *    `parseCardId`), and confirms the card exists on disk at
@@ -28,7 +28,7 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { hasSessionSkillLoaded } from '@cards/sessions/card-repo';
+import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
 import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/claude-code-hooks';
 
 // ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ function findCardIds(prompt: string): string[] {
 /**
  * Case-insensitive scan for the standalone word "cards", bounded by
  * whitespace (or string start/end) rather than `\b`, so identifiers like
- * `@cards/sessions/card-repo` don't match — `\b` treats `/` and `@` as word
+ * `@cards.management/sessions/card-repo` don't match — `\b` treats `/` and `@` as word
  * boundaries too, which caused false positives on package paths.
  *
  * @param prompt - The user's prompt text to scan.

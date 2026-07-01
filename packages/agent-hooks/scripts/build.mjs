@@ -1,4 +1,4 @@
-// Manifest-driven multi-target build for @cards/agent-hooks.
+// Manifest-driven multi-target build for @cards.management/agent-hooks.
 //
 // Emits all six plugin payloads — the three Claude targets (core, assistant,
 // runtime) and the three Codex targets (core, assistant, runtime) — into their

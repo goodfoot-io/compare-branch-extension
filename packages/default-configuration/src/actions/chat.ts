@@ -21,7 +21,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import { type ActionContext, type ActionInput, defineAction } from '@cards.management/sdk/config';
 import chatRoutingSkill from '../../../../claude/runtime/skills/chat-routing/SKILL.md';
 import codexChatRoutingSkill from '../../../../codex/runtime/skills/chat-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';

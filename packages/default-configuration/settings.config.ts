@@ -10,7 +10,7 @@
  * @module
  */
 
-import { defineConfig } from '@cards/sdk/config';
+import { defineConfig } from '@cards.management/sdk/config';
 // Action handlers
 import chat from './src/actions/chat.js';
 import interview from './src/actions/interview.js';

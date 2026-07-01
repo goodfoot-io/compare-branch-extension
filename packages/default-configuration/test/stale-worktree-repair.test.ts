@@ -14,9 +14,9 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { generateRepoId } from '@cards/sdk';
-import { createWorktree } from '@cards/sdk/worktree';
-import { TestGitWorkspace } from '@cards/test-utils';
+import { generateRepoId } from '@cards.management/sdk';
+import { createWorktree } from '@cards.management/sdk/worktree';
+import { TestGitWorkspace } from '@cards.management/test-utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('stale worktree directory repair', () => {

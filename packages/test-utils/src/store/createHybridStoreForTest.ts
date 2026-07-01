@@ -13,9 +13,9 @@
  * @module test-utils/store/createHybridStoreForTest
  */
 
-import type { HybridStoreDeps } from '@cards/hybrid-store';
-import { HybridStore, type HybridStoreOptions } from '@cards/hybrid-store';
-import { resolveScaffoldDirFromSource } from '@cards/sdk';
+import type { HybridStoreDeps } from '@cards.management/hybrid-store';
+import { HybridStore, type HybridStoreOptions } from '@cards.management/hybrid-store';
+import { resolveScaffoldDirFromSource } from '@cards.management/sdk';
 
 /**
  * Constructs a {@link HybridStore} for tests, defaulting `scaffoldDir` to the

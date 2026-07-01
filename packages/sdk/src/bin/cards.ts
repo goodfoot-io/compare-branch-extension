@@ -12,12 +12,12 @@ import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import { promisify } from 'node:util';
-import { resolveExtensionPath } from '@cards/sdk';
-import { formatErrorForCli, requestProcessExit } from '@cards/sdk/bin/process-utils';
-import { getCommitsSince } from '@cards/sdk/card-repo';
-import { toCardListSummaries } from '@cards/sdk/card-summary';
-import { resolveCardsParentBranch } from '@cards/sdk/cards-parent-branch';
-import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
+import { resolveExtensionPath } from '@cards.management/sdk';
+import { formatErrorForCli, requestProcessExit } from '@cards.management/sdk/bin/process-utils';
+import { getCommitsSince } from '@cards.management/sdk/card-repo';
+import { toCardListSummaries } from '@cards.management/sdk/card-summary';
+import { resolveCardsParentBranch } from '@cards.management/sdk/cards-parent-branch';
+import type { CardCreateData, ListCardsOptions } from '@cards.management/sdk/client';
 import {
   ApiError,
   CardsClient,
@@ -27,15 +27,15 @@ import {
   getUnattributedCommits,
   isBookkeepingCommit,
   NetworkError
-} from '@cards/sdk/client';
-import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards/sdk/context';
-import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards/sdk/protocol';
-import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
-import { resolveSessionId, resolveTranscriptPath } from '@cards/sdk/session-resolver';
-import { readUnboundCandidates, removeUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
-import { outfitWorktreeForCard } from '@cards/sdk/worktree-for-card';
-import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
+} from '@cards.management/sdk/client';
+import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
+import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
+import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards.management/sdk/protocol';
+import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards.management/sdk/search-utils';
+import { resolveSessionId, resolveTranscriptPath } from '@cards.management/sdk/session-resolver';
+import { readUnboundCandidates, removeUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
+import { outfitWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards.management/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
 import { compiledHookScriptPaths } from '../git-hooks.js';

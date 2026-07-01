@@ -16,8 +16,11 @@
  * @see https://code.claude.com/docs/en/hooks#stop
  */
 
-import { extractActionInput } from '@cards/sdk/config';
-import { hasSessionExitWhenDoneNudgeFired, markSessionExitWhenDoneNudgeFired } from '@cards/sessions/card-repo';
+import { extractActionInput } from '@cards.management/sdk/config';
+import {
+  hasSessionExitWhenDoneNudgeFired,
+  markSessionExitWhenDoneNudgeFired
+} from '@cards.management/sessions/card-repo';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { isSessionIdle } from '../../shared/session-idle.js';
 

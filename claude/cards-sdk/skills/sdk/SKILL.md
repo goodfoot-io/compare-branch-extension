@@ -6,7 +6,7 @@ version: 1.0.0
 
 ## Purpose
 
-SDK documentation for the `@cards/sdk/config` library: type-safe action handlers for the Cards Extension.
+SDK documentation for the `@cards.management/sdk/config` library: type-safe action handlers for the Cards Extension.
 
 ## Build Process
 
@@ -27,7 +27,7 @@ Create action handlers with `defineAction`:
 
 ```typescript
 // src/actions/launch-claude.ts
-import { defineAction } from '@cards/sdk/config';
+import { defineAction } from '@cards.management/sdk/config';
 
 export default defineAction(
   {
@@ -63,7 +63,7 @@ The cards assistant is a single, workspace-scoped handler created with `defineCa
 
 ```typescript
 // src/cards-assistant.ts
-import { defineCardsAssistant } from '@cards/sdk/config';
+import { defineCardsAssistant } from '@cards.management/sdk/config';
 
 export default defineCardsAssistant(
   {},
@@ -78,7 +78,7 @@ export default defineCardsAssistant(
 Define environments, actions, streams, and the optional cards assistant in `settings.config.ts`:
 
 ```typescript
-import { defineConfig } from '@cards/sdk/config';
+import { defineConfig } from '@cards.management/sdk/config';
 import launchClaude from './src/actions/launch-claude.js';
 import cardsAssistant from './src/cards-assistant.js';
 
@@ -103,7 +103,7 @@ export default defineConfig({
 
 ## Stream Renderer Example
 
-Stream renderers are static HTML files served in an iframe. The host extension injects `window.__STREAM_INIT__` before loading the iframe and communicates via `postMessage`. Use `@cards/sdk/stream-store` for the data layer.
+Stream renderers are static HTML files served in an iframe. The host extension injects `window.__STREAM_INIT__` before loading the iframe and communicates via `postMessage`. Use `@cards.management/sdk/stream-store` for the data layer.
 
 Place renderer files in a `www/` directory alongside other handler sources:
 
@@ -144,7 +144,7 @@ Minimal renderer template:
 <body>
   <div id="root"></div>
   <script type="module">
-    import { streamStore, subscribe } from '@cards/sdk/stream-store';
+    import { streamStore, subscribe } from '@cards.management/sdk/stream-store';
 
     const root = document.getElementById('root');
 
@@ -191,12 +191,12 @@ Minimal renderer template:
 
 Before debugging issues, verify:
 
-- [ ] `@cards/sdk/config` is in `package.json` dependencies
+- [ ] `@cards.management/sdk/config` is in `package.json` dependencies
 - [ ] Build script exists: `"build": "cards-sdk build -c settings.config.ts -o dist"`
 - [ ] Handlers rebuilt after last code change (`yarn build`)
 - [ ] Handler files use `export default factoryFunction(...)` pattern
 - [ ] Stream renderer `wwwRoot` path exists and contains `index.html`
-- [ ] Stream renderer imports `@cards/sdk/stream-store` for data access
+- [ ] Stream renderer imports `@cards.management/sdk/stream-store` for data access
 
 ## Additional Resources
 

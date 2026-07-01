@@ -18,9 +18,9 @@ import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { removeWorktree } from '@cards/sdk/worktree';
-import { BranchUnregisterError, removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { removeWorktree } from '@cards.management/sdk/worktree';
+import { BranchUnregisterError, removeWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 
 const execFileAsync = promisify(execFile);
 

@@ -19,7 +19,7 @@ const { mockSetCompare, mockGetCompare, mockClearCompare, mockDiscoverApiInfo } 
   mockDiscoverApiInfo: vi.fn()
 }));
 
-vi.mock('@cards/sdk/client', () => {
+vi.mock('@cards.management/sdk/client', () => {
   class CardsClient {
     setCompare = mockSetCompare;
     getCompare = mockGetCompare;
@@ -28,7 +28,7 @@ vi.mock('@cards/sdk/client', () => {
   return { CardsClient };
 });
 
-vi.mock('@cards/sdk/client/discovery', () => {
+vi.mock('@cards.management/sdk/client/discovery', () => {
   return {
     discoverApiInfo: mockDiscoverApiInfo
   };

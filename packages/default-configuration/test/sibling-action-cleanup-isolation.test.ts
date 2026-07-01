@@ -2,8 +2,8 @@ import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import * as fsSyncNs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { Logger } from '@cards/sdk/config';
+import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 /**

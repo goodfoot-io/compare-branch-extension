@@ -1,6 +1,6 @@
 <instructions>
 
-This document describes the typed input structures available in `@cards/sdk/config`.
+This document describes the typed input structures available in `@cards.management/sdk/config`.
 
 ## Action Input Types
 
@@ -103,7 +103,7 @@ async (input: ActionInput, context: ActionContext) => {
 Extract complete typed input objects:
 
 ```typescript
-import { extractActionInput, extractCardsAssistantInput } from '@cards/sdk/config';
+import { extractActionInput, extractCardsAssistantInput } from '@cards.management/sdk/config';
 
 // For action handlers
 const actionInput = extractActionInput();
@@ -145,7 +145,7 @@ interface CardsAssistantContext {
 **Usage Example:**
 
 ```typescript
-import { defineCardsAssistant } from '@cards/sdk/config';
+import { defineCardsAssistant } from '@cards.management/sdk/config';
 
 export default defineCardsAssistant(
   {},

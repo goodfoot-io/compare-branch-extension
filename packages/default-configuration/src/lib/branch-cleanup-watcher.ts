@@ -13,8 +13,8 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { Logger } from '@cards/sdk/config';
+import { createCardsClient } from '@cards.management/sdk/client/discovery';
+import { Logger } from '@cards.management/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
 
 /**

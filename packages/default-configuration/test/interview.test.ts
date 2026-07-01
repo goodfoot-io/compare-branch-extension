@@ -1,9 +1,9 @@
 import type { ChildProcess } from 'node:child_process';
 import path from 'node:path';
-import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { Logger } from '@cards/sdk/config';
-import type { BranchInfo } from '@cards/sdk/protocol';
-import { flushMicrotasks } from '@cards/test-utils';
+import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
+import type { BranchInfo } from '@cards.management/sdk/protocol';
+import { flushMicrotasks } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -35,7 +35,7 @@ vi.mock('node:fs/promises', () => ({
   rm: vi.fn()
 }));
 
-vi.mock('@cards/sdk/worktree', () => ({
+vi.mock('@cards.management/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
@@ -45,7 +45,7 @@ vi.mock('@cards/sdk/worktree', () => ({
 // per-card outfit. Mock it as a thin adapter that forwards to the low-level
 // createWorktree mock (see claude-session.test.ts) so these tests keep asserting
 // the pure-primitive call shape without running the real outfit side effects.
-vi.mock('@cards/sdk/worktree-for-card', () => ({
+vi.mock('@cards.management/sdk/worktree-for-card', () => ({
   createWorktreeForCard: vi.fn()
 }));
 
@@ -124,14 +124,14 @@ beforeEach(async () => {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards.management/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
 
   // Forward the orchestrator to the low-level createWorktree mock with the
   // outfit-bearing options, so per-case createWorktree overrides and assertions
   // keep working against the pure-primitive call shape.
-  const { createWorktreeForCard } = await import('@cards/sdk/worktree-for-card');
+  const { createWorktreeForCard } = await import('@cards.management/sdk/worktree-for-card');
   vi.mocked(createWorktreeForCard).mockImplementation((_client, ref, opts) =>
     createWorktree(ref, {
       cwd: opts.cwd,
@@ -531,7 +531,7 @@ describe('Default Actions', () => {
 
       it('creates worktree when no branches exist', async () => {
         const { spawn } = await import('node:child_process');
-        const { createWorktree } = await import('@cards/sdk/worktree');
+        const { createWorktree } = await import('@cards.management/sdk/worktree');
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
@@ -571,7 +571,7 @@ describe('Default Actions', () => {
       it('reuses existing worktree when branch exists on disk', async () => {
         const { spawn } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
-        const { createWorktree } = await import('@cards/sdk/worktree');
+        const { createWorktree } = await import('@cards.management/sdk/worktree');
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
@@ -727,7 +727,7 @@ describe('Default Actions', () => {
       });
 
       it('throws when createWorktree fails', async () => {
-        const { createWorktree } = await import('@cards/sdk/worktree');
+        const { createWorktree } = await import('@cards.management/sdk/worktree');
         vi.mocked(createWorktree).mockRejectedValue(new Error('disk full'));
 
         const action = (await import('../src/actions/interview.js')).default;

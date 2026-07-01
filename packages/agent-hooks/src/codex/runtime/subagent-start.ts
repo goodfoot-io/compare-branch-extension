@@ -7,8 +7,8 @@
  * @summary SubagentStart hook — card context injection only
  */
 
-import { extractActionInput } from '@cards/sdk/config';
-import { addActiveSubagent } from '@cards/sessions/card-repo';
+import { extractActionInput } from '@cards.management/sdk/config';
+import { addActiveSubagent } from '@cards.management/sessions/card-repo';
 import { subagentStartHook, subagentStartOutput } from '@goodfoot/codex-hooks';
 import { buildAdditionalContext, CardRepoAccessError } from '../../shared/context.js';
 

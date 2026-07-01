@@ -8,9 +8,9 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { findAgentPid } from '@cards/sdk/process-tree';
-import { writeSessionHeadSha } from '@cards/sessions/card-repo';
-import { TestGitWorkspace } from '@cards/test-utils';
+import { findAgentPid } from '@cards.management/sdk/process-tree';
+import { writeSessionHeadSha } from '@cards.management/sessions/card-repo';
+import { TestGitWorkspace } from '@cards.management/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook, { resolveHeadSha } from '../../../src/claude/runtime/session-start.js';
@@ -37,11 +37,11 @@ vi.mock('node:fs', async (importOriginal) => ({
   existsSync: vi.fn(() => true)
 }));
 
-vi.mock('@cards/sdk/process-tree', () => ({
+vi.mock('@cards.management/sdk/process-tree', () => ({
   findAgentPid: vi.fn()
 }));
 
-vi.mock('@cards/sessions/card-repo', () => ({
+vi.mock('@cards.management/sessions/card-repo', () => ({
   writeSessionHeadSha: vi.fn()
 }));
 

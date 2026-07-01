@@ -8,9 +8,9 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
-import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { Logger } from '@cards/sdk/config';
-import { flushMicrotasks } from '@cards/test-utils';
+import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
+import { flushMicrotasks } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Bundled hook definitions, imported as JSON modules (not via the mocked
 // `node:fs`) so the trust-seeding tests below feed production code the real
@@ -68,13 +68,13 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('@cards/sdk/worktree', () => ({
+vi.mock('@cards.management/sdk/worktree', () => ({
   findGitRoots: vi.fn(),
   checkWorktreeExists: vi.fn(),
   createWorktree: vi.fn()
 }));
 
-vi.mock('@cards/sdk/worktree-for-card', () => ({
+vi.mock('@cards.management/sdk/worktree-for-card', () => ({
   createWorktreeForCard: vi.fn()
 }));
 
@@ -487,7 +487,7 @@ describe('codex-session library', () => {
       });
 
       // Worktree
-      const { findGitRoots, checkWorktreeExists, createWorktree } = await import('@cards/sdk/worktree');
+      const { findGitRoots, checkWorktreeExists, createWorktree } = await import('@cards.management/sdk/worktree');
       vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
       vi.mocked(checkWorktreeExists).mockResolvedValue(false);
       vi.mocked(createWorktree).mockResolvedValue({
@@ -500,7 +500,7 @@ describe('codex-session library', () => {
       });
 
       // createWorktreeForCard forwards to createWorktree mock
-      const { createWorktreeForCard } = await import('@cards/sdk/worktree-for-card');
+      const { createWorktreeForCard } = await import('@cards.management/sdk/worktree-for-card');
       vi.mocked(createWorktreeForCard).mockImplementation((_client, ref, opts) =>
         createWorktree(ref, {
           cwd: opts.cwd,

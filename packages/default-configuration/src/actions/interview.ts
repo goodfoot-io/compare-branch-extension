@@ -22,7 +22,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import { type ActionContext, type ActionInput, defineAction } from '@cards.management/sdk/config';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';

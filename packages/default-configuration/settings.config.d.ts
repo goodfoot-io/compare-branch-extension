@@ -7,5 +7,5 @@
  *
  * @module
  */
-declare const _default: import('@cards/sdk/config').SettingsConfig;
+declare const _default: import('@cards.management/sdk/config').SettingsConfig;
 export default _default;

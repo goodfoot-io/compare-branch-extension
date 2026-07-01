@@ -10,7 +10,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { addActiveSubagent, removeActiveSubagent } from '@cards/sessions/card-repo';
+import { addActiveSubagent, removeActiveSubagent } from '@cards.management/sessions/card-repo';
 import { afterEach, describe, expect, it } from 'vitest';
 import { isSessionIdle } from '../../src/shared/session-idle.js';
 

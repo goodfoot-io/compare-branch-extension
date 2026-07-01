@@ -1,7 +1,7 @@
 import type { ChildProcess } from 'node:child_process';
-import type { CardsAssistantContext, CardsAssistantInput } from '@cards/sdk/config';
-import { Logger } from '@cards/sdk/config';
-import { flushMicrotasks } from '@cards/test-utils';
+import type { CardsAssistantContext, CardsAssistantInput } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
+import { flushMicrotasks } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -30,7 +30,7 @@ vi.mock('cross-spawn', async () => {
 });
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
-  // @cards/sdk's index runs `promisify(execFile)` at module load, and execFileSync
+  // @cards.management/sdk's index runs `promisify(execFile)` at module load, and execFileSync
   // is used by the worktree primitives, so both must exist on the mock for the
   // module graph to import even though these tests only assert on spawn.
   execFile: vi.fn(),

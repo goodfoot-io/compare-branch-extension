@@ -1,6 +1,6 @@
 <instructions>
 
-This document describes stream renderer development with `@cards/sdk/config` and `@cards/sdk/stream-store`.
+This document describes stream renderer development with `@cards.management/sdk/config` and `@cards.management/sdk/stream-store`.
 
 ## Overview
 
@@ -10,7 +10,7 @@ A stream renderer is a static HTML file served inside an iframe by the Cards Ext
 2. Loads the renderer's `index.html` in the iframe.
 3. Sends `postMessage` events as new lines arrive.
 
-The `@cards/sdk/stream-store` package provides a Zustand store pre-initialized from `window.__STREAM_INIT__` and action functions for communicating back to the host.
+The `@cards.management/sdk/stream-store` package provides a Zustand store pre-initialized from `window.__STREAM_INIT__` and action functions for communicating back to the host.
 
 ## File Structure
 
@@ -38,7 +38,7 @@ my-config/
 Register the renderer in `settings.config.ts` using `wwwRoot`:
 
 ```typescript
-import { defineConfig } from '@cards/sdk/config';
+import { defineConfig } from '@cards.management/sdk/config';
 
 export default defineConfig({
   environments: {
@@ -69,15 +69,15 @@ export default defineConfig({
 
 ## The stream-store SDK
 
-Import from `@cards/sdk/stream-store` inside the renderer's `<script type="module">`:
+Import from `@cards.management/sdk/stream-store` inside the renderer's `<script type="module">`:
 
 ```html
 <script type="module">
-  import { streamStore, subscribe, close, openFile, showDiff } from '@cards/sdk/stream-store';
+  import { streamStore, subscribe, close, openFile, showDiff } from '@cards.management/sdk/stream-store';
 </script>
 ```
 
-> The host rewrites `@cards/sdk/stream-store` to an injected module path before the iframe loads — no bundler or build step is required in the renderer.
+> The host rewrites `@cards.management/sdk/stream-store` to an injected module path before the iframe loads — no bundler or build step is required in the renderer.
 
 ### streamStore
 
@@ -187,7 +187,7 @@ streamStore.subscribe((newState) => {
   <div id="root"></div>
 
   <script type="module">
-    import { streamStore, subscribe } from '@cards/sdk/stream-store';
+    import { streamStore, subscribe } from '@cards.management/sdk/stream-store';
 
     const root = document.getElementById('root');
 
@@ -251,7 +251,7 @@ Renderers run inside the extension's webview and can use VS Code CSS custom prop
 ## Development Checklist
 
 - [ ] `wwwRoot` path in `settings.config.ts` points to a directory containing `index.html`
-- [ ] Renderer imports `@cards/sdk/stream-store` via `<script type="module">`
+- [ ] Renderer imports `@cards.management/sdk/stream-store` via `<script type="module">`
 - [ ] Renderer layout works within the host-controlled iframe height for compact and expanded modes
 - [ ] `streamStore.subscribe(...)` wired up to re-render on store changes
 - [ ] Primary file bootstrapped from `streamStore.getState()` before subscribing

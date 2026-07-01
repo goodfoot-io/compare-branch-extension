@@ -1,7 +1,7 @@
 /**
  * Re-export barrel for API discovery.
  *
- * The extension test bundler resolves `@cards/sdk/client/discovery` by
+ * The extension test bundler resolves `@cards.management/sdk/client/discovery` by
  * convention to `sdk/src/client/discovery.ts`. The canonical implementation
  * lives in {@link module:client/api-discovery api-discovery.ts}; this file
  * bridges the package.json export path to the implementation file.

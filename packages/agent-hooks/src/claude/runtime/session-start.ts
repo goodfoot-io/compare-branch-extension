@@ -10,13 +10,13 @@
  */
 
 import { join } from 'node:path';
-import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
-import { execFileSyncNoWindow } from '@cards/sdk/bin/child-process';
-import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
-import type { ActionInput } from '@cards/sdk/config';
-import { extractActionInput } from '@cards/sdk/config';
-import { findAgentPid } from '@cards/sdk/process-tree';
-import { writeSessionHeadSha } from '@cards/sessions/card-repo';
+import { runReconciliationSweep } from '@cards.management/sdk/bin/adhoc-refs';
+import { execFileSyncNoWindow } from '@cards.management/sdk/bin/child-process';
+import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards.management/sdk/bin/spawn-transcript-watcher';
+import type { ActionInput } from '@cards.management/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
+import { findAgentPid } from '@cards.management/sdk/process-tree';
+import { writeSessionHeadSha } from '@cards.management/sessions/card-repo';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
 import {
   buildAdditionalContext,
