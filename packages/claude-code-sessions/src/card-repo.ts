@@ -219,6 +219,46 @@ export function removeSessionRouteNudge(sessionId: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Per-session skill-load marker
+// ---------------------------------------------------------------------------
+
+function getSessionSkillLoadPath(sessionId: string, skillName: string): string {
+  const sanitized = skillName.replace(/[^a-zA-Z0-9]/g, '-');
+  return join(getCardRepoCommitsDir(), `${sessionId}.skill-${sanitized}`);
+}
+
+/**
+ * Creates a per-session skill-load marker file for the given skill.
+ * Creates directory if it doesn't exist.
+ *
+ * @param sessionId - Session to mark as having loaded the skill.
+ * @param skillName - Name of the skill that was loaded (e.g., `cards:cards`).
+ * @throws Error when directory creation or file write fails.
+ */
+export function markSessionSkillLoaded(sessionId: string, skillName: string): void {
+  mkdirSync(getCardRepoCommitsDir(), { recursive: true, mode: 0o700 });
+  writeFileSync(getSessionSkillLoadPath(sessionId, skillName), '', { mode: 0o600 });
+}
+
+/**
+ * Returns whether the per-session skill-load marker file exists for the given skill.
+ *
+ * @param sessionId - Session to check.
+ * @param skillName - Name of the skill to check (e.g., `cards:cards`).
+ * @returns `true` when the marker exists, `false` on `ENOENT`.
+ * @throws Error when the check fails for reasons other than `ENOENT`.
+ */
+export function hasSessionSkillLoaded(sessionId: string, skillName: string): boolean {
+  try {
+    readFileSync(getSessionSkillLoadPath(sessionId, skillName));
+    return true;
+  } catch (error) {
+    if (hasErrnoCode(error, 'ENOENT')) return false;
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Per-session exit-when-done nudge marker
 // ---------------------------------------------------------------------------
 
