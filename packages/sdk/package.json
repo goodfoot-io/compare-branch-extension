@@ -28,6 +28,7 @@
     "./card-repo-layout": "./src/cardRepoLayout.ts",
     "./card-summary": "./src/cardSummary.ts",
     "./search-utils": "./src/searchUtils.ts",
+    "./symlink-capability": "./src/symlink-capability.ts",
     "./timer": "./src/timer.ts",
     "./bin/spawn-transcript-watcher": "./src/bin/spawn-transcript-watcher.ts",
     "./bin/spawn-adhoc-cleanup": "./src/bin/spawn-adhoc-cleanup.ts",
