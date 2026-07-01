@@ -84,7 +84,9 @@ async function probeSymlinkCapability(): Promise<boolean> {
     // Unexpected error — treat as incapable (fail-closed) but write to stderr
     // so the cause is diagnosable rather than silently swallowed.
     process.stderr.write(
-      `canCreateSymlinks: unexpected error during symlink probe: ${error instanceof Error ? error.message : String(error)}\n`
+      `canCreateSymlinks: unexpected error during symlink probe: ` +
+        `code=${(error as NodeJS.ErrnoException).code ?? 'unknown'}, ` +
+        `message=${error instanceof Error ? error.message : String(error)}\n`
     );
     return false;
   } finally {

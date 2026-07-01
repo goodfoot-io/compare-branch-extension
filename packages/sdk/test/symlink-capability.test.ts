@@ -110,6 +110,47 @@ describe('canCreateSymlinks', () => {
       const result = await canCreateSymlinks();
       expect(result).toBe(false);
     });
+
+    it('includes error code in stderr message for unexpected errors', async () => {
+      const unexpectedError = Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+      vi.mocked(fs.symlink).mockRejectedValueOnce(unexpectedError);
+      const chunks: string[] = [];
+      const origWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((chunk: any) => {
+        chunks.push(typeof chunk === 'string' ? chunk : chunk.toString());
+        return true;
+      }) as typeof process.stderr.write;
+
+      try {
+        const result = await canCreateSymlinks();
+        expect(result).toBe(false);
+        const stderrText = chunks.join('');
+        expect(stderrText).toContain('code=ENOSPC');
+        expect(stderrText).toContain('message=disk full');
+      } finally {
+        process.stderr.write = origWrite;
+      }
+    });
+
+    it('writes code=unknown to stderr when error has no code', async () => {
+      const noCodeError = new Error('some mystery');
+      vi.mocked(fs.symlink).mockRejectedValueOnce(noCodeError);
+      const chunks: string[] = [];
+      const origWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((chunk: any) => {
+        chunks.push(typeof chunk === 'string' ? chunk : chunk.toString());
+        return true;
+      }) as typeof process.stderr.write;
+
+      try {
+        const result = await canCreateSymlinks();
+        expect(result).toBe(false);
+        const stderrText = chunks.join('');
+        expect(stderrText).toContain('code=unknown');
+      } finally {
+        process.stderr.write = origWrite;
+      }
+    });
   });
 
   // --------------------------------------------------------------------------
