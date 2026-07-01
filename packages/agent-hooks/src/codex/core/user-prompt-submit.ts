@@ -6,8 +6,9 @@
  * the `cards:cards` skill has already been loaded this session (checked via
  * {@link hasSessionSkillLoaded}), then scans the prompt for two signals:
  *
- * 1. **Term match** — the word "card" or "cards" (case-insensitive, word-
- *    boundary-bounded).
+ * 1. **Term match** — the standalone word "cards" (case-insensitive,
+ *    bounded by whitespace or string start/end, not `\b`, so it won't match
+ *    inside identifiers/paths like `@cards/sessions`).
  * 2. **Card ID detection** — regex-captures `<prefix>-<counter>` tokens,
  *    validates the counter with last-hyphen split logic (mirroring
  *    `parseCardId`), and confirms the card exists on disk at
@@ -94,13 +95,16 @@ function findCardIds(prompt: string): string[] {
 }
 
 /**
- * Case-insensitive scan for the word "card" or "cards" with word boundaries.
+ * Case-insensitive scan for the standalone word "cards", bounded by
+ * whitespace (or string start/end) rather than `\b`, so identifiers like
+ * `@cards/sessions/card-repo` don't match — `\b` treats `/` and `@` as word
+ * boundaries too, which caused false positives on package paths.
  *
  * @param prompt - The user's prompt text to scan.
- * @returns `true` when the prompt contains "card" or "cards" as a whole word.
+ * @returns `true` when the prompt contains "cards" as a standalone word.
  */
 function promptHasCardTerm(prompt: string): boolean {
-  return /\bcards?\b/i.test(prompt);
+  return /(?:^|\s)cards(?:\s|$)/i.test(prompt);
 }
 
 // ---------------------------------------------------------------------------
