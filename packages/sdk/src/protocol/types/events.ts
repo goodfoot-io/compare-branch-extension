@@ -13,6 +13,12 @@ import type { BranchInfo } from './branch.js';
 import type { CardGates, CardRelation } from './card.js';
 import type { CompareState } from './compare.js';
 import type { CardCommit } from './fs.js';
+import type {
+  CardJournalEventMessage,
+  CardReplayMessage,
+  CardSnapshotMessage,
+  CardSubscribeFailedMessage
+} from './journal.js';
 import type { ActionResult, ExecutionMode } from './settings.js';
 import type { CardStatus } from './status.js';
 import type { StreamMeta } from './stream.js';
@@ -451,4 +457,11 @@ export type DomainEvent =
   | CardIncomingRelationsChangedEvent
   | CardsMetadataEvent
   | ActionExecuteRequestEvent
-  | ActionExecuteResultEvent;
+  | ActionExecuteResultEvent
+  // Journal / subscribe-replay protocol (server -> client only; the client ->
+  // server CardSubscribeMessage/CardUnsubscribeMessage half of the protocol
+  // lives in ./journal.js and is not part of this receive-side union).
+  | CardReplayMessage
+  | CardSnapshotMessage
+  | CardSubscribeFailedMessage
+  | CardJournalEventMessage;

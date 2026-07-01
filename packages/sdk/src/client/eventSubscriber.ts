@@ -7,6 +7,14 @@
  */
 
 import type {
+  CardJournalEventMessage,
+  CardReplayMessage,
+  CardSnapshotMessage,
+  CardSubscribeFailedMessage
+} from '../protocol/types/journal.js';
+import type {
+  CardStalenessEvent,
+  CardStalenessState,
   DiscoverResult,
   EventCallback,
   EventMap,
@@ -90,6 +98,20 @@ export class EventSubscriber {
   /** Interval between client-initiated app-level ping messages, in ms. */
   private static readonly HEARTBEAT_INTERVAL_MS = 30_000;
 
+  // --- Per-card journal subscribe/replay state ---
+  /**
+   * Cards the caller has asked to subscribe to via {@link subscribeToCard}.
+   * Persists across reconnects (unlike `cardSeq`, which is cleared on
+   * {@link unsubscribeFromCard}) so a fresh connection knows which cards to
+   * re-subscribe to.
+   */
+  private readonly subscribedCardIds: Set<string> = new Set();
+  /** Last known-good `seq` per card, from a snapshot/replay or an in-order `card:journalEvent`. */
+  private readonly cardSeq: Map<string, number> = new Map();
+  /** Current staleness state per card, for de-duplicating {@link onStaleness} notifications. */
+  private readonly cardStaleness: Map<string, CardStalenessState> = new Map();
+  private readonly stalenessCallbacks: Set<(event: CardStalenessEvent) => void> = new Set();
+
   /**
    * Creates a new EventSubscriber instance.
    *
@@ -144,6 +166,98 @@ export class EventSubscriber {
     const callbacks = this.callbacks.get(event);
     if (callbacks) {
       (callbacks as Set<EventCallback<K>>).delete(callback);
+    }
+  }
+
+  /**
+   * Subscribes to a card's event journal for seq-aware catch-up and live
+   * updates. Sends `card:subscribe` immediately if connected; otherwise the
+   * subscription is remembered and sent as soon as a connection opens
+   * (including future reconnects — see {@link _resubscribeAllCards}).
+   *
+   * The first subscribe (or any subscribe after {@link unsubscribeFromCard})
+   * omits `sinceSeq`, so the server always replies with a snapshot. A
+   * reconnect after that includes the last known-good `seq`, letting the
+   * server reply with a replay when the journal still covers the gap.
+   *
+   * @param cardId - ID of the card whose journal to follow.
+   */
+  subscribeToCard(cardId: string): void {
+    this.subscribedCardIds.add(cardId);
+    this._sendCardSubscribe(cardId);
+  }
+
+  /**
+   * Stops tracking a card: forgets its `seq`/staleness state and sends
+   * `card:unsubscribe` if connected. A later {@link subscribeToCard} call for
+   * the same card starts fresh (snapshot, not replay).
+   *
+   * @param cardId - Card to unsubscribe from.
+   */
+  unsubscribeFromCard(cardId: string): void {
+    this.subscribedCardIds.delete(cardId);
+    this.cardSeq.delete(cardId);
+    this.cardStaleness.delete(cardId);
+    if (this.isConnected()) {
+      this.send({ type: 'card:unsubscribe', cardId });
+    }
+  }
+
+  /**
+   * Registers a callback invoked whenever a subscribed card's staleness state
+   * changes (see {@link CardStalenessState}). Fired at most once per actual
+   * state transition (not on every message).
+   *
+   * @param callback - Function called with the card's new staleness state.
+   * @returns Unsubscribe function to remove this callback.
+   */
+  onStaleness(callback: (event: CardStalenessEvent) => void): () => void {
+    this.stalenessCallbacks.add(callback);
+    return () => {
+      this.stalenessCallbacks.delete(callback);
+    };
+  }
+
+  /**
+   * Sends `card:subscribe` for `cardId` if currently connected, including
+   * `sinceSeq` when we have a last known-good `seq` for it. No-ops while
+   * disconnected — {@link _resubscribeAllCards} covers the reconnect case.
+   *
+   * @param cardId - Card to send the subscribe request for.
+   */
+  private _sendCardSubscribe(cardId: string): void {
+    if (!this.isConnected()) return;
+    const sinceSeq = this.cardSeq.get(cardId);
+    this.send({ type: 'card:subscribe', cardId, ...(sinceSeq !== undefined ? { sinceSeq } : {}) });
+  }
+
+  /**
+   * Re-sends `card:subscribe` for every card in {@link subscribedCardIds}.
+   * Called once per successful connection (initial connect and every
+   * reconnect) so a card subscribed before a drop resumes catch-up from its
+   * last known-good `seq` rather than silently going stale.
+   */
+  private _resubscribeAllCards(): void {
+    for (const cardId of this.subscribedCardIds) {
+      this._sendCardSubscribe(cardId);
+    }
+  }
+
+  /**
+   * Updates staleness state for a card and notifies {@link onStaleness}
+   * callbacks, but only on an actual transition — repeated notifications of
+   * the same state are suppressed.
+   *
+   * @param cardId - Card whose staleness state changed.
+   * @param state - The new staleness state.
+   * @param reason - Present when `state` is `'stale'`.
+   */
+  private _setCardStaleness(cardId: string, state: CardStalenessState, reason?: string): void {
+    const previous = this.cardStaleness.get(cardId);
+    this.cardStaleness.set(cardId, state);
+    if (previous === state) return;
+    for (const cb of this.stalenessCallbacks) {
+      cb({ cardId, state, reason });
     }
   }
 
@@ -257,6 +371,10 @@ export class EventSubscriber {
         this.reconnectAttempts = 0;
         cleanup();
         this._startHeartbeat();
+        // Re-subscribe every tracked card on each successful connection
+        // (initial connect and every reconnect) with its last known-good
+        // seq, so a drop resumes catch-up instead of silently going stale.
+        this._resubscribeAllCards();
         for (const cb of this.connectionChangeCallbacks) {
           cb(true);
         }
@@ -486,19 +604,107 @@ export class EventSubscriber {
       return;
     }
 
+    switch (message.type as string) {
+      case 'card:snapshot':
+        this._handleCardSnapshot(message as unknown as CardSnapshotMessage);
+        break;
+      case 'card:replay':
+        this._handleCardReplay(message as unknown as CardReplayMessage);
+        break;
+      case 'card:subscribeFailed':
+        this._handleCardSubscribeFailed(message as unknown as CardSubscribeFailedMessage);
+        break;
+      case 'card:journalEvent':
+        // Handles its own dispatch (only forwards in-order entries) — return
+        // rather than falling through to the generic dispatch below.
+        this._handleCardJournalEvent(message as unknown as CardJournalEventMessage);
+        return;
+      default:
+        break;
+    }
+
+    this._dispatch(message);
+  }
+
+  /**
+   * Invokes every callback registered for `message.type`, isolating each
+   * callback's failures from its siblings.
+   *
+   * @param message - The parsed message to dispatch.
+   * @param message.type - Discriminator selecting which registered callbacks to invoke.
+   */
+  private _dispatch(message: { type: keyof EventMap }): void {
     const callbacks = this.callbacks.get(message.type);
-    if (callbacks) {
-      // Each typed callback is isolated: an exception in one must not starve
-      // sibling callbacks registered for the same event (Set iteration follows
-      // registration order). Log the failure against the event type so the
-      // diagnostic points at the offending handler, not at JSON parsing.
-      for (const callback of callbacks) {
-        try {
-          (callback as (event: unknown) => void)(message);
-        } catch (error) {
-          this.logger.warn(`Event callback for '${String(message.type)}' threw:`, error);
-        }
+    if (!callbacks) return;
+    // Each typed callback is isolated: an exception in one must not starve
+    // sibling callbacks registered for the same event (Set iteration follows
+    // registration order). Log the failure against the event type so the
+    // diagnostic points at the offending handler, not at JSON parsing.
+    for (const callback of callbacks) {
+      try {
+        (callback as (event: unknown) => void)(message);
+      } catch (error) {
+        this.logger.warn(`Event callback for '${String(message.type)}' threw:`, error);
       }
     }
+  }
+
+  /**
+   * Records the snapshot's `seq` as this card's last known-good position and
+   * clears any staleness — a snapshot is always a full, trustworthy catch-up.
+   *
+   * @param message - Server reply carrying the full card state and its `seq`.
+   */
+  private _handleCardSnapshot(message: CardSnapshotMessage): void {
+    this.cardSeq.set(message.cardId, message.seq);
+    this._setCardStaleness(message.cardId, 'ok');
+  }
+
+  /**
+   * Records the replay's `latestSeq` as this card's last known-good position.
+   * Individual entries are not re-dispatched as separate `card:journalEvent`
+   * callbacks here — callers that need per-entry handling read `entries` off
+   * the dispatched `card:replay` message itself.
+   *
+   * @param message - Server reply carrying ordered catch-up deltas.
+   */
+  private _handleCardReplay(message: CardReplayMessage): void {
+    this.cardSeq.set(message.cardId, message.latestSeq);
+    this._setCardStaleness(message.cardId, 'ok');
+  }
+
+  /**
+   * Marks a card stale: the server could not assemble a snapshot for it.
+   * Surfaced to callers via {@link onStaleness} so they fail closed rather
+   * than trusting whatever local state they had.
+   *
+   * @param message - Server reply naming the card and the failure reason.
+   */
+  private _handleCardSubscribeFailed(message: CardSubscribeFailedMessage): void {
+    this._setCardStaleness(message.cardId, 'stale', message.reason);
+  }
+
+  /**
+   * Applies a live journal entry if — and only if — it is the immediate
+   * successor of the last known-good `seq` for its card. A gap (or a
+   * duplicate/out-of-order entry) means one or more prior entries may have
+   * been lost in transit; rather than risk applying an event whose
+   * predecessor was dropped, this drops the event and re-subscribes with the
+   * last known-good `seq` so the server replays the missing range (or falls
+   * back to a snapshot). Fail closed: never dispatch past a detected gap.
+   *
+   * @param message - Live entry carrying its `seq` and the affected `cardId`.
+   */
+  private _handleCardJournalEvent(message: CardJournalEventMessage): void {
+    const expected = (this.cardSeq.get(message.cardId) ?? 0) + 1;
+    if (message.seq !== expected) {
+      this.logger.warn(
+        `[EventSubscriber] seq gap for card ${message.cardId}: expected ${expected}, got ${message.seq} — re-subscribing`
+      );
+      this._sendCardSubscribe(message.cardId);
+      return;
+    }
+    this.cardSeq.set(message.cardId, message.seq);
+    this._dispatch(message);
   }
 }

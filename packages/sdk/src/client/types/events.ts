@@ -50,6 +50,29 @@ export interface EventSubscriberLogger {
 }
 
 /**
+ * Per-card staleness state surfaced by {@link EventSubscriber.onStaleness}.
+ *
+ * `'ok'` means the subscriber has a fully caught-up view of the card (a
+ * snapshot or gap-free replay has been applied). `'stale'` means catch-up was
+ * impossible — the server could not assemble a snapshot — and callers must
+ * not trust locally-applied state for this card until it recovers.
+ */
+export type CardStalenessState = 'ok' | 'stale';
+
+/**
+ * Emitted by {@link EventSubscriber.onStaleness} whenever a card's staleness
+ * state changes.
+ */
+export interface CardStalenessEvent {
+  /** Card whose staleness state changed. */
+  cardId: string;
+  /** The new staleness state. */
+  state: CardStalenessState;
+  /** Present when `state` is `'stale'` — the reason catch-up failed. */
+  reason?: string;
+}
+
+/**
  * Configuration options for {@link EventSubscriber}.
  */
 export interface EventSubscriberOptions {

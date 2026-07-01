@@ -118,6 +118,21 @@ export type {
 export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 // --- HTTP Client Types ---
 export type { HttpClient } from './http.js';
+// --- Per-Card Journal / Subscribe-Replay Protocol Types ---
+export type {
+  CardJournalClientMessage,
+  CardJournalEntry,
+  CardJournalEventMessage,
+  CardJournalServerMessage,
+  CardReplayMessage,
+  CardSnapshotMessage,
+  CardSubscribeFailedMessage,
+  CardSubscribeMessage,
+  CardUnsubscribeMessage,
+  MergeStatusSnapshot,
+  MergeStatusValue,
+  StaleMergeStatusValue
+} from './journal.js';
 // --- Notification Types ---
 export type { NotificationCreateRequest, NotificationSeverity } from './notifications.js';
 // --- Response Envelope Types ---

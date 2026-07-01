@@ -252,6 +252,14 @@ describe('timeline event types', () => {
             return 'action-execute-request';
           case 'action:executeResult':
             return 'action-execute-result';
+          case 'card:replay':
+            return 'card-replay';
+          case 'card:snapshot':
+            return 'card-snapshot';
+          case 'card:subscribeFailed':
+            return 'card-subscribe-failed';
+          case 'card:journalEvent':
+            return 'card-journal-event';
           default: {
             // Exhaustive check - this should never be reached
             const _exhaustive: never = event;
