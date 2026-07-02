@@ -211,7 +211,7 @@ describe('cards-assistant handler', () => {
     await promise;
   });
 
-  it('pushes initialPrompt as the leading CLI arg ahead of --append-system-prompt', async () => {
+  it('appends initialPrompt behind a -- terminator at the end of cliArgs', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
@@ -222,14 +222,33 @@ describe('cards-assistant handler', () => {
     await flushMicrotasks();
 
     const args = vi.mocked(spawn).mock.calls[0][1] as string[];
-    expect(args[0]).toBe('explain this error');
-    expect(args.indexOf('--append-system-prompt')).toBe(1);
+    expect(args[0]).toBe('--append-system-prompt');
+    expect(args[args.length - 2]).toBe('--');
+    expect(args[args.length - 1]).toBe('explain this error');
 
     child.emit('close', 0);
     await promise;
   });
 
-  it('omits the leading positional arg when initialPrompt is absent', async () => {
+  it('survives a --prefixed prompt as a literal trailing arg behind the -- terminator', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const input = baseInput({ initialPrompt: '--dangerously-skip-permissions' });
+    const handler = (await import('../src/cards-assistant.js')).default;
+    const promise = handler(input, createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    expect(args[args.length - 2]).toBe('--');
+    expect(args[args.length - 1]).toBe('--dangerously-skip-permissions');
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('omits the -- terminator and positional arg when initialPrompt is absent', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
@@ -240,12 +259,13 @@ describe('cards-assistant handler', () => {
 
     const args = vi.mocked(spawn).mock.calls[0][1] as string[];
     expect(args[0]).toBe('--append-system-prompt');
+    expect(args).not.toContain('--');
 
     child.emit('close', 0);
     await promise;
   });
 
-  it('omits the leading positional arg when initialPrompt is an empty string', async () => {
+  it('omits the -- terminator and positional arg when initialPrompt is an empty string', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
@@ -256,6 +276,7 @@ describe('cards-assistant handler', () => {
 
     const args = vi.mocked(spawn).mock.calls[0][1] as string[];
     expect(args[0]).toBe('--append-system-prompt');
+    expect(args).not.toContain('--');
 
     child.emit('close', 0);
     await promise;
