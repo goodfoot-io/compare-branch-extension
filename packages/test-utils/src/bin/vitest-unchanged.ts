@@ -4,8 +4,10 @@
  * last successful run. When files have changed (or args target specific tests),
  * runs vitest and caches the result on success.
  *
- * Cache is stored centrally in the git common directory so that worktrees
- * sharing the same repository can reuse results. Cache identity is based on
+ * Cache is stored centrally under the OS temp directory, keyed by a hash of
+ * the git common directory, so that worktrees sharing the same repository
+ * can reuse results and the cache survives the repo checkout itself being
+ * reset/recreated between sessions. Cache identity is based on
  * a SHA-256 content hash that covers tracked files (`git ls-files -s`),
  * all dirty tracked files (stat-based: size + mtime), and all untracked
  * files (`git ls-files -o --exclude-standard`). A local mtime sentinel
@@ -296,7 +298,11 @@ async function getCentralCacheDir(): Promise<string> {
   } catch {
     packageName = basename(cwd);
   }
-  return join(gitCommonDir, '.vitest-unchanged-cache', packageName);
+  // The OS temp directory is used instead of the git common directory itself
+  // because a repo checkout can be reset/recreated between sessions while the
+  // OS temp directory persists, so the cache survives across those resets.
+  const repoKey = createHash('sha256').update(gitCommonDir).digest('hex').slice(0, 16);
+  return join(os.tmpdir(), 'vitest-unchanged-cache', repoKey, packageName);
 }
 
 async function readCache(cachePath: string): Promise<Cache | null> {
