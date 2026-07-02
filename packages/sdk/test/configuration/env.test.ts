@@ -15,6 +15,7 @@ import {
   getEnvironment,
   getExecutionMode,
   getExitWhenDone,
+  getInitialPrompt,
   getVscodeNodePath
 } from '../../src/config/env.js';
 
@@ -63,6 +64,7 @@ describe('env', () => {
         WORKSPACE_BRANCH: 'WORKSPACE_BRANCH',
         EXTENSION_PATH: 'EXTENSION_PATH',
         MARKETPLACE_PATH: 'MARKETPLACE_PATH',
+        INITIAL_PROMPT: 'INITIAL_PROMPT',
         CARDS_BIN_PATH: 'CARDS_BIN_PATH',
         HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE'
       });
@@ -184,6 +186,22 @@ describe('env', () => {
     it('should return undefined when CODING_AGENT is empty string', () => {
       process.env[CARDS_ENV_VARS.CODING_AGENT] = '';
       expect(getCodingAgent()).toBeUndefined();
+    });
+  });
+
+  describe('getInitialPrompt', () => {
+    it('should return the prompt when set', () => {
+      process.env[CARDS_ENV_VARS.INITIAL_PROMPT] = 'explain this error';
+      expect(getInitialPrompt()).toBe('explain this error');
+    });
+
+    it('should return undefined when INITIAL_PROMPT is not set', () => {
+      expect(getInitialPrompt()).toBeUndefined();
+    });
+
+    it('should return undefined when INITIAL_PROMPT is an empty string', () => {
+      process.env[CARDS_ENV_VARS.INITIAL_PROMPT] = '';
+      expect(getInitialPrompt()).toBeUndefined();
     });
   });
 
@@ -331,7 +349,8 @@ describe('env', () => {
         marketplacePath: '/test/marketplace',
         extensionPath: '/extension/path',
         codingAgent: undefined,
-        repoRoot: '/workspace/project'
+        repoRoot: '/workspace/project',
+        initialPrompt: undefined
       });
     });
 
@@ -342,6 +361,24 @@ describe('env', () => {
       const input = extractCardsAssistantInput();
 
       expect(input.codingAgent).toBe('claude-code-cli');
+    });
+
+    it('should include initialPrompt when set', () => {
+      setupCardsAssistantEnv();
+      process.env[CARDS_ENV_VARS.INITIAL_PROMPT] = 'explain this error';
+
+      const input = extractCardsAssistantInput();
+
+      expect(input.initialPrompt).toBe('explain this error');
+    });
+
+    it('should treat an empty INITIAL_PROMPT the same as absent', () => {
+      setupCardsAssistantEnv();
+      process.env[CARDS_ENV_VARS.INITIAL_PROMPT] = '';
+
+      const input = extractCardsAssistantInput();
+
+      expect(input.initialPrompt).toBeUndefined();
     });
 
     it('should not require CARD_ID or ACTION_NAME', () => {

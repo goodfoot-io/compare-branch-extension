@@ -218,6 +218,18 @@ export const CARDS_ENV_VARS = {
   MARKETPLACE_PATH: 'MARKETPLACE_PATH',
 
   /**
+   * Opening prompt for the cards assistant, seeding the session's first user
+   * turn instead of leaving it to wait for typed input.
+   *
+   * Set by the extension host from the caller-supplied argument to
+   * `cards.startCardsAssistant`. Absent (or empty) reproduces today's cold
+   * start.
+   *
+   * Available in the cards-assistant handler only.
+   */
+  INITIAL_PROMPT: 'INITIAL_PROMPT',
+
+  /**
    * Absolute path to the extension's cards CLI bin directory
    * (`<extensionPath>/dist/bin`).
    *
@@ -626,6 +638,20 @@ export function getMarketplacePath(): string {
 }
 
 /**
+ * Reads the cards assistant's opening prompt, if the caller supplied one.
+ *
+ * Unlike the other getters in this section, this is non-throwing: an absent
+ * or empty value means "no opening prompt" (today's cold start), not a
+ * misconfiguration.
+ *
+ * @returns The opening prompt string, or undefined if not set or empty.
+ */
+export function getInitialPrompt(): string | undefined {
+  const value = process.env[CARDS_ENV_VARS.INITIAL_PROMPT];
+  return value === undefined || value === '' ? undefined : value;
+}
+
+/**
  * Reads and parses the switchToInteractive data file.
  *
  * When `SWITCH_TO_INTERACTIVE_DATA_PATH` is set, reads the file at that path
@@ -700,6 +726,7 @@ export function extractCardsAssistantInput(): CardsAssistantInput {
     marketplacePath: getMarketplacePath(),
     extensionPath: getExtensionPath(),
     codingAgent: getCodingAgent(),
-    repoRoot: getRepoRoot()
+    repoRoot: getRepoRoot(),
+    initialPrompt: getInitialPrompt()
   };
 }

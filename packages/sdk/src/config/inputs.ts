@@ -246,6 +246,14 @@ export interface CardsAssistantInput {
    * Absolute path to the main git repository root (NOT a worktree).
    */
   repoRoot: string;
+
+  /**
+   * Opening prompt seeding the session's first user turn.
+   *
+   * Optional. When absent or empty, the session waits for the user's first
+   * message, matching today's cold start.
+   */
+  initialPrompt?: string;
 }
 
 /**
