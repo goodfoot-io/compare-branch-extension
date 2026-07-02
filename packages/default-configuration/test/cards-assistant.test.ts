@@ -211,6 +211,56 @@ describe('cards-assistant handler', () => {
     await promise;
   });
 
+  it('pushes initialPrompt as the leading CLI arg ahead of --append-system-prompt', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const input = baseInput({ initialPrompt: 'explain this error' });
+    const handler = (await import('../src/cards-assistant.js')).default;
+    const promise = handler(input, createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    expect(args[0]).toBe('explain this error');
+    expect(args.indexOf('--append-system-prompt')).toBe(1);
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('omits the leading positional arg when initialPrompt is absent', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const handler = (await import('../src/cards-assistant.js')).default;
+    const promise = handler(baseInput(), createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    expect(args[0]).toBe('--append-system-prompt');
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('omits the leading positional arg when initialPrompt is an empty string', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const handler = (await import('../src/cards-assistant.js')).default;
+    const promise = handler(baseInput({ initialPrompt: '' }), createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    expect(args[0]).toBe('--append-system-prompt');
+
+    child.emit('close', 0);
+    await promise;
+  });
+
   it('fails closed when spawn errors: logs and settles without hanging', async () => {
     forcePlatform('win32');
     const { spawn } = await import('node:child_process');

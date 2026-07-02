@@ -10,6 +10,13 @@
  *   `--profile cards-assistant` and the interview instructions as a
  *   `developer_instructions` override via `-c`.
  *
+ * When `input.initialPrompt` is set, it is pushed onto the Claude branch's
+ * `cliArgs` ahead of `--append-system-prompt` — the same leading-positional-
+ * argument convention `buildArgs()` in `./lib/claude-session.js` already uses
+ * for action handlers — so `claude` treats it as the session's opening user
+ * turn. The Codex branch does not read it; it is unreachable via
+ * `cards.startCardsAssistant` in this release.
+ *
  * Unlike action handlers, this handler has no card context, no worktree, and no
  * socket. It runs in `input.repoRoot` under either coding agent.
  *
@@ -115,7 +122,13 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
     }
   });
 
-  const cliArgs = ['--append-system-prompt', INTERVIEW_INSTRUCTIONS, '--settings', settingsJson];
+  const cliArgs = [
+    ...(input.initialPrompt ? [input.initialPrompt] : []),
+    '--append-system-prompt',
+    INTERVIEW_INSTRUCTIONS,
+    '--settings',
+    settingsJson
+  ];
 
   logger.info('Starting cards assistant', {
     cwd: input.repoRoot,
