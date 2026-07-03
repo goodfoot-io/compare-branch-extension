@@ -6,6 +6,7 @@
  * @summary Tests for the Claude user-prompt-submit card-nudge hook
  */
 
+import { existsSync } from 'node:fs';
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +15,12 @@ vi.mock('@cards.management/sessions/card-repo', () => ({
   hasSessionSkillLoaded: vi.fn()
 }));
 
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn()
+}));
+
 const mockHasSessionSkillLoaded = vi.mocked(hasSessionSkillLoaded);
+const mockExistsSync = vi.mocked(existsSync);
 
 const mockLogger: Logger = {
   debug: vi.fn(),
@@ -24,15 +30,25 @@ const mockLogger: Logger = {
 } as unknown as Logger;
 
 describe('claude user-prompt-submit card-nudge hook', () => {
+  const originalCardId = process.env['CARD_ID'];
+
   beforeEach(() => {
     mockHasSessionSkillLoaded.mockReset();
     mockHasSessionSkillLoaded.mockReturnValue(false);
+    mockExistsSync.mockReset();
+    mockExistsSync.mockReturnValue(false);
     vi.mocked(mockLogger.info).mockReset();
     vi.mocked(mockLogger.warn).mockReset();
+    delete process.env['CARD_ID'];
   });
 
   afterEach(() => {
     vi.resetModules();
+    if (originalCardId === undefined) {
+      delete process.env['CARD_ID'];
+    } else {
+      process.env['CARD_ID'] = originalCardId;
+    }
   });
 
   async function runHook(prompt: string, sessionId = 'sess-abc') {
@@ -115,5 +131,62 @@ describe('claude user-prompt-submit card-nudge hook', () => {
 
     expect(result).toBeNull();
     expect(mockLogger.info).not.toHaveBeenCalled();
+  });
+
+  it('appends the CARD.md pointer once after a single confirmed card ID', async () => {
+    mockExistsSync.mockReturnValue(true);
+
+    const result = await runHook('continue card main-369 implementation');
+    const context = additionalContextOf(result);
+
+    expect(context).toContain('Card `main-369` is available in the `');
+    expect(context).toContain('Read CARD.md in the repository for more information.');
+    expect(context?.match(/Read CARD\.md/g)).toHaveLength(1);
+  });
+
+  it('lists every confirmed card ID before a single trailing CARD.md pointer', async () => {
+    mockExistsSync.mockReturnValue(true);
+
+    const result = await runHook('reconcile card main-369 and card main-370');
+    const context = additionalContextOf(result) ?? '';
+
+    expect(context).toContain('Card `main-369` is available in the `');
+    expect(context).toContain('Card `main-370` is available in the `');
+    expect(context.match(/Read CARD\.md/g)).toHaveLength(1);
+    expect(context.indexOf('Card `main-370`')).toBeLessThan(context.indexOf('Read CARD.md'));
+  });
+
+  it('does not append a CARD.md pointer when no card ID is confirmed', async () => {
+    const result = await runHook('the card system needs work');
+    const context = additionalContextOf(result) ?? '';
+
+    expect(context).not.toContain('Read CARD.md');
+  });
+
+  it('suppresses the nudge when CARD_ID matches the card ID mentioned in the prompt', async () => {
+    mockExistsSync.mockReturnValue(true);
+    process.env['CARD_ID'] = 'main-369';
+
+    const result = await runHook('continue card main-369 implementation');
+
+    expect(result).toBeNull();
+    expect(mockLogger.info).not.toHaveBeenCalled();
+  });
+
+  it('still nudges when CARD_ID is set but does not match the card ID in the prompt', async () => {
+    mockExistsSync.mockReturnValue(true);
+    process.env['CARD_ID'] = 'main-370';
+
+    const result = await runHook('continue card main-369 implementation');
+
+    expect(additionalContextOf(result)).toContain('Card `main-369` is available');
+  });
+
+  it('still nudges when CARD_ID is set but the prompt names no card ID', async () => {
+    process.env['CARD_ID'] = 'main-369';
+
+    const result = await runHook('the card system needs work');
+
+    expect(additionalContextOf(result)).toContain('Load the `cards:cards` skill.');
   });
 });

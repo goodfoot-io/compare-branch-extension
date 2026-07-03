@@ -20,12 +20,17 @@
  *    `parseCardId`), and confirms the card exists on disk at
  *    `~/.cards/cards-repos/<candidate>`.
  *
+ * Also short-circuits when the execution wrapper's `CARD_ID` env var matches
+ * one of the confirmed card IDs in the prompt — the agent is already working
+ * that card, so naming it again is not a signal to nudge.
+ *
  * When a signal is found, the hook injects an `additionalContext` nudge
  * instructing the agent to load the skill, and lists any confirmed card IDs
- * with their repo paths. When creation intent fires, the nudge is a stronger,
- * more specific steer toward the create-card flow rather than the generic
- * "load the skill" line. The same content is mirrored as `systemMessage` so
- * the user sees the nudge too.
+ * with their repo paths, followed by a single trailing "Read CARD.md in the
+ * repository for more information." line (not repeated per card). When
+ * creation intent fires, the nudge is a stronger, more specific steer toward
+ * the create-card flow rather than the generic "load the skill" line. The
+ * same content is mirrored as `systemMessage` so the user sees the nudge too.
  *
  * Fail-open: any unexpected error is logged and the hook returns `null`.
  *
@@ -209,7 +214,11 @@ function buildNudgeContext(cardIds: string[], hasCreationIntent: boolean): strin
 
   for (const id of cardIds) {
     const repoPath = join(homedir(), '.cards', 'cards-repos', id);
-    lines.push(`Card \`${id}\` is available in the \`${repoPath}\` git repository. Read CARD.md for more information.`);
+    lines.push(`Card \`${id}\` is available in the \`${repoPath}\` git repository.`);
+  }
+
+  if (cardIds.length > 0) {
+    lines.push('Read CARD.md in the repository for more information.');
   }
 
   return `<cards-extension>\n${lines.join('\n')}\n</cards-extension>`;
@@ -227,6 +236,11 @@ export default userPromptSubmitHook({}, async (input, { logger }) => {
     const hasTerm = promptHasCardTerm(input.prompt);
     const hasCreationIntent = promptHasCreationIntent(input.prompt);
     const cardIds = findCardIds(input.prompt);
+
+    // Already working the identified card (CARD_ID env set by the execution
+    // wrapper) — the prompt naming that same card is not a signal to nudge.
+    const currentCardId = process.env['CARD_ID']?.trim();
+    if (currentCardId && cardIds.includes(currentCardId)) return null;
 
     if (!hasTerm && !hasCreationIntent && cardIds.length === 0) return null;
 
