@@ -137,7 +137,7 @@ Based on the aggregated verdicts:
 ## 6. Dispatch Developer Wave
 
 Group the findings by coherence, using the same routing principle as `./implementation-with-plan.md`'s `<dispatch>`:
-- **Independent files OR uniform fixes**: Parallel — concurrent developers, one commit after the group returns.
+- **Independent files OR uniform fixes**: Parallel — concurrent developers, one commit after the group returns. Before dispatching, confirm each developer's "File Ownership" set is disjoint from every other developer's in the same group — if any file overlaps, route Coherent or Sequential instead.
 - **Dependent + varied + small**: Coherent — single developer for all findings, one commit.
 - **Dependent + varied + substantial with clear gates**: Sequential — ordered developers with a validate-and-commit gate between phases.
 
@@ -192,6 +192,8 @@ This work owns: [absolute paths the findings touch — do not modify files outsi
 ## 7. Validate and Commit
 
 Wait for every developer in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
+
+Developers do not commit — record the group's pre-dispatch HEAD SHA before delegating in Step 6, and on return compare it to current HEAD. If HEAD moved, a developer committed despite the constraint: `git reset --soft <pre-dispatch-SHA>` before validating, so the group's work folds into the single commit this step produces rather than leaving a stray commit ahead of it.
 
 Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
 

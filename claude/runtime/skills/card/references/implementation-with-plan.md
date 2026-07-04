@@ -88,7 +88,7 @@ The unit of assignment is a group. Choose the group's shape and delegate.
 
 **Routing.** First match wins:
 
-- **Parallel** — independent files, or uniform steps across files. Concurrent agents over independent groups; one commit after the group returns.
+- **Parallel** — independent files, or uniform steps across files. Concurrent agents over independent groups; one commit after the group returns. Before dispatching, confirm the file sets assigned to each concurrent agent are disjoint — if any file appears in more than one agent's scope, route Coherent or Sequential instead; "independent" is a claim about the actual assigned paths, not a default.
 - **Sequential** — multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Each phase ends in a commit and an immediate return to `<verify-plan-state>` for the next phase.
 - **Coherent** — dependent and varied steps, single phase, single end-of-scope validation gate. One agent, one commit. When uncertain between Coherent and Sequential, choose Sequential.
 
@@ -145,6 +145,8 @@ This work owns: [absolute paths from plan]
 <group-validation-gate>
 
 Wait for every agent in the current group to return before validating.
+
+Developers do not commit — record the group's pre-dispatch HEAD SHA before delegating in `<dispatch>`, and on return compare it to current HEAD. If HEAD moved, an agent committed despite the constraint: `git reset --soft <pre-dispatch-SHA>` before validating, so the group's work folds into the single commit this gate produces rather than leaving a stray commit ahead of it.
 
 Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
 
