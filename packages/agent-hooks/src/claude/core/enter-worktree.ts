@@ -78,7 +78,10 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
         transcriptPath: input.transcript_path,
         cardId,
         cardRepoPath,
-        lockPath
+        lockPath,
+        // This hook is registered only in the Claude Code plugin
+        // (`@goodfoot/claude-code-hooks`), so its runtime is known statically.
+        runtime: 'claude-code'
       },
       logger
     );

@@ -2,7 +2,7 @@
  * Shared helper that owns the full attribution-spawn path for ad-hoc sessions.
  *
  * Consolidates the activatable-status guard, O_EXCL de-dupe lock acquisition,
- * and both detached spawns (transcript-watcher + adhoc-cleanup) into a single
+ * and both detached spawns (stream-sync-watcher + adhoc-cleanup) into a single
  * function called by `card create` (first-bind) and the EnterWorktree hook
  * (re-attach). Keeping both call sites on the same code path prevents the
  * guards from drifting apart.
@@ -18,10 +18,8 @@
 import { acquireLock } from '@cards.management/sdk/adhoc-attribution';
 import { isAdhocActivatableStatus, readCardStatus } from '@cards.management/sdk/bin/process-utils';
 import { spawnAdhocCleanup } from '@cards.management/sdk/bin/spawn-adhoc-cleanup';
-import {
-  spawnTranscriptWatcher,
-  transcriptWatcherWrapperName
-} from '@cards.management/sdk/bin/spawn-transcript-watcher';
+import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-sync-watcher';
+import { buildManifestForRuntime } from '../transcript-sync/adapters/index.js';
 
 /**
  * Minimal logger interface required by spawnAdhocAttribution.
@@ -50,6 +48,16 @@ export interface SpawnAdhocAttributionParams {
   cardRepoPath: string;
   /** Absolute path to the O_EXCL de-dupe lock file. */
   lockPath: string;
+  /**
+   * Open runtime identifier for this session, e.g. `'claude-code'` or
+   * `'codex'` — selects the {@link SessionSyncManifest} adapter used to build
+   * the manifest for the stream-sync-watcher spawn. Unlike the Claude/Codex
+   * SessionStart hooks (which know their own runtime statically), this
+   * helper serves both ad-hoc attach call sites through one code path and so
+   * must be told; an unrecognized value fails the watcher spawn closed (see
+   * {@link buildManifestForRuntime}) without touching adhoc-cleanup below.
+   */
+  runtime: string;
 }
 
 /**
@@ -71,7 +79,7 @@ export type SpawnAdhocAttributionOutcome = { activated: true } | { activated: fa
 
 /**
  * Runs the full attribution-spawn path: activatable-status guard, de-dupe lock
- * acquisition, transcript-watcher spawn, and adhoc-cleanup spawn.
+ * acquisition, stream-sync-watcher spawn, and adhoc-cleanup spawn.
  *
  * 1. **Activatable-status guard** — reads the card's current status from
  *    `CARD.meta.json`. If the status is not in `['todo', 'active',
@@ -81,14 +89,16 @@ export type SpawnAdhocAttributionOutcome = { activated: true } | { activated: fa
  *
  * 2. **De-dupe lock** — acquires an O_EXCL lock at `lockPath` recording
  *    `agentPid` (the agent PID, never the node process PID). The lock guards
- *    ONLY the session-scoped transcript-watcher spawn (one live watcher per
+ *    ONLY the session-scoped stream-sync-watcher spawn (one live watcher per
  *    session). If the lock is already held by a live process, the watcher
  *    spawn is skipped but the per-card adhoc-cleanup spawn still happens. On a
  *    stale lock from a crashed hook, the lock is unlinked and re-acquired.
  *
- * 3. **Spawn transcript-watcher** (non-fatal, lock-gated) — spawns the
- *    detached `transcript-watcher` bin only when this bind acquired the
- *    session lock. Spawn failure is logged and does not propagate.
+ * 3. **Spawn stream-sync-watcher** (non-fatal, lock-gated) — builds a
+ *    {@link SessionSyncManifest} for `params.runtime` and spawns the detached
+ *    `stream-sync-watcher` bin only when this bind acquired the session lock.
+ *    Manifest-build failure (unsupported runtime, transcriptPath/sessionId
+ *    mismatch) and spawn failure are both logged and do not propagate.
  *
  * 4. **Spawn adhoc-cleanup** (non-fatal, per-card) — spawns the detached
  *    `adhoc-cleanup` bin for every bound card, so each card's status
@@ -109,7 +119,7 @@ export async function spawnAdhocAttribution(
   params: SpawnAdhocAttributionParams,
   logger: SpawnAdhocAttributionLogger
 ): Promise<SpawnAdhocAttributionOutcome> {
-  const { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath } = params;
+  const { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath, runtime } = params;
 
   // 1. Activatable-status guard — fail closed on null status (missing meta).
   const currentStatus = await readCardStatus(cardRepoPath);
@@ -130,19 +140,31 @@ export async function spawnAdhocAttribution(
   const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
 
   if (acquired) {
-    // 3. Spawn transcript-watcher (non-fatal, one per session). Attach mode
+    // 3. Spawn stream-sync-watcher (non-fatal, one per session). Attach mode
     //    runs with the `cards` plugin enabled so its bin — and the
-    //    `transcript-watcher` wrapper — is on PATH; the platform-correct bare
-    //    name (`.cmd` on win32) resolves there.
-    spawnTranscriptWatcher(
-      transcriptWatcherWrapperName(),
-      agentPid,
-      sessionId,
-      transcriptPath,
-      cardId,
-      cardRepoPath,
-      logger
-    );
+    //    `stream-sync-watcher` wrapper — is on PATH; omitting extensionPath
+    //    resolves the platform-correct bare name (`.cmd` on win32) there.
+    //    Manifest construction is fail-closed: an unsupported runtime or a
+    //    transcriptPath/sessionId mismatch is logged and the watcher spawn is
+    //    skipped, without touching the adhoc-cleanup spawn below (per-card
+    //    activation is decoupled from the watcher's session lock).
+    try {
+      const manifest = buildManifestForRuntime(runtime, {
+        sessionId,
+        cardId,
+        transcriptPath,
+        monitorPid: agentPid,
+        cardRepoPath
+      });
+      spawnStreamSyncWatcher({ manifest, logger });
+    } catch (error) {
+      logger.error('spawnAdhocAttribution: failed to build sync manifest — skipping watcher spawn', {
+        runtime,
+        cardId,
+        sessionId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 
   // 4. Spawn adhoc-cleanup (non-fatal, one per bound card). Only the

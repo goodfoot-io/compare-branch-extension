@@ -45,6 +45,29 @@ export async function resolveSessionId(): Promise<string | null> {
 }
 
 /**
+ * Resolves the current session's agent runtime from the same runtime-specific
+ * environment variables {@link resolveSessionId} consults for identity.
+ *
+ * Unlike {@link resolveSessionId}, the generic `CARDS_SESSION_ID` var is
+ * deliberately NOT consulted here — it is persisted by the Claude Code
+ * SessionStart hook onto every subsequent Bash invocation in that session (see
+ * `persistSessionEnv`), so its presence does not distinguish a runtime; only
+ * the agent-specific vars each CLI actually sets do. `OPENCODE_RUN_ID` and
+ * `CURSOR_TRACE_ID` are recognized by {@link resolveSessionId} for identity but
+ * have no {@link SessionSyncManifest} adapter yet (Phase 1 built only
+ * `claude-code` and `codex`), so they resolve to `null` here rather than a
+ * runtime string a caller cannot act on — fail closed, never guess.
+ *
+ * @returns `'claude-code'`, `'codex'`, or `null` when no supported runtime's
+ *   env var is set.
+ */
+export async function resolveRuntime(): Promise<'claude-code' | 'codex' | null> {
+  if ((process.env['CLAUDE_CODE_SESSION_ID'] ?? '').trim()) return 'claude-code';
+  if ((process.env['CODEX_THREAD_ID'] ?? '').trim()) return 'codex';
+  return null;
+}
+
+/**
  * Resolves the transcript path for the current session using a two-tier
  * precedence chain.
  *

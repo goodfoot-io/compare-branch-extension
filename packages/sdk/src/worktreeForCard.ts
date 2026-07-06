@@ -113,6 +113,14 @@ export interface OutfitWorktreeForCardOptions {
    * owned by the runtime session machinery, not the worktree orchestrator.
    */
   transcriptPath?: string;
+  /**
+   * Open runtime identifier for the session supplying `transcriptPath`, e.g.
+   * `'claude-code'` or `'codex'` — forwarded to {@link spawnAdhocAttribution}
+   * to select the {@link SessionSyncManifest} adapter. Required whenever
+   * `transcriptPath` is supplied (checked below); irrelevant otherwise, since
+   * no attribution attempt is made without a transcript.
+   */
+  runtime?: string;
   /** Map of git hook name to compiled .mjs path — required to avoid D10a attribution loss. */
   compiledScriptPaths: Record<string, string>;
 }
@@ -182,7 +190,7 @@ export async function outfitWorktreeForCard(
   worktreeDir: string,
   options: OutfitWorktreeForCardOptions
 ): Promise<OutfitAttributionOutcome> {
-  const { cardId, parentBranch, sessionId, transcriptPath, compiledScriptPaths } = options;
+  const { cardId, parentBranch, sessionId, transcriptPath, runtime, compiledScriptPaths } = options;
 
   if (cardId.length === 0) {
     throw new Error('outfitWorktreeForCard: cardId must be a non-empty string');
@@ -297,6 +305,16 @@ export async function outfitWorktreeForCard(
     return { attribution: 'skipped', reason: 'no-transcript' };
   }
 
+  // A transcript with no resolvable runtime cannot select a SessionSyncManifest
+  // adapter — fail closed rather than guess at the caller's agent.
+  if (!runtime || runtime.length === 0) {
+    stderrLogger.warn(
+      'outfitWorktreeForCard: bound worktree but could not resolve the session runtime — attribution not spawned',
+      { cardId }
+    );
+    return { attribution: 'skipped', reason: 'runtime-unresolved' };
+  }
+
   const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
   if (!cardRepoPath) {
     stderrLogger.warn(
@@ -321,7 +339,7 @@ export async function outfitWorktreeForCard(
 
   const attributionLockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
   const spawnOutcome = await spawnAdhocAttribution(
-    { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath: attributionLockPath },
+    { agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath: attributionLockPath, runtime },
     stderrLogger
   );
   if (spawnOutcome && spawnOutcome.activated === false) {

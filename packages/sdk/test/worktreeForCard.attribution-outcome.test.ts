@@ -155,13 +155,31 @@ describe('outfitWorktreeForCard attribution outcome', () => {
     const outcome = await outfitWorktreeForCard(client, WORKTREE_PATH, {
       ...BASE_OPTIONS,
       sessionId: 'sess-abc',
-      transcriptPath: '/transcripts/sess-abc.jsonl'
+      transcriptPath: '/transcripts/sess-abc.jsonl',
+      runtime: 'claude-code'
     });
 
     expect(outcome).toBeDefined();
     expect(outcome).toMatchObject({ attribution: 'skipped' });
     expect((outcome as unknown as { reason?: string }).reason).toEqual(expect.any(String));
     expect(spawnAdhocAttribution).not.toHaveBeenCalled();
+  });
+
+  it('marks attribution skipped with a reason when the runtime cannot be resolved', async () => {
+    // Transcript + session are supplied but no runtime — the caller could not
+    // determine which SessionSyncManifest adapter applies.
+    const client = makeClient();
+    const outcome = await outfitWorktreeForCard(client, WORKTREE_PATH, {
+      ...BASE_OPTIONS,
+      sessionId: 'sess-abc',
+      transcriptPath: '/transcripts/sess-abc.jsonl'
+      // no runtime
+    });
+
+    expect(outcome).toBeDefined();
+    expect(outcome).toMatchObject({ attribution: 'skipped', reason: 'runtime-unresolved' });
+    expect(spawnAdhocAttribution).not.toHaveBeenCalled();
+    expect(resolveCardRepoPath).not.toHaveBeenCalled();
   });
 
   it('marks attribution spawned when spawnAdhocAttribution actually activates', async () => {
@@ -174,10 +192,15 @@ describe('outfitWorktreeForCard attribution outcome', () => {
     const outcome = await outfitWorktreeForCard(client, WORKTREE_PATH, {
       ...BASE_OPTIONS,
       sessionId: 'sess-abc',
-      transcriptPath: '/transcripts/sess-abc.jsonl'
+      transcriptPath: '/transcripts/sess-abc.jsonl',
+      runtime: 'claude-code'
     });
 
     expect(spawnAdhocAttribution).toHaveBeenCalledOnce();
+    expect(spawnAdhocAttribution).toHaveBeenCalledWith(
+      expect.objectContaining({ runtime: 'claude-code' }),
+      expect.anything()
+    );
     expect(outcome).toBeDefined();
     expect(outcome).toMatchObject({ attribution: 'spawned' });
   });

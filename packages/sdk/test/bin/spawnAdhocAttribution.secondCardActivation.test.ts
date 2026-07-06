@@ -32,9 +32,22 @@ vi.mock('@cards.management/sdk/bin/process-utils', () => ({
   isProcessAlive: vi.fn(() => true)
 }));
 
-vi.mock('@cards.management/sdk/bin/spawn-transcript-watcher', () => ({
-  spawnTranscriptWatcher: vi.fn(() => true),
-  transcriptWatcherWrapperName: vi.fn(() => 'transcript-watcher')
+vi.mock('@cards.management/sdk/bin/spawn-stream-sync-watcher', () => ({
+  spawnStreamSyncWatcher: vi.fn(() => true)
+}));
+
+vi.mock('../../src/transcript-sync/adapters/index.js', () => ({
+  buildManifestForRuntime: vi.fn(() => ({
+    version: 1,
+    sessionId: 'sess-shared-parent',
+    cardId: 'main-B',
+    runtime: 'claude-code',
+    streamType: 'claude-code-session',
+    watchRoot: '/tmp',
+    sources: [{ pattern: 'sess-shared-parent.jsonl', role: 'main', mode: 'jsonl-tail' }],
+    monitorPid: process.pid,
+    cardRepoPath: '/tmp/card-repos/main-B'
+  }))
 }));
 
 vi.mock('@cards.management/sdk/bin/spawn-adhoc-cleanup', () => ({
@@ -81,7 +94,8 @@ describe('spawnAdhocAttribution — second card bound in the same session', () =
         transcriptPath: '/tmp/transcript.jsonl',
         cardId: 'main-B',
         cardRepoPath: '/tmp/card-repos/main-B',
-        lockPath
+        lockPath,
+        runtime: 'claude-code'
       },
       logger
     );

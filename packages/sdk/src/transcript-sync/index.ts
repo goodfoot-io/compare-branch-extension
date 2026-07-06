@@ -11,8 +11,11 @@
 export {
   buildClaudeCodeManifest,
   buildCodexManifest,
+  buildManifestForRuntime,
   type ClaudeCodeManifestInput,
-  type CodexManifestInput
+  type CodexManifestInput,
+  type RuntimeManifestInput,
+  UnsupportedRuntimeError
 } from './adapters/index.js';
 export * from './engine/index.js';
 export {

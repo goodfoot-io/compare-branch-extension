@@ -14,7 +14,7 @@ vi.mock('../src/unboundWorktreeCandidates.js', () => ({
 }));
 
 import { findAgentPid } from '../src/process-tree.js';
-import { resolveSessionId, resolveTranscriptPath } from '../src/session-resolver.js';
+import { resolveRuntime, resolveSessionId, resolveTranscriptPath } from '../src/session-resolver.js';
 import { readUnboundCandidates } from '../src/unboundWorktreeCandidates.js';
 
 const mockFindAgentPid = vi.mocked(findAgentPid);
@@ -134,6 +134,69 @@ describe('resolveSessionId', () => {
       mockFindAgentPid.mockReturnValue(null);
       expect(await resolveSessionId()).toBeNull();
     });
+  });
+});
+
+describe('resolveRuntime', () => {
+  let savedEnv: Partial<Record<string, string>>;
+
+  beforeEach(() => {
+    savedEnv = {};
+    for (const name of ENV_VARS) {
+      savedEnv[name] = process.env[name];
+      delete process.env[name];
+    }
+  });
+
+  afterEach(() => {
+    for (const name of ENV_VARS) {
+      if (savedEnv[name] === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = savedEnv[name];
+      }
+    }
+  });
+
+  it('resolves claude-code from CLAUDE_CODE_SESSION_ID', async () => {
+    process.env['CLAUDE_CODE_SESSION_ID'] = 'claude-session-xyz';
+    expect(await resolveRuntime()).toBe('claude-code');
+  });
+
+  it('resolves codex from CODEX_THREAD_ID when CLAUDE_CODE_SESSION_ID is absent', async () => {
+    process.env['CODEX_THREAD_ID'] = 'codex-thread-123';
+    expect(await resolveRuntime()).toBe('codex');
+  });
+
+  it('prefers claude-code over codex when both vars are set', async () => {
+    process.env['CLAUDE_CODE_SESSION_ID'] = 'claude-session-xyz';
+    process.env['CODEX_THREAD_ID'] = 'codex-thread-123';
+    expect(await resolveRuntime()).toBe('claude-code');
+  });
+
+  it('ignores the generic CARDS_SESSION_ID var — it does not identify a runtime', async () => {
+    process.env['CARDS_SESSION_ID'] = 'cards-session-abc';
+    expect(await resolveRuntime()).toBeNull();
+  });
+
+  it('returns null for OPENCODE_RUN_ID — no adapter exists for that runtime yet', async () => {
+    process.env['OPENCODE_RUN_ID'] = 'opencode-run-456';
+    expect(await resolveRuntime()).toBeNull();
+  });
+
+  it('returns null for CURSOR_TRACE_ID — no adapter exists for that runtime yet', async () => {
+    process.env['CURSOR_TRACE_ID'] = 'cursor-trace-789';
+    expect(await resolveRuntime()).toBeNull();
+  });
+
+  it('treats whitespace-only CLAUDE_CODE_SESSION_ID as absent', async () => {
+    process.env['CLAUDE_CODE_SESSION_ID'] = '   ';
+    process.env['CODEX_THREAD_ID'] = 'codex-thread-123';
+    expect(await resolveRuntime()).toBe('codex');
+  });
+
+  it('returns null when no runtime-identifying var is set', async () => {
+    expect(await resolveRuntime()).toBeNull();
   });
 });
 

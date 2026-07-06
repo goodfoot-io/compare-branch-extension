@@ -70,10 +70,13 @@ export function transcriptWatcherWrapperName(): string {
  * (win32 resolution does not use this — it resolves the interpreter and sibling
  * `.mjs` directly; see {@link spawnTranscriptWatcher}.)
  *
+ * Exported for reuse by `spawn-stream-sync-watcher.ts`, which shares this
+ * exact POSIX-wrapper-availability check for its own detached spawn.
+ *
  * @param command - Absolute path or bare wrapper name to probe.
  * @returns True when the command is launchable.
  */
-function isPosixWrapperAvailable(command: string): boolean {
+export function isPosixWrapperAvailable(command: string): boolean {
   if (isAbsolute(command)) {
     return existsSync(command);
   }
@@ -93,11 +96,14 @@ function isPosixWrapperAvailable(command: string): boolean {
  *   exit status alone is insufficient here — the absolute path is needed to find
  *   the sibling `.mjs`.
  *
+ * Exported for reuse by `spawn-stream-sync-watcher.ts`, which shares this
+ * exact `.cmd` → `.mjs` sibling-resolution logic for its own detached spawn.
+ *
  * @param watcher - Absolute `.cmd` path or bare wrapper name.
  * @returns The absolute `.mjs` path, or `null` when it cannot be resolved or the
  *   resolved file does not exist.
  */
-function resolveWin32WatcherMjs(watcher: string): string | null {
+export function resolveWin32WatcherMjs(watcher: string): string | null {
   let cmdPath: string | null = null;
   if (isAbsolute(watcher)) {
     cmdPath = watcher;
