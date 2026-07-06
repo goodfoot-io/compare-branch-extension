@@ -10,6 +10,8 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 
 **Most recent DM.** When multiple DMs of the same shape exist for the same subject (e.g., several `VERDICT:` DMs for `planner-1 round-1`), "most recent" means the latest one in your inbound history. A later DM for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM that arrives after a `VERDICT: APPROVED for:planner-N round-K` revokes the earlier approval.
 
+**Idle notification.** The agent's process has stopped; it runs again only when an inbound message wakes it. Idle with nothing owed (approved and not revising; verdict delivered) is settled. Idle while owing a response, with nothing queued to wake it, is a stall — its last stated intent did not survive the idle. DM it what it needs to continue.
+
 </definitions>
 
 <placeholder-variables>
