@@ -42,7 +42,8 @@
     "./unbound-worktree-candidates": "./src/unboundWorktreeCandidates.ts",
     "./adhoc-attribution": "./src/adhocAttribution.ts",
     "./context": "./src/context.ts",
-    "./git-hooks": "./src/git-hooks.ts"
+    "./git-hooks": "./src/git-hooks.ts",
+    "./transcript-sync": "./src/transcript-sync/index.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
