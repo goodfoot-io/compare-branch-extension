@@ -4,46 +4,26 @@
  * @summary Tests for the SubagentStop hook
  */
 
-import { readFile } from 'node:fs/promises';
-import { extractActionInput } from '@cards.management/sdk/config';
+import { rmSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { removeActiveSubagent } from '@cards.management/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/subagent-stop.js';
 
-vi.mock('@cards.management/sdk/config', () => ({
-  extractActionInput: vi.fn()
+vi.mock('@cards.management/sessions/card-repo', () => ({
+  removeActiveSubagent: vi.fn()
 }));
 
-vi.mock('@cards.management/sdk/client/discovery', () => ({
-  createCardsClient: vi.fn()
+vi.mock('node:fs', () => ({
+  rmSync: vi.fn()
 }));
 
-vi.mock('node:fs/promises', () => ({
-  readFile: vi.fn()
-}));
-
-import { createCardsClient } from '@cards.management/sdk/client/discovery';
-
-const mockExtractActionInput = vi.mocked(extractActionInput);
-const mockCreateCardsClient = vi.mocked(createCardsClient);
-const mockReadFile = vi.mocked(readFile);
+const mockRemoveActiveSubagent = vi.mocked(removeActiveSubagent);
+const mockRmSync = vi.mocked(rmSync);
 
 const logger = new Logger();
-
-const baseActionInput = {
-  cardId: 'card-123',
-  actionName: 'Launch',
-  environment: 'default',
-  executionMode: 'interactive' as const,
-  exitWhenDone: false,
-  repoRoot: '/workspace',
-  cardRepoPath: '/tmp/card-repos/card-123',
-  configPath: '/tmp/config',
-  extensionPath: '/tmp/extension',
-  switchToInteractiveData: undefined,
-  codingAgent: undefined,
-  marketplacePath: '/test/marketplace'
-};
 
 const baseInput = {
   session_id: 'sess-abc',
@@ -58,29 +38,9 @@ const baseInput = {
 
 const context = { logger };
 
-function makeStreamWriter() {
-  return {
-    write: vi.fn(),
-    close: vi.fn().mockResolvedValue({ success: true })
-  };
-}
-
-/**
- * Sets up mock Cards client with a stream writer and configures transcript content.
- *
- * @param transcriptContent - Content returned by readFile mock.
- * @returns The stream writer mock for assertion.
- */
-function setupTranscriptUpload(transcriptContent: string) {
-  const streamWriter = makeStreamWriter();
-  const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
-  mockCreateCardsClient.mockResolvedValue(mockClient as never);
-  mockReadFile.mockResolvedValue(transcriptContent as never);
-  return { streamWriter, mockClient };
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
+  mockRemoveActiveSubagent.mockResolvedValue(undefined);
 });
 
 describe('SubagentStop Hook', () => {
@@ -90,107 +50,55 @@ describe('SubagentStop Hook', () => {
     expect(hook.hookEventName).toBe('SubagentStop');
   });
 
-  describe('inside an action subprocess', () => {
-    beforeEach(() => {
-      mockExtractActionInput.mockReturnValue(baseActionInput);
-    });
+  it('removes the active subagent using the session and agent IDs from the input', async () => {
+    await hook(baseInput, context);
 
-    it('uploads transcript via openStream with correct stream name {sessionId}-{agentId}.jsonl', async () => {
-      const { mockClient } = setupTranscriptUpload('{"event":"start"}\n{"event":"end"}\n');
+    expect(mockRemoveActiveSubagent).toHaveBeenCalledWith('sess-abc', 'agent-xyz');
+  });
 
-      await hook(baseInput, context);
+  it('returns null on success', async () => {
+    const result = await hook(baseInput, context);
 
-      expect(mockClient.openStream).toHaveBeenCalledWith(
-        'card-123',
-        'claude-code-session',
-        'sess-abc-agent-xyz.jsonl',
-        { title: 'Subagent transcript for card-123', sessionId: 'sess-abc' }
-      );
-    });
+    expect(result).toBeNull();
+  });
 
-    it('writes each non-empty line from transcript to stream', async () => {
-      const { streamWriter } = setupTranscriptUpload('{"event":"start"}\n\n{"event":"end"}\n');
+  it('logs a warning and returns null when removeActiveSubagent fails', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn');
+    mockRemoveActiveSubagent.mockRejectedValue(new Error('lock held'));
 
-      await hook(baseInput, context);
+    const result = await hook(baseInput, context);
 
-      expect(streamWriter.write).toHaveBeenCalledTimes(2);
-      expect(streamWriter.write).toHaveBeenCalledWith('{"event":"start"}');
-      expect(streamWriter.write).toHaveBeenCalledWith('{"event":"end"}');
-    });
-
-    it('closes stream after writing all lines', async () => {
-      const { streamWriter } = setupTranscriptUpload('{"event":"start"}\n');
-
-      await hook(baseInput, context);
-
-      expect(streamWriter.close).toHaveBeenCalledOnce();
-    });
-
-    it('approves unconditionally on upload success', async () => {
-      setupTranscriptUpload('{"event":"start"}\n');
-
-      const result = await hook(baseInput, context);
-
-      expect(result).toBeNull();
-    });
-
-    it('approves unconditionally when upload fails (logs warning)', async () => {
-      const { streamWriter } = setupTranscriptUpload('{"event":"start"}\n');
-      streamWriter.close.mockRejectedValue(new Error('network error'));
-
-      const result = await hook(baseInput, context);
-
-      expect(result).toBeNull();
-    });
-
-    it('approves when transcript file does not exist (logs warning)', async () => {
-      const mockClient = { openStream: vi.fn() };
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
-      const enoentError = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
-      mockReadFile.mockRejectedValue(enoentError);
-
-      const result = await hook(baseInput, context);
-
-      expect(result).toBeNull();
-    });
-
-    it('approves when createCardsClient returns null (API unavailable, no upload attempted)', async () => {
-      mockCreateCardsClient.mockResolvedValue(null);
-
-      const result = await hook(baseInput, context);
-
-      expect(result).toBeNull();
-      expect(mockReadFile).not.toHaveBeenCalled();
-    });
-
-    it('handles empty transcript file (no lines written, stream still opened and closed)', async () => {
-      const { streamWriter, mockClient } = setupTranscriptUpload('');
-
-      await hook(baseInput, context);
-
-      expect(mockClient.openStream).toHaveBeenCalled();
-      expect(streamWriter.write).not.toHaveBeenCalled();
-      expect(streamWriter.close).toHaveBeenCalledOnce();
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith('Failed to remove active subagent', {
+      sessionId: 'sess-abc',
+      agentId: 'agent-xyz',
+      error: 'lock held'
     });
   });
 
-  describe('outside an action subprocess', () => {
-    beforeEach(() => {
-      mockExtractActionInput.mockImplementation(() => {
-        throw new Error('Not in action subprocess');
-      });
+  it('unlinks the whole subagents file as recovery when removeActiveSubagent fails', async () => {
+    mockRemoveActiveSubagent.mockRejectedValue(new Error('lock held'));
+
+    await hook(baseInput, context);
+
+    expect(mockRmSync).toHaveBeenCalledWith(join(homedir(), '.cards', 'card-repo-commits', 'sess-abc.subagents'), {
+      force: true
+    });
+  });
+
+  it('logs a second warning when the recovery unlink also fails', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn');
+    mockRemoveActiveSubagent.mockRejectedValue(new Error('lock held'));
+    mockRmSync.mockImplementation(() => {
+      throw new Error('permission denied');
     });
 
-    it('approves unconditionally when not in action subprocess (no upload attempted)', async () => {
-      const errorSpy = vi.spyOn(logger, 'error');
-      const result = await hook(baseInput, context);
+    const result = await hook(baseInput, context);
 
-      expect(result).toBeNull();
-      expect(errorSpy).toHaveBeenCalledWith('Not running inside an action subprocess', {
-        error: 'Not in action subprocess'
-      });
-      expect(mockCreateCardsClient).not.toHaveBeenCalled();
-      expect(mockReadFile).not.toHaveBeenCalled();
-    });
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Recovery unlink of subagents file also failed — session may be stuck',
+      expect.objectContaining({ sessionId: 'sess-abc', error: 'permission denied' })
+    );
   });
 });

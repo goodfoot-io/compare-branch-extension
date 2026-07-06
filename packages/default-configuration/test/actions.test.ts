@@ -331,7 +331,7 @@ describe('Default Actions', () => {
       await promise;
     });
 
-    it('does not call openStream in background mode', async () => {
+    it('does not open a transcript stream in background mode', async () => {
       const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
           return Promise.resolve(

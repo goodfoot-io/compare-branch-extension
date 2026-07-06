@@ -1,12 +1,13 @@
 /**
  * Stream protocol types for JSONL streaming.
  *
- * A stream is an append-only JSONL file attached to a card. The server accepts
- * chunked POST requests, persists raw lines to `streams/{streamType}/{filename}`,
- * and broadcasts output over WebSocket in real time. An iframe-based renderer
- * (served from the stream definition's `wwwRoot` directory) displays stream
- * content in the extension UI. Metadata lives in a sibling `.meta.json` file
- * and is committed to the card repository at stream creation and close.
+ * A stream is an append-only JSONL file attached to a card, synced into
+ * `streams/{streamType}/{relPath}` (where `relPath` may contain multiple
+ * forward-slash-separated segments) by the transcript-sync engine, and
+ * broadcast over WebSocket in real time. An iframe-based renderer (served from
+ * the stream definition's `wwwRoot` directory) displays stream content in the
+ * extension UI. Metadata lives in a sibling `.meta.json` file and is committed
+ * to the card repository at stream creation and close.
  *
  *
  * @summary Stream protocol types for JSONL streaming
@@ -58,34 +59,62 @@ export interface AttachmentInfoFile {
 /**
  * File-persisted metadata for a single stream.
  *
- * Stored as `streams/{streamType}/{filename}.meta.json` inside the card directory.
- * This represents the static file fields only. Active/committed state is derived
- * at read time from whether the sidecar is present in git HEAD versus arriving via
- * a live `stream:started` event.
+ * Stored as `streams/{streamType}/{relPath}.meta.json` inside the card directory,
+ * where `relPath` mirrors the source-relative path (forward slashes, may contain
+ * multiple segments, e.g. `<sessionId>/subagents/foo.jsonl`) that the transcript-sync
+ * engine's {@link SessionSyncManifest} (see `transcript-sync/manifest.ts`) declared
+ * for the source file. This represents the static file fields only. Active/committed
+ * state is derived at read time from whether the sidecar is present in git HEAD
+ * versus arriving via a live `stream:started` event.
+ *
+ * Dual-writer contract: the transcript-sync watcher creates this sidecar (all
+ * fields except `lineCount`) at first encounter of a new stream file; the server
+ * ({@link StreamFileWatcher}) subsequently appends/updates `lineCount` (and, best
+ * effort, `slug`/`taskContent`) as lines are tailed, and finalizes it at stream
+ * close. No other writer touches this file after creation.
  *
  * @see StreamDefinition for the environment-level configuration that governs
  *   rendering for a given `streamType`.
  * @see StreamMeta for the API shape that includes lifecycle status and timestamps.
  */
 export interface StreamMetaFile {
-  /** User-specified filename (e.g., `"session.log"`). Unique within a card's `streams/` directory. */
-  filename: string;
+  /** Sidecar schema version. Currently always `1`. */
+  version: 1;
+
+  /**
+   * Source-relative path (forward slashes) identifying this stream within its
+   * `streamType` directory. May contain multiple segments (e.g.
+   * `<sessionId>/subagents/foo.jsonl`). Unique within a card's `streams/{streamType}/`
+   * directory. Replaces the old flat `filename` field.
+   */
+  relPath: string;
 
   /** Stream type key that maps to a {@link StreamDefinition} in the environment config. */
   streamType: string;
 
-  /** Human-readable title for UI display. Supplied via `X-Stream-Title` header. */
-  title?: string;
+  /** Open runtime identifier that produced this stream, e.g. `'claude-code'` or `'codex'`. */
+  runtime: string;
 
-  /** Opaque session identifier for grouping related streams. Supplied via `X-Stream-Session-Id` header. */
-  sessionId?: string;
+  /** Session identifier for grouping related streams (main + subagents) together. */
+  sessionId: string;
+
+  /** Role of this stream's source file within its session's transcript set. */
+  role: 'main' | 'subagent' | 'auxiliary';
 
   /**
-   * Agent identifier extracted from the stream filename when the filename matches the
-   * `{uuid}-{uuid}.jsonl` pattern (e.g. Claude Code session files). Absent for streams
-   * whose filenames do not follow this convention.
+   * Agent identifier for subagent/auxiliary streams. Absent for `role: 'main'`
+   * streams, which have no sub-identity beyond the session.
    */
   agentId?: string;
+
+  /** Human-readable title for UI display. */
+  title?: string;
+
+  /** Absolute filesystem path of the source file this stream was synced from. */
+  sourcePath: string;
+
+  /** ISO 8601 timestamp when the transcript-sync watcher first began syncing this stream. */
+  startedAt: string;
 
   /**
    * First ~40 characters of `message.content` from line 1 of the JSONL stream, stripped

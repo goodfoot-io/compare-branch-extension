@@ -30,9 +30,6 @@ import type {
   CommitInfo,
   GateApprovalResponse,
   ListCardsOptions,
-  StreamResult,
-  StreamWriter,
-  StreamWriterOptions,
   TimelineOptions,
   TypeSchemasResponse
 } from './types/client.js';
@@ -925,9 +922,11 @@ export class CardsClient {
   /**
    * Retrieves a stream's metadata and raw lines.
    *
-   * The `streamType` and `filename` are URI-encoded automatically. For completed
-   * streams the returned `lines` array is the full content; for active streams it
-   * is a snapshot that may grow while the caller processes it.
+   * The `streamType` and each segment of `relPath` are URI-encoded
+   * automatically; forward slashes in `relPath` remain literal path
+   * separators. For completed streams the returned `lines` array is the full
+   * content; for active streams it is a snapshot that may grow while the
+   * caller processes it.
    *
    * When `tail` is provided, only the last `tail` lines are returned; the
    * `meta.lineCount` still reflects the full stream length so the caller can tell
@@ -937,7 +936,8 @@ export class CardsClient {
    *
    * @param cardId - Identifier of the card that owns the requested stream.
    * @param streamType - Stream type key (e.g., `"claude-code-session"`).
-   * @param filename - Stream filename (e.g., `"session.log"`).
+   * @param relPath - Stream's source-relative path (forward slashes, may contain
+   *   multiple segments, e.g. `"session-abc/subagents/foo.jsonl"`).
    * @param tail - When set to a positive integer, return only the last `tail` lines.
    * @returns Metadata and content lines.
    * @throws ApiError on 404 (unknown card or stream) or other server errors.
@@ -946,106 +946,15 @@ export class CardsClient {
   async getStream(
     cardId: string,
     streamType: string,
-    filename: string,
+    relPath: string,
     tail?: number
   ): Promise<{ meta: StreamMeta; lines: string[] }> {
+    const encodedRelPath = relPath.split('/').map(encodeURIComponent).join('/');
     const url = this.buildUrl(
-      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodeURIComponent(filename)}`,
+      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodedRelPath}`,
       tail !== undefined ? { tail } : undefined
     );
     return this.request(() => this.getHttpClient().get<{ meta: StreamMeta; lines: string[] }>(url));
-  }
-
-  /**
-   * Opens a chunked JSONL stream to the server and returns a writer.
-   *
-   * The writer sends each line in real-time over a single HTTP POST using a
-   * `ReadableStream` body. Call {@link StreamWriter.close} when the producer
-   * is finished to end the request and retrieve the server's summary.
-   *
-   * @param cardId - Card ID to attach the stream to.
-   * @param streamType - Stream type key from settings.json (e.g., `"claude-code-session"`).
-   * @param filename - Stream filename (e.g., `"session-abc.jsonl"`).
-   * @param options - Optional title and session ID metadata.
-   * @returns A {@link StreamWriter} for pushing lines and closing the stream.
-   *
-   * @example
-   * ```typescript
-   * const stream = client.openStream(cardId, 'claude-code-session', 'run.jsonl');
-   * stream.write(JSON.stringify({ type: 'init' }));
-   * stream.write(JSON.stringify({ type: 'result' }));
-   * const result = await stream.close();
-   * ```
-   */
-  openStream(cardId: string, streamType: string, filename: string, options?: StreamWriterOptions): StreamWriter {
-    const encoder = new TextEncoder();
-    let controller!: ReadableStreamDefaultController<Uint8Array>;
-
-    const body = new ReadableStream<Uint8Array>({
-      start(c) {
-        controller = c;
-      }
-    });
-
-    const url = this.buildUrl(
-      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodeURIComponent(filename)}`
-    );
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/x-ndjson'
-    };
-    if (this.options.accessToken) {
-      headers['Authorization'] = `Bearer ${this.options.accessToken}`;
-    }
-    if (options?.title) {
-      headers['X-Stream-Title'] = options.title;
-    }
-    if (options?.sessionId) {
-      headers['X-Stream-Session-Id'] = options.sessionId;
-    }
-
-    // `duplex: 'half'` is required by undici for streaming request bodies
-    // but is not yet in the standard lib.dom RequestInit type.
-    const fetchOptions: RequestInit & { duplex: string } = {
-      method: 'POST',
-      headers,
-      body,
-      duplex: 'half'
-    };
-
-    const responsePromise = fetch(url, fetchOptions);
-
-    // Track early rejection from the server (e.g. 409 "Stream already
-    // exists and is active").  For a successful stream the response stays
-    // pending until close() ends the body — but error responses arrive
-    // immediately and must be surfaced without waiting for close().
-    // Note: only reads response.ok/statusText (not the body) so close()
-    // can still parse the full error response.
-    let earlyError: Error | null = null;
-    responsePromise
-      .then((response) => {
-        if (!response.ok) {
-          earlyError = new ApiError(response.statusText, String(response.status));
-        }
-      })
-      .catch((err: unknown) => {
-        earlyError = err instanceof Error ? err : new Error(String(err));
-      });
-
-    return {
-      write(line: string): void {
-        if (earlyError) throw earlyError;
-        controller.enqueue(encoder.encode(`${line}\n`));
-      },
-      close: async (): Promise<StreamResult> => {
-        controller.close();
-        return this.request(async () => {
-          const response = await responsePromise;
-          if (!response.ok) throw response;
-          return response.json() as Promise<StreamResult>;
-        });
-      }
-    };
   }
 
   // --- Action Operations ---

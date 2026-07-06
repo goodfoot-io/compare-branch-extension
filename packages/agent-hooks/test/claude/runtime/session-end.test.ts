@@ -120,7 +120,7 @@ describe('SessionEnd Hook', () => {
       expect(result).toBeNull();
     });
 
-    it('does not call createCardsClient or openStream', async () => {
+    it('does not call createCardsClient', async () => {
       // Verify the module does not import or use createCardsClient
       // The mock for api-discovery is not set up — if it were called, it would throw
       const result = await hook(baseInput, context);

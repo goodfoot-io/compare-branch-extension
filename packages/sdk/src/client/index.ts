@@ -36,9 +36,6 @@ export type {
   CardsClientOptions,
   CardUpdateData,
   ListCardsOptions,
-  StreamResult,
-  StreamWriter,
-  StreamWriterOptions,
   TimelineOptions,
   TypeSchemaInfo,
   TypeSchemasResponse

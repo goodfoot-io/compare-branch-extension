@@ -213,7 +213,7 @@ export interface StreamResumedEvent {
  *
  * Contains the raw, unmodified NDJSON line as stored on disk. Clients are
  * responsible for applying any stream-type-specific transform on their side.
- * Use `streamType` together with `cardId` and `filename` to unambiguously
+ * Use `streamType` together with `cardId` and `relPath` to unambiguously
  * identify the stream and select the appropriate client-side transform.
  */
 export interface StreamLineEvent {
@@ -221,8 +221,8 @@ export interface StreamLineEvent {
   type: 'stream:line';
   /** ID of the parent card. */
   cardId: string;
-  /** Stream filename within the card's `streams/` directory. */
-  filename: string;
+  /** Stream's source-relative path (forward slashes, may be multi-segment) within its `streamType` directory. */
+  relPath: string;
   /** Stream type key identifying the client-side transform to apply. */
   streamType: string;
   /** 1-based line number in the stream. */
@@ -242,8 +242,10 @@ export interface StreamEndedEvent {
   type: 'stream:ended';
   /** ID of the parent card. */
   cardId: string;
-  /** Stream filename within the card's `streams/` directory. */
-  filename: string;
+  /** Stream's source-relative path (forward slashes, may be multi-segment) within its `streamType` directory. */
+  relPath: string;
+  /** Stream type key. */
+  streamType: string;
   /** Total number of lines received before closure. */
   lineCount: number;
 }
@@ -260,8 +262,8 @@ export interface StreamErrorEvent {
   type: 'stream:error';
   /** ID of the parent card. */
   cardId: string;
-  /** Stream filename within the card's `streams/` directory. */
-  filename: string;
+  /** Stream's source-relative path (forward slashes, may be multi-segment) within its `streamType` directory. */
+  relPath: string;
   /** 1-based line number where the transform failed. */
   lineNumber: number;
   /** Human-readable error message from the transform. */
