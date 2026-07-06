@@ -104,7 +104,7 @@ Workspace validation passed before this dispatch. Focus on runtime behavior, sem
 
 ## 5. Collect Verdict and Route
 
-Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM.
+Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM. An `idle_notification` before that verdict means the evaluator has stopped and will not resume on its own, whatever its last DM said — wake it with a DM inlining anything it was waiting on; if it idles again without a verdict, re-dispatch it.
 
 Once the evaluator has DM'd its `VERDICT:` it has gone idle and stopped on its own, so there is normally nothing to shut down. Only if it is still working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits):
 
