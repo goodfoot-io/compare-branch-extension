@@ -133,6 +133,97 @@ describe('EventSubscriber journal subscribe/replay', () => {
     subscriber.disconnect();
   });
 
+  it('dispatches a card:replay unchanged when none of its entries overlap the tracked seq', async () => {
+    const subscriber = await connectSubscriber();
+    const replays: { entries: Array<{ seq: number }> }[] = [];
+    subscriber.on('card:replay', (event) => replays.push(event as { entries: Array<{ seq: number }> }));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+    server.broadcast({
+      type: 'card:snapshot',
+      cardId: 'card-1',
+      card: {},
+      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      seq: 5
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    server.broadcast({
+      type: 'card:replay',
+      cardId: 'card-1',
+      entries: [
+        { seq: 6, type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() },
+        { seq: 7, type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() }
+      ],
+      latestSeq: 7
+    });
+    await vi.waitFor(() => {
+      expect(replays).toHaveLength(1);
+    });
+    expect(replays[0]!.entries.map((e) => e.seq)).toEqual([6, 7]);
+    subscriber.disconnect();
+  });
+
+  it('drops a replay entry already applied via a preceding live journalEvent, dispatching only the new one', async () => {
+    const subscriber = await connectSubscriber();
+    const journalEvents: { seq: number }[] = [];
+    const replays: { entries: Array<{ seq: number }> }[] = [];
+    subscriber.on('card:journalEvent', (event) => journalEvents.push(event as { seq: number }));
+    subscriber.on('card:replay', (event) => replays.push(event as { entries: Array<{ seq: number }> }));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+    server.broadcast({
+      type: 'card:snapshot',
+      cardId: 'card-1',
+      card: {},
+      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      seq: 5
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    // A live, in-order journalEvent for seq 6 arrives and is applied normally.
+    server.broadcast({
+      type: 'card:journalEvent',
+      cardId: 'card-1',
+      seq: 6,
+      entryType: 'cards:metadata',
+      payload: { title: 'live' },
+      timestamp: new Date().toISOString()
+    });
+    await vi.waitFor(() => {
+      expect(journalEvents).toHaveLength(1);
+    });
+
+    // A replay assembled concurrently on the server redundantly includes seq
+    // 6 (already applied above) alongside the genuinely new seq 7.
+    server.broadcast({
+      type: 'card:replay',
+      cardId: 'card-1',
+      entries: [
+        { seq: 6, type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() },
+        { seq: 7, type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() }
+      ],
+      latestSeq: 7
+    });
+    await vi.waitFor(() => {
+      expect(replays).toHaveLength(1);
+    });
+
+    // Seq 6 was dispatched exactly once (via the live journalEvent, not the
+    // replay); seq 7 was dispatched exactly once (via the replay).
+    expect(journalEvents.map((e) => e.seq)).toEqual([6]);
+    expect(replays[0]!.entries.map((e) => e.seq)).toEqual([7]);
+
+    // cardSeq ended at latestSeq (7): a fresh subscribe omits neither seq nor
+    // regresses it — sinceSeq reflects the replay's latestSeq.
+    subscriber.subscribeToCard('card-1');
+    const message = await server.awaitMessage();
+    expect(message).toEqual({ type: 'card:subscribe', cardId: 'card-1', sinceSeq: 7 });
+    subscriber.disconnect();
+  });
+
   it('detects a seq gap, drops the event, and re-subscribes with the last known-good seq', async () => {
     const subscriber = await connectSubscriber();
     const received: unknown[] = [];

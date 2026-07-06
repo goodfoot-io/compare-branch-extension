@@ -645,8 +645,11 @@ export class EventSubscriber {
         this._handleCardSnapshot(message as unknown as CardSnapshotMessage);
         break;
       case 'card:replay':
+        // Handles its own dispatch (filters out entries already applied via a
+        // live card:journalEvent delivered before this replay was assembled)
+        // — return rather than falling through to the generic dispatch below.
         this._handleCardReplay(message as unknown as CardReplayMessage);
-        break;
+        return;
       case 'card:subscribeFailed':
         this._handleCardSubscribeFailed(message as unknown as CardSubscribeFailedMessage);
         break;
@@ -697,16 +700,27 @@ export class EventSubscriber {
   }
 
   /**
-   * Records the replay's `latestSeq` as this card's last known-good position.
-   * Individual entries are not re-dispatched as separate `card:journalEvent`
-   * callbacks here — callers that need per-entry handling read `entries` off
-   * the dispatched `card:replay` message itself.
+   * Records the replay's `latestSeq` as this card's last known-good position,
+   * then dispatches the message with `entries` filtered down to those whose
+   * `seq` is strictly greater than the card's previously tracked `seq`.
+   *
+   * The server registers a resubscribe before it finishes assembling the
+   * matching replay, so a live `card:journalEvent` for an entry can be
+   * delivered and applied (advancing `cardSeq`) before the replay containing
+   * that same entry arrives — without this filter, that entry would be
+   * applied a second time. Individual entries are not re-dispatched as
+   * separate `card:journalEvent` callbacks here — callers that need
+   * per-entry handling read the (filtered) `entries` off the dispatched
+   * `card:replay` message itself.
    *
    * @param message - Server reply carrying ordered catch-up deltas.
    */
   private _handleCardReplay(message: CardReplayMessage): void {
+    const previousSeq = this.cardSeq.get(message.cardId) ?? 0;
     this.cardSeq.set(message.cardId, message.latestSeq);
     this._setCardStaleness(message.cardId, 'ok');
+    const entries = message.entries.filter((entry) => entry.seq > previousSeq);
+    this._dispatch(entries.length === message.entries.length ? message : { ...message, entries });
   }
 
   /**
