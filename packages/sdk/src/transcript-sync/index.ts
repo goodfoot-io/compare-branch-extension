@@ -1,9 +1,10 @@
 /**
- * Public API for the transcript-sync manifest system: the runtime-agnostic
- * {@link SessionSyncManifest} contract plus the runtime adapters that build
- * one for Claude Code and Codex sessions.
+ * Public API for the transcript-sync system: the runtime-agnostic
+ * {@link SessionSyncManifest} contract, the runtime adapters that build one
+ * for Claude Code and Codex sessions, and the engine that syncs a session's
+ * files per that manifest (see `./engine/`).
  *
- * @summary Transcript-sync manifest and adapters barrel
+ * @summary Transcript-sync manifest, adapters, and engine barrel
  * @module
  */
 
@@ -13,6 +14,7 @@ export {
   type ClaudeCodeManifestInput,
   type CodexManifestInput
 } from './adapters/index.js';
+export * from './engine/index.js';
 export {
   ManifestValidationError,
   parseManifest,

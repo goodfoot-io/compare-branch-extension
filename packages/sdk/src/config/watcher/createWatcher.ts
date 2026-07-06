@@ -37,16 +37,37 @@ function writeMessage(socket: net.Socket, msg: WatcherToServerMessage): void {
 }
 
 /**
- * Creates a watcher that registers with the extension and runs the provided
- * handler with a {@link WatcherContext}.
- * @param registration - Identifies the watcher and attaches metadata
- * @param handler - Called once the handshake completes; runs for the watcher lifetime
- * @returns A handle whose `run()` method resolves when the watcher exits cleanly
+ * A dialed and handshake-complete watcher control socket.
+ *
+ * `handshakeRemainder` carries any bytes that arrived after the `hello-ack`
+ * line but were read in the same chunk during the handshake — a stream socket
+ * does not preserve message boundaries, so these must be fed to whatever
+ * parses subsequent traffic on the socket instead of being discarded.
  */
-export async function createWatcher(
-  registration: WatcherRegistration,
-  handler: WatcherHandler
-): Promise<WatcherHandle> {
+export interface DialedWatcherSocket {
+  socket: net.Socket;
+  handshakeRemainder: string;
+}
+
+/**
+ * Registers a watcher with the extension (POST `/internal/watchers`), dials
+ * the returned control socket, and completes the `hello`/`hello-ack`
+ * handshake.
+ *
+ * This is the connect-and-handshake portion of {@link createWatcher} (its
+ * steps 1-4), extracted so a caller that needs to re-establish the control
+ * channel after an unexpected disconnect — see
+ * `../../transcript-sync/engine/` composition root's reconnect-with-backoff
+ * requirement — can redo exactly this sequence without re-running a handler.
+ * `createWatcher` itself calls this once and behaves identically to before
+ * the extraction.
+ *
+ * @param registration - Identifies the watcher and attaches metadata.
+ * @returns The connected, handshake-complete socket and any batched trailing bytes.
+ * @throws {WatcherRegistrationError} When discovery, registration, or the socket connection fails.
+ * @throws {WatcherHandshakeError} When the handshake times out or the server's first message is malformed/unexpected.
+ */
+export async function dialWatcherSocket(registration: WatcherRegistration): Promise<DialedWatcherSocket> {
   const { watcherId, cardId, metadata } = registration;
 
   // 1. Discover server base URL
@@ -89,8 +110,8 @@ export async function createWatcher(
   // A stream socket does not preserve message boundaries: the server may write
   // (or the OS may coalesce) `hello-ack\n` and a subsequent message such as an
   // immediate `control: stop` into a single read. Any bytes that arrive after
-  // the first newline must be carried over to run()'s parser instead of being
-  // discarded, otherwise the batched message is silently lost.
+  // the first newline must be carried over to the caller's parser instead of
+  // being discarded, otherwise the batched message is silently lost.
   let handshakeRemainder = '';
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -141,6 +162,23 @@ export async function createWatcher(
       reject(new WatcherRegistrationError(`Socket connection failed: ${String(err)}`));
     });
   });
+
+  return { socket, handshakeRemainder };
+}
+
+/**
+ * Creates a watcher that registers with the extension and runs the provided
+ * handler with a {@link WatcherContext}.
+ * @param registration - Identifies the watcher and attaches metadata
+ * @param handler - Called once the handshake completes; runs for the watcher lifetime
+ * @returns A handle whose `run()` method resolves when the watcher exits cleanly
+ */
+export async function createWatcher(
+  registration: WatcherRegistration,
+  handler: WatcherHandler
+): Promise<WatcherHandle> {
+  // 1-4. Register, dial, and complete the hello handshake.
+  const { socket, handshakeRemainder } = await dialWatcherSocket(registration);
 
   // 5 & 6. Build WatcherContext
   let handshakeComplete = false;
