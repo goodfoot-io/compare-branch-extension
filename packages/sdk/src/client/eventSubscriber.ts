@@ -509,13 +509,6 @@ export class EventSubscriber {
   }
 
   /**
-   * Handles incoming WebSocket messages and dispatches to registered callbacks.
-   *
-   * Messages are expected to be JSON with a `type` field matching {@link EventMap}.
-   *
-   * @param event - Browser WebSocket message event containing the serialized payload.
-   */
-  /**
    * Shared disconnect-state transition: marks the connection as down, stops
    * the heartbeat, fires connection-change callbacks, and arms the reconnect
    * scheduler when appropriate.
@@ -586,6 +579,35 @@ export class EventSubscriber {
     }
   }
 
+  /**
+   * Whether `type` names a per-card journal message (`card:snapshot`,
+   * `card:replay`, `card:subscribeFailed`, `card:journalEvent`) — i.e. one
+   * that must be dropped in {@link handleMessage} unless its `cardId` is in
+   * {@link subscribedCardIds}.
+   *
+   * @param type - The message's `type` discriminator.
+   * @returns True when `type` is one of the four per-card journal message types.
+   */
+  private _isCardScopedMessageType(type: string): boolean {
+    return (
+      type === 'card:snapshot' ||
+      type === 'card:replay' ||
+      type === 'card:subscribeFailed' ||
+      type === 'card:journalEvent'
+    );
+  }
+
+  /**
+   * Handles incoming WebSocket messages and dispatches to registered callbacks.
+   *
+   * Messages are expected to be JSON with a `type` field matching {@link EventMap}.
+   * Per-card journal messages ({@link _isCardScopedMessageType}) are dropped
+   * unless their `cardId` is in {@link subscribedCardIds} — the server
+   * broadcasts these for every card to every client, and this subscriber only
+   * asked about the cards passed to {@link subscribeToCard}.
+   *
+   * @param event - Browser WebSocket message event containing the serialized payload.
+   */
   private handleMessage(event: MessageEvent): void {
     let message: { type: keyof EventMap; [key: string]: unknown };
     try {
@@ -602,6 +624,20 @@ export class EventSubscriber {
     if ((message as { type: string }).type === 'pong') {
       this.missedPongs = 0;
       return;
+    }
+
+    // Per-card journal messages name the card they concern via `cardId`. The
+    // server broadcasts these to every connected client regardless of
+    // subscription, so a message for a card this subscriber never asked for
+    // (via subscribeToCard) must be dropped here before any seq tracking,
+    // staleness update, or callback dispatch — and, critically, before
+    // _handleCardJournalEvent's gap detection could mistake it for a gap and
+    // send card:subscribe for a card the caller never requested. Fail closed.
+    if (this._isCardScopedMessageType(message.type)) {
+      const cardId = (message as { cardId?: unknown }).cardId;
+      if (typeof cardId !== 'string' || !this.subscribedCardIds.has(cardId)) {
+        return;
+      }
     }
 
     switch (message.type as string) {

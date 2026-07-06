@@ -242,6 +242,80 @@ describe('EventSubscriber journal subscribe/replay', () => {
     subscriber.disconnect();
   });
 
+  it('ignores card:journalEvent for a card never subscribed to: no callback, no re-subscribe', async () => {
+    const subscriber = await connectSubscriber();
+    const received: unknown[] = [];
+    subscriber.on('card:journalEvent', (event) => received.push(event));
+
+    // Subscribe to a different card so the socket is live and awaitMessage()
+    // below can distinguish "nothing sent" from "nothing sent yet".
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+    server.clearReceivedMessages();
+
+    server.broadcast({
+      type: 'card:journalEvent',
+      cardId: 'card-foreign',
+      seq: 1,
+      entryType: 'cards:metadata',
+      payload: { title: 'leak' },
+      timestamp: new Date().toISOString()
+    });
+    // Give the async message delivery a tick, then assert nothing was
+    // dispatched or sent in response.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(received).toHaveLength(0);
+    expect(server.getReceivedMessages()).toHaveLength(0);
+    subscriber.disconnect();
+  });
+
+  it('ignores card:snapshot and card:replay for a card never subscribed to', async () => {
+    const subscriber = await connectSubscriber();
+    const received: unknown[] = [];
+    subscriber.on('card:snapshot', (event) => received.push(event));
+    subscriber.on('card:replay', (event) => received.push(event));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+
+    server.broadcast({
+      type: 'card:snapshot',
+      cardId: 'card-foreign',
+      card: { id: 'card-foreign' },
+      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      seq: 42
+    });
+    server.broadcast({
+      type: 'card:replay',
+      cardId: 'card-foreign',
+      entries: [{ seq: 1, type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() }],
+      latestSeq: 1
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(received).toHaveLength(0);
+
+    // Confirm no seq was recorded for the foreign card by subscribing to it
+    // afresh: the subscribe should omit sinceSeq (as if never seen before).
+    subscriber.subscribeToCard('card-foreign');
+    const message = await server.awaitMessage();
+    expect(message).toEqual({ type: 'card:subscribe', cardId: 'card-foreign' });
+    subscriber.disconnect();
+  });
+
+  it('ignores card:subscribeFailed for a card never subscribed to', async () => {
+    const subscriber = await connectSubscriber();
+    const stalenessEvents: CardStalenessEvent[] = [];
+    subscriber.onStaleness((event) => stalenessEvents.push(event));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+
+    server.broadcast({ type: 'card:subscribeFailed', cardId: 'card-foreign', reason: 'Card not found' });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(stalenessEvents).toHaveLength(0);
+    subscriber.disconnect();
+  });
+
   it('unsubscribeFromCard forgets seq so a later subscribe omits sinceSeq', async () => {
     const subscriber = await connectSubscriber();
     subscriber.subscribeToCard('card-1');
