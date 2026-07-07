@@ -10,7 +10,7 @@
  * @module lib/sanitize
  */
 
-import { stripMarkup } from './markdown';
+import { stripMarkup } from '../../../lib/markdown';
 
 /** Prefixes that mark runtime control traffic rather than genuine prose. */
 const CONTROL_PREFIXES = ['Load the', 'Base directory', 'Stop hook feedback:'];

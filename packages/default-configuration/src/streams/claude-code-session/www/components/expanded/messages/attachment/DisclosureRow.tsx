@@ -18,8 +18,8 @@
  */
 
 import type React from 'react';
+import { renderMarkdown } from '../../../../../../lib/markdown';
 import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
-import { renderMarkdown } from '../../../../lib/markdown';
 import type {
   AttachmentPayload,
   DynamicSkillAttachment,

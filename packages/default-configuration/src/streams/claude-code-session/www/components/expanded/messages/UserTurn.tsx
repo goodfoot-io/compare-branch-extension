@@ -10,7 +10,7 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../../../lib/markdown';
+import { renderMarkdown } from '../../../../../lib/markdown';
 import { isCoordinationContent } from './CoordinationLine';
 
 interface UserTurnProps {

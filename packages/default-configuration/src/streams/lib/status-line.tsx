@@ -1,10 +1,10 @@
 /**
- * System status line for the expanded transcript.
+ * System status line shared across the stream renderers.
  *
  * Renders italic dimmed status messages such as "Compacting context…".
  *
  * @summary System status line (italic, dimmed)
- * @module components/expanded/messages/system/StatusLine
+ * @module streams/lib/status-line
  */
 
 import type React from 'react';

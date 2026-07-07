@@ -9,13 +9,13 @@
  */
 
 import type React from 'react';
+import { StatusLine } from '../../../../../../lib/status-line';
 import type { SystemMsg } from '../../../../lib/parse-session';
 import { RawJsonFallback } from '../RawJsonFallback';
 import { AwaySummaryBoundary } from './AwaySummaryBoundary';
 import { CompactBoundaryLine } from './CompactBoundaryLine';
 import { FilesPersisted } from './FilesPersisted';
 import { HookLine } from './HookLine';
-import { StatusLine } from './StatusLine';
 import { TaskNotification } from './TaskNotification';
 
 interface SystemRouterProps {

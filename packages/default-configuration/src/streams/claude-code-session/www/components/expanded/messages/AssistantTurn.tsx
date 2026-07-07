@@ -13,7 +13,7 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../../../lib/markdown';
+import { renderMarkdown } from '../../../../../lib/markdown';
 import type { ContentBlock } from '../../../lib/parse-session';
 import { ThinkingAccordion } from '../../accordions/ThinkingAccordion';
 import { isCoordinationContent } from './CoordinationLine';

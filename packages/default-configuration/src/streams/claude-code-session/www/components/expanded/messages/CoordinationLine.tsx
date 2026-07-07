@@ -10,7 +10,7 @@
  */
 
 import type React from 'react';
-import { stripMarkup } from '../../../lib/markdown';
+import { stripMarkup } from '../../../../../lib/markdown';
 
 /** Return type for `classifyCoordination`. */
 export interface CoordinationResult {

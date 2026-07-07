@@ -19,7 +19,7 @@
 import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { renderMarkdownNodes } from '../../lib/markdown';
+import { renderMarkdownNodes } from '../../../../lib/markdown';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
 

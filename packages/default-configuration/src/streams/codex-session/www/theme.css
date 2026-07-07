@@ -1,5 +1,6 @@
 @import '@cards.management/web/styles';
 @import '@vscode/codicons/dist/codicon.css';
+@import '../../lib/compact-card.css';
 
 /* =============================================================================
    CODEX SESSION RENDERER STYLES (`.cx-*` classes)
@@ -32,182 +33,13 @@ body.mode-compact {
   font-size: var(--vscode-font-size, 13px);
 }
 
-/* ============================================================================
-   Compact stream card
-
-   Honours the host's fixed box (StreamIframeHost COMPACT_STREAM_HEIGHT =
-   calc(3 * 1.5em + 4px + 24px)): a 3-row body at 1.5em line-height inside 12px
-   padding. Content beyond the box is CLIPPED, never scrolled, and no row grows.
-
-   Below the breakpoint the container is a single code-block panel; at/above it
-   the container goes transparent and its two child panels become distinct
-   rounded rectangles — recap+metrics on the left, latest lines on the right.
-   ============================================================================ */
-.compact-container {
-  background: var(--vscode-textCodeBlock-background);
-  border-radius: 4px;
-  padding: 12px;
-  box-sizing: border-box;
-  height: 100%;
-  overflow: hidden;
-}
-
-.compact-container .split-row {
-  display: flex;
-  height: 100%;
-  min-width: 0;
-}
-
-.compact-container .panel {
-  min-width: 0;
-}
-.compact-container .panel-left {
-  flex: 1 1 auto;
-}
-.compact-container .panel-right {
-  display: none;
-}
-
-.compact-container .body {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  height: 100%;
-  min-width: 0;
-}
-
-/* Row 1 — liveness dot + status word + right-aligned timing. */
-.compact-container .row-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  line-height: 1.5em;
-}
-.compact-container .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex: 0 0 6px;
-}
-.compact-container .dot.ended {
-  background: var(--vscode-descriptionForeground);
-}
-.compact-container .dot.running {
-  background: var(--vscode-terminal-ansiBlue);
-  animation: compact-pulse 1.6s ease-in-out infinite;
-}
-.compact-container .dot.error {
-  background: var(--vscode-errorForeground);
-}
-@keyframes compact-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-.compact-container .status {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-weight: 700;
-  color: var(--vscode-foreground);
-}
-.compact-container .meta-right {
-  margin-left: auto;
-  font-size: 0.78em;
-  color: var(--vscode-descriptionForeground);
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
-.compact-container .meta-split {
-  display: none;
-}
-
-/* Row 2 — headline, single clamped line. Never the card title/status. */
-.compact-container .headline {
-  font-size: 0.85em;
-  line-height: 1.5em;
-  color: var(--vscode-editor-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Row 3 — metrics: dimmed, separator-joined, numbers bold. */
-.compact-container .metrics {
-  font-size: 0.78em;
-  line-height: 1.5em;
-  color: var(--vscode-descriptionForeground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.compact-container .metrics .sep {
-  opacity: 0.5;
-  padding: 0 5px;
-}
-.compact-container .metrics b {
-  color: var(--vscode-foreground);
-  font-weight: 600;
-}
-
-/* Latest-lines panel rows (only rendered in the split layout). */
-.compact-container .panel-right .line {
-  font-size: 0.78em;
-  line-height: 1.5em;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  color: var(--vscode-descriptionForeground);
-}
-.compact-container .panel-right .line .lbl {
-  flex: 0 0 auto;
-  font-weight: 600;
-}
+/* Compact stream card — the shared shell (fixed 3-row box, stacked/split
+   layouts, StreamIframeHost COMPACT_STREAM_HEIGHT contract) lives in
+   ../../lib/compact-card.css (imported above). Codex has exactly one local
+   delta: the tail text is always foreground (no role-colored variants, no
+   metrics-split/stacked toggling, no media-query swap). */
 .compact-container .panel-right .line .txt {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--vscode-foreground);
-}
-/* Tail-line kind (`tool`/`message`/`event`) is carried by the label text itself
-   plus the `font-weight: 600` above — no per-kind hue, since that isn't one of
-   the reserved error/warning/success/info/diff-status meanings. */
-
-/* Wide-viewport split (see Claude renderer for the 560px breakpoint rationale). */
-@media (min-width: 560px) {
-  .compact-container {
-    background: transparent;
-    border-radius: 0;
-    padding: 0;
-  }
-  .compact-container .split-row {
-    gap: 8px;
-    align-items: stretch;
-  }
-  .compact-container .panel {
-    background: var(--vscode-textCodeBlock-background);
-    border-radius: 4px;
-    padding: 12px;
-    box-sizing: border-box;
-  }
-  .compact-container .panel-left {
-    flex: 1 1 58%;
-  }
-  .compact-container .panel-right {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 1px;
-    flex: 0 0 40%;
-    background: color-mix(in srgb, var(--vscode-textCodeBlock-background) 93%, var(--vscode-foreground) 7%);
-  }
 }
 
 /* ============================================================================

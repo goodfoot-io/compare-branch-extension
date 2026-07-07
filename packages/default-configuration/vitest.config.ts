@@ -45,6 +45,15 @@ const textAssetPlugin = {
 };
 
 export default defineConfig({
+  // This monorepo's workspace-root directory is literally named `public/`
+  // (`<repoRoot>/public/packages/...`). Vite's default `publicDir` detection
+  // walks up to that same workspace root and treats it as the static-asset
+  // public directory, then rewrites any absolute import that resolves inside
+  // it (e.g. `../../../codex/.../hooks.json`, outside this package) into a
+  // stripped `/codex/.../hooks.json` public-URL id instead of a loadable
+  // module id, breaking the import ("Cannot find module"). There is no dev
+  // server here — disable the feature entirely.
+  publicDir: false,
   plugins: [textAssetPlugin],
   test: {
     include: ['test/**/*.test.ts'],

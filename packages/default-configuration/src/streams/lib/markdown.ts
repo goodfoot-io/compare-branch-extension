@@ -1,11 +1,11 @@
 /**
- * Markdown rendering utilities for the claude-code-session stream renderer.
+ * Markdown rendering utilities shared across the stream renderers.
  *
  * Provides a `marked`-backed HTML renderer with an `escapeHtml` fallback,
  * plus `stripMarkup` for compact one-line display.
  *
  * @summary Markdown-to-HTML conversion and text sanitization helpers
- * @module lib/markdown
+ * @module streams/lib/markdown
  */
 
 import { marked } from 'marked';

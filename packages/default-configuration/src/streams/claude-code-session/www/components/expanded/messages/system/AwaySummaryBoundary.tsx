@@ -13,7 +13,7 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../../../../lib/markdown';
+import { renderMarkdown } from '../../../../../../lib/markdown';
 import { ExpandableRow } from '../../../accordions/ExpandableRow';
 
 interface AwaySummaryBoundaryProps {

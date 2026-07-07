@@ -9,7 +9,7 @@
  * @module lib/tool-summary
  */
 
-import { truncate } from './markdown';
+import { truncate } from '../../../lib/markdown';
 
 /** Tool names that are coordination infrastructure, not user-visible work. */
 export const INFRASTRUCTURE_TOOLS = new Set([

@@ -13,6 +13,7 @@
  */
 
 import type React from 'react';
+import { StatusLine } from '../../../../../lib/status-line';
 import { classifyAttachment } from '../../../lib/classify-attachment';
 import type { AttachmentPayload, ContentBlock, SessionMsg } from '../../../lib/parse-session';
 import { ToolAccordion } from '../../accordions/ToolAccordion';
@@ -23,7 +24,6 @@ import { AuthStatus } from './AuthStatus';
 import { AttachmentRouter } from './attachment/AttachmentRouter';
 import { RawJsonFallback } from './RawJsonFallback';
 import { ResultBoundary } from './ResultBoundary';
-import { StatusLine } from './system/StatusLine';
 import { SystemRouter } from './system/SystemRouter';
 import { UserTurn } from './UserTurn';
 

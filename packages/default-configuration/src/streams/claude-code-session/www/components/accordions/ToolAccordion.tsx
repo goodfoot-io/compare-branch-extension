@@ -11,7 +11,7 @@
 
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
-import { truncate } from '../../lib/markdown';
+import { truncate } from '../../../../lib/markdown';
 import type { AttachmentPayload, HookBlockingErrorAttachment } from '../../lib/parse-session';
 import { summarizeTool } from '../../lib/tool-summary';
 import { HookSection } from './HookSection';
