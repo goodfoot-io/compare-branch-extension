@@ -87,7 +87,11 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
       const updated = new Map(state.files);
       updated.set(msg.filename, {
         ...file,
-        meta: msg.meta
+        // Merge rather than replace: `stream:ended` only carries the fields
+        // that change at end-of-stream (lineCount/isActive) — merging keeps
+        // sidecar-derived fields (role, agentId, sessionId, title) that were
+        // already known for this file.
+        meta: { ...file.meta, ...msg.meta }
       });
       return { files: updated };
     }

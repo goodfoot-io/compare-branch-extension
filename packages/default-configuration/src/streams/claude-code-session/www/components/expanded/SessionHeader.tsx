@@ -20,6 +20,8 @@ interface SessionHeaderProps {
   cwd: string;
   /** Session status for the indicator dot color. */
   status: SessionStatus;
+  /** Sidecar agent identifier, present only for `role: 'subagent'`/`'auxiliary'` streams. */
+  agentId?: string;
 }
 
 /** Status dot color per session state. */
@@ -36,10 +38,11 @@ const STATUS_COLOR: Record<SessionStatus, string> = {
  * @param root0.model - Model name (e.g. "claude-opus-4-5").
  * @param root0.cwd - Current working directory of the session.
  * @param root0.status - Session status for the indicator dot color.
+ * @param root0.agentId - Sidecar agent identifier for subagent/auxiliary streams.
  * @returns Rendered sticky header bar, or null when model and cwd are both empty.
  */
-export function SessionHeader({ model, cwd, status }: SessionHeaderProps): React.ReactElement | null {
-  if (!model && !cwd) return null;
+export function SessionHeader({ model, cwd, status, agentId }: SessionHeaderProps): React.ReactElement | null {
+  if (!model && !cwd && !agentId) return null;
 
   return (
     <div
@@ -49,6 +52,12 @@ export function SessionHeader({ model, cwd, status }: SessionHeaderProps): React
           '1px solid color-mix(in srgb, var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545)) 50%, transparent)'
       }}
     >
+      {agentId && (
+        <span className="shrink-0 font-vscode-editor" title={`Subagent: ${agentId}`}>
+          {agentId}
+        </span>
+      )}
+      {agentId && (model || cwd) && <span className="opacity-30">·</span>}
       {model && <span className="font-vscode-editor">{model}</span>}
       {model && cwd && <span className="opacity-30">·</span>}
       {cwd && (

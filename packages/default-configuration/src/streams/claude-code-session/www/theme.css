@@ -542,6 +542,15 @@ body,
   font-weight: 700;
   color: var(--vscode-foreground);
 }
+/* Sidecar-derived subagent label — shown only for role 'subagent'/'auxiliary' streams. */
+.compact-container .subagent-label {
+  font-size: 0.78em;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 9em;
+}
 .compact-container .meta-right {
   margin-left: auto;
   font-size: 0.78em;
