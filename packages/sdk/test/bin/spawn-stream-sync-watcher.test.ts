@@ -1,11 +1,9 @@
 /**
  * Tests for the manifest-driven `spawnStreamSyncWatcher` helper.
  *
- * Mirrors the shape of the (unported) old `spawnTranscriptWatcher` behavior:
- * a single JSON argv entry (the serialized manifest) instead of five
- * positional strings, shell-less spawn on both platforms, and the same
- * win32/POSIX resolution branches. `node:child_process` and `node:fs` are
- * mocked so no real process is spawned.
+ * Covers a single JSON argv entry (the serialized manifest), shell-less spawn
+ * on both platforms, and the win32/POSIX resolution branches. `node:child_process`
+ * and `node:fs` are mocked so no real process is spawned.
  *
  * @summary Unit tests for spawnStreamSyncWatcher
  */

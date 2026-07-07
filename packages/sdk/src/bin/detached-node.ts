@@ -2,7 +2,7 @@
  * Fail-closed Node interpreter resolution for detached win32 watcher spawns.
  *
  * The session-start / EnterWorktree hook subprocesses that spawn the detached
- * `transcript-watcher` and `adhoc-cleanup` bins do not share the extension's
+ * `stream-sync-watcher` and `adhoc-cleanup` bins do not share the extension's
  * §7 interpreter-resolution code. To avoid routing a detached spawn through a
  * `.cmd` → `node.exe` hop (which pops a console window once the win32
  * interpreter is stock `node.exe`), they spawn `node.exe <bin>.mjs` directly —

@@ -1,8 +1,8 @@
 /**
- * Integration tests for sentinel file coordination between session-end and transcript-watcher.
+ * Integration tests for sentinel file coordination between session-end and stream-sync-watcher.
  *
  * Uses real filesystem operations to verify that the sentinel file written by
- * `writeSentinelFile` is correctly detected by `sentinelFileExists` and cleaned
+ * `writeSentinelFile` is correctly detected by `sentinelExists` and cleaned
  * up by `removeSentinelFile`. No fs mocks are used — that is the whole point.
  *
  * @summary Integration tests: sentinel file coordination between writer and reader
@@ -23,12 +23,27 @@ vi.mock('@goodfoot/claude-code-hooks', () => ({
   sessionEndOutput: vi.fn()
 }));
 
-import { removeSentinelFile, sentinelFileExists } from '../../../../sdk/src/bin/transcript-watcher.js';
+import { removeSentinelFile, sentinelExists } from '../../../../sdk/src/transcript-sync/engine/commit.js';
+import type { SessionSyncManifest } from '../../../../sdk/src/transcript-sync/manifest.js';
 import { writeSentinelFile } from '../../../src/claude/runtime/session-end.js';
 
 const SESSION_ID = 'test-session-abc123';
 
 let cardRepoPath: string;
+
+function manifestFor(cardRepoPath: string): SessionSyncManifest {
+  return {
+    version: 1,
+    sessionId: SESSION_ID,
+    cardId: 'card-test',
+    runtime: 'claude-code',
+    streamType: 'claude-code-session',
+    watchRoot: '/dev/null/unused',
+    sources: [{ pattern: `${SESSION_ID}.jsonl`, role: 'main', mode: 'jsonl-tail' }],
+    monitorPid: process.pid,
+    cardRepoPath
+  };
+}
 
 beforeEach(async () => {
   cardRepoPath = await mkdtemp(join(tmpdir(), 'sentinel-test-'));
@@ -41,19 +56,20 @@ afterEach(async () => {
 });
 
 describe('sentinel file coordination', () => {
-  it('Test 1: writeSentinelFile creates a file detectable by sentinelFileExists', async () => {
+  it('Test 1: writeSentinelFile creates a file detectable by sentinelExists', async () => {
     await writeSentinelFile(cardRepoPath, SESSION_ID);
 
-    const exists = await sentinelFileExists(cardRepoPath, SESSION_ID);
+    const exists = await sentinelExists(manifestFor(cardRepoPath));
 
     expect(exists).toBe(true);
   });
 
   it('Test 2: removeSentinelFile cleans up the file written by writeSentinelFile', async () => {
+    const manifest = manifestFor(cardRepoPath);
     await writeSentinelFile(cardRepoPath, SESSION_ID);
-    await removeSentinelFile(cardRepoPath, SESSION_ID);
+    await removeSentinelFile(manifest);
 
-    const exists = await sentinelFileExists(cardRepoPath, SESSION_ID);
+    const exists = await sentinelExists(manifest);
     expect(exists).toBe(false);
 
     // Verify the file is actually gone on disk using fs.access directly
@@ -69,18 +85,19 @@ describe('sentinel file coordination', () => {
     await expect(access(expectedPath)).resolves.toBeUndefined();
   });
 
-  it('Test 4: sentinelFileExists returns false before writeSentinelFile is called', async () => {
+  it('Test 4: sentinelExists returns false before writeSentinelFile is called', async () => {
     // Fresh temp dir, no sentinel written
-    const exists = await sentinelFileExists(cardRepoPath, SESSION_ID);
+    const exists = await sentinelExists(manifestFor(cardRepoPath));
 
     expect(exists).toBe(false);
   });
 
   it('Test 5: removeSentinelFile is idempotent after file already removed', async () => {
+    const manifest = manifestFor(cardRepoPath);
     await writeSentinelFile(cardRepoPath, SESSION_ID);
-    await removeSentinelFile(cardRepoPath, SESSION_ID);
+    await removeSentinelFile(manifest);
 
     // Second removal should not throw
-    await expect(removeSentinelFile(cardRepoPath, SESSION_ID)).resolves.toBeUndefined();
+    await expect(removeSentinelFile(manifest)).resolves.toBeUndefined();
   });
 });

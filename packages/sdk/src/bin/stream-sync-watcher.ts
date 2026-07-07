@@ -5,9 +5,8 @@
  * {@link SessionSyncManifest} (see `../transcript-sync/manifest.ts`) — this
  * process syncs every file the manifest describes from its `watchRoot` into
  * `<cardRepoPath>/streams/<streamType>/`, using the engine modules under
- * `../transcript-sync/engine/`. It replaces the fixed Claude-Code-only logic
- * in `./transcript-watcher.ts` (kept alive, unmodified, until Phase 6 deletes
- * it) with a manifest-driven implementation that also serves Codex sessions.
+ * `../transcript-sync/engine/`. It is a manifest-driven implementation that
+ * serves both Claude Code and Codex sessions.
  *
  * Startup is fail-closed and REGISTERS FIRST: this process runs detached with
  * `stdio: 'ignore'`, so once spawned its exit code is invisible to the parent.
@@ -18,8 +17,8 @@
  * server is down, or even the minimal sessionId/cardId extraction fails),
  * nothing else is possible and the process exits nonzero.
  *
- * Unlike `./transcript-watcher.ts`, the control channel here survives an
- * extension restart: it is a {@link createReconnectingWatcher} channel, which
+ * The control channel here survives an extension restart: it is a
+ * {@link createReconnectingWatcher} channel, which
  * re-registers with capped exponential backoff on an unexpected disconnect
  * instead of exiting — sync work keeps running underneath a dropped socket.
  *
@@ -41,13 +40,13 @@ import {
 import { assertSupportedPatterns, matchSource } from '../transcript-sync/engine/matcher.js';
 import { Reconciler } from '../transcript-sync/engine/reconciler.js';
 import { recoverCursor } from '../transcript-sync/engine/recovery.js';
+import { cleanupSessionArtifacts } from '../transcript-sync/engine/session-artifacts.js';
 import { writeSessionStatus } from '../transcript-sync/engine/session-status.js';
 import { buildStatusHeartbeat, MainFileInvariantChecker } from '../transcript-sync/engine/status.js';
 import { SyncChain } from '../transcript-sync/engine/sync-chain.js';
 import { WatchInstaller } from '../transcript-sync/engine/watch-installer.js';
 import { parseManifest, type SessionSyncManifest } from '../transcript-sync/manifest.js';
 import { isProcessAlive } from './process-utils.js';
-import { cleanupSessionArtifacts } from './transcript-watcher.js';
 
 /** Minimal identity extracted from the raw manifest argv for registration purposes only. */
 export interface MinimalIdentity {

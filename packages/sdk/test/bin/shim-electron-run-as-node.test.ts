@@ -26,7 +26,7 @@ const CMD_SHIMS = [
   'cards-extension-cli.cmd',
   'create-worktree.cmd',
   'remove-worktree.cmd',
-  'transcript-watcher.cmd'
+  'stream-sync-watcher.cmd'
 ];
 
 const SH_SHIMS = [
@@ -35,7 +35,7 @@ const SH_SHIMS = [
   'cards-extension-cli.sh',
   'create-worktree.sh',
   'remove-worktree.sh',
-  'transcript-watcher.sh'
+  'stream-sync-watcher.sh'
 ];
 
 describe('bin shims: ELECTRON_RUN_AS_NODE', () => {

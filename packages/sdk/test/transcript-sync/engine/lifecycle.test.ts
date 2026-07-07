@@ -5,7 +5,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type LifecycleDeps, MAX_LIFETIME_MS, runWatcherLoop } from '../../../src/transcript-sync/engine/lifecycle.js';
+import {
+  type LifecycleDeps,
+  MAX_LIFETIME_MS,
+  runWatcherLoop,
+  STEADY_TICK_INTERVAL_MS
+} from '../../../src/transcript-sync/engine/lifecycle.js';
 
 interface DepsOverrides {
   signal?: { stopped: boolean };
@@ -109,5 +114,13 @@ describe('runWatcherLoop', () => {
     });
 
     expect(sleepDurations).toEqual([5000]);
+  });
+});
+
+describe('MAX_LIFETIME_MS / STEADY_TICK_INTERVAL_MS ordering', () => {
+  it('MAX_LIFETIME_MS is larger than STEADY_TICK_INTERVAL_MS', () => {
+    // Guards against accidental swap of the two constants — a swap would make
+    // the watcher exit in ~5ms instead of 24h, or poll every 24h.
+    expect(MAX_LIFETIME_MS).toBeGreaterThan(STEADY_TICK_INTERVAL_MS);
   });
 });

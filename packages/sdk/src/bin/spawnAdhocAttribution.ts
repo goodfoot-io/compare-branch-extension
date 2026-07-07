@@ -65,14 +65,14 @@ export interface SpawnAdhocAttributionParams {
  *
  * `activated: true` means the per-card adhoc-cleanup spawn was attempted — the
  * card's activation and ref registration are underway regardless of whether
- * this bind also owns the session's transcript-watcher. `activated: false`
+ * this bind also owns the session's stream-sync-watcher. `activated: false`
  * means activation was skipped, with `reason` identifying the guard:
  *
  * - `'not-activatable'` — the card's status is not in the activatable set (or
  *   `CARD.meta.json` is missing).
  *
  * A held session de-dupe lock is deliberately NOT a skip: the lock gates only
- * the transcript-watcher spawn, so a second card bound in the same session
+ * the stream-sync-watcher spawn, so a second card bound in the same session
  * still activates.
  */
 export type SpawnAdhocAttributionOutcome = { activated: true } | { activated: false; reason: 'not-activatable' };
@@ -134,7 +134,7 @@ export async function spawnAdhocAttribution(
   // 2. O_EXCL de-dupe lock. Records the AGENT PID (passed in by the caller),
   //    never the node process PID. Returns false if the session is already
   //    tracked; a stale lock from a crashed hook is unlinked and retried once.
-  //    The lock gates only the session-scoped transcript-watcher below — the
+  //    The lock gates only the session-scoped stream-sync-watcher below — the
   //    per-card adhoc-cleanup spawn must happen regardless, otherwise a second
   //    card bound in the same session is never activated.
   const acquired = await acquireLock(lockPath, agentPid, cardId, logger);

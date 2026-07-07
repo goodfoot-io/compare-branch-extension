@@ -30,7 +30,6 @@
     "./search-utils": "./src/searchUtils.ts",
     "./symlink-capability": "./src/symlink-capability.ts",
     "./timer": "./src/timer.ts",
-    "./bin/spawn-transcript-watcher": "./src/bin/spawn-transcript-watcher.ts",
     "./bin/spawn-stream-sync-watcher": "./src/bin/spawn-stream-sync-watcher.ts",
     "./bin/spawn-adhoc-cleanup": "./src/bin/spawn-adhoc-cleanup.ts",
     "./bin/spawn-adhoc-attribution": "./src/bin/spawnAdhocAttribution.ts",

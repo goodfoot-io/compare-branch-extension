@@ -95,7 +95,7 @@ export async function resolveCardRepoPath(cardId: string, logger: AdhocAttributi
  * If that PID is alive, the session is already tracked → returns false (no-op).
  * When the live lock is bound to a DIFFERENT card (the session moved to another
  * worktree), this is logged explicitly: the session stays bound to its first
- * card because the single per-session transcript-watcher cannot be re-targeted
+ * card because the single per-session stream-sync-watcher cannot be re-targeted
  * without tearing itself down. If the PID is dead (stale lock from a crashed
  * hook), unlinks the lock and retries O_EXCL once.
  *
@@ -158,11 +158,11 @@ export async function acquireLock(
     //
     // KNOWN LIMITATION (intentional): a single ad-hoc session's TRANSCRIPT is
     // attributed only to the FIRST card-worktree it enters. The
-    // transcript-watcher's watcherId is the session id, and the
+    // stream-sync-watcher's watcherId is the session id, and the
     // WatcherRegistry takeover invariant permits only one live watcher per
     // session — re-targeting a second card would tear down the first watcher
     // (churn + a transcript-sync gap), which the card's "reuse the
-    // transcript-watcher as-is" constraint forbids. Consequence: work done
+    // stream-sync-watcher as-is" constraint forbids. Consequence: work done
     // after entering a second card's worktree within the same session streams
     // its transcript into the FIRST card (the second card is still activated
     // via its own adhoc-cleanup). The warning below surfaces this so a

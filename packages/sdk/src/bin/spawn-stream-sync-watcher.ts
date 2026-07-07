@@ -5,32 +5,92 @@
  * Shared between the Claude Code and Codex SessionStart hooks (launch-mode,
  * resolving the wrapper by absolute path under the extension's `dist/bin`)
  * and `spawnAdhocAttribution` (attach-mode, resolving the bare wrapper name
- * on PATH). Mirrors `spawn-transcript-watcher.ts`'s process hygiene and win32
- * `.cmd`-avoidance exactly — the only difference is the argv contract: this
- * watcher takes a single JSON argument (a serialized {@link SessionSyncManifest})
- * instead of five positional strings, so both spawn paths use array-form
- * `spawn` with `shell: false` throughout (never string-concatenated), which
- * is safe regardless of quotes/spaces inside the JSON payload.
+ * on PATH). The watcher takes a single JSON argument (a serialized
+ * {@link SessionSyncManifest}), so both spawn paths use array-form `spawn`
+ * with `shell: false` throughout (never string-concatenated), which is safe
+ * regardless of quotes/spaces inside the JSON payload.
  *
  * @summary Spawn the detached, manifest-driven stream-sync-watcher subprocess
  * @module
  */
 
-import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 import { type SessionSyncManifest, serializeManifest } from '../transcript-sync/manifest.js';
 import { resolveDetachedNodeInterpreter } from './detached-node.js';
-import {
-  isPosixWrapperAvailable,
-  resolveWin32WatcherMjs,
-  type TranscriptWatcherLogger
-} from './spawn-transcript-watcher.js';
+
+/**
+ * Minimal logger interface required by spawnStreamSyncWatcher.
+ *
+ * Accepts any logger that exposes `error` and `warn` methods taking
+ * a message string plus an optional structured-data argument.
+ */
+export interface WatcherSpawnLogger {
+  error(message: string, data?: Record<string, unknown>): void;
+  warn(message: string, data?: Record<string, unknown>): void;
+}
 
 /** No-op logger used when a caller does not supply one. */
-const NOOP_LOGGER: TranscriptWatcherLogger = {
+const NOOP_LOGGER: WatcherSpawnLogger = {
   error: () => undefined,
   warn: () => undefined
 };
+
+/**
+ * Probes whether a POSIX wrapper command is launchable.
+ *
+ * - **Absolute path:** verified with `fs.existsSync` (the file either exists at
+ *   the resolved location or it does not).
+ * - **Bare name (PATH lookup):** resolved with `sh -c 'command -v "$1"'`, which
+ *   exits 0 only when the name is found on PATH.
+ *
+ * (win32 resolution does not use this — it resolves the interpreter and sibling
+ * `.mjs` directly; see {@link spawnStreamSyncWatcher}.)
+ *
+ * @param command - Absolute path or bare wrapper name to probe.
+ * @returns True when the command is launchable.
+ */
+export function isPosixWrapperAvailable(command: string): boolean {
+  if (isAbsolute(command)) {
+    return existsSync(command);
+  }
+  const probe = spawnSync('sh', ['-c', 'command -v "$1"', 'sh', command], { stdio: 'ignore' });
+  return !probe.error && probe.status === 0;
+}
+
+/**
+ * Resolves the absolute `.mjs` that a `.cmd` wrapper would exec on win32,
+ * from the wrapper reference the caller passed.
+ *
+ * - **Absolute `.cmd` path (launch mode):** the `.mjs` is the sibling the `.cmd`
+ *   invokes (`%~dp0<name>.mjs`), i.e. the same path with the `.cmd` extension
+ *   swapped for `.mjs`.
+ * - **Bare name (attach mode):** `where <name>` is run to capture the absolute
+ *   `.cmd` path it resolves to on PATH, then the extension is swapped. `where`'s
+ *   exit status alone is insufficient here — the absolute path is needed to find
+ *   the sibling `.mjs`.
+ *
+ * @param watcher - Absolute `.cmd` path or bare wrapper name.
+ * @returns The absolute `.mjs` path, or `null` when it cannot be resolved or the
+ *   resolved file does not exist.
+ */
+export function resolveWin32WatcherMjs(watcher: string): string | null {
+  let cmdPath: string | null = null;
+  if (isAbsolute(watcher)) {
+    cmdPath = watcher;
+  } else {
+    const probe = spawnSync('where', [watcher], { encoding: 'utf-8', windowsHide: true });
+    if (probe.error || probe.status !== 0 || typeof probe.stdout !== 'string') return null;
+    // `where` may print multiple matches (one per line); take the first.
+    cmdPath = probe.stdout.split(/\r?\n/).map((line) => line.trim())[0] || null;
+  }
+  if (!cmdPath) return null;
+
+  const mjsPath = cmdPath.replace(/\.cmd$/i, '.mjs');
+  if (mjsPath === cmdPath) return null;
+  return existsSync(mjsPath) ? mjsPath : null;
+}
 
 /**
  * Returns the platform-correct basename of the `stream-sync-watcher` wrapper:
@@ -45,9 +105,13 @@ export function streamSyncWatcherWrapperName(): string {
 
 /**
  * Resolves the absolute path to the `stream-sync-watcher` wrapper within the
- * extension's bin directory. See {@link resolveTranscriptWatcher} in
- * `spawn-transcript-watcher.ts` for the full launch-mode-vs-attach-mode
- * rationale, which applies identically here.
+ * extension's bin directory.
+ *
+ * The wrapper is produced by the extension build into `<extensionPath>/dist/bin`.
+ * The runtime plugin's SessionStart hook cannot rely on it being on PATH — a
+ * background Launch action enables only the `runtime` plugin, so the `cards`
+ * plugin's bin is never prepended to PATH. Resolving an absolute path from the
+ * caller-supplied `binPath` removes that cross-plugin PATH dependency.
  *
  * @param binPath - Absolute path to the extension's `dist/bin` directory.
  * @returns Absolute path to the platform-correct `stream-sync-watcher` wrapper
@@ -70,14 +134,14 @@ export interface SpawnStreamSyncWatcherOptions {
    */
   extensionPath?: string;
   /** Logger for structured error output when the watcher cannot be launched. Defaults to a no-op logger. */
-  logger?: TranscriptWatcherLogger;
+  logger?: WatcherSpawnLogger;
 }
 
 /**
  * Spawns a detached stream-sync-watcher process for crash-resilient
  * transcript upload, driven entirely by the supplied manifest.
  *
- * Process hygiene is identical to {@link spawnTranscriptWatcher}: detached,
+ * Process hygiene: detached,
  * `stdio: 'ignore'`, `unref()`'d, and — on win32 — spawned as `node.exe
  * <stream-sync-watcher.mjs> <manifestJson>` with no shell and no `.cmd` hop
  * (avoiding a console-window pop in the detached tree), using the same

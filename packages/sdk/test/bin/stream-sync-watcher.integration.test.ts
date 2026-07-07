@@ -1,21 +1,29 @@
 /**
- * End-to-end integration test for the relocated transcript watcher.
+ * End-to-end integration test for the manifest-driven stream-sync-watcher.
  *
- * Spawns the built `transcript-watcher.mjs` binary as a real child process
+ * Ported from the deleted `test/bin/transcript-watcher.integration.test.ts`:
+ * spawns the built `stream-sync-watcher.mjs` binary as a real child process
  * against a harness that simulates the extension: an HTTP server for
  * `POST /internal/watchers` discovery + registration, and a Unix-domain
  * control socket that speaks the Phase-1 protocol (hello / hello-ack /
  * event / log / control / stop-ack).
  *
- * Asserts that the four surviving exit paths still fire:
+ * Asserts that the surviving exit paths still fire against the real binary
+ * (not just the in-process `runSession` unit tests in
+ * `stream-sync-watcher.test.ts`):
  *   1. `stop` control → final flush, stop-ack emitted, child exits 0.
  *   2. `.flush` sentinel → final flush + commit, child exits 0.
- *   3. PID-death → final flush + commit, child exits 0.
+ *   3. Live-tailing when `watchRoot` is created after the watcher starts.
+ *   4. PID-death → final flush + commit, child exits 0.
  *
- * The 24h cap is covered by inspection in the unit test — exercising it here
- * would require either process-spanning time or a hook into private state.
+ * The argv contract differs from the old watcher: a single JSON argument (a
+ * serialized {@link SessionSyncManifest}) instead of five positional strings.
  *
- * @summary End-to-end tests for transcript-watcher binary via real spawn
+ * The 24h cap is covered by inspection in the engine's lifecycle unit test —
+ * exercising it here would require either process-spanning time or a hook
+ * into private state.
+ *
+ * @summary End-to-end tests for stream-sync-watcher binary via real spawn
  */
 
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
@@ -34,6 +42,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 // Windows); the harness must listen on the same mapped endpoint while still
 // advertising the logical .sock path over HTTP discovery.
 import { socketEndpoint } from '../../src/config/watcher/socketEndpoint.js';
+import { type SessionSyncManifest, serializeManifest } from '../../src/transcript-sync/manifest.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -41,7 +50,7 @@ const execFileAsync = promisify(execFile);
 // leading-slash, percent-encoded path like /C:/... that path APIs reject.
 const BUILT_BINARY = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../../../../packages/extension/dist/bin/transcript-watcher.mjs'
+  '../../../../../packages/extension/dist/bin/stream-sync-watcher.mjs'
 );
 
 interface ParsedMessage {
@@ -62,7 +71,7 @@ interface Harness {
 }
 
 async function buildHarness(): Promise<Harness> {
-  const socketPath = path.join(tmpdir(), `tw-int-${Math.random().toString(36).slice(2)}.sock`);
+  const socketPath = path.join(tmpdir(), `ssw-int-${Math.random().toString(36).slice(2)}.sock`);
   const serverMessages: ParsedMessage[] = [];
   let activeSocket: net.Socket | undefined;
   let helloResolve: (() => void) | undefined;
@@ -136,7 +145,7 @@ async function buildHarness(): Promise<Harness> {
   });
 
   // discoverApiInfo reads ~/.cards/cards-api.json — write one in an isolated HOME.
-  const apiInfoDir = fs.mkdtempSync(join(tmpdir(), 'tw-int-home-'));
+  const apiInfoDir = fs.mkdtempSync(join(tmpdir(), 'ssw-int-home-'));
   mkdirSync(join(apiInfoDir, '.cards'), { recursive: true });
   const apiInfoPath = join(apiInfoDir, '.cards', 'cards-api.json');
   await writeFile(
@@ -184,7 +193,7 @@ function waitForChildExit(child: ChildProcess): Promise<number | null> {
   });
 }
 
-describe('transcript-watcher binary integration', () => {
+describe('stream-sync-watcher binary integration', () => {
   let base: string;
   let cardRepoPath: string;
   let sourceDir: string;
@@ -195,11 +204,11 @@ describe('transcript-watcher binary integration', () => {
   beforeEach(async () => {
     if (!existsSync(BUILT_BINARY)) {
       throw new Error(
-        `Built transcript-watcher binary not found at ${BUILT_BINARY}. Run the extension build (e.g. 'yarn build' in packages/extension) to produce dist/bin first.`
+        `Built stream-sync-watcher binary not found at ${BUILT_BINARY}. Run the extension build (e.g. 'yarn build' in packages/extension) to produce dist/bin first.`
       );
     }
     sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    base = join(tmpdir(), `tw-int-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    base = join(tmpdir(), `ssw-int-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     cardRepoPath = join(base, 'card-repo');
     sourceDir = join(base, 'source');
     mkdirSync(cardRepoPath, { recursive: true });
@@ -217,16 +226,26 @@ describe('transcript-watcher binary integration', () => {
     rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
-  function spawnWatcher(pid: number): ChildProcess {
-    const transcriptPath = join(sourceDir, `${sessionId}.jsonl`);
-    const proc = spawn(
-      process.execPath,
-      [BUILT_BINARY, String(pid), sessionId, transcriptPath, 'card-int', cardRepoPath],
-      {
-        env: { ...process.env, CARDS_DISCOVERY_PATH: harness.apiInfoPath },
-        stdio: ['ignore', 'pipe', 'pipe']
-      }
-    );
+  function buildManifest(monitorPid: number): SessionSyncManifest {
+    return {
+      version: 1,
+      sessionId,
+      cardId: 'card-int',
+      runtime: 'claude-code',
+      streamType: 'claude-code-session',
+      watchRoot: sourceDir,
+      sources: [{ pattern: `${sessionId}.jsonl`, role: 'main', mode: 'jsonl-tail' }],
+      monitorPid,
+      cardRepoPath
+    };
+  }
+
+  function spawnWatcher(monitorPid: number): ChildProcess {
+    const manifest = buildManifest(monitorPid);
+    const proc = spawn(process.execPath, [BUILT_BINARY, serializeManifest(manifest)], {
+      env: { ...process.env, CARDS_DISCOVERY_PATH: harness.apiInfoPath },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
     return proc;
   }
 
@@ -269,7 +288,7 @@ describe('transcript-watcher binary integration', () => {
     expect(existsSync(join(sentinelDir, `${sessionId}.flush`))).toBe(false);
   }, 60_000);
 
-  it('live-tails when source dir is created after watcher starts', async () => {
+  it('live-tails when watchRoot is created after watcher starts', async () => {
     // Remove the pre-created source dir — simulate Claude not having created
     // ~/.claude/projects/<encoded-cwd>/ yet at the moment the watcher spawns.
     rmSync(sourceDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -277,8 +296,8 @@ describe('transcript-watcher binary integration', () => {
     child = spawnWatcher(process.pid);
     await harness.waitForHello();
 
-    // Wait long enough that an eager fs.watch attempt would have already
-    // failed with ENOENT and been swallowed by the catch block.
+    // Wait long enough that an eager watch-install attempt would have already
+    // failed with ENOENT and been swallowed.
     await new Promise((r) => setTimeout(r, 500));
 
     // Now Claude creates its project directory and starts writing the transcript.
