@@ -36,7 +36,7 @@ body.mode-compact {
    Compact stream card
 
    Honours the host's fixed box (StreamIframeHost COMPACT_STREAM_HEIGHT =
-   calc(3 * 1.5em + 24px)): a 3-row body at 1.5em line-height inside 12px
+   calc(3 * 1.5em + 4px + 24px)): a 3-row body at 1.5em line-height inside 12px
    padding. Content beyond the box is CLIPPED, never scrolled, and no row grows.
 
    Below the breakpoint the container is a single code-block panel; at/above it
@@ -110,7 +110,7 @@ body.mode-compact {
   }
 }
 .compact-container .status {
-  font-size: 9.5px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-weight: 700;
@@ -176,15 +176,9 @@ body.mode-compact {
   text-overflow: ellipsis;
   color: var(--vscode-foreground);
 }
-.compact-container .panel-right .line .lbl.tool {
-  color: var(--vscode-terminal-ansiBlue);
-}
-.compact-container .panel-right .line .lbl.message {
-  color: var(--vscode-terminal-ansiGreen);
-}
-.compact-container .panel-right .line .lbl.event {
-  color: var(--vscode-charts-purple);
-}
+/* Tail-line kind (`tool`/`message`/`event`) is carried by the label text itself
+   plus the `font-weight: 600` above — no per-kind hue, since that isn't one of
+   the reserved error/warning/success/info/diff-status meanings. */
 
 /* Wide-viewport split (see Claude renderer for the 560px breakpoint rationale). */
 @media (min-width: 560px) {
@@ -255,26 +249,141 @@ body.mode-expanded {
 }
 
 .cx-role-label {
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 700;
   margin-bottom: 3px;
+  color: var(--vscode-foreground);
 }
-.cx-item.cx-user .cx-role-label {
-  color: var(--vscode-charts-purple);
-}
-.cx-item.cx-assistant .cx-role-label {
-  color: var(--vscode-terminal-ansiGreen);
-}
+/* User/assistant already read apart by the message-bubble background (see
+   `.cx-item.cx-user .cx-message-text`) and alignment, so the label itself stays
+   on the primary-foreground tier rather than adding a redundant hue. Reasoning
+   drops a tier to description-foreground, matching its italic/dimmed body. */
 .cx-item.cx-reasoning .cx-role-label {
   color: var(--vscode-descriptionForeground);
 }
 
 .cx-message-text {
-  white-space: pre-wrap;
   word-break: break-word;
   color: var(--vscode-foreground);
+}
+
+/* Base markdown typography (scoped under .cx-message-text) — the message text
+   is now rendered through `marked` (see lib/markdown.ts), mirroring the
+   claude-code-session renderer's `.cc-transcript` block treatment. */
+.cx-message-text p {
+  margin: 0 0 0.5em;
+}
+.cx-message-text p:last-child {
+  margin-bottom: 0;
+}
+.cx-message-text li p {
+  margin-bottom: 0.3em;
+}
+.cx-message-text pre {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  overflow: auto;
+  margin: 0.5em 0;
+  white-space: pre;
+}
+.cx-message-text code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 2px;
+  padding: 1px 3px;
+}
+.cx-message-text pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  tab-size: 4;
+}
+.cx-message-text a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+.cx-message-text a:hover {
+  text-decoration: underline;
+}
+.cx-message-text blockquote {
+  margin: 0;
+  padding: 0 12px 0 8px;
+  border-left-width: 5px;
+  border-left-style: solid;
+  border-left-color: var(--vscode-textBlockQuote-border);
+  border-radius: 2px;
+  background: var(--vscode-textBlockQuote-background);
+}
+.cx-message-text ul,
+.cx-message-text ol {
+  margin: 0.25em 0 0.5em;
+  padding-left: 1.5em;
+}
+.cx-message-text ul {
+  list-style-type: disc;
+}
+.cx-message-text ol {
+  list-style-type: decimal;
+}
+.cx-message-text li {
+  margin-bottom: 0.1em;
+}
+.cx-message-text h1,
+.cx-message-text h2,
+.cx-message-text h3,
+.cx-message-text h4,
+.cx-message-text h5,
+.cx-message-text h6 {
+  font-weight: 600;
+  margin: 0.9em 0 0.5em;
+  line-height: 1.25;
+  color: var(--vscode-foreground);
+}
+.cx-message-text h1 {
+  font-size: 1.4em;
+}
+.cx-message-text h2 {
+  font-size: 1.25em;
+}
+.cx-message-text h3 {
+  font-size: 1.1em;
+}
+.cx-message-text h4,
+.cx-message-text h5,
+.cx-message-text h6 {
+  font-size: 1em;
+}
+.cx-message-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: 0.9em;
+}
+.cx-message-text th {
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-weight: 600;
+  background: var(--vscode-textCodeBlock-background);
+}
+.cx-message-text th,
+.cx-message-text td {
+  padding: 3px 6px;
+}
+.cx-message-text table > tbody > tr + tr > td {
+  border-top: 1px solid var(--vscode-panel-border);
+}
+.cx-message-text hr {
+  border: 0;
+  height: 1px;
+  background: var(--vscode-panel-border);
+  margin: 0.75em 0;
 }
 
 .cx-item.cx-user .cx-message-text {
@@ -311,13 +420,13 @@ body.mode-expanded {
   padding: 1px 6px;
   border-radius: 3px;
   font-weight: 600;
-  font-size: 10px;
+  font-size: 9px;
   white-space: nowrap;
-  background: color-mix(in srgb, var(--vscode-charts-blue) 15%, transparent);
-  color: var(--vscode-charts-blue);
+  background: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+  color: var(--vscode-foreground);
 }
 .cx-tool-callid {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--vscode-descriptionForeground);
   font-family: var(--vscode-editor-font-family, monospace);
 }
@@ -403,14 +512,14 @@ body.mode-expanded {
   border-radius: 4px;
   padding: 6px 8px;
   margin-bottom: 10px;
-  background: color-mix(in srgb, var(--vscode-charts-purple) 6%, transparent);
+  background: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
 }
 .cx-compaction-label {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 700;
-  color: var(--vscode-charts-purple);
+  color: var(--vscode-descriptionForeground);
   margin-bottom: 3px;
 }
 
@@ -422,10 +531,10 @@ body.mode-expanded {
   overflow: hidden;
 }
 .cx-event-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--vscode-charts-blue);
+  color: var(--vscode-foreground);
   padding: 4px 8px;
   background: var(--vscode-textCodeBlock-background);
 }

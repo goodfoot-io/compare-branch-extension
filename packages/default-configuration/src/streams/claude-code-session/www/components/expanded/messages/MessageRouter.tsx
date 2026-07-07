@@ -23,6 +23,7 @@ import { AuthStatus } from './AuthStatus';
 import { AttachmentRouter } from './attachment/AttachmentRouter';
 import { RawJsonFallback } from './RawJsonFallback';
 import { ResultBoundary } from './ResultBoundary';
+import { StatusLine } from './system/StatusLine';
 import { SystemRouter } from './system/SystemRouter';
 import { UserTurn } from './UserTurn';
 
@@ -408,6 +409,18 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         } else {
           nodes.push(rendered);
         }
+        break;
+      }
+
+      case 'mode': {
+        const modeMsg = msg as { mode?: string };
+        if (modeMsg.mode) nodes.push(<StatusLine key={key} text={`Mode: ${modeMsg.mode}`} />);
+        break;
+      }
+
+      case 'ai-title': {
+        const titleMsg = msg as { aiTitle?: string };
+        if (titleMsg.aiTitle) nodes.push(<StatusLine key={key} text={`Title: "${titleMsg.aiTitle}"`} />);
         break;
       }
 

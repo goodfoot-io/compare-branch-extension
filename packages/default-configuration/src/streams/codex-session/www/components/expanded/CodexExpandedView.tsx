@@ -19,6 +19,7 @@
 import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { renderMarkdownNodes } from '../../lib/markdown';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
 
@@ -126,7 +127,7 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
       return (
         <div className="cx-item cx-user">
           <div className="cx-role-label">User</div>
-          <div className="cx-message-text">{item.text}</div>
+          <div className="cx-message-text">{renderMarkdownNodes(item.text, 'user')}</div>
         </div>
       );
 
@@ -134,7 +135,7 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
       return (
         <div className="cx-item cx-assistant">
           <div className="cx-role-label">Assistant</div>
-          <div className="cx-message-text">{item.text}</div>
+          <div className="cx-message-text">{renderMarkdownNodes(item.text, 'assistant')}</div>
         </div>
       );
 
@@ -142,9 +143,13 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
       return (
         <div className="cx-item cx-reasoning">
           <div className="cx-role-label">Reasoning</div>
-          {item.summaryText.length > 0 && <div className="cx-message-text">{item.summaryText}</div>}
+          {item.summaryText.length > 0 && (
+            <div className="cx-message-text">{renderMarkdownNodes(item.summaryText, 'reasoning-summary')}</div>
+          )}
           {item.contentText !== undefined && item.contentText.length > 0 && (
-            <div className="cx-message-text cx-reasoning-content">{item.contentText}</div>
+            <div className="cx-message-text cx-reasoning-content">
+              {renderMarkdownNodes(item.contentText, 'reasoning-content')}
+            </div>
           )}
         </div>
       );
@@ -193,7 +198,9 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
       return (
         <div className="cx-compaction">
           <div className="cx-compaction-label">context compacted</div>
-          {item.message.length > 0 && <div className="cx-message-text">{item.message}</div>}
+          {item.message.length > 0 && (
+            <div className="cx-message-text">{renderMarkdownNodes(item.message, 'compaction')}</div>
+          )}
         </div>
       );
 

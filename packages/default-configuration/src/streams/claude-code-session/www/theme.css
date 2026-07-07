@@ -436,11 +436,13 @@ body.mode-compact {
   background: transparent;
   margin: 0;
   /* Anchor the compact root to the host's em basis. StreamIframeHost sizes the
-     iframe to `calc(3 * 1.5em + 24px)`, whose `em` resolves against the webview
-     font (`--vscode-font-size`, ~13px). The iframe document would otherwise
-     default to 16px, so the three em-sized rows overshoot the fixed box and the
-     bottom row's descenders (the stem of a "p") get clipped. Matching the basis
-     makes the rows fit the box the host reserved. */
+     iframe to `calc(3 * 1.5em + 4px + 24px)` — the extra 4px covers the two 2px
+     row gaps `.compact-container .body` puts between its three rows — whose `em`
+     resolves against the webview font (`--vscode-font-size`, ~13px). The iframe
+     document would otherwise default to 16px, so the three em-sized rows overshoot
+     the fixed box and the bottom row's descenders (the stem of a "p") get clipped.
+     Matching the basis, and keeping the host formula's gap allowance in sync with
+     `.body`'s actual `gap`, is what makes the rows fit the box the host reserved. */
   font-size: var(--vscode-font-size, 13px);
 }
 
@@ -457,7 +459,7 @@ body,
    Compact stream card (redesign)
 
    The card honours the host's fixed box (StreamIframeHost COMPACT_STREAM_HEIGHT
-   = calc(3 * 1.5em + 24px)): a 3-row body at 1.5em line-height inside 12px
+   = calc(3 * 1.5em + 4px + 24px)): a 3-row body at 1.5em line-height inside 12px
    padding. Content beyond the box is CLIPPED, never scrolled, and no row grows.
 
    Two layouts share one DOM: below the breakpoint the container is a single
@@ -536,7 +538,7 @@ body,
   }
 }
 .compact-container .status {
-  font-size: 9.5px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-weight: 700;
@@ -616,16 +618,11 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.compact-container .panel-right .line .lbl.tool {
-  color: var(--vscode-terminal-ansiBlue);
-}
-.compact-container .panel-right .line .lbl.asst {
-  color: var(--vscode-terminal-ansiGreen);
-}
-.compact-container .panel-right .line .lbl.user {
-  color: var(--vscode-charts-purple);
-}
-/* Content brightness encodes role: milestone bright, plumbing dim, error red. */
+/* Tail-line role (`tool`/`asst`/`user`) is carried by the label text itself
+   plus the `font-weight: 600` above — no per-role hue, matching the Codex
+   renderer's tail labels (neither is one of the reserved
+   error/warning/success/info/diff-status meanings). Content brightness below
+   is the real hierarchy signal: milestone bright, plumbing dim, error red. */
 .compact-container .panel-right .line.milestone .txt {
   color: var(--vscode-foreground);
 }
