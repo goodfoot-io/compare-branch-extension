@@ -11,9 +11,10 @@
  * @summary Tests for stream store initialization and message handling
  */
 
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 import type { HostToIframeMessage, StreamStoreState } from '../../src/stream-store/types.js';
+import { COMPACT_TAIL_LINES } from '../../src/stream-store/types.js';
 
 let store: StoreApi<StreamStoreState>;
 
@@ -93,11 +94,15 @@ describe('stream store', () => {
 
   describe('message handling', () => {
     it('should append line on stream:line message', () => {
-      const linesBefore = store.getState().files.get('session.jsonl')!.lines.length;
+      const file0 = store.getState().files.get('session.jsonl')!;
+      const linesBefore = file0.lines.length;
+      // The expected next line number is headLineNumber + current length.
+      const nextLineNumber = file0.headLineNumber + linesBefore;
 
       dispatchHostMessage({
         type: 'stream:line',
         filename: 'session.jsonl',
+        lineNumber: nextLineNumber,
         line: 'appended-line'
       });
 
@@ -113,6 +118,7 @@ describe('stream store', () => {
       dispatchHostMessage({
         type: 'stream:line',
         filename: 'unknown.jsonl',
+        lineNumber: 1,
         line: 'should be ignored'
       });
 
@@ -292,8 +298,8 @@ describe('stream store', () => {
         });
 
         // Simulate two live events arriving before the next subscribe:response
-        dispatchHostMessage({ type: 'stream:line', filename: 'live-test.jsonl', line: 'live4' });
-        dispatchHostMessage({ type: 'stream:line', filename: 'live-test.jsonl', line: 'live5' });
+        dispatchHostMessage({ type: 'stream:line', filename: 'live-test.jsonl', lineNumber: 4, line: 'live4' });
+        dispatchHostMessage({ type: 'stream:line', filename: 'live-test.jsonl', lineNumber: 5, line: 'live5' });
         expect(store.getState().files.get('live-test.jsonl')!.lines).toHaveLength(5);
 
         // subscribe:response arrives with only 3 lines (fetch completed before live events)
@@ -307,6 +313,171 @@ describe('stream store', () => {
         const lines = store.getState().files.get('live-test.jsonl')!.lines;
         // Response had fewer lines than store — historical lines plus live tail preserved
         expect(lines).toEqual(['hist1', 'hist2', 'hist3', 'live4', 'live5']);
+      });
+    });
+
+    describe('offset-aware merge (absolute line numbers)', () => {
+      it('appends a stream:line whose lineNumber is exactly the expected next', () => {
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'append-test.jsonl',
+          lines: ['a1', 'a2', 'a3'],
+          meta: { lineCount: 3, isActive: true }
+        });
+        // headLineNumber=1, length=3 → expected next is 4.
+        dispatchHostMessage({ type: 'stream:line', filename: 'append-test.jsonl', lineNumber: 4, line: 'a4' });
+
+        const file = store.getState().files.get('append-test.jsonl')!;
+        expect(file.lines).toEqual(['a1', 'a2', 'a3', 'a4']);
+        expect(file.headLineNumber).toBe(1);
+        expect(file.meta.lineCount).toBe(4);
+      });
+
+      it('drops a stream:line that repeats an already-known line number (duplicate re-delivery)', () => {
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'dup-test.jsonl',
+          lines: ['d1', 'd2', 'd3'],
+          meta: { lineCount: 3, isActive: true }
+        });
+        const before = store.getState().files.get('dup-test.jsonl')!;
+
+        // lineNumber 3 was already delivered — drop it, leaving state untouched.
+        dispatchHostMessage({ type: 'stream:line', filename: 'dup-test.jsonl', lineNumber: 3, line: 'dup' });
+
+        const after = store.getState().files.get('dup-test.jsonl')!;
+        expect(after.lines).toEqual(['d1', 'd2', 'd3']);
+        expect(after.headLineNumber).toBe(before.headLineNumber);
+      });
+
+      it('drops a stream:line that skips ahead of the expected next (a gap)', () => {
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'gap-test.jsonl',
+          lines: ['g1', 'g2', 'g3'],
+          meta: { lineCount: 3, isActive: true }
+        });
+
+        // Expected next is 4; a jump to 6 leaves a hole — drop and wait for a
+        // resubscribe to backfill rather than corrupting the offset.
+        dispatchHostMessage({ type: 'stream:line', filename: 'gap-test.jsonl', lineNumber: 6, line: 'g6' });
+
+        const file = store.getState().files.get('gap-test.jsonl')!;
+        expect(file.lines).toEqual(['g1', 'g2', 'g3']);
+      });
+
+      it('re-issues subscribe with the compact tail on connection:restored (no reset)', () => {
+        // Subscribe a fresh file so it is marked isSubscribed for the resubscribe pass.
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'reconnect-test.jsonl',
+          lines: ['x1', 'x2'],
+          meta: { lineCount: 2, isActive: true }
+        });
+        const before = store.getState().files.get('reconnect-test.jsonl')!;
+
+        // In jsdom window.parent === window, so subscribe() posts via window.postMessage.
+        const spy = vi.spyOn(window, 'postMessage');
+        dispatchHostMessage({ type: 'connection:restored' });
+
+        const resubscribe = spy.mock.calls
+          .map((call) => call[0])
+          .find(
+            (m) =>
+              m !== null &&
+              typeof m === 'object' &&
+              (m as { type?: string }).type === 'subscribe' &&
+              (m as { filename?: string }).filename === 'reconnect-test.jsonl'
+          ) as { tail?: number } | undefined;
+
+        expect(resubscribe).toBeDefined();
+        // compact mode (the shared store's mode) requests only the trailing window.
+        expect(resubscribe!.tail).toBe(COMPACT_TAIL_LINES);
+        // No upfront reset — local lines are left in place until the response merges.
+        expect(store.getState().files.get('reconnect-test.jsonl')!.lines).toEqual(before.lines);
+
+        spy.mockRestore();
+      });
+
+      it('keeps live lines 41 and 42 when a stale 40-line subscribe:response races behind them', () => {
+        // Seed 40 lines (numbered 1..40) via a subscribe:response.
+        const first40 = Array.from({ length: 40 }, (_, i) => `L${i + 1}`);
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'race-test.jsonl',
+          lines: first40,
+          meta: { lineCount: 40, isActive: true }
+        });
+
+        // Two live lines (41, 42) arrive over the fast WebSocket.
+        dispatchHostMessage({ type: 'stream:line', filename: 'race-test.jsonl', lineNumber: 41, line: 'L41' });
+        dispatchHostMessage({ type: 'stream:line', filename: 'race-test.jsonl', lineNumber: 42, line: 'L42' });
+        expect(store.getState().files.get('race-test.jsonl')!.lines).toHaveLength(42);
+
+        // A subscribe:response built from an earlier disk read (only 40 lines)
+        // lands AFTER the live events — a positional merge would drop 41/42.
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'race-test.jsonl',
+          lines: first40,
+          meta: { lineCount: 40, isActive: true }
+        });
+
+        const file = store.getState().files.get('race-test.jsonl')!;
+        expect(file.lines).toHaveLength(42);
+        expect(file.lines[40]).toBe('L41');
+        expect(file.lines[41]).toBe('L42');
+        expect(file.meta.lineCount).toBe(42);
+      });
+
+      it('drops a server-restart renumbered-from-1 burst up to known and appends only the new tail', () => {
+        // Known state: lines 1..3.
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'restart-test.jsonl',
+          lines: ['s1', 's2', 's3'],
+          meta: { lineCount: 3, isActive: true }
+        });
+
+        // Server restarts and reseeds its cursor to 0, rebroadcasting the whole
+        // file renumbered from 1. Lines 1..3 fail the expected-next check (they
+        // repeat known numbers) and are dropped; line 4 is the genuinely-new tail.
+        for (const [i, line] of ['s1', 's2', 's3', 's4-new'].entries()) {
+          dispatchHostMessage({
+            type: 'stream:line',
+            filename: 'restart-test.jsonl',
+            lineNumber: i + 1,
+            line
+          });
+        }
+
+        const file = store.getState().files.get('restart-test.jsonl')!;
+        expect(file.lines).toEqual(['s1', 's2', 's3', 's4-new']);
+        expect(file.meta.lineCount).toBe(4);
+      });
+
+      it('caps compact-mode lines to COMPACT_TAIL_LINES and advances headLineNumber', () => {
+        // Seed the first line, then append sequentially past the compact cap.
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'cap-test.jsonl',
+          lines: ['c1'],
+          meta: { lineCount: 1, isActive: true }
+        });
+        const total = COMPACT_TAIL_LINES + 10;
+        for (let n = 2; n <= total; n++) {
+          dispatchHostMessage({ type: 'stream:line', filename: 'cap-test.jsonl', lineNumber: n, line: `c${n}` });
+        }
+
+        const file = store.getState().files.get('cap-test.jsonl')!;
+        expect(file.lines).toHaveLength(COMPACT_TAIL_LINES);
+        // The retained window is the trailing COMPACT_TAIL_LINES lines...
+        expect(file.lines[file.lines.length - 1]).toBe(`c${total}`);
+        // ...and headLineNumber points at the absolute number of lines[0].
+        expect(file.headLineNumber).toBe(total - COMPACT_TAIL_LINES + 1);
+        expect(file.lines[0]).toBe(`c${file.headLineNumber}`);
+        // meta.lineCount still reflects the full stream length, not the window.
+        expect(file.meta.lineCount).toBe(total);
       });
     });
   });

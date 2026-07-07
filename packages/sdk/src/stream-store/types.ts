@@ -63,6 +63,15 @@ export interface StreamFile {
   meta: StreamMeta;
   /** Accumulated lines from the stream. */
   lines: string[];
+  /**
+   * Absolute 1-based line number of `lines[0]` — the file's stable coordinate
+   * for the offset-aware merge. Meaningless (and ignored) when `lines` is
+   * empty; seeded from the first appended `stream:line` or a `subscribe:response`.
+   * The merge reconciles live events and historical responses by this real
+   * line number rather than by array position, so a WS-vs-HTTP race can never
+   * silently drop or duplicate lines.
+   */
+  headLineNumber: number;
   /** Whether this file is currently subscribed to receive updates. */
   isSubscribed: boolean;
   /** Whether a subscribe request is in flight. */
@@ -107,12 +116,17 @@ export interface StreamInitData {
 
 /** Messages sent from the host to the iframe renderer. */
 export type HostToIframeMessage =
-  | { type: 'stream:line'; filename: string; line: string }
+  | { type: 'stream:line'; filename: string; lineNumber: number; line: string }
   | { type: 'stream:started'; filename: string; meta: StreamMeta }
   | { type: 'stream:ended'; filename: string; meta: StreamMeta }
   | { type: 'availableFiles:update'; files: string[] }
   | { type: 'subscribe:response'; filename: string; lines: string[]; meta: StreamMeta; error?: string }
-  | { type: 'theme:change'; themeKind: 1 | 2 | 3; cssVariables: Record<string, string> };
+  | { type: 'theme:change'; themeKind: 1 | 2 | 3; cssVariables: Record<string, string> }
+  // Signals a genuine WebSocket reconnect (never the initial connect). The store
+  // responds by re-issuing the mode-appropriate `subscribe` for every subscribed
+  // file so lines broadcast while disconnected are backfilled; the offset-aware
+  // merge reconciles the response against whatever live state accumulated.
+  | { type: 'connection:restored' };
 
 // ============================================================================
 // Iframe -> Host Messages

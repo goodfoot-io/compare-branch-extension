@@ -10,8 +10,34 @@
 
 import { createStore } from 'zustand/vanilla';
 import { subscribe } from './actions.js';
-import type { HostToIframeMessage, StreamFile, StreamInitData, StreamStoreState } from './types.js';
+import type { HostToIframeMessage, StreamDisplayMode, StreamFile, StreamInitData, StreamStoreState } from './types.js';
 import { COMPACT_TAIL_LINES } from './types.js';
+
+/**
+ * Bounds a compact-mode file's retained lines to the trailing
+ * {@link COMPACT_TAIL_LINES} window as a pure memory bound.
+ *
+ * A compact card renders only a handful of lines, so retaining the full
+ * transcript in memory is wasteful. When the line array grows past the cap,
+ * drop the excess from the head and advance `headLineNumber` by the same amount
+ * so the file's absolute coordinate stays correct. Because the merge reasons
+ * about absolute line numbers, this capping can never cause the line-dropping
+ * corruption a positional merge would — it is bookkeeping, not a correctness
+ * step. Expanded mode retains the whole transcript unchanged.
+ *
+ * @param file - The file to bound.
+ * @param mode - The iframe's current display mode.
+ * @returns The same reference when no capping is needed, or a capped copy.
+ */
+function capIfCompact(file: StreamFile, mode: StreamDisplayMode): StreamFile {
+  if (mode !== 'compact' || file.lines.length <= COMPACT_TAIL_LINES) return file;
+  const drop = file.lines.length - COMPACT_TAIL_LINES;
+  return {
+    ...file,
+    lines: file.lines.slice(drop),
+    headLineNumber: file.headLineNumber + drop
+  };
+}
 
 declare global {
   interface Window {
@@ -32,6 +58,10 @@ function buildInitialState(init: StreamInitData): StreamStoreState {
       filename,
       meta: data.meta,
       lines: [...data.lines],
+      // Absolute line number of lines[0]. The host may seed a trailing window
+      // (compact tail) whose first line is not line 1, so derive the head from
+      // the full lineCount minus the number of lines actually seeded.
+      headLineNumber: data.meta.lineCount - data.lines.length + 1,
       isSubscribed: filename === init.primary,
       isLoading: false,
       error: null
@@ -58,12 +88,34 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
     case 'stream:line': {
       const file = state.files.get(msg.filename);
       if (!file) return null;
+
+      // Offset-aware append: only accept the line that is exactly the expected
+      // next one (seeding `headLineNumber` when the file is empty). Anything
+      // else — a duplicate re-delivery after a reconnect, or a line past a gap
+      // the disconnect opened — is dropped. The resubscribe (not ad hoc
+      // patching) is the backfill path, so this one rule also absorbs a server
+      // restart's renumbered-from-1 rebroadcast: every already-known line fails
+      // the expected-next check and is dropped until the genuinely-new tail.
+      let next: StreamFile;
+      if (file.lines.length === 0) {
+        next = {
+          ...file,
+          lines: [msg.line],
+          headLineNumber: msg.lineNumber,
+          meta: { ...file.meta, lineCount: Math.max(file.meta.lineCount, msg.lineNumber) }
+        };
+      } else if (msg.lineNumber === file.headLineNumber + file.lines.length) {
+        next = {
+          ...file,
+          lines: [...file.lines, msg.line],
+          meta: { ...file.meta, lineCount: Math.max(file.meta.lineCount, msg.lineNumber) }
+        };
+      } else {
+        return null;
+      }
+
       const updated = new Map(state.files);
-      updated.set(msg.filename, {
-        ...file,
-        lines: [...file.lines, msg.line],
-        meta: { ...file.meta, lineCount: file.meta.lineCount + 1 }
-      });
+      updated.set(msg.filename, capIfCompact(next, state.mode));
       return { files: updated };
     }
 
@@ -74,6 +126,7 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
         filename: msg.filename,
         meta: msg.meta,
         lines: file?.lines ?? [],
+        headLineNumber: file?.headLineNumber ?? 0,
         isSubscribed: file?.isSubscribed ?? false,
         isLoading: file?.isLoading ?? false,
         error: file?.error ?? null
@@ -108,6 +161,7 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
           filename: msg.filename,
           meta: existing?.meta ?? msg.meta,
           lines: existing?.lines ?? [],
+          headLineNumber: existing?.headLineNumber ?? 0,
           isSubscribed: false,
           isLoading: false,
           error: msg.error
@@ -115,21 +169,45 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
       } else {
         const existing = state.files.get(msg.filename);
         const existingLines = existing?.lines ?? [];
-        // Historical lines from the response are authoritative.
-        // If live events accumulated before the response arrived, they will
-        // be at indices >= msg.lines.length in the existing store.
-        const merged =
-          msg.lines.length >= existingLines.length
-            ? [...msg.lines]
-            : [...msg.lines, ...existingLines.slice(msg.lines.length)];
-        updated.set(msg.filename, {
+        // Reconcile by absolute line number, never by array position. The
+        // response covers the (possibly tail) range [responseHead, responseLast].
+        const responseHead = msg.meta.lineCount - msg.lines.length + 1;
+        const responseLast = msg.meta.lineCount;
+        const localHead = existing?.headLineNumber ?? 0;
+        const localLast = existingLines.length > 0 ? localHead + existingLines.length - 1 : 0;
+
+        let mergedLines: string[];
+        let mergedHead: number;
+        if (existingLines.length === 0 || responseLast >= localLast) {
+          // The response reaches at least as far as local knowledge — take it as
+          // the new base and append any local lines strictly beyond the
+          // response's last line (a live tail that raced ahead of the fetch).
+          mergedHead = responseHead;
+          mergedLines = [...msg.lines];
+          if (localLast > responseLast) {
+            const firstBeyondIdx = responseLast - localHead + 1;
+            mergedLines = [...mergedLines, ...existingLines.slice(firstBeyondIdx)];
+          }
+        } else {
+          // The response is behind local knowledge (a stale read that raced
+          // behind newer live events) — keep local lines untouched.
+          mergedHead = localHead;
+          mergedLines = existingLines;
+        }
+
+        // `meta.lineCount` must reflect the true stream length, which is the
+        // last line number now known — never shrink it to a stale response.
+        const mergedLast = mergedLines.length > 0 ? mergedHead + mergedLines.length - 1 : responseLast;
+        const merged: StreamFile = {
           filename: msg.filename,
-          meta: msg.meta,
-          lines: merged,
+          meta: { ...msg.meta, lineCount: Math.max(msg.meta.lineCount, mergedLast) },
+          lines: mergedLines,
+          headLineNumber: mergedHead,
           isSubscribed: true,
           isLoading: false,
           error: null
-        });
+        };
+        updated.set(msg.filename, capIfCompact(merged, state.mode));
       }
       return { files: updated };
     }
@@ -198,6 +276,21 @@ window.addEventListener('message', (event: MessageEvent<HostToIframeMessage>) =>
   // Theme changes are DOM side effects, not store state.
   if (msg.type === 'theme:change') {
     applyTheme(msg.themeKind, msg.cssVariables);
+    return;
+  }
+
+  // A reconnect is a resubscribe side effect, not a state mutation: re-issue the
+  // mode-appropriate `subscribe` for every subscribed file so lines broadcast
+  // while the socket was down are backfilled. No upfront reset — the offset-aware
+  // merge tolerates stale, fresh, overlapping, or gapped local state by
+  // reconciling on absolute line numbers when the response lands.
+  if (msg.type === 'connection:restored') {
+    const state = streamStore.getState();
+    for (const file of state.files.values()) {
+      if (file.isSubscribed) {
+        subscribe(file.filename, state.mode === 'compact' ? COMPACT_TAIL_LINES : undefined);
+      }
+    }
     return;
   }
 
