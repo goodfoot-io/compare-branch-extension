@@ -32,7 +32,7 @@ import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
 import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
 import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards.management/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards.management/sdk/search-utils';
-import { resolveSessionId, resolveTranscriptPath } from '@cards.management/sdk/session-resolver';
+import { resolveRuntime, resolveSessionId, resolveTranscriptPath } from '@cards.management/sdk/session-resolver';
 import { readUnboundCandidates, removeUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
 import { outfitWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards.management/sessions/card-repo';
@@ -472,7 +472,21 @@ export async function createCard(args: string[]): Promise<void> {
 type BindTarget =
   | { kind: 'none' }
   | { kind: 'refuse'; reason: string }
-  | { kind: 'bind'; worktreeDir: string; parentBranch: string; transcriptPath: string; sessionId: string };
+  | {
+      kind: 'bind';
+      worktreeDir: string;
+      parentBranch: string;
+      transcriptPath: string;
+      sessionId: string;
+      /**
+       * Open runtime identifier for the binder's own session, resolved via
+       * {@link resolveRuntime} alongside `sessionId`. `null` when the binder's
+       * runtime cannot be determined (e.g. bound via a runtime with no
+       * SessionSyncManifest adapter yet) — {@link outfitWorktreeForCard} treats
+       * that as a degraded attribution skip, same as an unresolved transcript.
+       */
+      runtime: string | null;
+    };
 
 /**
  * Resolves the worktree `card create` should bind, applying the fail-closed
@@ -529,8 +543,16 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
       };
     }
     const transcriptPath = await resolveTranscriptPath(sessionId, cwdWorktree);
+    const runtime = await resolveRuntime();
 
-    return { kind: 'bind', worktreeDir: cwdWorktree, parentBranch: parent.parentBranch, transcriptPath, sessionId };
+    return {
+      kind: 'bind',
+      worktreeDir: cwdWorktree,
+      parentBranch: parent.parentBranch,
+      transcriptPath,
+      sessionId,
+      runtime
+    };
   }
 
   // --- Leg 2: candidate-set fallback ---
@@ -568,13 +590,15 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
   console.error(`card create: binding the single unbound worktree for this session: ${candidate.worktreeDir}`);
 
   const transcriptPath = await resolveTranscriptPath(sessionId, candidate.worktreeDir);
+  const runtime = await resolveRuntime();
 
   return {
     kind: 'bind',
     worktreeDir: candidate.worktreeDir,
     parentBranch: parent.parentBranch,
     transcriptPath,
-    sessionId
+    sessionId,
+    runtime
   };
 }
 
@@ -601,7 +625,7 @@ async function outfitCreatedWorktree(
   cardId: string,
   target: Extract<BindTarget, { kind: 'bind' }>
 ): Promise<void> {
-  const { worktreeDir, parentBranch, transcriptPath, sessionId } = target;
+  const { worktreeDir, parentBranch, transcriptPath, sessionId, runtime } = target;
   try {
     const extensionPath = await resolveExtensionPath();
     const compiledScriptPaths = compiledHookScriptPaths(extensionPath);
@@ -611,6 +635,7 @@ async function outfitCreatedWorktree(
       parentBranch,
       sessionId,
       transcriptPath,
+      runtime: runtime ?? undefined,
       compiledScriptPaths
     });
 
@@ -1212,6 +1237,8 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     );
   }
 
+  const runtime = await resolveRuntime();
+
   const extensionPath = await resolveExtensionPath();
   const compiledScriptPaths = compiledHookScriptPaths(extensionPath);
 
@@ -1220,6 +1247,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     parentBranch: parent.parentBranch,
     sessionId,
     transcriptPath,
+    runtime: runtime ?? undefined,
     compiledScriptPaths
   });
 

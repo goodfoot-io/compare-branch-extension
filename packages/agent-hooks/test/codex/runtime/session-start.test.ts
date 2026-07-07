@@ -4,10 +4,9 @@
  * @summary Tests for the SessionStart hook
  */
 
-import { spawn, spawnSync } from 'node:child_process';
-import { EventEmitter } from 'node:events';
-import { existsSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-sync-watcher';
 import { findAgentPid } from '@cards.management/sdk/process-tree';
 import { TestGitWorkspace } from '@cards.management/test-utils';
 import { Logger } from '@goodfoot/codex-hooks';
@@ -16,65 +15,22 @@ import hook from '../../../src/codex/runtime/session-start.js';
 
 const mockFindClaudePid = vi.mocked(findAgentPid);
 
-vi.mock('node:child_process', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('node:child_process')>()),
-  spawn: vi.fn(() => ({ unref: vi.fn(), on: vi.fn() })),
-  spawnSync: vi.fn(() => ({ status: 0 }))
-}));
-
-// The launch-mode watcher availability probe (spawnTranscriptWatcher) resolves
-// the wrapper by ABSOLUTE path and checks it with `fs.existsSync` — not a
-// `spawnSync` PATH probe. The watcher lives under the action's EXTENSION_PATH
-// dist/bin (`/tmp/extension/dist/bin/...`), which does not exist on disk in this
-// test, so `existsSync` is mocked and defaults to "present"; the not-resolvable
-// cases flip it to false. Other `node:fs` members (mkdirSync/writeFileSync used
-// by beforeAll) keep their real implementations.
-vi.mock('node:fs', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('node:fs')>()),
-  existsSync: vi.fn(() => true)
-}));
-
 vi.mock('@cards.management/sdk/process-tree', () => ({
   findAgentPid: vi.fn()
 }));
 
+// The hook's watcher spawn now delegates entirely to spawnStreamSyncWatcher
+// (its process/platform mechanics are covered by the sdk package's own
+// spawn-stream-sync-watcher tests); these tests exercise only this hook's
+// manifest-building and warn-not-throw wiring around that call.
+vi.mock('@cards.management/sdk/bin/spawn-stream-sync-watcher', () => ({
+  spawnStreamSyncWatcher: vi.fn(() => true)
+}));
+
 const logger = new Logger();
 
-const isWin = process.platform === 'win32';
-
-// What the spawn's first argument is, per platform:
-// - POSIX: the wrapper script itself (extension-less `transcript-watcher`),
-//   exec'd directly.
-// - win32: a real `node.exe` interpreter — there is NO `.cmd`/shell hop in the
-//   detached tree (it would pop a console window under stock node). The watcher
-//   is then `node.exe <transcript-watcher.mjs>`, so the `.mjs` is argv[0] of the
-//   args array, and the wrapper-path regex matches that instead.
-const WATCHER_PATH_RE = isWin
-  ? /[/\\]dist[/\\]bin[/\\]transcript-watcher\.mjs$/
-  : /[/\\]dist[/\\]bin[/\\]transcript-watcher$/;
-
-// On win32 the detached interpreter is resolved fail-closed (VSCODE_NODE env →
-// ~/.cards/VSCODE_NODE → PATH node). Pin it deterministically in tests via the
-// env var so resolution does not depend on the host having a ~/.cards file.
-const WIN32_TEST_NODE = 'C:\\fake\\node.exe';
-
-/**
- * Returns the spawn first-arg (interpreter on win32, wrapper on POSIX) and the
- * args array the watcher would receive after it (the positional list, with the
- * `.mjs` prepended on win32).
- *
- * @param call - A recorded `spawn` mock call tuple.
- * @returns The spawn first argument, the resolved watcher path, and the
- *   positional argument list passed to the watcher.
- */
-function watcherSpawnShape(call: unknown[]): { firstArg: string; watcherPath: string; positional: string[] } {
-  const firstArg = call[0] as string;
-  const args = call[1] as string[];
-  if (isWin) {
-    return { firstArg, watcherPath: args[0]!, positional: args.slice(1) };
-  }
-  return { firstArg, watcherPath: firstArg, positional: args };
-}
+const SESSION_ID = '019f38d0-20eb-7a10-b566-666001ec2821';
+const ROLLOUT_PATH = `/tmp/.codex/sessions/rollout-2026-07-06T15-03-11-${SESSION_ID}.jsonl`;
 
 let testRepo: TestGitWorkspace;
 let repoPath: string;
@@ -125,10 +81,7 @@ describe('SessionStart Hook', () => {
         MARKETPLACE_PATH: '/tmp/extension/dist/marketplace',
         WORKSPACE_PATH: '/workspace',
         BASE_BRANCH: 'main',
-        WORKSPACE_BRANCH: 'cards/main-1/1',
-        // Pins the win32 detached interpreter resolution (no-op on POSIX). The
-        // path is existence-checked via fs.existsSync, which is mocked → true.
-        VSCODE_NODE: WIN32_TEST_NODE
+        WORKSPACE_BRANCH: 'cards/main-1/1'
       };
       for (const [key, value] of Object.entries(ACTION_ENV)) {
         process.env[key] = value;
@@ -140,17 +93,8 @@ describe('SessionStart Hook', () => {
         delete process.env[key];
       }
       mockFindClaudePid.mockReset();
-      // Restore child_process mock defaults so a test that overrides spawn/
-      // spawnSync (or one that fails an assertion before its own cleanup) does
-      // not leak readiness/spawn state into subsequent tests.
-      vi.mocked(spawn).mockReset();
-      vi.mocked(spawn).mockReturnValue({ unref: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof spawn>);
-      vi.mocked(spawnSync).mockReset();
-      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
-      // Restore the watcher-availability probe default (`fs.existsSync` → present)
-      // so a not-resolvable test does not leak a false reading into later tests.
-      vi.mocked(existsSync).mockReset();
-      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(spawnStreamSyncWatcher).mockReset();
+      vi.mocked(spawnStreamSyncWatcher).mockReturnValue(true);
     });
 
     it('returns XML context blocks in additionalContext', async () => {
@@ -183,9 +127,7 @@ describe('SessionStart Hook', () => {
 
     it('calls findAgentPid when inside action subprocess', async () => {
       mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
-        typeof hook
-      >[0];
+      const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
       await hook(mockInput, context);
@@ -196,9 +138,7 @@ describe('SessionStart Hook', () => {
     it('warns and continues when findAgentPid returns null (PID-keyed entry is best-effort)', async () => {
       const warnSpy = vi.spyOn(logger, 'warn');
       mockFindClaudePid.mockReturnValue(null);
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
-        typeof hook
-      >[0];
+      const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
       const result = await hook(mockInput, context);
@@ -225,7 +165,7 @@ describe('SessionStart Hook', () => {
       warnSpy.mockRestore();
     });
 
-    it('does not spawn the transcript watcher when transcript_path is null', async () => {
+    it('does not spawn the stream-sync-watcher when transcript_path is null', async () => {
       mockFindClaudePid.mockReturnValue(42);
       const warnSpy = vi.spyOn(logger, 'warn');
       // transcript_path is absent (null / undefined) — watcher guard is false
@@ -241,7 +181,7 @@ describe('SessionStart Hook', () => {
       expect(stdout.stopReason).toBeUndefined();
 
       // Watcher must NOT be spawned
-      expect(vi.mocked(spawn)).not.toHaveBeenCalled();
+      expect(spawnStreamSyncWatcher).not.toHaveBeenCalled();
 
       // A warning must be emitted explaining why the watcher was skipped
       const warnMatch = warnSpy.mock.calls.find(
@@ -254,164 +194,95 @@ describe('SessionStart Hook', () => {
       warnSpy.mockRestore();
     });
 
-    it('spawns transcript watcher with correct args', async () => {
+    it('builds a Codex manifest from the rollout path and spawns the stream-sync-watcher', async () => {
       mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
-        typeof hook
-      >[0];
+      const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
       await hook(mockInput, context);
 
-      expect(vi.mocked(spawn)).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining(['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath]),
-        expect.objectContaining({ detached: true, stdio: 'ignore' })
+      expect(spawnStreamSyncWatcher).toHaveBeenCalledWith(
+        expect.objectContaining({
+          manifest: expect.objectContaining({
+            runtime: 'codex',
+            streamType: 'codex-session',
+            sessionId: SESSION_ID,
+            cardId: 'card-123',
+            monitorPid: 42,
+            cardRepoPath: repoPath
+          }),
+          extensionPath: '/tmp/extension',
+          logger
+        })
       );
     });
 
-    // Reproduction (main-98): the background Launch action enables only the
-    // `runtime` plugin, so the `cards` plugin's bin/ — which publishes the
-    // `transcript-watcher` wrapper — is never on PATH. Spawning by bare name
-    // therefore exits 127 and the watcher never starts. The hook must instead
-    // resolve the watcher by absolute path under the extension dist/bin.
-    it('spawns transcript-watcher by absolute path under the cards plugin bin, not a bare PATH name', async () => {
-      vi.mocked(spawn).mockClear();
+    it('logs a success message only when the watcher was actually spawned', async () => {
+      const infoSpy = vi.spyOn(logger, 'info');
       mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-abs', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
-        typeof hook
-      >[0];
+      const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
       await hook(mockInput, context);
 
-      const { firstArg, watcherPath } = watcherSpawnShape(vi.mocked(spawn).mock.calls.at(-1)!);
-      // POSIX: the wrapper script is spawned directly. win32: a real node.exe
-      // interpreter is the first arg (no `.cmd`/shell hop), and the sibling
-      // `.mjs` it runs is the resolved watcher path.
-      if (isWin) {
-        expect(firstArg).toBe(WIN32_TEST_NODE);
-      }
       expect(
-        isAbsolute(watcherPath),
-        `expected an absolute watcher path resolved from EXTENSION_PATH; got: ${watcherPath}`
+        infoSpy.mock.calls.some(([msg]) => typeof msg === 'string' && /spawned stream-sync-watcher/i.test(msg))
       ).toBe(true);
-      expect(watcherPath).toMatch(WATCHER_PATH_RE);
-      // Anchored on the action's EXTENSION_PATH dist/bin (ACTION_ENV).
-      expect(watcherPath).toContain(join('/tmp/extension', 'dist', 'bin'));
+      infoSpy.mockRestore();
     });
 
-    // Reproduction (main-98): spawnWatcher logged "Spawned transcript watcher"
-    // unconditionally, even when spawnTranscriptWatcher skipped the spawn (e.g.
-    // readiness probe exits non-zero). The success log must only appear when a
-    // watcher was actually spawned.
-    it('does not log spawn success when the watcher is not resolvable', async () => {
-      vi.mocked(spawn).mockClear();
-      // Launch mode resolves an absolute path and probes it with fs.existsSync;
-      // simulate the wrapper file being absent.
-      vi.mocked(existsSync).mockReturnValue(false);
+    it('does not log spawn success when spawnStreamSyncWatcher reports it was skipped', async () => {
+      vi.mocked(spawnStreamSyncWatcher).mockReturnValue(false);
       const infoSpy = vi.spyOn(logger, 'info');
       mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-skip', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
-        typeof hook
-      >[0];
+      const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
       await hook(mockInput, context);
 
       const falseSuccess = infoSpy.mock.calls.find(
-        ([msg]) => typeof msg === 'string' && /spawned transcript watcher/i.test(msg)
+        ([msg]) => typeof msg === 'string' && /spawned stream-sync-watcher/i.test(msg)
       );
       expect(
         falseSuccess,
-        `spawn was skipped (readiness failed) but a success log was emitted: ${JSON.stringify(infoSpy.mock.calls)}`
+        `spawn was skipped but a success log was emitted: ${JSON.stringify(infoSpy.mock.calls)}`
       ).toBeUndefined();
-      expect(vi.mocked(spawn)).not.toHaveBeenCalled();
       infoSpy.mockRestore();
     });
 
-    it('spawns the resolved watcher path with the positional arg list in order', async () => {
+    // This is the motivating fix: Codex sessions previously never spawned a
+    // watcher at all. A rollout path that disagrees with the sessionId means
+    // buildCodexManifest throws — the hook must warn (not crash the session)
+    // and skip the spawn, exactly like a spawn-level failure.
+    it('warns and continues without spawning when the rollout path does not match the sessionId', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn');
       mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
-        typeof hook
-      >[0];
+      const mockInput = {
+        session_id: SESSION_ID,
+        transcript_path: '/tmp/.codex/sessions/rollout-2026-07-06T15-03-11-some-other-id.jsonl'
+      } as Parameters<typeof hook>[0];
       const context = { logger };
 
-      await hook(mockInput, context);
+      const result = await hook(mockInput, context);
 
-      const { firstArg, watcherPath, positional } = watcherSpawnShape(vi.mocked(spawn).mock.calls.at(-1)!);
-      expect(watcherPath).toMatch(WATCHER_PATH_RE);
-      expect(positional).toEqual(['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath]);
-      const opts = vi.mocked(spawn).mock.calls.at(-1)![2] as Record<string, unknown>;
-      expect(opts).toMatchObject({ detached: true, stdio: 'ignore' });
-      // win32: direct node + .mjs, windowsHide on, and NO shell (the whole point —
-      // a `.cmd`/shell hop would pop a console window in this detached tree).
-      if (isWin) {
-        expect(firstArg).toBe(WIN32_TEST_NODE);
-        expect(opts['windowsHide']).toBe(true);
-        expect(opts['shell']).toBeUndefined();
-      }
-    });
-
-    it('logs structured error when spawn emits error event asynchronously', async () => {
-      const emitter = new EventEmitter() as EventEmitter & { unref: () => void };
-      emitter.unref = vi.fn();
-      vi.mocked(spawn).mockReturnValue(emitter as unknown as ReturnType<typeof spawn>);
-      const errorSpy = vi.spyOn(logger, 'error');
-      mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-err', transcript_path: '/tmp/t.jsonl' } as Parameters<typeof hook>[0];
-      const context = { logger };
-
-      await hook(mockInput, context);
-      emitter.emit('error', new Error('ENOENT: watcher missing'));
-      await new Promise((r) => setImmediate(r));
-
-      const match = errorSpy.mock.calls.find(
-        ([msg, meta]) =>
-          typeof msg === 'string' &&
-          /watcher/i.test(msg) &&
-          meta !== undefined &&
-          JSON.stringify(meta).includes('ENOENT')
+      expect(result).toHaveProperty('_type', 'SessionStart');
+      expect(spawnStreamSyncWatcher).not.toHaveBeenCalled();
+      const warnMatch = warnSpy.mock.calls.find(
+        ([msg]) => typeof msg === 'string' && /stream-sync-watcher spawn failed/i.test(msg)
       );
       expect(
-        match,
-        `expected a transcript-watcher spawn error log; got: ${JSON.stringify(errorSpy.mock.calls)}`
+        warnMatch,
+        `expected a warn about the manifest build failure; got: ${JSON.stringify(warnSpy.mock.calls)}`
       ).toBeDefined();
-      errorSpy.mockRestore();
+      warnSpy.mockRestore();
     });
 
-    it('logs readiness failure and does not spawn when the resolved watcher file is absent', async () => {
-      vi.mocked(spawn).mockClear();
-      // Launch mode probes the resolved absolute path with fs.existsSync;
-      // simulate the wrapper file being absent.
-      vi.mocked(existsSync).mockReturnValue(false);
-      const errorSpy = vi.spyOn(logger, 'error');
-      mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-r', transcript_path: '/tmp/t.jsonl' } as Parameters<typeof hook>[0];
-      const context = { logger };
-
-      await hook(mockInput, context);
-
-      const match = errorSpy.mock.calls.find(
-        ([msg, meta]) =>
-          typeof msg === 'string' &&
-          /transcript-watcher/i.test(msg) &&
-          meta !== undefined &&
-          /transcript-watcher/.test(JSON.stringify(meta))
-      );
-      expect(match, `expected a readiness error log; got: ${JSON.stringify(errorSpy.mock.calls)}`).toBeDefined();
-      expect(vi.mocked(spawn)).not.toHaveBeenCalled();
-      errorSpy.mockRestore();
-    });
-
-    it('continues when watcher spawn fails', async () => {
-      vi.mocked(spawn).mockImplementation(() => {
+    it('continues when the watcher spawn throws', async () => {
+      vi.mocked(spawnStreamSyncWatcher).mockImplementation(() => {
         throw new Error('spawn failed');
       });
       mockFindClaudePid.mockReturnValue(42);
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
-        typeof hook
-      >[0];
+      const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
       // Should not throw — watcher spawn is best-effort
@@ -422,7 +293,7 @@ describe('SessionStart Hook', () => {
     it('returns continue:false with stopReason when card repo is inaccessible', async () => {
       mockFindClaudePid.mockReturnValue(42);
       process.env['CARD_REPO_PATH'] = '/tmp/does-not-exist-xyz-123';
-      const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
+      const mockInput = { session_id: SESSION_ID } as Parameters<typeof hook>[0];
       const context = { logger };
 
       const result = await hook(mockInput, context);

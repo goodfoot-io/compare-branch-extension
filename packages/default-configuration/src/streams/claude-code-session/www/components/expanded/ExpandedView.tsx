@@ -35,6 +35,16 @@ function buildExpandedState(lines: string[]): ExpandedState {
 }
 
 /**
+ * Reads the primary stream file's sidecar `agentId`, present only for subagent/auxiliary streams.
+ * @returns The sidecar `agentId`, or `undefined` for a main stream or before meta is known.
+ */
+function readPrimaryAgentId(): string | undefined {
+  const storeState = streamStore.getState();
+  const file = storeState.files.get(storeState.primary);
+  return file?.meta.role === 'subagent' || file?.meta.role === 'auxiliary' ? file.meta.agentId : undefined;
+}
+
+/**
  * Expanded view that renders the full session transcript with a sticky header.
  * @returns Rendered expanded transcript view element.
  */
@@ -44,6 +54,7 @@ export function ExpandedView(): React.ReactElement {
     const file = storeState.files.get(storeState.primary);
     return buildExpandedState(file ? file.lines : []);
   });
+  const [agentId, setAgentId] = useState<string | undefined>(() => readPrimaryAgentId());
 
   const lastLineCountRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -74,12 +85,14 @@ export function ExpandedView(): React.ReactElement {
       const lines = file ? file.lines : [];
       lastLineCountRef.current = lines.length;
       setState(buildExpandedState(lines));
+      setAgentId(readPrimaryAgentId());
     };
     sync();
     return streamStore.subscribe((newState) => {
       const file = newState.files.get(newState.primary);
       const lines = file ? file.lines : [];
       const newLineCount = lines.length;
+      setAgentId(readPrimaryAgentId());
 
       if (newLineCount > lastLineCountRef.current) {
         const newLines = lines.slice(lastLineCountRef.current);
@@ -101,7 +114,7 @@ export function ExpandedView(): React.ReactElement {
 
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
-      <SessionHeader model={state.model} cwd={state.cwd} status={state.status} />
+      <SessionHeader model={state.model} cwd={state.cwd} status={state.status} agentId={agentId} />
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse">
         <Transcript messages={state.messages} onInit={handleInit} onResult={handleResult} />
       </div>

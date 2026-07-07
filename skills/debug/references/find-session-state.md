@@ -118,7 +118,7 @@ Empty lock file for de-duplication — prevents two ad-hoc attribution spawns fo
 
 **Path**: `{cardRepoPath}/streams/claude-code-session/{sessionId}.jsonl`
 
-Synced transcript lines written by the detached `transcript-watcher` daemon. It uses `fs.watch` (recursive) on the source transcript directory, copies new lines, and writes to the card repo. **Status**: current.
+Synced transcript lines written by the detached, manifest-driven `stream-sync-watcher` daemon. It uses `fs.watch` (recursive) on the manifest's `watchRoot`, tails new lines, and writes to the card repo. **Status**: current.
 
 **Path**: `{cardRepoPath}/streams/claude-code-session/{sessionId}-{subagentId}.jsonl`
 
@@ -128,17 +128,26 @@ Subagent transcripts uploaded by the SubagentStop hook. **Status**: current.
 
 **Path**: `{cardRepoPath}/streams/claude-code-session/{sessionId}.flush`
 
-Empty marker file. Written by the SessionEnd hook to signal the transcript watcher that the session ended gracefully. The watcher detects the sentinel via its `fs.watch`, flushes remaining lines, commits, and exits. **Status**: current.
+Empty marker file. Written by the SessionEnd hook to signal `stream-sync-watcher` that the session ended gracefully. The watcher detects the sentinel via its `fs.watch`, flushes remaining lines, commits, and exits. **Status**: current.
 
 ### Sidecar Metadata
 
 **Path**: `{cardRepoPath}/streams/claude-code-session/{sessionId}.jsonl.meta.json`
 
+Written once, on first successful sync of a matched source, and never rewritten afterward:
+
 ```json
 {
+  "version": 1,
+  "relPath": "...",
+  "streamType": "claude-code-session",
+  "runtime": "claude-code",
   "sessionId": "...",
+  "role": "main",
+  "title": "...",
+  "sourcePath": "...",
   "startedAt": "2026-06-26T14:45:00.000Z",
-  "endedAt": "2026-06-26T14:50:00.000Z"
+  "lineCount": 0
 }
 ```
 
@@ -146,7 +155,7 @@ Empty marker file. Written by the SessionEnd hook to signal the transcript watch
 
 ### Auto-Gitignore
 
-The transcript watcher appends `streams/**/*.flush` to `{cardRepoPath}/.gitignore` if not already present — flush sentinels should never be committed.
+`stream-sync-watcher` appends `streams/**/*.flush` to `{cardRepoPath}/.gitignore` if not already present — flush sentinels should never be committed.
 
 ## Session Stderr
 

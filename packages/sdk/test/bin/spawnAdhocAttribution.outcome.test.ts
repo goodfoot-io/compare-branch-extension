@@ -9,7 +9,8 @@
  * @summary Outcome-contract reproduction tests for spawnAdhocAttribution
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SessionSyncManifest } from '../../src/transcript-sync/manifest.js';
 
 // ─── Module mocks ────────────────────────────────────────────────────────────
 // Same collaborator mocks as spawnAdhocAttribution.test.ts; vitest hoists
@@ -24,9 +25,12 @@ vi.mock('@cards.management/sdk/adhoc-attribution', () => ({
   acquireLock: vi.fn()
 }));
 
-vi.mock('@cards.management/sdk/bin/spawn-transcript-watcher', () => ({
-  spawnTranscriptWatcher: vi.fn(),
-  transcriptWatcherWrapperName: vi.fn(() => 'transcript-watcher')
+vi.mock('@cards.management/sdk/bin/spawn-stream-sync-watcher', () => ({
+  spawnStreamSyncWatcher: vi.fn()
+}));
+
+vi.mock('../../src/transcript-sync/adapters/index.js', () => ({
+  buildManifestForRuntime: vi.fn()
 }));
 
 vi.mock('@cards.management/sdk/bin/spawn-adhoc-cleanup', () => ({
@@ -35,8 +39,9 @@ vi.mock('@cards.management/sdk/bin/spawn-adhoc-cleanup', () => ({
 
 import { acquireLock } from '@cards.management/sdk/adhoc-attribution';
 import { isAdhocActivatableStatus, readCardStatus } from '@cards.management/sdk/bin/process-utils';
-import { spawnTranscriptWatcher } from '@cards.management/sdk/bin/spawn-transcript-watcher';
+import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-sync-watcher';
 import { type SpawnAdhocAttributionParams, spawnAdhocAttribution } from '../../src/bin/spawnAdhocAttribution.js';
+import { buildManifestForRuntime } from '../../src/transcript-sync/adapters/index.js';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -48,9 +53,22 @@ function makeParams(overrides: Partial<SpawnAdhocAttributionParams> = {}): Spawn
     cardId: 'main-99',
     cardRepoPath: '/tmp/card-repos/main-99',
     lockPath: '/tmp/adhoc-sessions/sess-abc-123.lock',
+    runtime: 'claude-code',
     ...overrides
   };
 }
+
+const FAKE_MANIFEST: SessionSyncManifest = {
+  version: 1,
+  sessionId: 'sess-abc-123',
+  cardId: 'main-99',
+  runtime: 'claude-code',
+  streamType: 'claude-code-session',
+  watchRoot: '/tmp',
+  sources: [{ pattern: 'sess-abc-123.jsonl', role: 'main', mode: 'jsonl-tail' }],
+  monitorPid: 42000,
+  cardRepoPath: '/tmp/card-repos/main-99'
+};
 
 function makeLogger() {
   return {
@@ -62,6 +80,10 @@ function makeLogger() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('spawnAdhocAttribution outcome contract', () => {
+  beforeEach(() => {
+    vi.mocked(buildManifestForRuntime).mockReturnValue(FAKE_MANIFEST);
+  });
+
   afterEach(() => {
     vi.resetAllMocks();
   });
@@ -76,8 +98,8 @@ describe('spawnAdhocAttribution outcome contract', () => {
     expect(outcome).toBeDefined();
     expect(outcome).toMatchObject({ activated: true });
     // The per-card cleanup still spawns for the second card in the session;
-    // only the session-scoped transcript-watcher is de-duped.
-    expect(spawnTranscriptWatcher).not.toHaveBeenCalled();
+    // only the session-scoped stream-sync-watcher is de-duped.
+    expect(spawnStreamSyncWatcher).not.toHaveBeenCalled();
   });
 
   it('resolves { activated: false, reason: "not-activatable" } when the card status guard rejects', async () => {
@@ -94,7 +116,7 @@ describe('spawnAdhocAttribution outcome contract', () => {
     vi.mocked(readCardStatus).mockResolvedValue('todo');
     vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
     vi.mocked(acquireLock).mockResolvedValue(true);
-    vi.mocked(spawnTranscriptWatcher).mockReturnValue(true);
+    vi.mocked(spawnStreamSyncWatcher).mockReturnValue(true);
 
     const outcome = await spawnAdhocAttribution(makeParams(), makeLogger());
 

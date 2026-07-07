@@ -444,8 +444,14 @@ describe('CardsClient', () => {
       const client = new CardsClient(options, httpClient);
       const mockStreams: StreamMeta[] = [
         {
-          filename: 'session.log',
+          version: 1,
+          relPath: 'session.log',
           streamType: 'claude-session',
+          runtime: 'claude-code',
+          sessionId: 'session-1',
+          role: 'main',
+          sourcePath: '/tmp/session.log',
+          startedAt: '2024-01-01T00:00:00Z',
           createdAt: '2024-01-01T00:00:00Z',
           isActive: false,
           lineCount: 100
@@ -473,12 +479,12 @@ describe('CardsClient', () => {
       expect(result).toEqual([]);
     });
 
-    it('getStream calls GET /cards/:cardId/streams/:streamType/:filename', async () => {
+    it('getStream calls GET /cards/:cardId/streams/:streamType/*relPath', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
       const mockStream = {
         meta: {
-          filename: 'session.log',
+          relPath: 'session.log',
           streamType: 'claude-session',
           status: 'completed',
           createdAt: '2024-01-01T00:00:00Z',
@@ -502,7 +508,7 @@ describe('CardsClient', () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
       const mockStream = {
-        meta: { filename: 'session.log', streamType: 'claude-session', lineCount: 2460 },
+        meta: { relPath: 'session.log', streamType: 'claude-session', lineCount: 2460 },
         lines: ['line 2459', 'line 2460']
       };
       httpClient.responses.set(
@@ -564,6 +570,21 @@ describe('CardsClient', () => {
       expect(httpClient.requests[0]).toMatchObject({
         method: 'GET',
         url: expect.stringContaining('/cards/card-1/streams/type%2Fwith%2Fslashes/session.log')
+      });
+    });
+
+    it('getStream encodes a nested relPath per-segment, keeping the separating slashes literal', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      const nestedUrl =
+        'http://localhost:3000/cards/card-1/streams/claude-session/session%20abc/subagents/agent%20one.jsonl';
+      httpClient.responses.set(nestedUrl, { meta: {}, lines: [] });
+
+      await client.getStream('card-1', 'claude-session', 'session abc/subagents/agent one.jsonl');
+
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'GET',
+        url: expect.stringContaining('/cards/card-1/streams/claude-session/session%20abc/subagents/agent%20one.jsonl')
       });
     });
 

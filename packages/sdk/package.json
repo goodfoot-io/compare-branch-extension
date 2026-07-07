@@ -30,7 +30,7 @@
     "./search-utils": "./src/searchUtils.ts",
     "./symlink-capability": "./src/symlink-capability.ts",
     "./timer": "./src/timer.ts",
-    "./bin/spawn-transcript-watcher": "./src/bin/spawn-transcript-watcher.ts",
+    "./bin/spawn-stream-sync-watcher": "./src/bin/spawn-stream-sync-watcher.ts",
     "./bin/spawn-adhoc-cleanup": "./src/bin/spawn-adhoc-cleanup.ts",
     "./bin/spawn-adhoc-attribution": "./src/bin/spawnAdhocAttribution.ts",
     "./bin/process-utils": "./src/bin/process-utils.ts",
@@ -42,7 +42,8 @@
     "./unbound-worktree-candidates": "./src/unboundWorktreeCandidates.ts",
     "./adhoc-attribution": "./src/adhocAttribution.ts",
     "./context": "./src/context.ts",
-    "./git-hooks": "./src/git-hooks.ts"
+    "./git-hooks": "./src/git-hooks.ts",
+    "./transcript-sync": "./src/transcript-sync/index.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",

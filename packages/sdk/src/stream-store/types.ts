@@ -22,6 +22,15 @@ export interface StreamMeta {
   title?: string;
   /** `true` when the stream has not yet been committed to git (live append mode). */
   isActive: boolean;
+  /**
+   * Role of this stream's source file within its session's transcript set, from
+   * the sidecar (`StreamMetaFile.role`). Renderers use this — never filename
+   * shape — to distinguish a session's main transcript from its subagent/
+   * auxiliary streams.
+   */
+  role?: 'main' | 'subagent' | 'auxiliary';
+  /** Agent identifier for subagent/auxiliary streams, from the sidecar (`StreamMetaFile.agentId`). Absent for `role: 'main'`. */
+  agentId?: string;
 }
 
 // ============================================================================

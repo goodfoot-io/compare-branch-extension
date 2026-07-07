@@ -109,7 +109,7 @@ Routes through `POST /execute-command` with `{command: "cards.reportIssue", args
 
 | Daemon | Spawned by | Purpose | Status |
 |--------|-----------|---------|--------|
-| `transcript-watcher` | SessionStart/EnterWorktree hooks | Monitors agent PID, syncs transcript JSONL → card repo stream files | current |
+| `stream-sync-watcher` | SessionStart/EnterWorktree hooks | Monitors agent PID, syncs manifest-described transcript files → card repo stream files | current |
 | `adhoc-cleanup` | EnterWorktree hook | Monitors agent PID, transitions card to `needs_review` on session end | current |
 | Branch cleanup watcher | ActionDispatcher (detached) | Cleans up branches after interactive sessions | current |
 

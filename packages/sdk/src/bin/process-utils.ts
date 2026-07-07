@@ -1,8 +1,8 @@
 /**
  * Shared process utilities for detached bin scripts.
  *
- * Extracts `isProcessAlive` from transcript-watcher so both transcript-watcher
- * and adhoc-cleanup can use it without circular imports. Also provides
+ * Extracts `isProcessAlive` so both stream-sync-watcher and adhoc-cleanup can
+ * use it without circular imports. Also provides
  * `transitionCardStatus` (filesystem fallback for setting needs_review) and
  * `isKnownAgentComm` (comm-check gate for PID validation).
  *

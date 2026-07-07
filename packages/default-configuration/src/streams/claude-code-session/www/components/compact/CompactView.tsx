@@ -22,13 +22,18 @@ import { formatCount, formatDate, formatDuration } from './format';
 import { Tail } from './Tail';
 
 /**
- * Reads the primary stream file's lines, filename, and liveness from the store.
- * @returns The primary file's lines, filename, and `isActive` flag.
+ * Reads the primary stream file's lines and sidecar identity fields from the store.
+ * @returns The primary file's lines, liveness, and sidecar `role`/`agentId`.
  */
-function readPrimary(): { lines: string[]; primary: string; isActive: boolean } {
+function readPrimary(): { lines: string[]; isActive: boolean; role: string | undefined; agentId: string | undefined } {
   const s = streamStore.getState();
   const file = s.files.get(s.primary);
-  return { lines: file ? file.lines : [], primary: s.primary, isActive: file?.meta.isActive ?? false };
+  return {
+    lines: file ? file.lines : [],
+    isActive: file?.meta.isActive ?? false,
+    role: file?.meta.role,
+    agentId: file?.meta.agentId
+  };
 }
 
 /**
@@ -39,8 +44,8 @@ function readPrimary(): { lines: string[]; primary: string; isActive: boolean } 
  */
 export function CompactView(): React.ReactElement | null {
   const [folded, setFolded] = useState<FoldedState>(() => {
-    const { lines, primary, isActive } = readPrimary();
-    return { state: buildState(lines, primary, isActive), lineCount: lines.length };
+    const { lines, role, isActive, agentId } = readPrimary();
+    return { state: buildState(lines, role, isActive, agentId), lineCount: lines.length };
   });
   const [isActive, setIsActive] = useState<boolean>(() => readPrimary().isActive);
   // `now` drives the live elapsed timer; it only advances while the stream is
@@ -57,9 +62,9 @@ export function CompactView(): React.ReactElement | null {
   // so a no-op reconcile returns the same reference and skips a re-render.
   useEffect(() => {
     const sync = (): void => {
-      const { lines, primary, isActive: active } = readPrimary();
+      const { lines, role, isActive: active, agentId } = readPrimary();
       setIsActive(active);
-      setFolded((prev) => reconcileFolded(prev, lines, primary, active));
+      setFolded((prev) => reconcileFolded(prev, lines, role, active, agentId));
     };
     sync();
     return streamStore.subscribe(sync);
@@ -109,6 +114,11 @@ export function CompactView(): React.ReactElement | null {
             <div className="row-head">
               <span className={`dot ${dotClass}`} />
               <span className="status">{statusWord}</span>
+              {compactState.isSubagent && compactState.agentId && (
+                <span className="subagent-label" title={`Subagent: ${compactState.agentId}`}>
+                  {compactState.agentId}
+                </span>
+              )}
               <span className="meta-right">
                 {/* Stacked card: live timer while running, start date once ended.
                     The split left panel shows elapsed · date (toggled by CSS). */}

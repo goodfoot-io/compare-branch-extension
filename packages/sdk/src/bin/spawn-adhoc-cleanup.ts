@@ -3,7 +3,7 @@
  *
  * Used by the EnterWorktree (PostToolUse) hook to launch the detached `adhoc-cleanup` bin that
  * monitors the agent PID and flips the card back to `needs_review` when the
- * session ends. Modelled on {@link spawnTranscriptWatcher}.
+ * session ends. Modelled on {@link spawnStreamSyncWatcher}.
  *
  * @summary Spawn the detached adhoc-cleanup subprocess
  * @module

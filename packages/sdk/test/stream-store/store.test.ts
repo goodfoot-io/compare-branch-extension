@@ -145,6 +145,24 @@ describe('stream store', () => {
       expect(file.lines.length).toBeGreaterThan(0);
     });
 
+    it('should preserve sidecar role/agentId across stream:ended, which only carries lineCount/isActive', () => {
+      dispatchHostMessage({
+        type: 'stream:started',
+        filename: 'subagent.jsonl',
+        meta: { lineCount: 3, isActive: true, role: 'subagent', agentId: 'agent-9' }
+      });
+      dispatchHostMessage({
+        type: 'stream:ended',
+        filename: 'subagent.jsonl',
+        meta: { lineCount: 3, isActive: false }
+      });
+
+      const file = store.getState().files.get('subagent.jsonl')!;
+      expect(file.meta.isActive).toBe(false);
+      expect(file.meta.role).toBe('subagent');
+      expect(file.meta.agentId).toBe('agent-9');
+    });
+
     it('should update availableFiles', () => {
       dispatchHostMessage({
         type: 'availableFiles:update',

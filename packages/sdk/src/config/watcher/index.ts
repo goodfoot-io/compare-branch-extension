@@ -8,6 +8,8 @@
 export type { WatcherContext } from './context.js';
 export {
   createWatcher,
+  type DialedWatcherSocket,
+  dialWatcherSocket,
   type WatcherHandle,
   type WatcherHandler,
   type WatcherRegistration
@@ -23,4 +25,10 @@ export type {
   WatcherStopAckMessage,
   WatcherToServerMessage
 } from './protocol.js';
+export {
+  createReconnectingWatcher,
+  RECONNECT_BASE_DELAY_MS,
+  RECONNECT_MAX_DELAY_MS,
+  type ReconnectingWatcherHandle
+} from './reconnectingWatcher.js';
 export { socketEndpoint } from './socketEndpoint.js';
