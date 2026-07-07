@@ -456,6 +456,120 @@ describe('stream store', () => {
         expect(file.meta.lineCount).toBe(4);
       });
 
+      it('triggers exactly one backfill resubscribe on a forward gap and recovers to the full transcript', () => {
+        // Seed a non-empty file (like the standalone panel's disk seed): lines 1..3.
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'gap-backfill.jsonl',
+          lines: ['b1', 'b2', 'b3'],
+          meta: { lineCount: 3, isActive: true }
+        });
+
+        const spy = vi.spyOn(window, 'postMessage');
+        // Expected next is 4; line 6 leaves a hole. Rather than freezing, this must
+        // post a resubscribe to backfill the missing lines.
+        dispatchHostMessage({ type: 'stream:line', filename: 'gap-backfill.jsonl', lineNumber: 6, line: 'b6' });
+
+        const subscribeCalls = spy.mock.calls
+          .map((call) => call[0])
+          .filter(
+            (m) =>
+              m !== null &&
+              typeof m === 'object' &&
+              (m as { type?: string }).type === 'subscribe' &&
+              (m as { filename?: string }).filename === 'gap-backfill.jsonl'
+          );
+        expect(subscribeCalls).toHaveLength(1);
+        // The gapped line was dropped, not appended past the hole.
+        expect(store.getState().files.get('gap-backfill.jsonl')!.lines).toEqual(['b1', 'b2', 'b3']);
+
+        // Further gapped lines while the backfill is in flight must NOT storm the
+        // host with more resubscribes — the guard permits one at a time.
+        dispatchHostMessage({ type: 'stream:line', filename: 'gap-backfill.jsonl', lineNumber: 7, line: 'b7' });
+        dispatchHostMessage({ type: 'stream:line', filename: 'gap-backfill.jsonl', lineNumber: 8, line: 'b8' });
+        const stillOne = spy.mock.calls
+          .map((call) => call[0])
+          .filter(
+            (m) =>
+              m !== null &&
+              typeof m === 'object' &&
+              (m as { type?: string }).type === 'subscribe' &&
+              (m as { filename?: string }).filename === 'gap-backfill.jsonl'
+          );
+        expect(stillOne).toHaveLength(1);
+        spy.mockRestore();
+
+        // The backfill response lands with the full transcript through line 8 —
+        // the pane converges instead of freezing at the snapshot.
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'gap-backfill.jsonl',
+          lines: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'],
+          meta: { lineCount: 8, isActive: true }
+        });
+        const recovered = store.getState().files.get('gap-backfill.jsonl')!;
+        expect(recovered.lines).toEqual(['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']);
+        expect(recovered.meta.lineCount).toBe(8);
+      });
+
+      it('re-arms the gap backfill after a response lands so a later gap resubscribes again', () => {
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'rearm.jsonl',
+          lines: ['r1', 'r2'],
+          meta: { lineCount: 2, isActive: true }
+        });
+        // First gap → one backfill.
+        const spy1 = vi.spyOn(window, 'postMessage');
+        dispatchHostMessage({ type: 'stream:line', filename: 'rearm.jsonl', lineNumber: 5, line: 'r5' });
+        expect(spy1.mock.calls.filter((c) => (c[0] as { filename?: string })?.filename === 'rearm.jsonl')).toHaveLength(
+          1
+        );
+        spy1.mockRestore();
+
+        // Response lands (clears the in-flight guard).
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'rearm.jsonl',
+          lines: ['r1', 'r2', 'r3', 'r4', 'r5'],
+          meta: { lineCount: 5, isActive: true }
+        });
+
+        // A second, later gap must trigger a fresh backfill (guard re-armed).
+        const spy2 = vi.spyOn(window, 'postMessage');
+        dispatchHostMessage({ type: 'stream:line', filename: 'rearm.jsonl', lineNumber: 9, line: 'r9' });
+        expect(spy2.mock.calls.filter((c) => (c[0] as { filename?: string })?.filename === 'rearm.jsonl')).toHaveLength(
+          1
+        );
+        spy2.mockRestore();
+      });
+
+      it('does not backfill on a duplicate/behind line (only a forward gap resubscribes)', () => {
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'nodup-backfill.jsonl',
+          lines: ['n1', 'n2', 'n3'],
+          meta: { lineCount: 3, isActive: true }
+        });
+
+        const spy = vi.spyOn(window, 'postMessage');
+        // lineNumber 2 is behind the expected next (4) — a duplicate re-delivery.
+        dispatchHostMessage({ type: 'stream:line', filename: 'nodup-backfill.jsonl', lineNumber: 2, line: 'dup' });
+
+        const subscribeCalls = spy.mock.calls
+          .map((call) => call[0])
+          .filter(
+            (m) =>
+              m !== null &&
+              typeof m === 'object' &&
+              (m as { type?: string }).type === 'subscribe' &&
+              (m as { filename?: string }).filename === 'nodup-backfill.jsonl'
+          );
+        expect(subscribeCalls).toHaveLength(0);
+        expect(store.getState().files.get('nodup-backfill.jsonl')!.lines).toEqual(['n1', 'n2', 'n3']);
+        spy.mockRestore();
+      });
+
       it('caps compact-mode lines to COMPACT_TAIL_LINES and advances headLineNumber', () => {
         // Seed the first line, then append sequentially past the compact cap.
         dispatchHostMessage({

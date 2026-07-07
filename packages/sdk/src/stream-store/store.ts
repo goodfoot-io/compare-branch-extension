@@ -180,17 +180,16 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
         let mergedHead: number;
         if (existingLines.length === 0 || responseLast >= localLast) {
           // The response reaches at least as far as local knowledge — take it as
-          // the new base and append any local lines strictly beyond the
-          // response's last line (a live tail that raced ahead of the fetch).
+          // the new base. There is no local tail beyond it to preserve; a live
+          // tail that raced ahead of the fetch lands in the else branch (where
+          // responseLast < localLast), so the response lines stand alone here.
           mergedHead = responseHead;
           mergedLines = [...msg.lines];
-          if (localLast > responseLast) {
-            const firstBeyondIdx = responseLast - localHead + 1;
-            mergedLines = [...mergedLines, ...existingLines.slice(firstBeyondIdx)];
-          }
         } else {
-          // The response is behind local knowledge (a stale read that raced
-          // behind newer live events) — keep local lines untouched.
+          // The response is behind local knowledge — a live tail raced ahead of
+          // the fetch (or a stale disk read landed late). Preserve that
+          // raced-ahead tail by keeping local lines untouched; never shrink to
+          // the stale response.
           mergedHead = localHead;
           mergedLines = existingLines;
         }
@@ -268,6 +267,31 @@ function applyTheme(themeKind: 1 | 2 | 3, cssVariables: Record<string, string>):
   }
 }
 
+/**
+ * Files with a gap-backfill resubscribe currently in flight.
+ *
+ * A forward gap in the live `stream:line` feed (a line past the expected next)
+ * means lines were missed — the offset-aware merge cannot append past the hole,
+ * so without intervention every later line is dropped for the rest of the
+ * session and the pane freezes. Instead we resubscribe to backfill the gap. This
+ * set is the storm guard: at most one backfill per file is outstanding, so a
+ * burst of gapped lines triggers exactly one resubscribe. The entry clears when
+ * that file's `subscribe:response` lands (below), re-arming the mechanism.
+ */
+const backfillsInFlight = new Set<string>();
+
+/**
+ * Triggers a resubscribe to backfill a forward gap, guarded against storms.
+ *
+ * @param filename - Stream file whose live feed skipped past the expected next line.
+ */
+function requestGapBackfill(filename: string): void {
+  if (backfillsInFlight.has(filename)) return;
+  backfillsInFlight.add(filename);
+  const mode = streamStore.getState().mode;
+  subscribe(filename, mode === 'compact' ? COMPACT_TAIL_LINES : undefined);
+}
+
 // Listen for host messages and update the store
 window.addEventListener('message', (event: MessageEvent<HostToIframeMessage>) => {
   const msg = event.data;
@@ -292,6 +316,27 @@ window.addEventListener('message', (event: MessageEvent<HostToIframeMessage>) =>
       }
     }
     return;
+  }
+
+  // A forward gap in the live feed (a line past the expected next) means lines
+  // were missed — resubscribe to backfill rather than silently dropping the rest
+  // of the session. Only a genuine forward gap qualifies: a seed (empty file) or
+  // an in-order append is handled by the merge below, and a duplicate/behind line
+  // (lineNumber <= expected) is dropped there without a backfill. This one path
+  // heals both the compact card and the standalone panel, whose non-empty seed
+  // means its first missed live line is the gap that arms this backfill.
+  if (msg.type === 'stream:line') {
+    const file = streamStore.getState().files.get(msg.filename);
+    if (file && file.lines.length > 0 && msg.lineNumber > file.headLineNumber + file.lines.length) {
+      requestGapBackfill(msg.filename);
+      return;
+    }
+  }
+
+  // A landed subscribe:response is the backfill completing — re-arm the gap
+  // guard so a later gap can trigger a fresh resubscribe.
+  if (msg.type === 'subscribe:response') {
+    backfillsInFlight.delete(msg.filename);
   }
 
   const patch = applyMessage(streamStore.getState(), msg);
