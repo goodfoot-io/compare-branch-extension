@@ -193,13 +193,17 @@ export function CodexCompactView(): React.ReactElement {
     return streamStore.subscribe(sync);
   }, []);
 
-  // Close a stream whose primary file has zero lines so the host doesn't render
-  // a blank box for it.
+  // Close a settled stream whose primary file has zero lines so the host doesn't
+  // render a blank box for it. A live (active) stream is never closed for
+  // emptiness: it is mid-flight and its backlog is still arriving out of band via
+  // the async `subscribe:response` backfill (the host boots the iframe with no
+  // lines and the server seeds `stream:started` with lineCount:0), so closing on
+  // the seed would collapse the live transcript pane the instant it opens.
   useEffect(() => {
     const checkEmpty = (): void => {
       const s = streamStore.getState();
       const file = s.files.get(s.primary);
-      if (file && file.meta.lineCount === 0) close();
+      if (file && file.meta.lineCount === 0 && !file.meta.isActive) close();
     };
     checkEmpty();
     return streamStore.subscribe(checkEmpty);
