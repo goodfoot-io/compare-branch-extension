@@ -456,55 +456,10 @@ body,
 #stream-root {
   height: 100%;
 }
-/* Compact stream card — the shared shell (fixed 3-row box, stacked/split
-   layouts, StreamIframeHost COMPACT_STREAM_HEIGHT contract) lives in
-   ../../lib/compact-card.css (imported above). Claude-only deltas follow:
-   subagent label, tail-line role colors, and the split-layout metrics/meta
-   variant swap. */
-/* Sidecar-derived subagent label — shown only for role 'subagent'/'auxiliary' streams. */
-.compact-container .subagent-label {
-  font-size: 0.78em;
-  color: var(--vscode-descriptionForeground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 9em;
-}
-.compact-container .metrics-split {
-  display: none;
-}
-
-/* Tail-line role (`tool`/`asst`/`user`) is carried by the label text itself
-   plus the `font-weight: 600` above — no per-role hue, matching the Codex
-   renderer's tail labels (neither is one of the reserved
-   error/warning/success/info/diff-status meanings). Content brightness below
-   is the real hierarchy signal: milestone bright, plumbing dim, error red. */
-.compact-container .panel-right .line.milestone .txt {
-  color: var(--vscode-foreground);
-}
-.compact-container .panel-right .line.plumbing .txt {
-  color: var(--vscode-descriptionForeground);
-}
-.compact-container .panel-right .line.error .txt,
-.compact-container .panel-right .line.error .lbl {
-  color: var(--vscode-errorForeground);
-}
-
-@media (min-width: 560px) {
-  /* Swap the metrics + meta-right variants for the split layout. */
-  .compact-container .metrics-stacked {
-    display: none;
-  }
-  .compact-container .metrics-split {
-    display: block;
-  }
-  .compact-container .meta-stacked {
-    display: none;
-  }
-  .compact-container .meta-split {
-    display: inline;
-  }
-}
+/* Compact stream card — the shared shell AND all Claude compact-card deltas
+   (subagent label, tail-line severity colors, the split-layout metrics/meta
+   variant swap) now live in ../../lib/compact-card.css (imported above). This
+   renderer's theme.css carries zero `.compact-container` rules of its own. */
 
 /* Match DocumentEntry markdown text colour. */
 body {

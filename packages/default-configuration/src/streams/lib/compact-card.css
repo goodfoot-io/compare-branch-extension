@@ -10,9 +10,12 @@
    the container goes transparent and its two child panels become distinct
    rounded rectangles — recap+metrics on the left, latest lines on the right.
 
-   This file holds only the rules identical across renderers. Each renderer's
-   theme.css keeps its own deltas (role/tail colors, metrics-split toggling,
-   subagent label, etc.) layered on top via the cascade.
+   Both renderers now share the exact same `CompactCard` component and markup
+   (see ../CompactCard.tsx), so this file holds ALL compact-card rules — the
+   shared shell plus every per-renderer delta (subagent label, tail-line
+   severity colors, metrics-split/meta-split toggling). Each theme.css keeps
+   only its top `@import` of this file; no `.compact-container` rules remain
+   there.
    ============================================================================ */
 .compact-container {
   background: var(--vscode-textCodeBlock-background);
@@ -100,6 +103,18 @@
   display: none;
 }
 
+/* Sidecar-derived subagent label (Claude-only) — shown only for role
+   'subagent'/'auxiliary' streams; the component omits the element entirely
+   (never renders it empty) when the model's `subagentLabel` is absent. */
+.compact-container .subagent-label {
+  font-size: 0.78em;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 9em;
+}
+
 /* Row 2 — headline, single clamped line. Never the card title/status. */
 .compact-container .headline {
   font-size: 0.85em;
@@ -128,6 +143,11 @@
   color: var(--vscode-foreground);
   font-weight: 600;
 }
+/* Only one of the stacked/split metrics rows renders per layout; the other is
+   hidden by default and the wide-viewport media query below swaps them. */
+.compact-container .metrics-split {
+  display: none;
+}
 
 /* Latest-lines panel rows (only rendered in the split layout). */
 .compact-container .panel-right .line {
@@ -148,6 +168,26 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Tail-line severity: content brightness is the hierarchy signal — milestone
+   bright, plumbing dim, error red (and its label red too). Codex's tail
+   carries no severity classification yet, so every Codex tail line maps to
+   `neutral`, matching its previous always-foreground look. Label color
+   (`tool`/`asst`/`user`, Claude-only) is carried by the label text itself
+   plus the `font-weight: 600` above — no per-role hue. */
+.compact-container .panel-right .line.milestone .txt {
+  color: var(--vscode-foreground);
+}
+.compact-container .panel-right .line.plumbing .txt {
+  color: var(--vscode-descriptionForeground);
+}
+.compact-container .panel-right .line.error .txt,
+.compact-container .panel-right .line.error .lbl {
+  color: var(--vscode-errorForeground);
+}
+.compact-container .panel-right .line.neutral .txt {
+  color: var(--vscode-foreground);
 }
 
 /* ----------------------------------------------------------------------------
@@ -187,5 +227,19 @@
     /* A faint shift toward foreground so the latest-lines column reads as its
        own distinct area. */
     background: color-mix(in srgb, var(--vscode-textCodeBlock-background) 93%, var(--vscode-foreground) 7%);
+  }
+
+  /* Swap the metrics + meta-right variants for the split layout. */
+  .compact-container .metrics-stacked {
+    display: none;
+  }
+  .compact-container .metrics-split {
+    display: block;
+  }
+  .compact-container .meta-stacked {
+    display: none;
+  }
+  .compact-container .meta-split {
+    display: inline;
   }
 }

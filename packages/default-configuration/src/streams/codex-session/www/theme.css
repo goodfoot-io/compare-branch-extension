@@ -33,14 +33,11 @@ body.mode-compact {
   font-size: var(--vscode-font-size, 13px);
 }
 
-/* Compact stream card — the shared shell (fixed 3-row box, stacked/split
-   layouts, StreamIframeHost COMPACT_STREAM_HEIGHT contract) lives in
-   ../../lib/compact-card.css (imported above). Codex has exactly one local
-   delta: the tail text is always foreground (no role-colored variants, no
-   metrics-split/stacked toggling, no media-query swap). */
-.compact-container .panel-right .line .txt {
-  color: var(--vscode-foreground);
-}
+/* Compact stream card — the shared shell AND all Codex compact-card behavior
+   (the split-layout metrics/meta variant swap, and the `neutral` tail-line
+   severity — always foreground, no role-colored variants) now live in
+   ../../lib/compact-card.css (imported above). This renderer's theme.css
+   carries zero `.compact-container` rules of its own. */
 
 /* ============================================================================
    Expanded transcript

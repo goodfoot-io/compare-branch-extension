@@ -6,5 +6,3 @@
  */
 
 export { CompactView } from './CompactView';
-export { Tail } from './Tail';
-export { TailLine } from './TailLine';
