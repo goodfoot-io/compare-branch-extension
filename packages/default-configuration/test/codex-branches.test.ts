@@ -316,6 +316,12 @@ beforeEach(async () => {
     if (toPosix(targetPath) === '/test/extension/dist/codex') {
       return ['.agents', 'cards', 'runtime'] as Awaited<ReturnType<typeof fs.readdir>>;
     }
+    // The content-hash walk enumerates each bundled plugin source dir. An empty
+    // listing keeps the fixture minimal — the digest just needs to be stable, and
+    // these tests assert on the cp/spawn sequence rather than the hash itself.
+    if (toPosix(targetPath).startsWith('/test/extension/dist/codex/')) {
+      return [] as unknown as Awaited<ReturnType<typeof fs.readdir>>;
+    }
     throw Object.assign(new Error(`mock: unhandled readdir: ${String(targetPath)}`), { code: 'ENOENT' });
   });
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {

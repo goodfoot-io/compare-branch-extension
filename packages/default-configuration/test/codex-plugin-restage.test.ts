@@ -112,4 +112,20 @@ describe('populateCodexPluginCache content-addressed restage', () => {
     // slot means the launched session silently runs the pre-rework hook.
     expect(await fs.readFile(stagedHookPath(), 'utf-8')).toBe(NEW_HOOK);
   });
+
+  it('leaves an unchanged slot untouched so concurrent launches never race a rewrite', async () => {
+    const { populateCodexPluginCache } = await import('../src/lib/codex-session.js');
+
+    const HOOK = 'export const marker = "identical across launches";\n';
+    await writeBundle(HOOK);
+    await populateCodexPluginCache(codexHome, marketplacePath, ['cards']);
+    const firstMtime = (await fs.stat(stagedHookPath())).mtimeMs;
+
+    // Re-populate from the byte-identical bundle: the stamp matches, so the slot
+    // must be left in place — no evict/rewrite that a concurrent reader could hit.
+    await populateCodexPluginCache(codexHome, marketplacePath, ['cards']);
+
+    expect((await fs.stat(stagedHookPath())).mtimeMs).toBe(firstMtime);
+    expect(await fs.readFile(stagedHookPath(), 'utf-8')).toBe(HOOK);
+  });
 });

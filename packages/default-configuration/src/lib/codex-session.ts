@@ -9,6 +9,7 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { type Dirent, readFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -293,17 +294,105 @@ async function isExistingDirectory(directoryPath: string): Promise<boolean> {
 }
 
 /**
+ * Filename of the content stamp written into each published version slot. Holds
+ * the hex digest of the bundle the slot was staged from, so a later launch can
+ * tell a byte-for-byte-current slot from a stale one whose declared `version`
+ * never moved. A dotfile at the plugin root, it is invisible to codex's manifest
+ * read (`.codex-plugin/plugin.json`) and hook-trust hashing (per-command over
+ * `hooks/*`), and is excluded from {@link computePluginContentHash} so it never
+ * perturbs the digest it records.
+ */
+const CODEX_PLUGIN_CONTENT_STAMP = '.cards-content-hash';
+
+/**
+ * Computes a stable content digest of a bundled plugin source directory: every
+ * file's repo-relative POSIX path and bytes, folded into one SHA-256 in sorted
+ * path order so the result is deterministic across platforms and filesystem
+ * enumeration order. The {@link CODEX_PLUGIN_CONTENT_STAMP} dotfile is skipped so
+ * hashing a previously-staged tree yields the same digest as the pristine source.
+ *
+ * This is the identity codex cannot compute for a `Local` plugin (it keys purely
+ * on the version segment), so the extension must: two builds that leave
+ * `plugin.json` `version` untouched but change a hook's bytes produce different
+ * digests here, which is what drives the restage below.
+ *
+ * @param sourceDir - Absolute path to the packaged plugin source directory.
+ * @returns Lowercase hex SHA-256 digest of the directory's file contents.
+ */
+async function computePluginContentHash(sourceDir: string): Promise<string> {
+  const files: string[] = [];
+  const walk = async (dir: string): Promise<void> => {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    await Promise.all(
+      entries.map(async (entry) => {
+        const abs = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(abs);
+        } else if (entry.name !== CODEX_PLUGIN_CONTENT_STAMP) {
+          files.push(abs);
+        }
+      })
+    );
+  };
+  await walk(sourceDir);
+
+  files.sort();
+  const hash = createHash('sha256');
+  for (const abs of files) {
+    const rel = path.relative(sourceDir, abs).split(path.sep).join('/');
+    hash.update(rel, 'utf-8');
+    hash.update('\0');
+    hash.update(await fs.readFile(abs));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+/**
+ * Reads the content stamp of an installed version slot.
+ *
+ * @param versionDir - Absolute path to a published version slot.
+ * @returns The stored hex digest, or `null` when the slot or its stamp is absent
+ *   (an unstamped slot from a pre-content-address build always reads as `null`,
+ *   which forces a restage — fail closed).
+ */
+async function readSlotContentStamp(versionDir: string): Promise<string | null> {
+  try {
+    return (await fs.readFile(path.join(versionDir, CODEX_PLUGIN_CONTENT_STAMP), 'utf-8')).trim();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
  * Installs one bundled plugin into the cache under its own version segment
  * `<marketplaceDir>/<plugin>/<version>` and returns that load path.
  *
- * Race-free by construction: fully-built content is staged in an OS-unique
- * `mkdtemp` dir under `marketplaceDir` (a sibling of the scanned base root, so
- * codex never enumerates it as a version candidate), validated, then published
- * with a single atomic rename into the version slot. Once present, the slot is
- * never moved or removed by this function, so concurrent launches against the
- * same `$CODEX_HOME` either win the rename or observe that the slot already
- * holds identical content (`EEXIST`/`ENOTEMPTY` on POSIX, `EPERM`/`EACCES` from
- * Windows `MoveFile` refusing to overwrite a directory) — all idempotent success.
+ * Fully-built content is staged in an OS-unique `mkdtemp` dir under
+ * `marketplaceDir` (a sibling of the scanned base root, so codex never enumerates
+ * it as a version candidate), stamped with the bundle's content digest, validated,
+ * then published into the version slot.
+ *
+ * codex selects a `Local` plugin by the highest-semver *directory name* and reads
+ * `plugin.json` `version` only as a display label, so a rebuilt bundle whose
+ * version string was not bumped maps to the same slot. To honor the invariant —
+ * the executed hook is byte-identical to the current bundle — the slot is
+ * content-addressed: when it is absent, or its stamp differs from the current
+ * bundle digest, the fresh copy replaces it; when the stamp already matches, the
+ * slot is byte-for-byte current and left untouched.
+ *
+ * Concurrency: launches under one extension build stage identical bytes, so they
+ * hit the matching-stamp fast path and never write — the common case stays
+ * race-free. The replace path runs only on the first launch after an in-place
+ * upgrade that skipped the version bump; it evicts the stale slot and renames the
+ * fresh one in, leaving a sub-millisecond window where the slot is absent. A
+ * concurrent launch that reads during that window fails and is fixed by relaunch
+ * (the same posture the card takes toward already-stranded sessions); a
+ * concurrent replacer that races the eviction is reconciled by re-checking the
+ * stamp and failing closed on any genuine mismatch.
  *
  * @param pluginName - Bundled plugin name.
  * @param marketplaceDir - `<codexHome>/plugins/cache/local`.
@@ -319,6 +408,14 @@ async function installPluginToCache(
 ): Promise<string> {
   const baseRoot = path.join(marketplaceDir, pluginName);
   const destVersionDir = path.join(baseRoot, version);
+  const contentHash = await computePluginContentHash(sourceDir);
+
+  // Fast path: an existing slot whose stamp matches the current bundle is
+  // byte-identical — leave it untouched. No writes, so any number of concurrent
+  // launches under the same build converge here without racing.
+  if ((await readSlotContentStamp(destVersionDir)) === contentHash) {
+    return destVersionDir;
+  }
 
   const staging = await fs.mkdtemp(path.join(marketplaceDir, '.plugin-install-'));
   try {
@@ -327,27 +424,11 @@ async function installPluginToCache(
 
     // Validate the staged bundle BEFORE publishing — fail closed on a bad bundle.
     await readCodexPluginManifest(stagedVersionDir, pluginName);
+    // Stamp the staged copy so a future launch can recognize this exact bundle.
+    await fs.writeFile(path.join(stagedVersionDir, CODEX_PLUGIN_CONTENT_STAMP), contentHash, 'utf-8');
 
     await fs.mkdir(baseRoot, { recursive: true });
-    try {
-      // Publish with a single atomic rename into the (absent) version slot.
-      await fs.rename(stagedVersionDir, destVersionDir);
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      // The destination slot already holds identical content from a concurrent
-      // or previous publish — idempotent success, leave it. POSIX surfaces this
-      // as EEXIST/ENOTEMPTY; Windows `MoveFile` refuses to overwrite an existing
-      // directory with EPERM/EACCES instead. For the Windows codes, confirm the
-      // slot is actually present so a genuine permission failure still propagates
-      // (fail closed).
-      const slotAlreadyPublished =
-        code === 'EEXIST' ||
-        code === 'ENOTEMPTY' ||
-        ((code === 'EPERM' || code === 'EACCES') && (await isExistingDirectory(destVersionDir)));
-      if (!slotAlreadyPublished) {
-        throw error;
-      }
-    }
+    await publishVersionSlot(stagedVersionDir, destVersionDir, marketplaceDir, contentHash);
   } finally {
     // Remove the staging dir (the publish either consumed its version child via
     // rename or lost the race and left it behind). Never touches a live slot.
@@ -356,6 +437,114 @@ async function installPluginToCache(
 
   await pruneSupersededPluginVersions(baseRoot, version);
   return destVersionDir;
+}
+
+/**
+ * Publishes a fully-built, stamped staging directory into its version slot.
+ *
+ * Fast path is a single atomic rename into an absent slot. When the slot already
+ * exists, the current bundle's content decides: a stamp match means a concurrent
+ * or previous publish already placed byte-identical content (idempotent success,
+ * leave it), while a mismatch means the slot is stale — {@link replaceVersionSlot}
+ * swaps the fresh content in. Any error that is neither an atomic-rename success
+ * nor a recognized slot-exists condition propagates (fail closed).
+ *
+ * @param stagedVersionDir - Fully-built, stamped source in the staging dir.
+ * @param destVersionDir - Target version slot `<baseRoot>/<version>`.
+ * @param marketplaceDir - `<codexHome>/plugins/cache/local`, for the eviction temp dir.
+ * @param contentHash - Digest the staged copy is stamped with.
+ */
+async function publishVersionSlot(
+  stagedVersionDir: string,
+  destVersionDir: string,
+  marketplaceDir: string,
+  contentHash: string
+): Promise<void> {
+  try {
+    // Publish with a single atomic rename into the (absent) version slot.
+    await fs.rename(stagedVersionDir, destVersionDir);
+    return;
+  } catch (error) {
+    if (!(await isSlotExistsError(error, destVersionDir))) {
+      throw error;
+    }
+  }
+
+  // The slot exists. If it already holds our exact bytes, a concurrent or prior
+  // publish won — idempotent success. Otherwise it is stale and must be replaced.
+  if ((await readSlotContentStamp(destVersionDir)) === contentHash) {
+    return;
+  }
+  await replaceVersionSlot(stagedVersionDir, destVersionDir, marketplaceDir, contentHash);
+}
+
+/**
+ * Replaces a stale version slot with fresh, stamped content by evicting the old
+ * slot and renaming the new one in.
+ *
+ * Eviction moves the stale slot to an OS-unique temp dir (never a live sibling
+ * slot) then deletes it; the install rename then lands the fresh content. If a
+ * concurrent replacer evicted first, the eviction ENOENT is tolerated; if one
+ * re-published first, the install's slot-exists error is accepted only when the
+ * now-present slot already holds our exact bytes (fail closed otherwise).
+ *
+ * @param stagedVersionDir - Fully-built, stamped source in the staging dir.
+ * @param destVersionDir - Stale version slot to replace.
+ * @param marketplaceDir - `<codexHome>/plugins/cache/local`, parent of the temp dir.
+ * @param contentHash - Digest the staged copy is stamped with.
+ */
+async function replaceVersionSlot(
+  stagedVersionDir: string,
+  destVersionDir: string,
+  marketplaceDir: string,
+  contentHash: string
+): Promise<void> {
+  const evictDir = await fs.mkdtemp(path.join(marketplaceDir, '.plugin-evict-'));
+  try {
+    try {
+      await fs.rename(destVersionDir, path.join(evictDir, 'stale'));
+    } catch (error) {
+      // A concurrent replacer already evicted the stale slot — proceed to install.
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    try {
+      await fs.rename(stagedVersionDir, destVersionDir);
+    } catch (error) {
+      // A concurrent replacer re-published first. Accept only if the now-present
+      // slot already holds our exact bytes; otherwise surface the failure.
+      if (
+        !(await isSlotExistsError(error, destVersionDir)) ||
+        (await readSlotContentStamp(destVersionDir)) !== contentHash
+      ) {
+        throw error;
+      }
+    }
+  } finally {
+    await fs.rm(evictDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/**
+ * Classifies a `fs.rename` failure as "the destination version slot already
+ * exists". POSIX surfaces this as `EEXIST`/`ENOTEMPTY`; Windows `MoveFile`
+ * refuses to overwrite an existing directory with `EPERM`/`EACCES` instead, so
+ * for those codes the slot's presence is confirmed before treating the error as
+ * benign — a genuine permission failure still propagates (fail closed).
+ *
+ * @param error - The error thrown by `fs.rename`.
+ * @param destVersionDir - The target version slot.
+ * @returns `true` when the error means the slot is already present.
+ */
+async function isSlotExistsError(error: unknown, destVersionDir: string): Promise<boolean> {
+  const code = (error as NodeJS.ErrnoException).code;
+  return (
+    code === 'EEXIST' ||
+    code === 'ENOTEMPTY' ||
+    ((code === 'EPERM' || code === 'EACCES') && (await isExistingDirectory(destVersionDir)))
+  );
 }
 
 /**

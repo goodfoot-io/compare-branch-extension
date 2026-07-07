@@ -409,7 +409,11 @@ describe('codex-session library', () => {
 
     await populateCodexPluginCache('/test/codexhome', '/test/extension/dist/marketplace');
 
-    expect(fs.writeFile).not.toHaveBeenCalled();
+    // Staging writes only the per-slot content stamp; enablement config
+    // (config.toml / <profile>.config.toml) is owned by writeCodexProfileConfig.
+    const writeTargets = vi.mocked(fs.writeFile).mock.calls.map((call) => toPosix(call[0]));
+    expect(writeTargets.every((target) => target.endsWith('/.cards-content-hash'))).toBe(true);
+    expect(writeTargets.some((target) => target.endsWith('.toml'))).toBe(false);
   });
 
   it('populateCodexPluginCache propagates cache-write errors (fail closed)', async () => {
