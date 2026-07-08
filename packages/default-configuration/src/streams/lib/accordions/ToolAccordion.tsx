@@ -32,6 +32,13 @@ interface ToolAccordionProps {
   hideInput?: boolean;
   /** Tool result string (may be null if no result yet). */
   result: string | null;
+  /**
+   * Long free-text tool arguments rendered as a labeled `<pre>` block before the
+   * result (e.g. Codex's joined shell command or raw `apply_patch` text) — a poor
+   * fit for the key/value `ToolInputTable`. Claude never passes this; when absent
+   * the accordion body is unchanged.
+   */
+  rawArgs?: { label: string; text: string };
   /** Collapsed-header escalation: 'error' tints the row and shows `errorLabel`. */
   severity?: ToolSeverity;
   /** Preview text shown in red when `severity` is 'error' (e.g. "✗ blocked by pre-commit"). */
@@ -51,6 +58,7 @@ interface ToolAccordionProps {
  * @param root0.inputSkipKeys - Input keys to skip in the input table.
  * @param root0.hideInput - When true, the input table is omitted entirely.
  * @param root0.result - Tool result string (may be null if no result yet).
+ * @param root0.rawArgs - Long free-text tool arguments rendered as a labeled `<pre>` block before the result.
  * @param root0.severity - Collapsed-header escalation state.
  * @param root0.errorLabel - Preview text shown in red when `severity` is 'error'.
  * @param root0.defaultOpen - Whether the accordion starts open.
@@ -64,6 +72,7 @@ export function ToolAccordion({
   inputSkipKeys,
   hideInput = false,
   result,
+  rawArgs,
   severity = 'normal',
   errorLabel,
   defaultOpen = false,
@@ -142,6 +151,16 @@ export function ToolAccordion({
         style={{ display: open ? 'block' : 'none', opacity: open ? 1 : 0, transition: 'opacity 0.1s ease' }}
       >
         <ToolInputTable input={input} hidden={hideInput} skipKeys={inputSkipKeys} />
+        {rawArgs !== undefined && (
+          <div className="cc-raw-args">
+            <div className="text-[10px] text-vscode-descriptionForeground opacity-60 font-vscode-editor pt-1 pb-0.5 uppercase tracking-wider">
+              {rawArgs.label}
+            </div>
+            <pre className="cc-raw-args-pre m-0 whitespace-pre-wrap break-words font-vscode-editor text-[11px] text-vscode-foreground">
+              {rawArgs.text}
+            </pre>
+          </div>
+        )}
         {result !== null && <ToolResult result={result} />}
         {footer}
       </div>

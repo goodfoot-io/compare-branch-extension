@@ -14,7 +14,8 @@ import type { TranscriptItem } from '../src/streams/codex-session/www/lib/render
 import {
   extractOutputText,
   parseArguments,
-  renderCodexTranscript
+  renderCodexTranscript,
+  shellExitSeverity
 } from '../src/streams/codex-session/www/lib/render-transcript.js';
 
 // ============================================================================
@@ -102,6 +103,29 @@ function functionCallOutputLine(callId: string, output: string | unknown[], ts =
 
 function malformedLine(): string {
   return '{"timestamp":"2026-06-04T12:00:00.000Z","type":"response_item","payload":{';
+}
+
+function customToolCallLine(name: string, callId: string, input: string, ts = '2026-06-04T10:05:00.000Z'): string {
+  return envelope(
+    'response_item',
+    {
+      type: 'custom_tool_call',
+      call_id: callId,
+      name,
+      input
+    },
+    ts
+  );
+}
+
+function patchApplyEndLine(
+  callId: string,
+  success: boolean,
+  stdout = '',
+  stderr = '',
+  ts = '2026-06-04T10:06:00.000Z'
+): string {
+  return envelope('event_msg', { type: 'patch_apply_end', call_id: callId, stdout, stderr, success }, ts);
 }
 
 function eventMsgAgentLine(text: string, ts = '2026-06-04T10:07:00.000Z'): string {
@@ -728,6 +752,134 @@ describe('renderCodexTranscript — item_completed renders plan text', () => {
     const items = renderCodexTranscript([line]);
     const activity = items.find((i) => i.kind === 'event_activity');
     expect(activity).toBeUndefined();
+  });
+});
+
+// ============================================================================
+// shellExitSeverity — pure helper
+// ============================================================================
+
+describe('shellExitSeverity — exit-code extraction from shell outputText', () => {
+  it('flags a nonzero "Exit code: N" as error with the exit code in the label', () => {
+    const outcome = shellExitSeverity('some command output\nExit code: 1');
+    expect(outcome.severity).toBe('error');
+    expect(outcome.errorLabel).toBe('✗ exit 1');
+  });
+
+  it('flags a nonzero "Process exited with code N" phrasing as error', () => {
+    const outcome = shellExitSeverity('build failed\nProcess exited with code 2');
+    expect(outcome.severity).toBe('error');
+    expect(outcome.errorLabel).toBe('✗ exit 2');
+  });
+
+  it('treats exit code 0 as normal (no errorLabel)', () => {
+    const outcome = shellExitSeverity('all good\nExit code: 0');
+    expect(outcome.severity).toBe('normal');
+    expect(outcome.errorLabel).toBeUndefined();
+  });
+
+  it('treats a negative exit code as error, preserving the sign in the label', () => {
+    const outcome = shellExitSeverity('killed\nExit code: -1');
+    expect(outcome.severity).toBe('error');
+    expect(outcome.errorLabel).toBe('✗ exit -1');
+  });
+
+  it('treats output with no exit-code line as normal', () => {
+    const outcome = shellExitSeverity('just some plain stdout, no exit marker');
+    expect(outcome.severity).toBe('normal');
+    expect(outcome.errorLabel).toBeUndefined();
+  });
+
+  it('treats undefined outputText (no output yet) as normal', () => {
+    const outcome = shellExitSeverity(undefined);
+    expect(outcome.severity).toBe('normal');
+    expect(outcome.errorLabel).toBeUndefined();
+  });
+});
+
+// ============================================================================
+// Failure severity on the tool_call row — shell exit code and patch failure
+// ============================================================================
+
+describe('renderCodexTranscript — shell tool_call escalates on nonzero exit code', () => {
+  it('marks a shell tool_call row as error when the paired output reports a nonzero exit code', () => {
+    const lines = [
+      functionCallLine('shell', 'sh-err', '{"command":["false"]}'),
+      functionCallOutputLine('sh-err', 'command failed\nExit code: 1')
+    ];
+    const items = renderCodexTranscript(lines);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    if (tc !== undefined) {
+      expect(tc.severity).toBe('error');
+      expect(tc.errorLabel).toBe('✗ exit 1');
+    }
+  });
+
+  it('leaves a local_shell_call tool_call row normal when the paired output reports exit code 0', () => {
+    const lines = [
+      envelope('response_item', {
+        type: 'local_shell_call',
+        call_id: 'sh-ok',
+        status: 'completed',
+        action: { type: 'exec', command: ['true'] }
+      }),
+      functionCallOutputLine('sh-ok', 'done\nExit code: 0')
+    ];
+    const items = renderCodexTranscript(lines);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    if (tc !== undefined) {
+      expect(tc.severity).toBe('normal');
+      expect(tc.errorLabel).toBeUndefined();
+    }
+  });
+
+  it('leaves a non-shell tool_call row untouched by exit-code text in its output', () => {
+    const lines = [
+      functionCallLine('read_file', 'call-nonshell', '{"path":"/src/index.ts"}'),
+      functionCallOutputLine('call-nonshell', 'file contents mentioning Exit code: 1 in a log line')
+    ];
+    const items = renderCodexTranscript(lines);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    if (tc !== undefined) {
+      expect(tc.severity).toBeUndefined();
+      expect(tc.errorLabel).toBeUndefined();
+    }
+  });
+});
+
+describe('renderCodexTranscript — apply_patch tool_call escalates on patch_apply_end failure', () => {
+  it('marks the originating apply_patch tool_call row as error when patch_apply_end reports failure', () => {
+    const lines = [
+      customToolCallLine('apply_patch', 'patch-1', '*** Begin Patch\n*** Update File: src/a.ts\n*** End Patch'),
+      patchApplyEndLine('patch-1', false, '', 'patch does not apply')
+    ];
+    const items = renderCodexTranscript(lines);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    if (tc !== undefined) {
+      expect(tc.severity).toBe('error');
+      expect(tc.errorLabel).toBe('patch failed');
+    }
+    // The standalone event_activity rendering for patch_apply_end is preserved.
+    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'patch_apply');
+    expect(activity).toBeDefined();
+  });
+
+  it('leaves the apply_patch tool_call row normal when patch_apply_end reports success', () => {
+    const lines = [
+      customToolCallLine('apply_patch', 'patch-2', '*** Begin Patch\n*** Update File: src/a.ts\n*** End Patch'),
+      patchApplyEndLine('patch-2', true, 'Applied patch to src/a.ts')
+    ];
+    const items = renderCodexTranscript(lines);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    if (tc !== undefined) {
+      expect(tc.severity).toBeUndefined();
+      expect(tc.errorLabel).toBeUndefined();
+    }
   });
 });
 

@@ -19,9 +19,12 @@
 import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { ToolAccordion, ToolGroup } from '../../../../lib/accordions';
 import { renderMarkdownNodes } from '../../../../lib/markdown';
+import { groupToolCalls } from '../../lib/group-tool-calls';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
+import { summarizeCodexTool } from '../../lib/tool-summary';
 
 /**
  * Reads the primary stream file's lines from the store.
@@ -56,13 +59,38 @@ export function CodexExpandedView(): React.ReactElement {
     return <div className="cx-empty">No Codex session activity yet.</div>;
   }
 
-  return (
-    <div className="cx-transcript font-vscode-editor">
-      {items.map((item, i) => (
-        <TranscriptItemView key={itemKey(item, i)} item={item} />
-      ))}
-    </div>
-  );
+  return <div className="cx-transcript font-vscode-editor">{renderTranscriptGroups(items)}</div>;
+}
+
+/**
+ * Renders the flat transcript items, coalescing consecutive `tool_call` runs
+ * into a single shared {@link ToolGroup} (see {@link groupToolCalls}). A
+ * running counter reproduces each item's original array index for
+ * {@link itemKey} — `groupToolCalls` neither drops nor reorders items, so the
+ * counter advances in lockstep with the source array as groups are unpacked.
+ * @param items - The flat transcript items from `renderCodexTranscript`.
+ * @returns The rendered transcript nodes, tool_call runs wrapped in ToolGroup.
+ */
+function renderTranscriptGroups(items: TranscriptItem[]): React.ReactElement[] {
+  const nodes: React.ReactElement[] = [];
+  let index = 0;
+  let toolGroupKey = 0;
+
+  for (const group of groupToolCalls(items)) {
+    if (group.kind === 'tool_run') {
+      const children = group.items.map((item) => {
+        const el = <TranscriptItemView key={itemKey(item, index)} item={item} />;
+        index += 1;
+        return el;
+      });
+      nodes.push(<ToolGroup key={`tool-group-${toolGroupKey++}`}>{children}</ToolGroup>);
+    } else {
+      nodes.push(<TranscriptItemView key={itemKey(group.item, index)} item={group.item} />);
+      index += 1;
+    }
+  }
+
+  return nodes;
 }
 
 /**
@@ -156,27 +184,22 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
 
     case 'tool_call':
       return (
-        <div className="cx-tool">
-          <div className="cx-tool-head">
-            <span className="cx-tool-badge">{item.name}</span>
-            <span className="cx-tool-callid">{item.callId}</span>
-          </div>
-          {item.argumentsText.length > 0 && (
-            <div className="cx-tool-args">
-              <div className="cx-section-label">
-                {item.argsLabel ?? 'arguments'}
-                {item.prettyPrinted ? '' : ' (raw)'}
-              </div>
-              <pre className="cx-pre">{item.argumentsText}</pre>
-            </div>
-          )}
-          {item.hasOutput && item.outputText !== undefined && (
-            <div className="cx-tool-output">
-              <div className="cx-tool-output-label">output</div>
-              <pre className="cx-pre">{item.outputText}</pre>
-            </div>
-          )}
-        </div>
+        <ToolAccordion
+          toolName={item.name}
+          summary={summarizeCodexTool(item.name, item.argumentsText)}
+          input={{}}
+          result={item.hasOutput && item.outputText !== undefined ? item.outputText : null}
+          severity={item.severity}
+          errorLabel={item.errorLabel}
+          rawArgs={
+            item.argumentsText.length > 0
+              ? {
+                  label: (item.argsLabel ?? 'arguments') + (item.prettyPrinted ? '' : ' (raw)'),
+                  text: item.argumentsText
+                }
+              : undefined
+          }
+        />
       );
 
     case 'orphan_output':

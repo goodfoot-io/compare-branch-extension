@@ -40,6 +40,10 @@ export type TranscriptItem =
       prettyPrinted: boolean;
       outputText?: string;
       hasOutput: boolean;
+      /** Failure escalation for the collapsed-header row (see {@link shellExitSeverity}). */
+      severity?: 'normal' | 'error';
+      /** Preview text shown when `severity` is `'error'` (e.g. `'✗ exit 1'`, `'patch failed'`). */
+      errorLabel?: string;
       timestamp?: string;
     }
   | { kind: 'orphan_output'; callId: string; outputText: string; timestamp?: string }
@@ -97,6 +101,32 @@ export function renderCodexTranscript(lines: string[]): TranscriptItem[] {
       }
     }
 
+    // A failed patch_apply_end escalates its originating apply_patch tool_call
+    // row (looked up by call_id in the same callItemIndex map used for output
+    // pairing below). The standalone event_activity rendering (eventActivity,
+    // case 'patch_apply_end') is independent of this and still emitted. Cast to
+    // a loosely-typed record (as the eventMsgToItems/responseItemToItems
+    // switches do above) rather than relying on `.type ===` narrowing, since
+    // EventMsgPayload's open-ended `{ type: string; [key: string]: unknown }`
+    // catch-all member widens `call_id` to `unknown` under real narrowing.
+    if (line.kind === 'event_msg') {
+      const eventPayload = line.payload as Record<string, unknown> & { type: string };
+      if (
+        eventPayload.type === 'patch_apply_end' &&
+        eventPayload['success'] === false &&
+        typeof eventPayload['call_id'] === 'string'
+      ) {
+        const callIdx = callItemIndex.get(eventPayload['call_id']);
+        if (callIdx !== undefined) {
+          const target = items[callIdx];
+          if (target !== undefined && target.kind === 'tool_call') {
+            target.severity = 'error';
+            target.errorLabel = 'patch failed';
+          }
+        }
+      }
+    }
+
     const produced = lineToItems(line);
 
     for (const item of produced) {
@@ -111,6 +141,11 @@ export function renderCodexTranscript(lines: string[]): TranscriptItem[] {
           if (target !== undefined && target.kind === 'tool_call') {
             target.outputText = item.outputText;
             target.hasOutput = true;
+            if (target.name === 'shell' || target.name === 'local_shell_call') {
+              const outcome = shellExitSeverity(target.outputText);
+              target.severity = outcome.severity;
+              target.errorLabel = outcome.errorLabel;
+            }
             continue;
           }
         }
@@ -412,6 +447,41 @@ export function extractOutputText(output: unknown): string {
     return extractMessageText(output as ContentItem[]);
   }
   return '';
+}
+
+/**
+ * Matches a shell exit-code line inside a tool_call's output text (Codex shell
+ * exit codes are not structured — they only appear as text). Captures the
+ * (possibly negative) exit code.
+ */
+const SHELL_EXIT_CODE_RE = /^(?:Exit code|Process exited with code):?\s*(-?\d+)/m;
+
+/**
+ * Classifies a shell (`shell` / `local_shell_call`) tool_call's severity from
+ * its paired output text.
+ *
+ * Codex shell exit codes are not structured — they appear only as a line of
+ * text inside `outputText` matching `/^(?:Exit code|Process exited with
+ * code):?\s*(-?\d+)/m`. A non-zero matched code escalates to `'error'` with an
+ * `'✗ exit N'` label; a missing match, an unparseable code, or exit code `0`
+ * stays `'normal'`.
+ *
+ * @param outputText - The tool_call's paired output text, or `undefined` when no output has arrived yet.
+ * @returns The severity and, when escalated, the collapsed-header error label.
+ */
+export function shellExitSeverity(outputText: string | undefined): {
+  severity: 'normal' | 'error';
+  errorLabel?: string;
+} {
+  if (outputText === undefined) {
+    return { severity: 'normal' };
+  }
+  const match = SHELL_EXIT_CODE_RE.exec(outputText);
+  const code = match?.[1] === undefined ? undefined : Number(match[1]);
+  if (code === undefined || Number.isNaN(code) || code === 0) {
+    return { severity: 'normal' };
+  }
+  return { severity: 'error', errorLabel: `✗ exit ${code}` };
 }
 
 /**

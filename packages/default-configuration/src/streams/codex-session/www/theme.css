@@ -231,35 +231,10 @@ body.mode-expanded {
   padding-left: 8px;
 }
 
-/* Tool call + paired output. */
-.cx-tool {
-  border: 1px solid var(--vscode-widget-border);
-  border-radius: 4px;
-  margin-bottom: 10px;
-  overflow: hidden;
-}
-.cx-tool-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: var(--vscode-textCodeBlock-background);
-}
-.cx-tool-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-weight: 600;
-  font-size: 9px;
-  white-space: nowrap;
-  background: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
-  color: var(--vscode-foreground);
-}
-.cx-tool-callid {
-  font-size: 9px;
-  color: var(--vscode-descriptionForeground);
-  font-family: var(--vscode-editor-font-family, monospace);
-}
+/* Tool calls now render through the shared cc-* ToolAccordion/ToolGroup
+   (accordions.css, @imported above); only the `.cx-pre` block styling (still
+   used by orphan_output/event_activity/unknown_item/malformed below) and the
+   `.cx-tool-output-label` (still used by the orphan_output block) remain. */
 .cx-pre {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 11px;
@@ -272,14 +247,7 @@ body.mode-expanded {
   color: var(--vscode-editor-foreground);
   tab-size: 4;
 }
-.cx-tool-args {
-  border-top: 1px solid var(--vscode-widget-border);
-}
-.cx-tool-output {
-  border-top: 1px dashed var(--vscode-panel-border);
-}
-.cx-tool-output-label,
-.cx-section-label {
+.cx-tool-output-label {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;

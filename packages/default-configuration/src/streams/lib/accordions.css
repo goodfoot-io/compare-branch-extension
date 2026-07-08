@@ -13,6 +13,16 @@
   border-top: 1px solid var(--vscode-panel-border);
 }
 
+/* Raw free-text tool-arguments block (e.g. Codex shell command / apply_patch
+   text) — no hard max-height, full content always visible when open. */
+.cc-raw-args-pre {
+  background: color-mix(in srgb, var(--vscode-foreground, #cccccc) 4%, transparent);
+  border-radius: 3px;
+  padding: 6px 8px;
+  overflow: auto;
+  tab-size: 4;
+}
+
 @layer components {
   /* Accordion open/close transition */
   .cc-accordion-body {
