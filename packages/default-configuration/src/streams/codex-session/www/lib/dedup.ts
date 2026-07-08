@@ -53,6 +53,26 @@ export function extractMessageText(content: ContentItem[]): string {
 }
 
 /**
+ * Counts the `input_image` items in a message's content array.
+ *
+ * {@link extractMessageText} silently skips non-text content items so the
+ * dedup signature stays keyed on text alone; this sibling helper lets a
+ * caller surface a visible placeholder for the images it drops, without
+ * touching the dedup signature itself.
+ *
+ * @param content - The `ContentItem[]` of a `ResponseItem::Message` or a
+ *   `function_call_output`/`custom_tool_call_output` output array.
+ * @returns The number of `input_image` items found.
+ */
+export function countImageItems(content: ContentItem[]): number {
+  let count = 0;
+  for (const item of content) {
+    if (item.type === 'input_image') count += 1;
+  }
+  return count;
+}
+
+/**
  * A signature key used to pair a `response_item` message with its mirroring
  * `event_msg`. Composed as `role:trimmed-text` for unambiguous matching.
  */

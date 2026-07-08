@@ -160,6 +160,13 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
   // arrives and shellCallIds is populated.
   const unmatchedErroredOutputIds = new Set<string>();
 
+  // Set when a session-level `event_msg` type:'error' is seen. Distinct from
+  // erroredCallIds (which are per-tool-call failures) — a session error has
+  // no call_id to back-patch a tail entry against, but must still flip the
+  // card's error dot so an honest error signal is never hidden behind a
+  // green "Ended" status.
+  let sessionHasError = false;
+
   for (const raw of lines) {
     const line: CodexRolloutLine = parseCodexLine(raw);
 
@@ -270,6 +277,12 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
             }
             pushTail({ kind: 'message', text });
           }
+        } else if (payload.type === 'error') {
+          sessionHasError = true;
+          const message = typeof payload['message'] === 'string' ? payload['message'].trim() : '';
+          if (message.length > 0) {
+            pushTail({ kind: 'event', text: message, severity: 'error' });
+          }
         }
         break;
       }
@@ -301,6 +314,6 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
     model,
     durationMs: durationBetween(firstTimestamp, lastTimestamp),
     tail,
-    hasErrors: erroredCallIds.size > 0
+    hasErrors: erroredCallIds.size > 0 || sessionHasError
   };
 }

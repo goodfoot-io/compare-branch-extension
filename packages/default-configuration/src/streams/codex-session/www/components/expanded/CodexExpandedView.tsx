@@ -20,7 +20,9 @@ import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { ToolAccordion, ToolGroup } from '../../../../lib/accordions';
-import { renderMarkdownNodes } from '../../../../lib/markdown';
+import { Boundary } from '../../../../lib/Boundary';
+import { looksLikeMarkdown, renderMarkdownNodes } from '../../../../lib/markdown';
+import { RawFallback } from '../../../../lib/RawFallback';
 import { groupToolCalls } from '../../lib/group-tool-calls';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
@@ -206,52 +208,55 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
       return (
         <div className="cx-orphan">
           <div className="cx-tool-output-label">output (call {item.callId})</div>
-          <pre className="cx-pre">{item.outputText}</pre>
+          {looksLikeMarkdown(item.outputText) ? (
+            <div className="cx-message-text cx-orphan-text">
+              {renderMarkdownNodes(item.outputText, `orphan-${item.callId}`)}
+            </div>
+          ) : (
+            <pre className="cx-pre">{item.outputText}</pre>
+          )}
         </div>
       );
 
     case 'turn_boundary':
-      return (
-        <div className="cx-turn-boundary">
-          <span className="cx-turn-boundary-label">turn{item.turnId !== undefined ? ` ${item.turnId}` : ''}</span>
-        </div>
-      );
+      return <Boundary kind="turn" label={item.turnId !== undefined ? `Turn ${item.turnId}` : 'Turn'} />;
 
     case 'compaction':
       return (
-        <div className="cx-compaction">
-          <div className="cx-compaction-label">context compacted</div>
+        <>
+          <Boundary kind="compaction" label="Context compacted" />
           {item.message.length > 0 && (
-            <div className="cx-message-text">{renderMarkdownNodes(item.message, 'compaction')}</div>
+            <div className="cx-message-text cx-compaction-detail">
+              {renderMarkdownNodes(item.message, 'compaction')}
+            </div>
           )}
-        </div>
+        </>
       );
+
+    case 'error':
+      return <RawFallback data={item.message} label="Error" severity="error" />;
 
     case 'event_activity':
       return (
         <div className="cx-event">
           <div className="cx-event-label">{item.label}</div>
-          {item.detailText !== undefined && item.detailText.length > 0 && (
-            <pre className="cx-pre">{item.detailText}</pre>
-          )}
+          {item.detailText !== undefined &&
+            item.detailText.length > 0 &&
+            (item.label === 'plan_update' && looksLikeMarkdown(item.detailText) ? (
+              <div className="cx-message-text cx-event-detail">
+                {renderMarkdownNodes(item.detailText, 'plan-update')}
+              </div>
+            ) : (
+              <pre className="cx-pre">{item.detailText}</pre>
+            ))}
         </div>
       );
 
     case 'unknown_item':
-      return (
-        <div className="cx-raw">
-          <div className="cx-raw-label">unknown item</div>
-          <pre className="cx-pre">{item.rawJson}</pre>
-        </div>
-      );
+      return <RawFallback data={item.raw} label="Unrecognized item" severity="info" />;
 
     case 'malformed':
-      return (
-        <div className="cx-raw">
-          <div className="cx-raw-label">malformed line</div>
-          <pre className="cx-pre">{item.rawLine}</pre>
-        </div>
-      );
+      return <RawFallback data={item.rawLine} label="Malformed line" severity="warning" />;
 
     default:
       return null;

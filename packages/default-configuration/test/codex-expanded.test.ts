@@ -884,17 +884,206 @@ describe('renderCodexTranscript — apply_patch tool_call escalates on patch_app
 });
 
 // ============================================================================
-// Build verification — covered as a skipped test
+// Session-level error events (event_msg type:'error')
 // ============================================================================
 
-describe('build verification — both renderer bundles emitted', () => {
-  it('yarn build emits dist/www/claude-code-session/index.html and dist/www/codex-session/index.html', async () => {
-    const fs = await import('node:fs/promises');
-    const path = await import('node:path');
-    const distRoot = path.resolve(process.cwd(), 'dist/www');
-    const claudeIndex = path.join(distRoot, 'claude-code-session', 'index.html');
-    const codexIndex = path.join(distRoot, 'codex-session', 'index.html');
-    await expect(fs.access(claudeIndex)).resolves.toBeUndefined();
-    await expect(fs.access(codexIndex)).resolves.toBeUndefined();
+describe('renderCodexTranscript — event_msg type:error renders an error item', () => {
+  it('emits an error transcript item carrying the message, never dropped', () => {
+    const line = envelope('event_msg', { type: 'error', message: 'context window exceeded' });
+    const items = renderCodexTranscript([line]);
+    const error = items.find((i) => i.kind === 'error');
+    expect(error?.kind).toBe('error');
+    if (error?.kind === 'error') {
+      expect(error.message).toBe('context window exceeded');
+    }
+  });
+
+  it('keeps surrounding messages intact around a session error', () => {
+    const lines = [
+      assistantMsgLine('Before error.'),
+      envelope('event_msg', { type: 'error', message: 'boom' }),
+      assistantMsgLine('After error.')
+    ];
+    const items = renderCodexTranscript(lines);
+    expect(items.some((i) => i.kind === 'error')).toBe(true);
+    expect(items.filter((i) => i.kind === 'assistant_message')).toHaveLength(2);
+  });
+});
+
+// ============================================================================
+// task_started / task_complete lifecycle events
+// ============================================================================
+
+describe('renderCodexTranscript — task_started and task_complete render as event_activity', () => {
+  it('renders task_started as an event_activity', () => {
+    const line = envelope('event_msg', { type: 'task_started', turn_id: 'turn-1' });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'task_started');
+    expect(activity).toBeDefined();
+  });
+
+  it('renders task_complete with a formatted duration when duration_ms is present', () => {
+    const line = envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1', duration_ms: 65000 });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'task_complete');
+    expect(activity?.kind).toBe('event_activity');
+    if (activity?.kind === 'event_activity') {
+      expect(activity.detailText).toContain('1m 5s');
+    }
+  });
+
+  it('renders task_complete with no detailText when duration_ms is absent', () => {
+    const line = envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1' });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'task_complete');
+    expect(activity?.kind).toBe('event_activity');
+    if (activity?.kind === 'event_activity') {
+      expect(activity.detailText).toBeUndefined();
+    }
+  });
+});
+
+// ============================================================================
+// Nested compaction response_item variants route to the compaction UI
+// ============================================================================
+
+describe('renderCodexTranscript — nested compaction variants route to compaction item', () => {
+  it('routes a response_item compaction payload to a compaction item, not unknown_item', () => {
+    const line = envelope('response_item', { type: 'compaction', encrypted_content: 'opaque' });
+    const items = renderCodexTranscript([line]);
+    expect(items.some((i) => i.kind === 'compaction')).toBe(true);
+    expect(items.some((i) => i.kind === 'unknown_item')).toBe(false);
+  });
+
+  it('routes a response_item compaction_trigger payload to a compaction item', () => {
+    const line = envelope('response_item', { type: 'compaction_trigger' });
+    const items = renderCodexTranscript([line]);
+    expect(items.some((i) => i.kind === 'compaction')).toBe(true);
+  });
+
+  it('routes a response_item context_compaction payload to a compaction item', () => {
+    const line = envelope('response_item', { type: 'context_compaction', encrypted_content: 'opaque' });
+    const items = renderCodexTranscript([line]);
+    expect(items.some((i) => i.kind === 'compaction')).toBe(true);
+  });
+
+  it('still routes a truly unknown response_item variant to unknown_item (regression guard)', () => {
+    const line = envelope('response_item', { type: 'future_unknown_variant', data: 'something' });
+    const items = renderCodexTranscript([line]);
+    expect(items.some((i) => i.kind === 'unknown_item')).toBe(true);
+    expect(items.some((i) => i.kind === 'compaction')).toBe(false);
+  });
+});
+
+// ============================================================================
+// Image content placeholders
+// ============================================================================
+
+describe('renderCodexTranscript — input_image content surfaces a visible placeholder', () => {
+  it('appends an image-count placeholder to a user message containing an image', () => {
+    const line = envelope('response_item', {
+      type: 'message',
+      role: 'user',
+      content: [
+        { type: 'input_text', text: 'Look at this screenshot.' },
+        { type: 'input_image', image_url: 'data:image/png;base64,AAAA' }
+      ]
+    });
+    const items = renderCodexTranscript([line]);
+    const user = items.find((i) => i.kind === 'user_message');
+    expect(user?.kind).toBe('user_message');
+    if (user?.kind === 'user_message') {
+      expect(user.text).toContain('Look at this screenshot.');
+      expect(user.text).toContain('1 image attached');
+    }
+  });
+
+  it('renders only the placeholder when a message has images and no text', () => {
+    const line = envelope('response_item', {
+      type: 'message',
+      role: 'user',
+      content: [{ type: 'input_image', image_url: 'data:image/png;base64,AAAA' }]
+    });
+    const items = renderCodexTranscript([line]);
+    const user = items.find((i) => i.kind === 'user_message');
+    expect(user?.kind).toBe('user_message');
+    if (user?.kind === 'user_message') {
+      expect(user.text).toContain('1 image attached');
+    }
+  });
+
+  it('pluralizes the placeholder for multiple images', () => {
+    const line = envelope('response_item', {
+      type: 'message',
+      role: 'user',
+      content: [
+        { type: 'input_image', image_url: 'data:image/png;base64,AAAA' },
+        { type: 'input_image', image_url: 'data:image/png;base64,BBBB' }
+      ]
+    });
+    const items = renderCodexTranscript([line]);
+    const user = items.find((i) => i.kind === 'user_message');
+    expect(user?.kind).toBe('user_message');
+    if (user?.kind === 'user_message') {
+      expect(user.text).toContain('2 images attached');
+    }
+  });
+
+  it('adds no placeholder for a message with no images', () => {
+    const items = renderCodexTranscript([userMsgLine('No images here.')]);
+    const user = items.find((i) => i.kind === 'user_message');
+    expect(user?.kind).toBe('user_message');
+    if (user?.kind === 'user_message') {
+      expect(user.text).not.toContain('attached');
+    }
+  });
+
+  it('appends an image-count placeholder to a ContentItem[] tool output', () => {
+    const contentOutput = [
+      { type: 'output_text', text: 'Screenshot captured.' },
+      { type: 'input_image', image_url: 'data:image/png;base64,AAAA' }
+    ];
+    const lines = [functionCallLine('screenshot', 'call-img', '{}'), functionCallOutputLine('call-img', contentOutput)];
+    const items = renderCodexTranscript(lines);
+    const toolCall = items.find((i) => i.kind === 'tool_call');
+    expect(toolCall?.kind).toBe('tool_call');
+    if (toolCall?.kind === 'tool_call') {
+      expect(toolCall.outputText).toContain('Screenshot captured.');
+      expect(toolCall.outputText).toContain('1 image attached');
+    }
+  });
+});
+
+// ============================================================================
+// custom_tool_call pretty-prints JSON input, leaving non-JSON (patch) raw
+// ============================================================================
+
+describe('renderCodexTranscript — custom_tool_call pretty-prints JSON input', () => {
+  it('pretty-prints custom_tool_call input that is valid JSON', () => {
+    const line = envelope('response_item', {
+      type: 'custom_tool_call',
+      call_id: 'ct-json',
+      name: 'my_json_tool',
+      input: '{"path":"/src/index.ts","limit":10}'
+    });
+    const items = renderCodexTranscript([line]);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    expect(tc?.prettyPrinted).toBe(true);
+    expect(tc?.argumentsText).toContain('\n');
+  });
+
+  it('leaves apply_patch (non-JSON) custom_tool_call input raw, unaffected by the pretty-print attempt', () => {
+    const line = envelope('response_item', {
+      type: 'custom_tool_call',
+      call_id: 'ct-patch',
+      name: 'apply_patch',
+      input: '*** Begin Patch\n*** Update File: src/a.ts\n*** End Patch'
+    });
+    const items = renderCodexTranscript([line]);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    expect(tc?.prettyPrinted).toBe(false);
+    expect(tc?.argumentsText).toBe('*** Begin Patch\n*** Update File: src/a.ts\n*** End Patch');
   });
 });

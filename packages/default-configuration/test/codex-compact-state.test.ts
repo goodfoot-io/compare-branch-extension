@@ -674,4 +674,25 @@ describe('buildCodexCompactState — error detection', () => {
     const state = buildCodexCompactState(lines, false);
     expect(state.hasErrors).toBe(true);
   });
+
+  it('sets hasErrors on a session-level event_msg type:error, with no tool call involved', () => {
+    const lines = [sessionMetaLine(), envelope('event_msg', { type: 'error', message: 'context window exceeded' })];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
+  });
+
+  it('pushes the session-level error message into the tail with error severity', () => {
+    const lines = [sessionMetaLine(), envelope('event_msg', { type: 'error', message: 'context window exceeded' })];
+    const state = buildCodexCompactState(lines, false);
+    const errorEntry = state.tail.find((e) => e.kind === 'event' && e.severity === 'error');
+    expect(errorEntry).toBeDefined();
+    expect(errorEntry!.text).toBe('context window exceeded');
+  });
+
+  it('does not push a tail entry for an event_msg type:error with an empty message, but still flags hasErrors', () => {
+    const lines = [sessionMetaLine(), envelope('event_msg', { type: 'error', message: '' })];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
+    expect(state.tail.some((e) => e.kind === 'event')).toBe(false);
+  });
 });

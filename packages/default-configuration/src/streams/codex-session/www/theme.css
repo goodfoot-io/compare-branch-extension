@@ -9,12 +9,13 @@
 /* =============================================================================
    CODEX SESSION RENDERER STYLES (`.cx-*` classes)
 
-   All colors use VS Code CSS variables for theme compatibility (light, dark,
-   and high-contrast themes). The compact card mirrors the claude-code-session
-   layout — a fixed-height three-row card that reflows into two panels at a wide
-   viewport — and the expanded transcript renders ordered Codex rollout items.
-   No hardcoded colors anywhere: every surface, text, and accent reads a
-   `--vscode-*` variable.
+   Reads the shared `--stream-*` design-token layer (tokens.css) exclusively —
+   no direct `--vscode-*` reads and no literal colors — so this renderer's
+   surfaces, text, and accents stay in lockstep with claude-code-session's
+   `.cc-*` styling and any future token change updates both at once. Structural
+   markers (turn/compaction) and unrecognized/error content route through the
+   shared `Boundary`/`RawFallback`/`JsonBlock` components (boundary.css /
+   json-block.css, imported above) rather than bespoke `.cx-*` boxes.
    ============================================================================= */
 
 html,
@@ -24,7 +25,7 @@ body,
 }
 
 body {
-  color: var(--vscode-editor-foreground);
+  color: var(--stream-fg);
 }
 
 /* Compact mode renders inside the cards-detail StreamIframeHost iframe. Keep
@@ -55,26 +56,26 @@ body.mode-expanded {
 }
 
 .cx-transcript {
-  font-size: 13px;
+  font-size: var(--stream-text-body);
   line-height: 1.5;
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
   padding: 12px;
   box-sizing: border-box;
 }
 
 .cx-header {
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground);
+  font-size: var(--stream-text-label);
+  color: var(--stream-fg-muted);
   padding: 6px 8px;
   margin-bottom: 8px;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid var(--stream-border-subtle);
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
 .cx-header .cx-header-key {
   font-weight: 600;
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
 }
 
 .cx-item {
@@ -82,24 +83,24 @@ body.mode-expanded {
 }
 
 .cx-role-label {
-  font-size: 9px;
+  font-size: var(--stream-text-micro);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 700;
   margin-bottom: 3px;
-  color: var(--vscode-foreground);
+  color: var(--stream-role-label-fg);
 }
 /* User/assistant already read apart by the message-bubble background (see
    `.cx-item.cx-user .cx-message-text`) and alignment, so the label itself stays
    on the primary-foreground tier rather than adding a redundant hue. Reasoning
-   drops a tier to description-foreground, matching its italic/dimmed body. */
+   drops a tier to muted, matching its italic/dimmed body. */
 .cx-item.cx-reasoning .cx-role-label {
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
 }
 
 .cx-message-text {
   word-break: break-word;
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
 }
 
 /* Base markdown typography (scoped under .cx-message-text) — the message text
@@ -116,9 +117,9 @@ body.mode-expanded {
 }
 .cx-message-text pre {
   font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 11px;
-  background: var(--vscode-textCodeBlock-background);
-  border: 1px solid var(--vscode-widget-border);
+  font-size: var(--stream-text-code);
+  background: var(--stream-surface-raised);
+  border: 1px solid var(--stream-border);
   border-radius: 3px;
   padding: 10px 12px;
   overflow: auto;
@@ -127,8 +128,8 @@ body.mode-expanded {
 }
 .cx-message-text code {
   font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 11px;
-  background: var(--vscode-textCodeBlock-background);
+  font-size: var(--stream-text-code);
+  background: var(--stream-surface-raised);
   border-radius: 2px;
   padding: 1px 3px;
 }
@@ -150,9 +151,9 @@ body.mode-expanded {
   padding: 0 12px 0 8px;
   border-left-width: 5px;
   border-left-style: solid;
-  border-left-color: var(--vscode-textBlockQuote-border);
+  border-left-color: var(--stream-aside-border);
   border-radius: 2px;
-  background: var(--vscode-textBlockQuote-background);
+  background: var(--stream-aside-bg);
 }
 .cx-message-text ul,
 .cx-message-text ol {
@@ -177,7 +178,7 @@ body.mode-expanded {
   font-weight: 600;
   margin: 0.9em 0 0.5em;
   line-height: 1.25;
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
 }
 .cx-message-text h1 {
   font-size: 1.4em;
@@ -201,26 +202,26 @@ body.mode-expanded {
 }
 .cx-message-text th {
   text-align: left;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid var(--stream-border-subtle);
   font-weight: 600;
-  background: var(--vscode-textCodeBlock-background);
+  background: var(--stream-surface-raised);
 }
 .cx-message-text th,
 .cx-message-text td {
   padding: 3px 6px;
 }
 .cx-message-text table > tbody > tr + tr > td {
-  border-top: 1px solid var(--vscode-panel-border);
+  border-top: 1px solid var(--stream-border-subtle);
 }
 .cx-message-text hr {
   border: 0;
   height: 1px;
-  background: var(--vscode-panel-border);
+  background: var(--stream-border-subtle);
   margin: 0.75em 0;
 }
 
 .cx-item.cx-user .cx-message-text {
-  background: var(--vscode-textCodeBlock-background);
+  background: var(--stream-role-user-tint);
   border-radius: 6px;
   padding: 10px 12px;
   width: 75%;
@@ -229,120 +230,85 @@ body.mode-expanded {
 
 .cx-reasoning .cx-message-text {
   font-style: italic;
-  color: var(--vscode-descriptionForeground);
-  border-left: 2px solid var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
+  border-left: 2px solid var(--stream-fg-muted);
   padding-left: 8px;
 }
 
 /* Tool calls now render through the shared cc-* ToolAccordion/ToolGroup
-   (accordions.css, @imported above); only the `.cx-pre` block styling (still
-   used by orphan_output/event_activity/unknown_item/malformed below) and the
-   `.cx-tool-output-label` (still used by the orphan_output block) remain. */
+   (accordions.css, @imported above); `.cx-pre` (still used by the non-markdown
+   branch of orphan_output/event_activity) and `.cx-tool-output-label` (still
+   used by the orphan_output block) remain. Unknown/malformed/error content
+   now routes through the shared `RawFallback`/`JsonBlock` components instead
+   of a bespoke `.cx-raw` box. */
 .cx-pre {
   font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 11px;
-  background: var(--vscode-textCodeBlock-background);
+  font-size: var(--stream-text-code);
+  background: var(--stream-surface-raised);
   padding: 8px 10px;
   margin: 0;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--vscode-editor-foreground);
+  color: var(--stream-fg);
   tab-size: 4;
 }
 .cx-tool-output-label {
-  font-size: 9px;
+  font-size: var(--stream-text-micro);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
   padding: 3px 8px 0;
 }
 
 .cx-orphan {
-  border: 1px dashed var(--vscode-panel-border);
+  border: 1px dashed var(--stream-border-subtle);
   border-radius: 4px;
   margin-bottom: 10px;
 }
-
-.cx-raw {
-  border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-widget-border));
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-.cx-raw-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--vscode-errorForeground);
-  padding: 3px 8px 0;
+/* Markdown-rendered orphan output (looksLikeMarkdown branch) needs the same
+   horizontal breathing room the raw `.cx-pre` branch gets for free from its
+   own padding. */
+.cx-orphan-text {
+  padding: 3px 10px 8px;
 }
 
 /* Reasoning detail content rendered alongside the summary. */
 .cx-reasoning-content {
   margin-top: 4px;
   font-style: normal;
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
 }
 
-/* Turn boundary marker — a thin labelled divider between turns. */
-.cx-turn-boundary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0;
-  color: var(--vscode-descriptionForeground);
-}
-.cx-turn-boundary::before,
-.cx-turn-boundary::after {
-  content: '';
-  flex: 1 1 auto;
-  height: 1px;
-  background: var(--vscode-panel-border);
-}
-.cx-turn-boundary-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-weight: 700;
-  white-space: nowrap;
+/* Compaction detail body (below the shared Boundary marker), when the
+   underlying compacted line carried a human-readable message. */
+.cx-compaction-detail {
+  margin: -4px 0 10px;
 }
 
-/* Compaction marker. */
-.cx-compaction {
-  border: 1px dashed var(--vscode-panel-border);
-  border-radius: 4px;
-  padding: 6px 8px;
-  margin-bottom: 10px;
-  background: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
-}
-.cx-compaction-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: var(--vscode-descriptionForeground);
-  margin-bottom: 3px;
-}
-
-/* Persisted high-level event activity (mcp/web_search/image/patch/plan). */
+/* Persisted high-level event activity (mcp/web_search/image/patch/plan/task). */
 .cx-event {
-  border: 1px solid var(--vscode-widget-border);
+  border: 1px solid var(--stream-border);
   border-radius: 4px;
   margin-bottom: 10px;
   overflow: hidden;
 }
 .cx-event-label {
-  font-size: 9px;
+  font-size: var(--stream-text-micro);
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
   padding: 4px 8px;
-  background: var(--vscode-textCodeBlock-background);
+  background: var(--stream-surface-raised);
+}
+/* Markdown-rendered plan-update detail (looksLikeMarkdown branch). */
+.cx-event-detail {
+  padding: 3px 10px 8px;
 }
 
 .cx-empty {
-  font-size: 11px;
+  font-size: var(--stream-text-label);
   font-style: italic;
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
   padding: 12px;
 }
