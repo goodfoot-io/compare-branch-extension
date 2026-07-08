@@ -14,8 +14,8 @@
 
 import type React from 'react';
 import { renderMarkdownNodes } from '../../../../../lib/markdown';
+import { ReasoningAccordion } from '../../../../../lib/ReasoningAccordion';
 import type { ContentBlock } from '../../../lib/parse-session';
-import { ThinkingAccordion } from '../../accordions/ThinkingAccordion';
 import { isCoordinationContent } from './CoordinationLine';
 
 interface AssistantTurnProps {
@@ -42,7 +42,7 @@ export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElemen
         </div>
       );
     } else if (block.type === 'thinking' && block.thinking) {
-      bubbleChildren.push(<ThinkingAccordion key={`think-${i}`} thinking={block.thinking} />);
+      bubbleChildren.push(<ReasoningAccordion key={`think-${i}`} thinking={block.thinking} />);
     }
   });
 

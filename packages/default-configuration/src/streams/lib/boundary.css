@@ -1,0 +1,29 @@
+/* =============================================================================
+   SHARED BOUNDARY SEPARATOR (`.stream-boundary` classes)
+
+   Styles for `Boundary` (./Boundary.tsx) — the single "line – label – line"
+   shape used for every transcript structural marker (turn, result,
+   compaction). Only the label text differs per `kind`; the shape here is
+   fixed so all three read as the same kind of event.
+   ============================================================================= */
+
+.stream-boundary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.stream-boundary__line {
+  flex: 1;
+  height: 1px;
+  background: var(--stream-border-subtle);
+}
+
+.stream-boundary__label {
+  font-size: var(--stream-text-label);
+  color: var(--stream-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}

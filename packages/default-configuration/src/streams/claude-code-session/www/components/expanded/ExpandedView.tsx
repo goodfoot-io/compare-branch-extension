@@ -12,10 +12,10 @@
 import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { SessionStatus } from '../../../../lib/SessionHeader';
+import { SessionHeader } from '../../../../lib/SessionHeader';
 import type { SessionMsg } from '../../lib/parse-session';
 import { mergeConsecutiveMessages, parseLines } from '../../lib/parse-session';
-import type { SessionStatus } from './SessionHeader';
-import { SessionHeader } from './SessionHeader';
 import { Transcript } from './Transcript';
 
 interface ExpandedState {

@@ -4,6 +4,7 @@
 @import '../../lib/compact-card.css';
 @import '../../lib/accordions.css';
 @import '../../lib/json-block.css';
+@import '../../lib/boundary.css';
 
 /* =============================================================================
    TRANSCRIPT RENDERER STYLES (`.cc-*` classes)

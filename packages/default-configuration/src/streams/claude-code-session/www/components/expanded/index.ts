@@ -5,7 +5,7 @@
  * @module components/expanded/index
  */
 
+export type { SessionStatus } from '../../../../lib/SessionHeader';
+export { SessionHeader } from '../../../../lib/SessionHeader';
 export { ExpandedView } from './ExpandedView';
-export type { SessionStatus } from './SessionHeader';
-export { SessionHeader } from './SessionHeader';
 export { Transcript } from './Transcript';
