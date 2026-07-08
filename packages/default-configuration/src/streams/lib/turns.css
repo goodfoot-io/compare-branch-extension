@@ -1,0 +1,36 @@
+/* =============================================================================
+   SHARED TURN ANATOMY
+
+   User/assistant message presentation shared by both stream renderers (design
+   spec Part 3.3): role is conveyed by an uppercase muted label plus tint
+   strength — the user turn gets the only background tint (right-aligned,
+   85% max width, quoted-request look); the assistant turn is transparent and
+   flows as full-width document text, matching VS Code Chat's response
+   treatment. Imported by both renderers' theme.css after tokens.css.
+   ============================================================================= */
+
+.stream-role-label {
+  font-size: var(--stream-text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--stream-role-label-fg);
+  margin-bottom: 3px;
+}
+
+.stream-turn {
+  margin-bottom: 10px;
+}
+
+.stream-turn--user {
+  background: var(--stream-role-user-tint);
+  max-width: 85%;
+  margin-left: auto;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.stream-turn--assistant {
+  background: var(--stream-role-assistant-tint);
+  width: 100%;
+}

@@ -28,7 +28,7 @@ interface TaskNotificationProps {
  */
 export function TaskNotification({ taskId, status, summary }: TaskNotificationProps): React.ReactElement {
   return (
-    <div className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">
+    <div className="stream-status-line py-0.5" style={{ fontSize: '0.8em', color: 'var(--stream-fg-muted)' }}>
       Task {taskId}: {status} — {summary}
     </div>
   );

@@ -47,5 +47,12 @@ export function HookLine({ subtype, hookName, hookEvent, output, outcome }: Hook
     text = `  ${outcomeChar} ${hookName} ${outcome ?? ''}`;
   }
 
-  return <div className="text-[0.78em] text-vscode-descriptionForeground py-px font-vscode-editor">{text}</div>;
+  return (
+    <div
+      className="stream-status-line py-px font-vscode-editor"
+      style={{ fontSize: '0.78em', color: 'var(--stream-fg-muted)' }}
+    >
+      {text}
+    </div>
+  );
 }

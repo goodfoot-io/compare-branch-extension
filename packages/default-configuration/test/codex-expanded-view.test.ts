@@ -31,6 +31,50 @@ describe('TranscriptItemView — session_header', () => {
   });
 });
 
+describe('TranscriptItemView — turns render via the shared stream-turn pattern', () => {
+  it('renders a user message with the stream-turn--user tint class and an uppercase role label', () => {
+    const html = render({ kind: 'user_message', text: 'Fix the bug.' });
+    expect(html).toContain('class="stream-turn stream-turn--user"');
+    expect(html).toContain('class="stream-role-label">User<');
+    expect(html).toContain('Fix the bug.');
+  });
+
+  it('renders an assistant message with the stream-turn--assistant (transparent) class', () => {
+    const html = render({ kind: 'assistant_message', text: 'I will fix it.' });
+    expect(html).toContain('class="stream-turn stream-turn--assistant"');
+    expect(html).toContain('class="stream-role-label">Assistant<');
+    expect(html).toContain('I will fix it.');
+  });
+});
+
+describe('TranscriptItemView — reasoning composition', () => {
+  it('renders a collapsible ReasoningAccordion when contentText is present, summaryText as its header summary', () => {
+    const html = render({
+      kind: 'reasoning',
+      summaryText: 'Short summary.',
+      contentText: 'Detailed chain of thought.'
+    });
+    expect(html).toContain('Thinking…');
+    expect(html).toContain('Short summary.');
+    // Body is behind the collapsed accordion (display:none), not inline as its own block.
+    expect(html).toContain('Detailed chain of thought.');
+    expect(html).not.toContain('cx-reasoning-summary');
+  });
+
+  it('renders a non-collapsible muted line (no accordion/toggle) when only summaryText is present', () => {
+    const html = render({ kind: 'reasoning', summaryText: 'Step by step analysis.' });
+    expect(html).toContain('cx-reasoning-summary');
+    expect(html).toContain('Step by step analysis.');
+    expect(html).not.toContain('Thinking…');
+    expect(html).not.toContain('aria-expanded');
+  });
+
+  it('renders nothing when both summaryText and contentText are empty', () => {
+    const html = render({ kind: 'reasoning', summaryText: '' });
+    expect(html).toBe('');
+  });
+});
+
 describe('TranscriptItemView — error events', () => {
   it('renders the error icon, label, and message via markdown', () => {
     const html = render({ kind: 'error', message: 'context window exceeded' });

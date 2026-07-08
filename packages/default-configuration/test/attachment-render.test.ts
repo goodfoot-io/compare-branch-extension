@@ -31,6 +31,7 @@ import { SupplementalContentRow } from '../src/streams/claude-code-session/www/c
 import { classifyAttachment } from '../src/streams/claude-code-session/www/lib/classify-attachment.js';
 import type { AttachmentPayload, SessionMsg } from '../src/streams/claude-code-session/www/lib/parse-session.js';
 import { ToolGroup } from '../src/streams/lib/accordions/ToolGroup.js';
+import { RawFallback } from '../src/streams/lib/RawFallback.js';
 
 // ============================================================================
 // Element-tree traversal helpers
@@ -413,5 +414,21 @@ describe('MessageRouter — isMeta supplemental content', () => {
     const rows = findAll(fragment, SupplementalContentRow);
     expect(rows).toHaveLength(1);
     expect((rows[0]?.props as { text?: string }).text).toBe('untethered isMeta text');
+  });
+});
+
+// ============================================================================
+// Unrecognized message type — RawFallback, never silently dropped
+// ============================================================================
+
+describe('MessageRouter — unrecognized message type fallback', () => {
+  it('renders the shared RawFallback (not nothing) for a message type the router does not recognize', () => {
+    const messages: SessionMsg[] = [{ type: 'some_future_message_type', payload: 'x' } as unknown as SessionMsg];
+
+    const fragment = MessageRouter({ messages });
+
+    const fallbacks = findAll(fragment, RawFallback);
+    expect(fallbacks).toHaveLength(1);
+    expect((fallbacks[0]?.props as { label?: string }).label).toBe('Unrecognized message');
   });
 });

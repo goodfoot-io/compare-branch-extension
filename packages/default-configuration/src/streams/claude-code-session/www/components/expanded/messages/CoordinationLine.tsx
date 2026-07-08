@@ -19,6 +19,42 @@ export interface CoordinationResult {
 }
 
 /**
+ * Renders a single coordination line: a muted, left-bordered one-liner in the
+ * shared `.stream-status-line` idiom.
+ * @param key - React key for the element.
+ * @param text - The line's display text.
+ * @returns A rendered coordination line element.
+ */
+function coordinationLine(key: string, text: string): React.ReactElement {
+  return (
+    <div
+      key={key}
+      className="stream-status-line text-[11px] py-0.5 pl-2"
+      style={{
+        color: 'var(--stream-fg-muted)',
+        borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)'
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+/**
+ * Reduces a parsed coordination payload to its display text: `"{from}: {type}"`
+ * when either is present, otherwise a truncated preview of the raw source.
+ * @param parsed - The parsed JSON payload.
+ * @param raw - The original raw text, for the truncated-preview fallback.
+ * @returns Display text for the coordination line.
+ */
+function summarizeParsed(parsed: Record<string, unknown>, raw: string): string {
+  const parts: string[] = [];
+  if (typeof parsed['from'] === 'string') parts.push(parsed['from']);
+  if (parsed['type'] !== undefined) parts.push(String(parsed['type']).replace(/_/g, ' '));
+  return parts.length > 0 ? parts.join(': ') : `${raw.slice(0, 80)}…`;
+}
+
+/**
  * Classifies and renders a single text block that may be machine-generated
  * coordination content (JSON or XML).
  *
@@ -35,30 +71,10 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       if (parsed['type'] === 'idle_notification') return [];
-      const parts: string[] = [];
-      if (typeof parsed['from'] === 'string') parts.push(parsed['from']);
-      if (parsed['type'] !== undefined) parts.push(String(parsed['type']).replace(/_/g, ' '));
-      const text = parts.length > 0 ? parts.join(': ') : `${raw.slice(0, 80)}…`;
-      return [
-        <div
-          key={keyPrefix}
-          className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-          style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
-        >
-          {text}
-        </div>
-      ];
+      return [coordinationLine(keyPrefix, summarizeParsed(parsed, raw))];
     } catch {
       const text = raw.slice(0, 120) + (raw.length > 120 ? '…' : '');
-      return [
-        <div
-          key={keyPrefix}
-          className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-          style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
-        >
-          {text}
-        </div>
-      ];
+      return [coordinationLine(keyPrefix, text)];
     }
   }
 
@@ -81,42 +97,14 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
             idx++;
             continue;
           }
-          const parts: string[] = [];
-          if (typeof parsed['from'] === 'string') parts.push(parsed['from']);
-          if (parsed['type'] !== undefined) parts.push(String(parsed['type']).replace(/_/g, ' '));
-          const text = parts.length > 0 ? parts.join(': ') : `${inner.slice(0, 80)}…`;
-          result.push(
-            <div
-              key={`${keyPrefix}-${idx}`}
-              className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-              style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
-            >
-              {text}
-            </div>
-          );
+          result.push(coordinationLine(`${keyPrefix}-${idx}`, summarizeParsed(parsed, inner)));
         } catch {
           const text = inner.length > 120 ? `${inner.slice(0, 120)}…` : inner;
-          result.push(
-            <div
-              key={`${keyPrefix}-${idx}`}
-              className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-              style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
-            >
-              {text}
-            </div>
-          );
+          result.push(coordinationLine(`${keyPrefix}-${idx}`, text));
         }
       } else {
         const text = inner.length > 120 ? `${inner.slice(0, 120)}…` : inner;
-        result.push(
-          <div
-            key={`${keyPrefix}-${idx}`}
-            className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-            style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
-          >
-            {text}
-          </div>
-        );
+        result.push(coordinationLine(`${keyPrefix}-${idx}`, text));
       }
       idx++;
     }
@@ -125,15 +113,7 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
       const stripped = stripMarkup(raw).trim();
       if (stripped.length > 0) {
         const text = stripped.length > 120 ? `${stripped.slice(0, 120)}…` : stripped;
-        return [
-          <div
-            key={keyPrefix}
-            className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-            style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
-          >
-            {text}
-          </div>
-        ];
+        return [coordinationLine(keyPrefix, text)];
       }
     }
 

@@ -5,6 +5,7 @@
 @import '../../lib/accordions.css';
 @import '../../lib/json-block.css';
 @import '../../lib/boundary.css';
+@import '../../lib/turns.css';
 
 /* =============================================================================
    TRANSCRIPT RENDERER STYLES (`.cc-*` classes)
@@ -16,13 +17,13 @@
    variable directly.
 
    Two-tier typographic hierarchy:
-     Tier 1 (content):  .cc-text — 12-13px, editor font, primary reading
+     Tier 1 (content):  .cc-text — 13px, editor font, primary reading
      Tier 2 (metadata): dimmed system/boundary lines — 10-11px, reduced opacity
    ============================================================================= */
 
 .cc-transcript {
   position: relative;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--stream-fg);
 }
@@ -135,15 +136,13 @@
 .cc-transcript h1 {
   font-size: 2em;
   padding-bottom: 0.3em;
-  border-bottom-width: 1px;
-  border-bottom-style: solid;
+  border-bottom: 1px solid var(--stream-border-subtle);
 }
 
 .cc-transcript h2 {
   font-size: 1.5em;
   padding-bottom: 0.3em;
-  border-bottom-width: 1px;
-  border-bottom-style: solid;
+  border-bottom: 1px solid var(--stream-border-subtle);
 }
 
 .cc-transcript h3 { font-size: 1.25em; }
@@ -160,7 +159,7 @@
 
 .cc-transcript .cc-text th {
   text-align: left;
-  border-bottom: 1px solid;
+  border-bottom: 1px solid var(--stream-border-subtle);
   font-weight: 600;
   background: var(--stream-surface-raised);
 }
@@ -168,49 +167,18 @@
 .cc-transcript .cc-text th,
 .cc-transcript .cc-text td {
   padding: 3px 6px;
+  border-color: var(--stream-border-subtle);
 }
 
 .cc-transcript .cc-text table > tbody > tr + tr > td {
-  border-top: 1px solid;
+  border-top: 1px solid var(--stream-border-subtle);
 }
 
 .cc-transcript hr {
   border: 0;
   height: 1px;
-  border-bottom: 1px solid;
+  border-bottom: 1px solid var(--stream-border-subtle);
   margin: 0.75em 0;
-}
-
-.vscode-high-contrast .cc-transcript h1 {
-  border-color: rgb(0, 0, 0);
-}
-
-.vscode-light .cc-transcript h1,
-.vscode-light .cc-transcript h2,
-.vscode-light .cc-transcript hr {
-  border-color: rgba(0, 0, 0, 0.18);
-}
-
-.vscode-dark .cc-transcript h1,
-.vscode-dark .cc-transcript h2,
-.vscode-dark .cc-transcript hr {
-  border-color: rgba(255, 255, 255, 0.18);
-}
-
-.vscode-light .cc-transcript .cc-text th {
-  border-color: rgba(0, 0, 0, 0.69);
-}
-
-.vscode-dark .cc-transcript .cc-text th {
-  border-color: rgba(255, 255, 255, 0.69);
-}
-
-.vscode-light .cc-transcript .cc-text td {
-  border-color: rgba(0, 0, 0, 0.18);
-}
-
-.vscode-dark .cc-transcript .cc-text td {
-  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .cc-transcript strong {
@@ -220,6 +188,11 @@
 .cc-transcript em {
   font-style: italic;
 }
+
+/* Turn containers (`.stream-turn`, `.stream-turn--user`/`--assistant`,
+   `.stream-role-label`) now live in ../../lib/turns.css (imported above), so
+   this renderer carries zero `.cc-turn`/`.cc-user`/`.cc-assistant` rules of
+   its own. */
 
 /* Content text (primary reading) */
 
