@@ -76,7 +76,7 @@ export interface AttachmentDescriptor {
   /**
    * Discriminator copied from `attachment.type`; used by `AttachmentRouter`
    * to pick a presenter.  Unknown types produce `'__unknown__'` so the router
-   * maps them to `RawJsonFallback`.
+   * maps them to `RawFallback`.
    */
   kind: string;
   /** Placement scope for this row. */
@@ -157,7 +157,7 @@ function truncate(s: string, maxLen: number): string {
  * Decides: scope, tier, glyph/severity, one-line summary, hide predicate,
  * toolUseID, linkPath, and expandability.  Unknown `attachment.type` values
  * return a descriptor with `kind: '__unknown__'` so `AttachmentRouter` maps
- * them to `RawJsonFallback`.
+ * them to `RawFallback`.
  *
  * @param attachment - Parsed attachment payload from a JSONL line.
  * @returns Descriptor encoding the render-or-hide decision and all metadata.
@@ -368,7 +368,7 @@ export function classifyAttachment(attachment: AttachmentPayload): AttachmentDes
         glyph: '·',
         glyphSeverity: 'neutral',
         summary: `opened ${basename(a.filename ?? '')}`,
-        hidden: true,
+        hidden: false,
         expandable: false
       };
     }

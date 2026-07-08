@@ -3,7 +3,7 @@
  *
  * Dispatches each parsed session message to the appropriate display component:
  * SystemRouter, UserTurn, AssistantTurn, ToolAccordion, ResultBoundary,
- * SessionBoundary, or AuthStatus.
+ * SubagentActivityLine, SupplementalContentRow, or AuthStatus.
  *
  * Manages pending tool_use block registration so that tool results in
  * subsequent user messages can be paired with their input accordions.
@@ -14,16 +14,19 @@
 
 import type React from 'react';
 import { ToolGroup } from '../../../../../lib/accordions';
+import { RawFallback } from '../../../../../lib/RawFallback';
 import { StatusLine } from '../../../../../lib/status-line';
 import { classifyAttachment } from '../../../lib/classify-attachment';
 import type { AttachmentPayload, ContentBlock, SessionMsg } from '../../../lib/parse-session';
+import { summarizeTool } from '../../../lib/tool-summary';
 import { ToolAccordion } from '../../accordions/ToolAccordion';
 import { AmbientGroup, AmbientRow } from './AmbientGroup';
 import { AssistantTurn } from './AssistantTurn';
 import { AuthStatus } from './AuthStatus';
 import { AttachmentRouter } from './attachment/AttachmentRouter';
-import { RawJsonFallback } from './RawJsonFallback';
 import { ResultBoundary } from './ResultBoundary';
+import { SubagentActivityLine } from './SubagentActivityLine';
+import { SupplementalContentRow } from './SupplementalContentRow';
 import { SystemRouter } from './system/SystemRouter';
 import { UserTurn } from './UserTurn';
 
@@ -103,6 +106,52 @@ function computeWillNestToolUseIds(messages: SessionMsg[]): Set<string> {
   return willNest;
 }
 
+/**
+ * Pre-pass: collect every `tool_use_id` carried by an actual (non-isMeta)
+ * `tool_result` block, across all `user` messages. This is the precise
+ * membership test for "will this isMeta supplemental annotation ever be
+ * consumed" — supplemental content only ever surfaces inside the `tool_result`
+ * render arm, so an isMeta message whose `sourceToolUseID` never appears here
+ * would otherwise be silently dropped.
+ * @param messages - All parsed session messages.
+ * @returns Set of tool_use_ids carried by a real `tool_result` block.
+ */
+function computeToolResultCarrierIds(messages: SessionMsg[]): Set<string> {
+  const carriers = new Set<string>();
+  for (const msg of messages) {
+    if (msg.type !== 'user') continue;
+    const userMsg = msg as Extract<SessionMsg, { type: 'user' }>;
+    if ((userMsg as unknown as Record<string, unknown>)['isMeta'] === true) continue;
+    const content = userMsg.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      const b = block as ContentBlock;
+      if (b.type === 'tool_result' && b.tool_use_id) carriers.add(b.tool_use_id);
+    }
+  }
+  return carriers;
+}
+
+/**
+ * Extracts the joined text content of an `isMeta` user message (e.g. full
+ * skill instructions echoed back), or `''` when it carries no text.
+ * @param raw - The raw message object.
+ * @returns Joined text content, or `''` when none.
+ */
+function extractIsMetaText(raw: Record<string, unknown>): string {
+  const msgContent = (raw['message'] as { content?: unknown } | undefined)?.content;
+  const textParts: string[] = [];
+  if (typeof msgContent === 'string') {
+    textParts.push(msgContent);
+  } else if (Array.isArray(msgContent)) {
+    for (const block of msgContent) {
+      const b = block as ContentBlock;
+      if (b.type === 'text' && typeof b.text === 'string') textParts.push(b.text);
+    }
+  }
+  return textParts.join('\n\n');
+}
+
 interface MessageRouterProps {
   /** All parsed session messages. */
   messages: SessionMsg[];
@@ -135,19 +184,14 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     const raw = msg as Record<string, unknown>;
     if (raw['isMeta'] === true && raw['type'] === 'user' && raw['sourceToolUseID']) {
       const toolUseId = String(raw['sourceToolUseID']);
-      const msgContent = (raw['message'] as { content?: unknown } | undefined)?.content;
-      const textParts: string[] = [];
-      if (typeof msgContent === 'string') {
-        textParts.push(msgContent);
-      } else if (Array.isArray(msgContent)) {
-        for (const block of msgContent) {
-          const b = block as ContentBlock;
-          if (b.type === 'text' && typeof b.text === 'string') textParts.push(b.text);
-        }
-      }
-      if (textParts.length > 0) supplementalResultMap.set(toolUseId, textParts.join('\n\n'));
+      const text = extractIsMetaText(raw);
+      if (text) supplementalResultMap.set(toolUseId, text);
     }
   }
+
+  // Pre-pass: ids carried by a real tool_result block — the precise "will this
+  // isMeta annotation ever be consumed" test (see computeToolResultCarrierIds).
+  const toolResultCarrierIds = computeToolResultCarrierIds(messages);
 
   // Pre-pass: collect hook_* attachment messages keyed by their toolUseID, so each
   // tool's hooks can nest inside its ToolAccordion body. Mirrors the
@@ -202,7 +246,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
             msg={sysMsg}
             onInit={(model, cwd, toolCount) => {
               onInit?.(model, cwd);
-              // SessionBoundary rendered by SystemRouter directly for 'init'
+              // The session-start Boundary is rendered by SystemRouter directly for 'init'
               void toolCount;
             }}
           />
@@ -211,8 +255,22 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
       }
 
       case 'user': {
-        // Skip isMeta injection messages — their content is merged into tool accordions via supplementalResultMap
-        if ((msg as Record<string, unknown>)['isMeta'] === true) break;
+        const raw = msg as Record<string, unknown>;
+        if (raw['isMeta'] === true) {
+          // isMeta injections merge into the owning tool's accordion via
+          // supplementalResultMap when their sourceToolUseID carries a real
+          // tool_result (the only place that map is ever consulted). One that
+          // doesn't — no sourceToolUseID, or a sourceToolUseID whose tool_result
+          // never arrives — would otherwise vanish with no trace, so it renders
+          // standalone instead.
+          const sourceToolUseID = raw['sourceToolUseID'];
+          const willBeNested = typeof sourceToolUseID === 'string' && toolResultCarrierIds.has(sourceToolUseID);
+          if (!willBeNested) {
+            const text = extractIsMetaText(raw);
+            if (text) nodes.push(<SupplementalContentRow key={`${key}-supplemental`} text={text} />);
+          }
+          break;
+        }
 
         const userMsg = msg as Extract<SessionMsg, { type: 'user' }>;
         const content = userMsg.message?.content;
@@ -295,8 +353,8 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
               key={key}
               className="text-[0.85em] py-1 px-2 font-vscode-editor"
               style={{
-                color: 'var(--vscode-charts-red, #f48771)',
-                borderLeft: '2px solid var(--vscode-charts-red, #f48771)'
+                color: 'var(--stream-severity-error-fg)',
+                borderLeft: '2px solid var(--stream-severity-error-fg)'
               }}
             >
               API Error: {String(aMsg.error)}
@@ -424,8 +482,30 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         break;
       }
 
+      case 'progress': {
+        // A subagent's live tool activity, reported on the parent stream while
+        // the subagent's own tool call is in flight — it has no paired
+        // tool_result here (that lives in the subagent's own transcript), so
+        // it renders as a quiet activity line rather than a full ToolAccordion.
+        const pMsg = msg as Extract<SessionMsg, { type: 'progress' }>;
+        if (pMsg.data?.type !== 'agent_progress') break;
+        const content = pMsg.data.content ?? [];
+        content.forEach((block, bi) => {
+          if (block.type !== 'tool_use') return;
+          const name = block.name || 'tool';
+          nodes.push(
+            <SubagentActivityLine
+              key={`${key}-progress-${bi}`}
+              toolName={name}
+              summary={summarizeTool(name, block.input)}
+            />
+          );
+        });
+        break;
+      }
+
       default:
-        nodes.push(<RawJsonFallback key={key} data={msg} />);
+        nodes.push(<RawFallback key={key} data={msg} label="Unrecognized message" />);
         break;
     }
   });

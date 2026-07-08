@@ -31,8 +31,8 @@ export function AuthStatus({ error, isAuthenticating }: AuthStatusProps): React.
       <div
         className="text-[0.85em] py-1 px-2 font-vscode-editor"
         style={{
-          color: 'var(--vscode-charts-red, #f48771)',
-          borderLeft: '2px solid var(--vscode-charts-red, #f48771)'
+          color: 'var(--stream-severity-error-fg)',
+          borderLeft: '2px solid var(--stream-severity-error-fg)'
         }}
       >
         Auth error: {error}

@@ -19,9 +19,9 @@ describe('ReasoningAccordion', () => {
       '<div class="my-1 rounded-r" style="background:var(--stream-aside-bg);border-left:3px solid var(--stream-aside-border)">' +
         '<button type="button" aria-expanded="false" class="inline-flex items-center gap-1 px-2 py-1 w-full text-left bg-transparent border-none text-vscode-descriptionForeground font-vscode text-[0.85em] italic cursor-pointer opacity-80 hover:opacity-100 hover:text-vscode-foreground">' +
         '<span class="codicon codicon-chevron-right cc-chevron not-italic" style="font-size:0.75em"></span>' +
-        '<span>Thinking…</span>' +
+        '<span class="shrink-0">Thinking…</span>' +
         '</button>' +
-        '<div class="cc-accordion-body px-2 pb-2 text-[0.85em] text-vscode-descriptionForeground whitespace-pre-wrap break-words font-normal" style="display:none;opacity:0;transition:opacity 0.1s ease">hmm</div>' +
+        '<div class="cc-accordion-body px-2 pb-2 text-[0.85em] text-vscode-descriptionForeground break-words font-normal" style="display:none;opacity:0;transition:opacity 0.1s ease"><p>hmm</p></div>' +
         '</div>'
     );
   });
@@ -29,5 +29,24 @@ describe('ReasoningAccordion', () => {
   it('does not use the old hand-drawn ▶ glyph', () => {
     const html = renderToStaticMarkup(createElement(ReasoningAccordion, { thinking: 'hmm' }));
     expect(html).not.toContain('▶');
+  });
+
+  it('renders markdown-shaped thinking content as structured HTML, not literal syntax', () => {
+    const html = renderToStaticMarkup(
+      createElement(ReasoningAccordion, { thinking: '## Plan\n\n- step one\n- step two' })
+    );
+    expect(html).toContain('<h2');
+    expect(html).toContain('<li>step one</li>');
+    expect(html).not.toContain('## Plan');
+  });
+
+  it('omits the summary span when summary is absent, and shows it when present', () => {
+    const withoutSummary = renderToStaticMarkup(createElement(ReasoningAccordion, { thinking: 'hmm' }));
+    expect(withoutSummary).not.toContain('flex-1 min-w-0 truncate');
+
+    const withSummary = renderToStaticMarkup(
+      createElement(ReasoningAccordion, { thinking: 'hmm', summary: 'Reviewing the plan' })
+    );
+    expect(withSummary).toContain('Reviewing the plan');
   });
 });

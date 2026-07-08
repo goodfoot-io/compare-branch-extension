@@ -217,6 +217,12 @@ interface HookAttachmentBase {
   hookName: string;
   toolUseID: string;
   hookEvent: string;
+  /**
+   * Structured `hookSpecificOutput` object a hook script returned on stdout
+   * (e.g. `{hookEventName, permissionDecision, permissionDecisionReason}`).
+   * Rendered as a key/value table rather than folded into the free-text body.
+   */
+  hookSpecificOutput?: Record<string, unknown>;
 }
 
 /** hook_success — tool lifecycle hook ran successfully. */
@@ -444,6 +450,19 @@ export interface AttachmentMsg {
   attachment: AttachmentPayload;
 }
 
+/**
+ * Subagent progress message — carries a subagent's live tool activity, emitted
+ * on the *parent's* stream while the subagent's own tool call is in flight (it
+ * has no paired `tool_result` here; the subagent's own transcript carries that).
+ */
+export interface ProgressMsg {
+  type: 'progress';
+  data?: {
+    type?: string;
+    content?: ContentBlock[];
+  };
+}
+
 /** Union of all parsed session messages. */
 export type SessionMsg =
   | SystemMsg
@@ -453,6 +472,7 @@ export type SessionMsg =
   | SessionResultMsg
   | AuthStatusMsg
   | AttachmentMsg
+  | ProgressMsg
   | { type: string };
 
 // ============================================================================

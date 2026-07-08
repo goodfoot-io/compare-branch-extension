@@ -2,7 +2,7 @@
  * Away-summary boundary for the expanded transcript.
  *
  * Renders the `away_summary` system subtype — written when Claude exits
- * mid-session — as a {@link SessionBoundary}-style separator (a centered rule
+ * mid-session — as a shared {@link Boundary}-style separator (a centered rule
  * with a label) that expands to the full away `content` in place. The
  * disclosure rides the shared {@link ExpandableRow} primitive so its motion
  * matches every other expandable row, with the summary content rendered
@@ -30,15 +30,9 @@ interface AwaySummaryBoundaryProps {
 export function AwaySummaryBoundary({ content }: AwaySummaryBoundaryProps): React.ReactElement {
   const header = (
     <span className="flex items-center gap-2 flex-1 text-[0.8em] text-vscode-descriptionForeground">
-      <span
-        className="flex-1 h-px"
-        style={{ background: 'var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))' }}
-      />
+      <span className="flex-1 h-px" style={{ background: 'var(--stream-border-subtle)' }} />
       <span className="shrink-0">Away summary</span>
-      <span
-        className="flex-1 h-px"
-        style={{ background: 'var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))' }}
-      />
+      <span className="flex-1 h-px" style={{ background: 'var(--stream-border-subtle)' }} />
     </span>
   );
 

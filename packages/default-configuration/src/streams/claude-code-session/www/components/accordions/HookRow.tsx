@@ -9,23 +9,36 @@
  * reveals the same `blockingError.blockingError` + `command` body a nested one
  * does, and the escalation styling is identical.
  *
+ * Body content is never dumped as an opaque string: `hook_system_message` and
+ * `hook_additional_context` are prose meant to be read, so they always render
+ * through {@link renderMarkdownNodes}; the run-hook types (`hook_success` /
+ * `hook_non_blocking_error` / `hook_blocking_error`) auto-detect their body —
+ * a JSON-shaped payload renders via the shared {@link JsonBlock}, a
+ * markdown-shaped one through {@link renderMarkdownNodes}, otherwise plain
+ * pre-wrapped text. A structured `hookSpecificOutput` object, when present, is
+ * always shown as its own key/value table via the shared
+ * {@link ToolInputTable} — never folded into the free-text body or dropped.
+ *
  * Glyph and summary derive from the pure {@link classifyAttachment} classifier.
- * Color rides the glyph only: `!` (non-blocking) uses `editorWarning`, `✗`
- * (blocking) uses `errorForeground`; `✓`/`○` stay neutral. A
- * `hook_blocking_error` escalates the whole row to the `errorForeground`
- * variant with a left border. Bodies expand in place via a plain disclosure
- * (no nested accordion), holding the two-level nesting cap.
+ * Color rides the glyph only: `!` (non-blocking) uses the warning severity
+ * token, `✗` (blocking) uses the error severity token; `✓`/`○` stay neutral. A
+ * `hook_blocking_error` escalates the whole row to the error-severity variant
+ * with a left border. Bodies expand in place via a plain disclosure (no
+ * nested accordion), holding the two-level nesting cap.
  *
  * Text-tag hooks (`context` / `message`) render the tag as a styled glyph and
  * drop the duplicated leading `{tag} · ` from the summary so the row reads the
  * tag once.
  *
- * @summary Shared single hook row (glyph + summary + in-place body) for nested and orphan use
+ * @summary Shared single hook row (glyph + summary + in-place structured body) for nested and orphan use
  * @module components/accordions/HookRow
  */
 
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
+import { ToolInputTable } from '../../../../lib/accordions';
+import { JsonBlock } from '../../../../lib/JsonBlock';
+import { looksLikeMarkdown, renderMarkdownNodes } from '../../../../lib/markdown';
 import { type AttachmentGlyphSeverity, classifyAttachment } from '../../lib/classify-attachment';
 import type {
   AttachmentPayload,
@@ -39,15 +52,18 @@ import type {
 /** Glyphs that are short text tags rather than symbols. */
 const TEXT_TAG_GLYPHS = new Set<string>(['context', 'message']);
 
+/** Hook kinds whose body is always prose meant to be read, never plain dump. */
+const ALWAYS_MARKDOWN_KINDS = new Set<string>(['hook_system_message', 'hook_additional_context']);
+
 /**
- * Maps a classifier glyph severity to its VS Code theme color token.
+ * Maps a classifier glyph severity to its shared design-token color.
  * Only `warning` and `error` carry color; neutral glyphs inherit foreground.
  * @param severity - Glyph severity from the classifier descriptor.
  * @returns A CSS color value, or undefined for neutral.
  */
 function glyphColor(severity: AttachmentGlyphSeverity): string | undefined {
-  if (severity === 'warning') return 'var(--vscode-editorWarning-foreground, #cca700)';
-  if (severity === 'error') return 'var(--vscode-errorForeground)';
+  if (severity === 'warning') return 'var(--stream-severity-warning-fg)';
+  if (severity === 'error') return 'var(--stream-severity-error-fg)';
   return undefined;
 }
 
@@ -91,6 +107,71 @@ export function hookBodyText(hook: AttachmentPayload): string | null {
   }
 }
 
+/**
+ * Reads a hook payload's structured `hookSpecificOutput` object, if any.
+ * @param hook - A hook attachment payload.
+ * @returns The object, or undefined when absent/not a plain object.
+ */
+function hookSpecificOutputOf(hook: AttachmentPayload): Record<string, unknown> | undefined {
+  const value = (hook as { hookSpecificOutput?: unknown }).hookSpecificOutput;
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+/** Sentinel returned by {@link tryParseJson} when `text` does not parse as JSON. */
+const NOT_JSON = Symbol('not-json');
+
+/**
+ * Attempts to parse `text` as JSON. A parse failure is an expected, common
+ * outcome here (most hook bodies are plain shell output, not JSON), so it
+ * resolves to the {@link NOT_JSON} sentinel rather than throwing or logging.
+ * @param text - Candidate text to parse.
+ * @returns The parsed value, or {@link NOT_JSON} when `text` is not valid JSON.
+ */
+function tryParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return NOT_JSON;
+  }
+}
+
+/**
+ * Renders a hook's free-text body, auto-detecting JSON vs. markdown vs. plain
+ * text — except `hook_system_message`/`hook_additional_context`, whose body is
+ * always prose meant to be read and so always renders through
+ * {@link renderMarkdownNodes}.
+ * @param kind - The classifier `descriptor.kind` for this hook.
+ * @param body - The extracted body text.
+ * @returns The rendered body element.
+ */
+function renderHookBody(kind: string, body: string): React.ReactElement {
+  const trimmed = body.trim();
+  if (!ALWAYS_MARKDOWN_KINDS.has(kind) && (trimmed.startsWith('{') || trimmed.startsWith('['))) {
+    const parsed = tryParseJson(trimmed);
+    if (parsed !== NOT_JSON) return <JsonBlock value={parsed} />;
+  }
+  if (ALWAYS_MARKDOWN_KINDS.has(kind) || looksLikeMarkdown(body)) {
+    return (
+      <div
+        className="cc-text pb-1.5 break-words overflow-wrap-anywhere min-w-0 max-w-full"
+        style={{ fontSize: 'var(--stream-text-code)' }}
+      >
+        {renderMarkdownNodes(body, 'hook-body')}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="whitespace-pre-wrap break-words pb-1.5 font-vscode-editor"
+      style={{ color: 'var(--stream-fg)', fontSize: 'var(--stream-text-code)' }}
+    >
+      {body}
+    </div>
+  );
+}
+
 interface HookRowProps {
   /** The hook attachment to render as a single row. */
   hook: AttachmentPayload;
@@ -99,7 +180,7 @@ interface HookRowProps {
 /**
  * Renders a single hook row: glyph + summary, with an in-place expandable body
  * when the hook carries one. A `hook_blocking_error` escalates the row to the
- * `errorForeground` variant with a left border. Plain disclosure (no nested
+ * error-severity variant with a left border. Plain disclosure (no nested
  * accordion) keeps the two-level cap. Shared by {@link HookSection} (nested)
  * and {@link OrphanHookRow} (standalone) so both stay at parity.
  * @param root0 - The component props.
@@ -109,7 +190,9 @@ interface HookRowProps {
 export function HookRow({ hook }: HookRowProps): React.ReactElement {
   const descriptor = classifyAttachment(hook);
   const body = hookBodyText(hook);
-  const hasBody = body !== null;
+  const hookSpecificOutput = hookSpecificOutputOf(hook);
+  const hasHookSpecificOutput = hookSpecificOutput !== undefined && Object.keys(hookSpecificOutput).length > 0;
+  const hasBody = body !== null || hasHookSpecificOutput;
   const [open, setOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -154,8 +237,8 @@ export function HookRow({ hook }: HookRowProps): React.ReactElement {
   );
 
   const wrapperStyle: React.CSSProperties = isBlocking
-    ? { color: 'var(--vscode-errorForeground)', borderLeft: '2px solid var(--vscode-errorForeground)' }
-    : { color: 'var(--vscode-foreground)' };
+    ? { color: 'var(--stream-severity-error-fg)', borderLeft: '2px solid var(--stream-severity-error-fg)' }
+    : { color: 'var(--stream-fg)' };
 
   if (!hasBody) {
     return (
@@ -172,12 +255,12 @@ export function HookRow({ hook }: HookRowProps): React.ReactElement {
         aria-expanded={open}
         onClick={handleToggle}
         className="flex items-center gap-2 w-full text-left bg-transparent border-none font-vscode text-[11px] cursor-pointer py-0.5"
-        style={isBlocking ? { color: 'var(--vscode-errorForeground)' } : { color: 'var(--vscode-foreground)' }}
+        style={isBlocking ? { color: 'var(--stream-severity-error-fg)' } : { color: 'var(--stream-fg)' }}
       >
         {headerRow}
         <span
           className="cc-chevron shrink-0"
-          style={{ color: 'var(--vscode-disabledForeground)', transform: open ? 'rotate(90deg)' : undefined }}
+          style={{ color: 'var(--stream-fg-muted)', transform: open ? 'rotate(90deg)' : undefined }}
         >
           ▷
         </span>
@@ -187,9 +270,13 @@ export function HookRow({ hook }: HookRowProps): React.ReactElement {
         className="cc-accordion-body"
         style={{ display: open ? 'block' : 'none', opacity: open ? 1 : 0, transition: 'opacity 0.1s ease' }}
       >
-        <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
-          {body}
-        </div>
+        {body !== null && renderHookBody(descriptor.kind, body)}
+        {hasHookSpecificOutput && (
+          <div>
+            <div className="stream-block-label font-vscode-editor">Hook-specific output</div>
+            <ToolInputTable input={hookSpecificOutput} />
+          </div>
+        )}
       </div>
     </div>
   );

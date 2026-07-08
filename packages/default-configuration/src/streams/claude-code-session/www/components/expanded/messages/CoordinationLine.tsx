@@ -43,7 +43,7 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
         <div
           key={keyPrefix}
           className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-          style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+          style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
         >
           {text}
         </div>
@@ -54,7 +54,7 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
         <div
           key={keyPrefix}
           className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-          style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+          style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
         >
           {text}
         </div>
@@ -89,7 +89,7 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
             <div
               key={`${keyPrefix}-${idx}`}
               className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-              style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+              style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
             >
               {text}
             </div>
@@ -100,7 +100,7 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
             <div
               key={`${keyPrefix}-${idx}`}
               className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-              style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+              style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
             >
               {text}
             </div>
@@ -112,7 +112,7 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
           <div
             key={`${keyPrefix}-${idx}`}
             className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-            style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+            style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
           >
             {text}
           </div>
@@ -129,7 +129,7 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
           <div
             key={keyPrefix}
             className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
-            style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+            style={{ borderLeft: '2px solid color-mix(in srgb, var(--stream-fg) 15%, transparent)' }}
           >
             {text}
           </div>

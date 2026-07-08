@@ -18,6 +18,8 @@
 
 import type React from 'react';
 import { ExpandableRow } from '../../../../../../lib/accordions';
+import { JsonBlock } from '../../../../../../lib/JsonBlock';
+import { looksLikeMarkdown, renderMarkdownNodes } from '../../../../../../lib/markdown';
 import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
 import type {
   AttachmentPayload,
@@ -27,6 +29,57 @@ import type {
   TaskReminderAttachment,
   TeamContextAttachment
 } from '../../../../lib/parse-session';
+
+/** Sentinel returned by {@link tryParseJson} when `text` does not parse as JSON. */
+const NOT_JSON = Symbol('not-json');
+
+/**
+ * Attempts to parse `text` as JSON. A parse failure is an expected, common
+ * outcome here (most bodies here are plain name/path lists, not JSON), so it
+ * resolves to the {@link NOT_JSON} sentinel rather than throwing or logging.
+ * @param text - Candidate text to parse.
+ * @returns The parsed value, or {@link NOT_JSON} when `text` is not valid JSON.
+ */
+function tryParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return NOT_JSON;
+  }
+}
+
+/**
+ * Renders an ambient turn-state body, auto-detecting JSON vs. markdown vs.
+ * plain text (e.g. `mcp_instructions_delta`'s `addedBlocks` are often
+ * markdown-formatted MCP server instructions).
+ * @param body - The body text to render.
+ * @returns The rendered body element.
+ */
+function renderBody(body: string): React.ReactElement {
+  const trimmed = body.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    const parsed = tryParseJson(trimmed);
+    if (parsed !== NOT_JSON) return <JsonBlock value={parsed} />;
+  }
+  if (looksLikeMarkdown(body)) {
+    return (
+      <div
+        className="cc-text pb-1.5 break-words overflow-wrap-anywhere min-w-0 max-w-full"
+        style={{ fontSize: 'var(--stream-text-code)' }}
+      >
+        {renderMarkdownNodes(body, 'context-state')}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="whitespace-pre-wrap break-words pb-1.5 font-vscode-editor"
+      style={{ color: 'var(--stream-fg)', fontSize: 'var(--stream-text-code)' }}
+    >
+      {body}
+    </div>
+  );
+}
 
 interface ContextStateRowProps {
   /** The classifier descriptor for this attachment. */
@@ -94,7 +147,7 @@ export function ContextStateRow({ descriptor, attachment }: ContextStateRowProps
   const header = (
     <span
       className="overflow-hidden text-ellipsis whitespace-nowrap"
-      style={{ color: 'var(--vscode-descriptionForeground)', fontSize: '0.78em' }}
+      style={{ color: 'var(--stream-fg-muted)', fontSize: '0.78em' }}
     >
       {descriptor.summary}
     </span>
@@ -104,11 +157,5 @@ export function ContextStateRow({ descriptor, attachment }: ContextStateRowProps
     return <ExpandableRow header={header} expandable={false} />;
   }
 
-  return (
-    <ExpandableRow header={header}>
-      <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
-        {body}
-      </div>
-    </ExpandableRow>
-  );
+  return <ExpandableRow header={header}>{renderBody(body)}</ExpandableRow>;
 }

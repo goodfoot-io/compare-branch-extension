@@ -12,5 +12,6 @@ export { AttachmentRouter, ContextStateRow, DateMarker, DisclosureRow, FileRow }
 export { classifyCoordination, isCoordinationContent } from './CoordinationLine';
 export { MessageRouter } from './MessageRouter';
 export { ResultBoundary } from './ResultBoundary';
-export { SessionBoundary } from './SessionBoundary';
+export { SubagentActivityLine } from './SubagentActivityLine';
+export { SupplementalContentRow } from './SupplementalContentRow';
 export { UserTurn } from './UserTurn';

@@ -3,7 +3,7 @@
  *
  * Renders the `date_change` attachment as a thin, right-aligned timestamp that
  * reads *below* the weight of {@link CompactBoundaryLine} and
- * {@link SessionBoundary} — smaller and quieter, with no rule, so the eye
+ * the shared {@link Boundary} — smaller and quieter, with no rule, so the eye
  * registers it as an aside rather than a section break. The text is the
  * descriptor's summary (`{newDate}`).
  *
@@ -27,10 +27,7 @@ interface DateMarkerProps {
  */
 export function DateMarker({ descriptor }: DateMarkerProps): React.ReactElement {
   return (
-    <div
-      className="flex justify-end py-0.5 text-[0.7em] italic"
-      style={{ color: 'var(--vscode-descriptionForeground)' }}
-    >
+    <div className="flex justify-end py-0.5 text-[0.7em] italic" style={{ color: 'var(--stream-fg-muted)' }}>
       {descriptor.summary}
     </div>
   );

@@ -3,10 +3,10 @@
  *
  * Classifies a single attachment payload via the pure {@link classifyAttachment}
  * and dispatches it to a purpose-built presenter — or to nothing — so that no
- * known `attachment.type` reaches {@link RawJsonFallback}:
+ * known `attachment.type` reaches {@link RawFallback}:
  *
  * - `descriptor.hidden` → render nothing.
- * - `descriptor.kind === '__unknown__'` → {@link RawJsonFallback} (the preserved
+ * - `descriptor.kind === '__unknown__'` → {@link RawFallback} (the preserved
  *   safety net for genuinely unknown / future types).
  * - otherwise → the presenter for the type's scope/tier:
  *   {@link ContextStateRow}, {@link DisclosureRow}, {@link FileRow},
@@ -17,15 +17,15 @@
  * authoritative for tier/glyph/summary/hidden/linkPath and presenters only
  * style.
  *
- * @summary Per-attachment presenter dispatch; unknown types fall to RawJsonFallback
+ * @summary Per-attachment presenter dispatch; unknown types fall to RawFallback
  * @module components/expanded/messages/attachment/AttachmentRouter
  */
 
 import type React from 'react';
+import { RawFallback } from '../../../../../../lib/RawFallback';
 import { classifyAttachment } from '../../../../lib/classify-attachment';
 import type { AttachmentPayload } from '../../../../lib/parse-session';
 import { HookRow } from '../../../accordions/HookRow';
-import { RawJsonFallback } from '../RawJsonFallback';
 import { ContextStateRow } from './ContextStateRow';
 import { DateMarker } from './DateMarker';
 import { DisclosureRow } from './DisclosureRow';
@@ -98,13 +98,13 @@ function OrphanHookRow({ attachment }: OrphanHookRowProps): React.ReactElement {
  * Classifies and renders a single attachment, or nothing when hidden.
  * @param root0 - The component props.
  * @param root0.attachment - The raw attachment payload.
- * @returns The presenter element, RawJsonFallback for unknown types, or null.
+ * @returns The presenter element, RawFallback for unknown types, or null.
  */
 export function AttachmentRouter({ attachment }: AttachmentRouterProps): React.ReactElement | null {
   const descriptor = classifyAttachment(attachment);
 
   if (descriptor.hidden) return null;
-  if (descriptor.kind === '__unknown__') return <RawJsonFallback data={attachment} />;
+  if (descriptor.kind === '__unknown__') return <RawFallback data={attachment} label="Unrecognized attachment" />;
 
   const kind = descriptor.kind;
 
@@ -116,5 +116,5 @@ export function AttachmentRouter({ attachment }: AttachmentRouterProps): React.R
 
   // Unreachable for known types — every classifier `kind` is handled above.
   // Preserved as the fail-closed safety net should a new kind slip through.
-  return <RawJsonFallback data={attachment} />;
+  return <RawFallback data={attachment} label="Unrecognized attachment" />;
 }

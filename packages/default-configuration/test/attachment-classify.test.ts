@@ -445,12 +445,13 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.expandable).toBe(false);
   });
 
-  it('opened_file_in_ide: always hidden', () => {
+  it('opened_file_in_ide: rendered as a leaf row, not hidden', () => {
     const d = classifyAttachment(openedFileInIdeFixture);
     expect(d.kind).toBe('opened_file_in_ide');
     expect(d.scope).toBe('turn');
     expect(d.tier).toBe('ambient');
-    expect(d.hidden).toBe(true);
+    expect(d.hidden).toBe(false);
+    expect(d.expandable).toBe(false);
   });
 
   it('selected_lines_in_ide: scope=turn, tier=ambient, glyph=·, summary includes basename and line range, linkPath=displayPath, expandable=true (opens to content)', () => {

@@ -2,7 +2,9 @@
  * Key-value input table for tool accordions.
  *
  * Renders tool input fields as a table with key (dimmed) and value (clipped
- * for long entries). Skips keys in `skipKeys` and omits the table entirely
+ * for long entries). An object/array-valued input renders through the shared
+ * {@link JsonBlock} (pretty-printed, 2-space) instead of a single-line
+ * `JSON.stringify` blob. Skips keys in `skipKeys` and omits the table entirely
  * when `hidden` is set.
  *
  * @summary Tool input key-value table with gradient-fade clipping
@@ -10,6 +12,7 @@
  */
 
 import type React from 'react';
+import { JsonBlock } from '../JsonBlock';
 
 interface ToolInputTableProps {
   /** Tool input object. */
@@ -46,9 +49,19 @@ export function ToolInputTable({
     >
       <tbody>
         {entries.map(([key, value]) => {
-          const valStr = stringifyValue(value);
-          const isShort = valStr.length < 120 && valStr.split('\n').length <= 2;
-          const valueNode = value === null || value === undefined ? <em>null</em> : truncateValue(valStr);
+          // Object/array values get the pretty-printed JsonBlock treatment
+          // rather than a dense single-line JSON.stringify blob — never
+          // clipped, since JsonBlock's own wrapping handles long content.
+          const isStructured = value !== null && typeof value === 'object';
+          const valStr = isStructured ? '' : stringifyValue(value);
+          const isShort = !isStructured && valStr.length < 120 && valStr.split('\n').length <= 2;
+          const valueNode = isStructured ? (
+            <JsonBlock value={value} />
+          ) : value === null || value === undefined ? (
+            <em>null</em>
+          ) : (
+            truncateValue(valStr)
+          );
           return (
             <tr key={key}>
               <td

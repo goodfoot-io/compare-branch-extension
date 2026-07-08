@@ -9,9 +9,10 @@
  */
 
 import type React from 'react';
+import { Boundary } from '../../../../../../lib/Boundary';
+import { RawFallback } from '../../../../../../lib/RawFallback';
 import { StatusLine } from '../../../../../../lib/status-line';
 import type { SystemMsg } from '../../../../lib/parse-session';
-import { RawJsonFallback } from '../RawJsonFallback';
 import { AwaySummaryBoundary } from './AwaySummaryBoundary';
 import { CompactBoundaryLine } from './CompactBoundaryLine';
 import { FilesPersisted } from './FilesPersisted';
@@ -39,17 +40,7 @@ export function SystemRouter({ msg, onInit }: SystemRouterProps): React.ReactEle
       const toolCount = initMsg.tools?.length ?? 0;
       // Notify parent about init data
       onInit?.(initMsg.model ?? '', initMsg.cwd ?? '', toolCount);
-      return (
-        <div
-          className="flex items-center gap-2 py-1.5 my-1 text-[0.8em] text-vscode-descriptionForeground"
-          style={{
-            borderTop: '1px solid var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))',
-            borderBottom: '1px solid var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))'
-          }}
-        >
-          Session started · {toolCount} tool{toolCount !== 1 ? 's' : ''}
-        </div>
-      );
+      return <Boundary kind="turn" label={`Session started · ${toolCount} tool${toolCount !== 1 ? 's' : ''}`} />;
     }
     case 'status': {
       const statusMsg = msg as Extract<SystemMsg, { subtype: 'status' }>;
@@ -91,6 +82,6 @@ export function SystemRouter({ msg, onInit }: SystemRouterProps): React.ReactEle
       return <AwaySummaryBoundary content={awayMsg.content} />;
     }
     default:
-      return <RawJsonFallback data={msg} />;
+      return <RawFallback data={msg} label="Unrecognized system event" />;
   }
 }

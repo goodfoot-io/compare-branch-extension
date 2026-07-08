@@ -92,10 +92,7 @@ function bodyText(attachment: AttachmentPayload): string | null {
 export function DisclosureRow({ descriptor, attachment }: DisclosureRowProps): React.ReactElement {
   const body = bodyText(attachment);
   const header = (
-    <span
-      className="overflow-hidden text-ellipsis whitespace-nowrap"
-      style={{ color: 'var(--vscode-disabledForeground)' }}
-    >
+    <span className="overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: 'var(--stream-fg-muted)' }}>
       {descriptor.summary}
     </span>
   );

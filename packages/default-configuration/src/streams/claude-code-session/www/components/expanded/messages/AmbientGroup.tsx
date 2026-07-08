@@ -60,12 +60,12 @@ export function AmbientGroup({ rows }: AmbientGroupProps): React.ReactElement {
     <div
       className="cc-ambient-group my-1"
       style={{
-        borderTop: '1px solid var(--vscode-panel-border)',
-        borderBottom: '1px solid var(--vscode-panel-border)'
+        borderTop: '1px solid var(--stream-border)',
+        borderBottom: '1px solid var(--stream-border)'
       }}
     >
       {isLarge ? (
-        <div className="py-1 px-2 text-[0.78em] italic" style={{ color: 'var(--vscode-descriptionForeground)' }}>
+        <div className="py-1 px-2 text-[0.78em] italic" style={{ color: 'var(--stream-fg-muted)' }}>
           context updated · {rows.length} changes
         </div>
       ) : (

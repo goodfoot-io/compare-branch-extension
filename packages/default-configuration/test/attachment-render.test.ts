@@ -26,6 +26,8 @@ import { ToolAccordion } from '../src/streams/claude-code-session/www/components
 import { AmbientGroup } from '../src/streams/claude-code-session/www/components/expanded/messages/AmbientGroup.js';
 import { AttachmentRouter } from '../src/streams/claude-code-session/www/components/expanded/messages/attachment/AttachmentRouter.js';
 import { MessageRouter } from '../src/streams/claude-code-session/www/components/expanded/messages/MessageRouter.js';
+import { SubagentActivityLine } from '../src/streams/claude-code-session/www/components/expanded/messages/SubagentActivityLine.js';
+import { SupplementalContentRow } from '../src/streams/claude-code-session/www/components/expanded/messages/SupplementalContentRow.js';
 import { classifyAttachment } from '../src/streams/claude-code-session/www/lib/classify-attachment.js';
 import type { AttachmentPayload, SessionMsg } from '../src/streams/claude-code-session/www/lib/parse-session.js';
 import { ToolGroup } from '../src/streams/lib/accordions/ToolGroup.js';
@@ -313,5 +315,103 @@ describe('MessageRouter — ambient grouping (intended collapse preserved)', () 
 
     expect(findAll(fragment, ToolGroup)).toHaveLength(1);
     expect(findAll(fragment, ToolAccordion)).toHaveLength(2);
+  });
+});
+
+// ============================================================================
+// `progress` messages — subagent tool activity, no paired tool_result here
+// ============================================================================
+
+describe('MessageRouter — progress (subagent activity)', () => {
+  it('renders a SubagentActivityLine for each tool_use block in an agent_progress message', () => {
+    const messages: SessionMsg[] = [
+      {
+        type: 'progress',
+        data: {
+          type: 'agent_progress',
+          content: [
+            { type: 'tool_use', name: 'Bash', input: { command: 'ls' } },
+            { type: 'tool_use', name: 'Read', input: { file_path: '/tmp/x.ts' } }
+          ]
+        }
+      } as SessionMsg
+    ];
+
+    const fragment = MessageRouter({ messages });
+
+    const lines = findAll(fragment, SubagentActivityLine);
+    expect(lines).toHaveLength(2);
+    expect((lines[0]?.props as { toolName?: string }).toolName).toBe('Bash');
+    expect((lines[1]?.props as { toolName?: string }).toolName).toBe('Read');
+  });
+
+  it('renders nothing for a progress message whose data.type is not agent_progress', () => {
+    const messages: SessionMsg[] = [{ type: 'progress', data: { type: 'something_else', content: [] } } as SessionMsg];
+
+    const fragment = MessageRouter({ messages });
+
+    expect(findAll(fragment, SubagentActivityLine)).toHaveLength(0);
+  });
+});
+
+// ============================================================================
+// isMeta supplemental content — nested when its tool_result arrives, rendered
+// standalone (never dropped) when it doesn't
+// ============================================================================
+
+describe('MessageRouter — isMeta supplemental content', () => {
+  it('nests isMeta content into the owning ToolAccordion when its sourceToolUseID carries a real tool_result', () => {
+    const messages: SessionMsg[] = [
+      assistantToolUse('T1', 'Skill'),
+      {
+        type: 'user',
+        isMeta: true,
+        sourceToolUseID: 'T1',
+        message: { content: [{ type: 'text', text: 'full skill instructions' }] }
+      } as unknown as SessionMsg,
+      userToolResult('T1')
+    ];
+
+    const fragment = MessageRouter({ messages });
+
+    expect(findAll(fragment, SupplementalContentRow)).toHaveLength(0);
+    const accordions = findAll(fragment, ToolAccordion);
+    expect(accordions).toHaveLength(1);
+    expect((accordions[0]?.props as { supplementalResult?: string }).supplementalResult).toBe(
+      'full skill instructions'
+    );
+  });
+
+  it('renders isMeta content standalone via SupplementalContentRow when its tool_result never arrives (orphan)', () => {
+    const messages: SessionMsg[] = [
+      {
+        type: 'user',
+        isMeta: true,
+        sourceToolUseID: 'no-such-tool',
+        message: { content: [{ type: 'text', text: 'orphaned instructions' }] }
+      } as unknown as SessionMsg
+    ];
+
+    const fragment = MessageRouter({ messages });
+
+    const rows = findAll(fragment, SupplementalContentRow);
+    expect(rows).toHaveLength(1);
+    expect((rows[0]?.props as { text?: string }).text).toBe('orphaned instructions');
+  });
+
+  it('renders isMeta content standalone when it carries no sourceToolUseID at all', () => {
+    const messages: SessionMsg[] = [
+      {
+        type: 'user',
+        isMeta: true,
+        message: { content: [{ type: 'text', text: 'untethered isMeta text' }] }
+      } as unknown as SessionMsg
+    ];
+
+    const fragment = MessageRouter({ messages });
+
+    const rows = findAll(fragment, SupplementalContentRow);
+    expect(rows).toHaveLength(1);
+    expect((rows[0]?.props as { text?: string }).text).toBe('untethered isMeta text');
   });
 });

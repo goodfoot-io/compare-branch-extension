@@ -70,8 +70,8 @@ export function HookSection({ hooks }: HookSectionProps): React.ReactElement {
   return (
     <div
       style={{
-        borderTop: '0.5px solid var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))',
-        background: 'color-mix(in srgb, var(--vscode-foreground, #cccccc) 3%, transparent)'
+        borderTop: '0.5px solid var(--stream-border-subtle)',
+        background: 'color-mix(in srgb, var(--stream-fg) 3%, transparent)'
       }}
     >
       <div className="text-[10px] text-vscode-descriptionForeground opacity-60 font-vscode-editor pt-1 pb-0.5 uppercase tracking-wider">

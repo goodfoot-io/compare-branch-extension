@@ -2,13 +2,16 @@
  * Session result boundary for the expanded transcript.
  *
  * Renders a "Session complete · N turns · Ns · $cost" or
- * "Session error (subtype) · N turns · Ns" separator at the end of a session.
+ * "Session error (subtype) · N turns · Ns" separator at the end of a session,
+ * via the shared {@link Boundary} so it reads as the same kind of structural
+ * marker as the turn-start and compaction boundaries.
  *
  * @summary Session complete/error result boundary separator
  * @module components/expanded/messages/ResultBoundary
  */
 
 import type React from 'react';
+import { Boundary } from '../../../../../lib/Boundary';
 
 interface ResultBoundaryProps {
   /** Whether the session completed successfully. */
@@ -45,17 +48,5 @@ export function ResultBoundary({
     ? `Session complete · ${turns} turns · ${durationS}s${costStr}`
     : `Session error (${subtype}) · ${turns} turns · ${durationS}s`;
 
-  return (
-    <div className="flex items-center gap-2 py-1.5 my-1 text-[0.8em] text-vscode-descriptionForeground">
-      <span
-        className="flex-1 h-px"
-        style={{ background: 'var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))' }}
-      />
-      {text}
-      <span
-        className="flex-1 h-px"
-        style={{ background: 'var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))' }}
-      />
-    </div>
-  );
+  return <Boundary kind="result" label={text} />;
 }
