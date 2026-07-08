@@ -23,17 +23,25 @@ function baseState(overrides: Partial<CodexCompactState> = {}): CodexCompactStat
     model: undefined,
     durationMs: undefined,
     tail: [],
+    hasErrors: false,
     ...overrides
   };
 }
 
 describe('codexToCompactCardModel', () => {
-  it('never reports the error dot class, even for a settled session', () => {
-    const model = codexToCompactCardModel(baseState(), false);
+  it('reports the error dot class when hasErrors is true', () => {
+    const model = codexToCompactCardModel(baseState({ hasErrors: true }), false);
 
-    expect(model.dotClass).toBe('ended');
+    expect(model.dotClass).toBe('error');
     expect(model.statusWord).toBe('Ended');
     expect(model.subagentLabel).toBeUndefined();
+  });
+
+  it('reports the running dot class when active and hasErrors is false', () => {
+    const model = codexToCompactCardModel(baseState(), true);
+
+    expect(model.dotClass).toBe('running');
+    expect(model.statusWord).toBe('Running');
   });
 
   it('omits token facts entirely when tokenCount is undefined', () => {
@@ -64,11 +72,26 @@ describe('codexToCompactCardModel', () => {
     expect(model.metaSplit).toBe('7h 33m');
   });
 
-  it('maps every tail event to the neutral severity', () => {
+  it('maps tail events without explicit severity to neutral', () => {
     const state = baseState({ tail: [{ kind: 'tool', text: 'shell: ls' }] });
 
     const model = codexToCompactCardModel(state, true);
 
     expect(model.tail).toEqual([{ label: 'tool', text: 'shell: ls', severity: 'neutral' }]);
+  });
+
+  it('maps tail event error severity to TailLineModel error severity', () => {
+    const state = baseState({
+      tail: [
+        { kind: 'tool', text: 'shell: ls', severity: undefined },
+        { kind: 'tool', text: 'failed_patch', severity: 'error', callId: 'call-1' }
+      ]
+    });
+
+    const model = codexToCompactCardModel(state, false);
+
+    expect(model.tail).toHaveLength(2);
+    expect(model.tail[0]!.severity).toBe('neutral');
+    expect(model.tail[1]!.severity).toBe('error');
   });
 });

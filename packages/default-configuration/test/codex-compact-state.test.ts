@@ -118,6 +118,55 @@ function userEventMsgLine(message: string, timestamp = '2026-06-04T10:07:00.000Z
   return envelope('event_msg', { type: 'user_message', message }, timestamp);
 }
 
+function shellFunctionCallLine(callId: string, timestamp = '2026-06-04T10:04:00.000Z'): string {
+  return envelope(
+    'response_item',
+    {
+      type: 'function_call',
+      name: 'shell',
+      arguments: '{}',
+      call_id: callId
+    },
+    timestamp
+  );
+}
+
+function functionCallOutputLine(callId: string, output: string, timestamp = '2026-06-04T10:05:00.000Z'): string {
+  return envelope(
+    'response_item',
+    {
+      type: 'function_call_output',
+      call_id: callId,
+      output
+    },
+    timestamp
+  );
+}
+
+function _customToolCallOutputLine(callId: string, output: string, timestamp = '2026-06-04T10:05:00.000Z'): string {
+  return envelope(
+    'response_item',
+    {
+      type: 'custom_tool_call_output',
+      call_id: callId,
+      output
+    },
+    timestamp
+  );
+}
+
+function patchApplyEndLine(callId: string, success: boolean, timestamp = '2026-06-04T10:06:00.000Z'): string {
+  return envelope(
+    'event_msg',
+    {
+      type: 'patch_apply_end',
+      call_id: callId,
+      success
+    },
+    timestamp
+  );
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -488,5 +537,100 @@ describe('buildCodexCompactState — cross-turn identical text is not suppressed
     const messageTail = state.tail.filter((e) => e.kind === 'message');
     expect(messageTail).toHaveLength(2);
     expect(state.turnCount).toBe(2);
+  });
+});
+
+// ============================================================================
+// Error detection — patch_apply_end failure and shell exit codes
+// ============================================================================
+
+describe('buildCodexCompactState — error detection', () => {
+  it('hasErrors defaults to false when no errors are present', () => {
+    const lines = [sessionMetaLine()];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(false);
+  });
+
+  it('detects patch_apply_end failure and sets hasErrors', () => {
+    const lines = [
+      sessionMetaLine(),
+      functionCallLine('apply_patch', 'patch-001', '2026-06-04T10:00:00.000Z'),
+      patchApplyEndLine('patch-001', false, '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
+  });
+
+  it('does not set hasErrors for a successful patch_apply_end', () => {
+    const lines = [
+      sessionMetaLine(),
+      functionCallLine('apply_patch', 'patch-001', '2026-06-04T10:00:00.000Z'),
+      patchApplyEndLine('patch-001', true, '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(false);
+  });
+
+  it('detects non-zero shell exit code in paired function_call_output and sets hasErrors', () => {
+    const lines = [
+      sessionMetaLine(),
+      shellFunctionCallLine('shell-001', '2026-06-04T10:00:00.000Z'),
+      functionCallOutputLine('shell-001', 'Exit code: 1', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
+  });
+
+  it('detects non-zero shell exit code via local_shell_call with function_call_output', () => {
+    const lines = [
+      sessionMetaLine(),
+      localShellCallLine('shell-002', '2026-06-04T10:00:00.000Z'),
+      functionCallOutputLine('shell-002', 'Process exited with code: 2', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
+  });
+
+  it('does not set hasErrors for exit code 0 in shell output', () => {
+    const lines = [
+      sessionMetaLine(),
+      shellFunctionCallLine('shell-003', '2026-06-04T10:00:00.000Z'),
+      functionCallOutputLine('shell-003', 'Exit code: 0', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(false);
+  });
+
+  it('does not set hasErrors for shell output with no exit code', () => {
+    const lines = [
+      sessionMetaLine(),
+      shellFunctionCallLine('shell-004', '2026-06-04T10:00:00.000Z'),
+      functionCallOutputLine('shell-004', 'Some stdout output', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(false);
+  });
+
+  it('does not set hasErrors for non-shell tool output regardless of content', () => {
+    const lines = [
+      sessionMetaLine(),
+      functionCallLine('read_file', 'call-005', '2026-06-04T10:00:00.000Z'),
+      functionCallOutputLine('call-005', 'Exit code: 1', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(false);
+  });
+
+  it('back-patches severity on tail entries for errored tool calls', () => {
+    const lines = [
+      sessionMetaLine(),
+      functionCallLine('apply_patch', 'patch-010', '2026-06-04T10:00:00.000Z'),
+      patchApplyEndLine('patch-010', false, '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
+    const toolEntry = state.tail.find((e) => e.callId === 'patch-010');
+    expect(toolEntry).toBeDefined();
+    expect(toolEntry!.severity).toBe('error');
   });
 });

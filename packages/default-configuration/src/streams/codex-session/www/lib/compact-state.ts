@@ -19,6 +19,13 @@
 export interface CodexTailEvent {
   kind: 'message' | 'tool' | 'event';
   text: string;
+  /** Escalation level — `'error'` drives a red tail line and the error dot. */
+  severity?: 'normal' | 'error';
+  /**
+   * The `call_id` of the originating tool call, when `kind` is `'tool'`.
+   * Enables back-patching severity after output/error events are processed.
+   */
+  callId?: string;
 }
 
 /**
@@ -37,22 +44,13 @@ export interface CodexCompactState {
   model: string | undefined;
   durationMs: number | undefined;
   tail: CodexTailEvent[];
+  /** `true` when at least one tool call in the session produced an error. */
+  hasErrors: boolean;
 }
 
-/**
- * Rebuilds {@link CodexCompactState} from the full rollout line array.
- *
- * Pure with respect to `lines`: counts, headline, token totals, duration, and
- * the bounded tail are all recomputed from scratch, so passing a shorter
- * replacement array after a reset yields fresh state with no stale carryover.
- *
- * @param _lines - The authoritative accumulated rollout JSONL lines.
- * @param _isActive - Whether the underlying stream is still live.
- * @returns The bounded compact-view state.
- * @throws Error 'not implemented' — Phase 1 stub.
- */
 import { createTurnDedupMatcher, extractMessageText } from './dedup.js';
 import { type CodexRolloutLine, type ContentItem, parseCodexLine } from './parser.js';
+import { extractOutputText, shellExitSeverity } from './render-transcript.js';
 
 /**
  * Defensively reads `total_token_usage` from an `event_msg` `token_count` info object.
@@ -146,6 +144,14 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
   // Works regardless of whether response_item or event_msg arrives first.
   const dedup = createTurnDedupMatcher();
 
+  // Tracks which call_ids produced an error (patch failure or non-zero shell exit)
+  // so tail entries can be back-patched with severity after the fold completes.
+  const erroredCallIds = new Set<string>();
+
+  // Tracks which call_ids correspond to shell invocations so the output handler
+  // can classify the exit code.
+  const shellCallIds = new Set<string>();
+
   for (const raw of lines) {
     const line: CodexRolloutLine = parseCodexLine(raw);
 
@@ -186,7 +192,24 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
           toolCallCount += 1;
           const name = typeof payload['name'] === 'string' ? payload['name'] : payload.type;
           latestToolName = name;
-          pushTail({ kind: 'tool', text: name });
+          const callId = typeof payload['call_id'] === 'string' ? payload['call_id'] : undefined;
+          // Track shell calls so their output can be classified for exit-code errors.
+          if (payload.type === 'local_shell_call' || (payload.type === 'function_call' && name === 'shell')) {
+            if (callId !== undefined) {
+              shellCallIds.add(callId);
+            }
+          }
+          pushTail({ kind: 'tool', text: name, callId });
+        } else if (payload.type === 'function_call_output' || payload.type === 'custom_tool_call_output') {
+          // Classify shell exit codes from paired output.
+          const outputCallId = typeof payload['call_id'] === 'string' ? payload['call_id'] : undefined;
+          if (outputCallId !== undefined && shellCallIds.has(outputCallId)) {
+            const outputText = extractOutputText(payload['output']);
+            const outcome = shellExitSeverity(outputText);
+            if (outcome.severity === 'error') {
+              erroredCallIds.add(outputCallId);
+            }
+          }
         }
         break;
       }
@@ -196,6 +219,10 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
           const usage = readTotalTokenUsage(payload['info']);
           if (usage !== undefined) {
             tokenCount = { input: usage.input_tokens, output: usage.output_tokens };
+          }
+        } else if (payload.type === 'patch_apply_end') {
+          if (payload['success'] === false && typeof payload['call_id'] === 'string') {
+            erroredCallIds.add(payload['call_id']);
           }
         } else if (payload.type === 'agent_message' || payload.type === 'user_message') {
           // Suppress event_msg messages that mirror a same-turn response_item message.
@@ -220,6 +247,18 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
 
   const headlineText = latestAssistantText ?? latestToolName ?? '';
 
+  // Back-patch tail severity for tool calls whose output or lifecycle event
+  // reported an error. This is a post-hoc fixup because the error signal
+  // (function_call_output / patch_apply_end) may arrive after the call entry
+  // was already pushed into the bounded tail.
+  if (erroredCallIds.size > 0) {
+    for (const entry of tail) {
+      if (entry.callId !== undefined && erroredCallIds.has(entry.callId)) {
+        entry.severity = 'error';
+      }
+    }
+  }
+
   return {
     isActive,
     headlineText,
@@ -228,6 +267,7 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
     tokenCount,
     model,
     durationMs: durationBetween(firstTimestamp, lastTimestamp),
-    tail
+    tail,
+    hasErrors: erroredCallIds.size > 0
   };
 }

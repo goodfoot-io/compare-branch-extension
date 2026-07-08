@@ -4,8 +4,9 @@
  *
  * Mirrors the claude-code-session adapter's shape but with Codex's simpler
  * signal set: no subagent concept, one shared duration string for both the
- * stacked and split meta slots, and every tail line mapped to the `neutral`
- * severity (Codex has no milestone/plumbing/error classification yet).
+ * stacked and split meta slots. Tail severity is derived from the compact
+ * state's error detection: tool calls with patch failures or non-zero shell
+ * exit codes map to `'error'`; everything else is `'neutral'`.
  *
  * @summary CodexCompactState → CompactCardModel adapter (Codex)
  * @module streams/codex-session/www/lib/adapt-compact-model
@@ -24,7 +25,7 @@ import type { CodexCompactState } from './compact-state';
  */
 export function codexToCompactCardModel(state: CodexCompactState, isActive: boolean): CompactCardModel {
   const statusWord = isActive ? 'Running' : 'Ended';
-  const dotClass = isActive ? 'running' : 'ended';
+  const dotClass = state.hasErrors ? 'error' : isActive ? 'running' : 'ended';
 
   // Codex shows the same duration string in both the stacked and split meta
   // slots today (no separate live-timer-vs-date distinction, unlike Claude).
@@ -50,7 +51,7 @@ export function codexToCompactCardModel(state: CodexCompactState, isActive: bool
   const tail: TailLineModel[] = state.tail.map((event) => ({
     label: event.kind,
     text: event.text,
-    severity: 'neutral'
+    severity: event.severity === 'error' ? 'error' : 'neutral'
   }));
 
   return {
