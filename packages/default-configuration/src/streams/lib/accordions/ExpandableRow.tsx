@@ -1,8 +1,8 @@
 /**
  * Shared expand primitive for the expanded transcript.
  *
- * Lifts the open affordance from ToolAccordion verbatim: a `▷` chevron that
- * rotates 90° on open, a `cc-accordion-body` whose `display` toggles between
+ * Lifts the open affordance from ToolAccordion verbatim: a `codicon-chevron-right`
+ * that rotates 90° on open, a `cc-accordion-body` whose `display` toggles between
  * `block` and `none`, and a `requestAnimationFrame` opacity fade-in (0.1s)
  * applied on each open. The header content (summary, glyph) is supplied by the
  * caller; this component owns only the open state and the motion so every

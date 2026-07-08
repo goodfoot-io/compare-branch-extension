@@ -259,11 +259,13 @@ export function HookRow({ hook }: HookRowProps): React.ReactElement {
       >
         {headerRow}
         <span
-          className="cc-chevron shrink-0"
-          style={{ color: 'var(--stream-fg-muted)', transform: open ? 'rotate(90deg)' : undefined }}
-        >
-          ▷
-        </span>
+          className="codicon codicon-chevron-right cc-chevron shrink-0"
+          style={{
+            color: 'var(--stream-fg-muted)',
+            fontSize: 'var(--stream-text-label)',
+            transform: open ? 'rotate(90deg)' : undefined
+          }}
+        />
       </button>
       <div
         ref={bodyRef}
