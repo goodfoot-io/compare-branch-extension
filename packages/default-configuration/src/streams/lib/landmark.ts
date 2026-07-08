@@ -7,6 +7,11 @@
  * from a set via a preference chain that privileges decision points, assistant
  * messages, actions, and failures over generic entries.
  *
+ * Landmark *production* — building {@link Landmark}[] arrays from
+ * provider-specific events — is deferred to a future phase. The types and
+ * {@link computeBestLandmark} function are forward contracts that future
+ * producers target; no producer exists yet.
+ *
  * @summary Provider-neutral landmark model for stream events
  * @module streams/lib/landmark
  */
@@ -19,6 +24,7 @@ export type LandmarkKind =
   | 'reasoning'
   | 'action'
   | 'evidence'
+  | 'output'
   | 'mutation'
   | 'failure'
   | 'metric'

@@ -466,6 +466,11 @@ const SHELL_EXIT_CODE_RE = /^(?:Exit code|Process exited with code):?\s*(-?\d+)/
  * `'✗ exit N'` label; a missing match, an unparseable code, or exit code `0`
  * stays `'normal'`.
  *
+ * Scope boundary: only matches structured exit-code lines matching the regex
+ * above. Shell failures producing different output — signals such as SIGKILL,
+ * custom exit annotations, or differently-structured output — are not
+ * classified and return `'normal'`.
+ *
  * @param outputText - The tool_call's paired output text, or `undefined` when no output has arrived yet.
  * @returns The severity and, when escalated, the collapsed-header error label.
  */

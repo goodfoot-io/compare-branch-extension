@@ -19,8 +19,8 @@
 export interface CodexTailEvent {
   kind: 'message' | 'tool' | 'event';
   text: string;
-  /** Escalation level — `'error'` drives a red tail line and the error dot. */
-  severity?: 'normal' | 'error';
+  /** Escalation level — present only when the entry represents an error, driving a red tail line and the error dot. */
+  severity?: 'error';
   /**
    * The `call_id` of the originating tool call, when `kind` is `'tool'`.
    * Enables back-patching severity after output/error events are processed.
@@ -152,6 +152,14 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
   // can classify the exit code.
   const shellCallIds = new Set<string>();
 
+  // Deferred-error tracking for the reverse persistence order: when
+  // function_call_output / custom_tool_call_output arrives BEFORE the paired
+  // tool call, the call_id isn't in shellCallIds yet, so the output handler
+  // can't route the error through the normal forward path. This set captures
+  // errored output call_ids so they can be classified once the tool call
+  // arrives and shellCallIds is populated.
+  const unmatchedErroredOutputIds = new Set<string>();
+
   for (const raw of lines) {
     const line: CodexRolloutLine = parseCodexLine(raw);
 
@@ -194,20 +202,45 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
           latestToolName = name;
           const callId = typeof payload['call_id'] === 'string' ? payload['call_id'] : undefined;
           // Track shell calls so their output can be classified for exit-code errors.
-          if (payload.type === 'local_shell_call' || (payload.type === 'function_call' && name === 'shell')) {
+          // custom_tool_call can also carry name='shell' (same as function_call).
+          if (
+            payload.type === 'local_shell_call' ||
+            ((payload.type === 'function_call' || payload.type === 'custom_tool_call') && name === 'shell')
+          ) {
             if (callId !== undefined) {
               shellCallIds.add(callId);
+              // Resolve deferred reverse-path errors: if output arrived before
+              // this call and was classified as errored, promote it now that
+              // we know the call is a shell invocation.
+              if (unmatchedErroredOutputIds.has(callId)) {
+                erroredCallIds.add(callId);
+                unmatchedErroredOutputIds.delete(callId);
+              }
             }
           }
           pushTail({ kind: 'tool', text: name, callId });
         } else if (payload.type === 'function_call_output' || payload.type === 'custom_tool_call_output') {
           // Classify shell exit codes from paired output.
           const outputCallId = typeof payload['call_id'] === 'string' ? payload['call_id'] : undefined;
-          if (outputCallId !== undefined && shellCallIds.has(outputCallId)) {
-            const outputText = extractOutputText(payload['output']);
-            const outcome = shellExitSeverity(outputText);
-            if (outcome.severity === 'error') {
-              erroredCallIds.add(outputCallId);
+          if (outputCallId !== undefined) {
+            if (shellCallIds.has(outputCallId)) {
+              // Forward path: the tool call was already seen, so we can
+              // classify the output directly against the known shell call.
+              const outputText = extractOutputText(payload['output']);
+              const outcome = shellExitSeverity(outputText);
+              if (outcome.severity === 'error') {
+                erroredCallIds.add(outputCallId);
+              }
+            } else {
+              // Reverse path: the output arrived before the tool call, so
+              // shellCallIds doesn't contain the callId yet. Classify the
+              // output speculatively and defer to unmatchedErroredOutputIds;
+              // when the tool call later arrives, it will resolve from there.
+              const outputText = extractOutputText(payload['output']);
+              const outcome = shellExitSeverity(outputText);
+              if (outcome.severity === 'error') {
+                unmatchedErroredOutputIds.add(outputCallId);
+              }
             }
           }
         }

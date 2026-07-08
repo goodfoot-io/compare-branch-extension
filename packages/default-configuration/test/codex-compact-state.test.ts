@@ -131,6 +131,20 @@ function shellFunctionCallLine(callId: string, timestamp = '2026-06-04T10:04:00.
   );
 }
 
+function customToolCallLine(name: string, callId: string, timestamp = '2026-06-04T10:04:00.000Z'): string {
+  return envelope(
+    'response_item',
+    {
+      type: 'custom_tool_call',
+      name,
+      call_id: callId,
+      input: '{}',
+      status: 'completed'
+    },
+    timestamp
+  );
+}
+
 function functionCallOutputLine(callId: string, output: string, timestamp = '2026-06-04T10:05:00.000Z'): string {
   return envelope(
     'response_item',
@@ -143,7 +157,7 @@ function functionCallOutputLine(callId: string, output: string, timestamp = '202
   );
 }
 
-function _customToolCallOutputLine(callId: string, output: string, timestamp = '2026-06-04T10:05:00.000Z'): string {
+function customToolCallOutputLine(callId: string, output: string, timestamp = '2026-06-04T10:05:00.000Z'): string {
   return envelope(
     'response_item',
     {
@@ -632,5 +646,32 @@ describe('buildCodexCompactState — error detection', () => {
     const toolEntry = state.tail.find((e) => e.callId === 'patch-010');
     expect(toolEntry).toBeDefined();
     expect(toolEntry!.severity).toBe('error');
+  });
+
+  // F2: Output-before-call persistence order — function_call_output arrives
+  // before the paired function_call entry in the stream. The deferred-error
+  // tracking Set (unmatchedErroredOutputIds) captures the errored output
+  // speculatively, and the tool call handler resolves it once the call arrives.
+  it('detects non-zero shell exit code when function_call_output arrives before the function_call', () => {
+    const lines = [
+      sessionMetaLine(),
+      functionCallOutputLine('shell-010', 'Exit code: 1', '2026-06-04T10:00:00.000Z'),
+      shellFunctionCallLine('shell-010', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
+  });
+
+  // F3: custom_tool_call_output branch previously had zero test coverage.
+  // custom_tool_call with name='shell' is tracked in shellCallIds (same as
+  // function_call with name='shell'), and its paired output is classified.
+  it('detects non-zero exit code via custom_tool_call with custom_tool_call_output', () => {
+    const lines = [
+      sessionMetaLine(),
+      customToolCallLine('shell', 'custom-shell-001', '2026-06-04T10:00:00.000Z'),
+      customToolCallOutputLine('custom-shell-001', 'Exit code: 1', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.hasErrors).toBe(true);
   });
 });
