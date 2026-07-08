@@ -5,7 +5,7 @@
  * `skill_listing`, `invoked_skills`, `dynamic_skill`, and a long
  * `mcp_instructions_delta` — as a content-weight summary that expands to the
  * payload's text via the shared {@link ExpandableRow} primitive. Markdown-shaped
- * bodies render through {@link renderMarkdown}, mirroring how
+ * bodies render through {@link renderMarkdownNodes}, mirroring how
  * {@link ToolResult} displays skill instructions; plain bodies render
  * pre-wrapped.
  *
@@ -19,7 +19,7 @@
 
 import type React from 'react';
 import { ExpandableRow } from '../../../../../../lib/accordions';
-import { renderMarkdown } from '../../../../../../lib/markdown';
+import { looksLikeMarkdown, renderMarkdownNodes } from '../../../../../../lib/markdown';
 import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
 import type {
   AttachmentPayload,
@@ -34,16 +34,6 @@ interface DisclosureRowProps {
   descriptor: AttachmentDescriptor;
   /** The raw attachment payload, read only for body assembly. */
   attachment: AttachmentPayload;
-}
-
-/**
- * Heuristic: treat body as markdown when it carries heading, list, or table
- * markers — the same test {@link ToolResult} applies.
- * @param text - The body string to test.
- * @returns True when the text appears to contain markdown formatting.
- */
-function looksLikeMarkdown(text: string): boolean {
-  return /^#{1,6}\s|^\s*[-*]\s|^\s*\d+\.\s|^\|.+\|/m.test(text);
 }
 
 /**
@@ -71,7 +61,7 @@ function bodyText(attachment: AttachmentPayload): string | null {
       const skills = a.skills ?? [];
       // One sub-row per skill: a `### name/path` heading followed by its content,
       // so the disclosure shows what each skill loaded — not just its name. The
-      // markdown heading renders through renderMarkdown like the other bodies.
+      // markdown heading renders through renderMarkdownNodes like the other bodies.
       const sections = skills
         .map((s) => {
           const heading = s.name ?? s.path ?? '';
@@ -117,10 +107,9 @@ export function DisclosureRow({ descriptor, attachment }: DisclosureRowProps): R
   return (
     <ExpandableRow header={header}>
       {looksLikeMarkdown(body) ? (
-        <div
-          className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }}
-        />
+        <div className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full">
+          {renderMarkdownNodes(body, 'disclosure')}
+        </div>
       ) : (
         <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
           {body}

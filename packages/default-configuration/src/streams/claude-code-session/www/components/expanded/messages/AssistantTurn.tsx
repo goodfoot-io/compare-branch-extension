@@ -13,7 +13,7 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../../../../../lib/markdown';
+import { renderMarkdownNodes } from '../../../../../lib/markdown';
 import type { ContentBlock } from '../../../lib/parse-session';
 import { ThinkingAccordion } from '../../accordions/ThinkingAccordion';
 import { isCoordinationContent } from './CoordinationLine';
@@ -37,11 +37,9 @@ export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElemen
     if (block.type === 'text' && block.text) {
       if (isCoordinationContent(block.text)) return; // skip internal orchestration noise
       bubbleChildren.push(
-        <div
-          key={`text-${i}`}
-          className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(block.text) }}
-        />
+        <div key={`text-${i}`} className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full">
+          {renderMarkdownNodes(block.text, `text-${i}`)}
+        </div>
       );
     } else if (block.type === 'thinking' && block.thinking) {
       bubbleChildren.push(<ThinkingAccordion key={`think-${i}`} thinking={block.thinking} />);

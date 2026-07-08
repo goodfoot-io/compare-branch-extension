@@ -1,0 +1,31 @@
+/* =============================================================================
+   SHARED JSON BLOCK (`.json-block` class)
+
+   Styles for `JsonBlock` (../JsonBlock.tsx) — the provider-neutral
+   pretty-printed JSON display shared by both stream renderers. Matches the
+   markdown fenced-code-block treatment (`.cc-transcript pre` / `.cx-*` code
+   blocks) so JSON reads consistently wherever it appears.
+   ============================================================================= */
+
+.json-block {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-textCodeBlock-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.json-block code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+}

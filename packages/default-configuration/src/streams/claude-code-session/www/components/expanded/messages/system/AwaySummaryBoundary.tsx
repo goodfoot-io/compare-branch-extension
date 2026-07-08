@@ -14,7 +14,7 @@
 
 import type React from 'react';
 import { ExpandableRow } from '../../../../../../lib/accordions';
-import { renderMarkdown } from '../../../../../../lib/markdown';
+import { renderMarkdownNodes } from '../../../../../../lib/markdown';
 
 interface AwaySummaryBoundaryProps {
   /** The full away-summary content shown when expanded. */
@@ -45,10 +45,9 @@ export function AwaySummaryBoundary({ content }: AwaySummaryBoundaryProps): Reac
   return (
     <div className="my-1">
       <ExpandableRow header={header}>
-        <div
-          className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-        />
+        <div className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full">
+          {renderMarkdownNodes(content, 'away-summary')}
+        </div>
       </ExpandableRow>
     </div>
   );

@@ -2,6 +2,7 @@
 @import '@vscode/codicons/dist/codicon.css';
 @import '../../lib/compact-card.css';
 @import '../../lib/accordions.css';
+@import '../../lib/json-block.css';
 
 /* =============================================================================
    TRANSCRIPT RENDERER STYLES (`.cc-*` classes)

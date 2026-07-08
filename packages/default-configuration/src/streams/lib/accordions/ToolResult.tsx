@@ -11,20 +11,11 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../markdown';
+import { looksLikeMarkdown, renderMarkdownNodes } from '../markdown';
 
 interface ToolResultProps {
   /** Result string to display. */
   result: string;
-}
-
-/**
- * Heuristic: treat result as markdown if it has heading, list, or table markers.
- * @param text - The result string to test.
- * @returns True if the text appears to contain markdown formatting.
- */
-function looksLikeMarkdown(text: string): boolean {
-  return /^#{1,6}\s|^\s*[-*]\s|^\s*\d+\.\s|^\|.+\|/m.test(text);
 }
 
 /**
@@ -47,10 +38,9 @@ export function ToolResult({ result }: ToolResultProps): React.ReactElement {
         Result
       </div>
       {isMarkdown ? (
-        <div
-          className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(result) }}
-        />
+        <div className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full">
+          {renderMarkdownNodes(result, 'tool-result')}
+        </div>
       ) : (
         <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
           {result}

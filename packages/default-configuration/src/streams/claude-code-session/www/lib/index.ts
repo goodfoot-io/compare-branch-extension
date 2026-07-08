@@ -5,6 +5,7 @@
  * @module lib/index
  */
 
+export { JsonBlock } from '../../../lib/JsonBlock';
 export * from '../../../lib/markdown';
 export * from './describe-event';
 export * from './parse-session';
