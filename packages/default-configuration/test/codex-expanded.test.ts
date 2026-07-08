@@ -914,31 +914,44 @@ describe('renderCodexTranscript — event_msg type:error renders an error item',
 // task_started / task_complete lifecycle events
 // ============================================================================
 
-describe('renderCodexTranscript — task_started and task_complete render as event_activity', () => {
-  it('renders task_started as an event_activity', () => {
+describe('renderCodexTranscript — task_started and task_complete render as dedicated items', () => {
+  it('renders task_started as its own item kind', () => {
     const line = envelope('event_msg', { type: 'task_started', turn_id: 'turn-1' });
     const items = renderCodexTranscript([line]);
-    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'task_started');
-    expect(activity).toBeDefined();
+    expect(items.some((i) => i.kind === 'task_started')).toBe(true);
   });
 
-  it('renders task_complete with a formatted duration when duration_ms is present', () => {
+  it('renders task_complete carrying durationMs when duration_ms is present', () => {
     const line = envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1', duration_ms: 65000 });
     const items = renderCodexTranscript([line]);
-    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'task_complete');
-    expect(activity?.kind).toBe('event_activity');
-    if (activity?.kind === 'event_activity') {
-      expect(activity.detailText).toContain('1m 5s');
+    const complete = items.find((i) => i.kind === 'task_complete');
+    expect(complete?.kind).toBe('task_complete');
+    if (complete?.kind === 'task_complete') {
+      expect(complete.durationMs).toBe(65000);
     }
   });
 
-  it('renders task_complete with no detailText when duration_ms is absent', () => {
+  it('renders task_complete with durationMs undefined when duration_ms is absent', () => {
     const line = envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1' });
     const items = renderCodexTranscript([line]);
-    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'task_complete');
-    expect(activity?.kind).toBe('event_activity');
-    if (activity?.kind === 'event_activity') {
-      expect(activity.detailText).toBeUndefined();
+    const complete = items.find((i) => i.kind === 'task_complete');
+    expect(complete?.kind).toBe('task_complete');
+    if (complete?.kind === 'task_complete') {
+      expect(complete.durationMs).toBeUndefined();
+    }
+  });
+
+  it('carries last_agent_message through as lastAgentMessage', () => {
+    const line = envelope('event_msg', {
+      type: 'task_complete',
+      turn_id: 'turn-1',
+      last_agent_message: 'All done, ran the tests.'
+    });
+    const items = renderCodexTranscript([line]);
+    const complete = items.find((i) => i.kind === 'task_complete');
+    expect(complete?.kind).toBe('task_complete');
+    if (complete?.kind === 'task_complete') {
+      expect(complete.lastAgentMessage).toBe('All done, ran the tests.');
     }
   });
 });
@@ -979,8 +992,8 @@ describe('renderCodexTranscript — nested compaction variants route to compacti
 // Image content placeholders
 // ============================================================================
 
-describe('renderCodexTranscript — input_image content surfaces a visible placeholder', () => {
-  it('appends an image-count placeholder to a user message containing an image', () => {
+describe('renderCodexTranscript — input_image content surfaces a visible placeholder count', () => {
+  it('sets imageCount on a user message containing an image, text unaffected', () => {
     const line = envelope('response_item', {
       type: 'message',
       role: 'user',
@@ -993,12 +1006,12 @@ describe('renderCodexTranscript — input_image content surfaces a visible place
     const user = items.find((i) => i.kind === 'user_message');
     expect(user?.kind).toBe('user_message');
     if (user?.kind === 'user_message') {
-      expect(user.text).toContain('Look at this screenshot.');
-      expect(user.text).toContain('1 image attached');
+      expect(user.text).toBe('Look at this screenshot.');
+      expect(user.imageCount).toBe(1);
     }
   });
 
-  it('renders only the placeholder when a message has images and no text', () => {
+  it('sets imageCount with empty text when a message has images and no text', () => {
     const line = envelope('response_item', {
       type: 'message',
       role: 'user',
@@ -1008,11 +1021,12 @@ describe('renderCodexTranscript — input_image content surfaces a visible place
     const user = items.find((i) => i.kind === 'user_message');
     expect(user?.kind).toBe('user_message');
     if (user?.kind === 'user_message') {
-      expect(user.text).toContain('1 image attached');
+      expect(user.text).toBe('');
+      expect(user.imageCount).toBe(1);
     }
   });
 
-  it('pluralizes the placeholder for multiple images', () => {
+  it('counts multiple images', () => {
     const line = envelope('response_item', {
       type: 'message',
       role: 'user',
@@ -1025,20 +1039,20 @@ describe('renderCodexTranscript — input_image content surfaces a visible place
     const user = items.find((i) => i.kind === 'user_message');
     expect(user?.kind).toBe('user_message');
     if (user?.kind === 'user_message') {
-      expect(user.text).toContain('2 images attached');
+      expect(user.imageCount).toBe(2);
     }
   });
 
-  it('adds no placeholder for a message with no images', () => {
+  it('leaves imageCount undefined for a message with no images', () => {
     const items = renderCodexTranscript([userMsgLine('No images here.')]);
     const user = items.find((i) => i.kind === 'user_message');
     expect(user?.kind).toBe('user_message');
     if (user?.kind === 'user_message') {
-      expect(user.text).not.toContain('attached');
+      expect(user.imageCount).toBeUndefined();
     }
   });
 
-  it('appends an image-count placeholder to a ContentItem[] tool output', () => {
+  it('sets outputImageCount on a tool_call from a ContentItem[] output containing an image', () => {
     const contentOutput = [
       { type: 'output_text', text: 'Screenshot captured.' },
       { type: 'input_image', image_url: 'data:image/png;base64,AAAA' }
@@ -1048,8 +1062,21 @@ describe('renderCodexTranscript — input_image content surfaces a visible place
     const toolCall = items.find((i) => i.kind === 'tool_call');
     expect(toolCall?.kind).toBe('tool_call');
     if (toolCall?.kind === 'tool_call') {
-      expect(toolCall.outputText).toContain('Screenshot captured.');
-      expect(toolCall.outputText).toContain('1 image attached');
+      expect(toolCall.outputText).toBe('Screenshot captured.');
+      expect(toolCall.outputImageCount).toBe(1);
+    }
+  });
+
+  it('leaves outputImageCount undefined for a tool_call output with no images', () => {
+    const lines = [
+      functionCallLine('read_file', 'call-noimg', '{}'),
+      functionCallOutputLine('call-noimg', 'plain text')
+    ];
+    const items = renderCodexTranscript(lines);
+    const toolCall = items.find((i) => i.kind === 'tool_call');
+    expect(toolCall?.kind).toBe('tool_call');
+    if (toolCall?.kind === 'tool_call') {
+      expect(toolCall.outputImageCount).toBeUndefined();
     }
   });
 });

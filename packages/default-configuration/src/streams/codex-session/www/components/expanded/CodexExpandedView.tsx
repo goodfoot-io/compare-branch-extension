@@ -12,38 +12,42 @@
  * transform itself upholds the three Codex defensive contracts — raw/pretty
  * `arguments`, `string | ContentItem[]` output, and standalone orphan outputs.
  *
- * @summary Expanded Codex session view: header + ordered transcript items
+ * This file owns only the stream-store subscription and the sticky
+ * `SessionHeader` composition; all per-item rendering (including grouping and
+ * the `deriveStatus` status derivation) lives in the store-free
+ * {@link ../TranscriptItemView} module so it stays unit-testable without a
+ * live `window.__STREAM_INIT__` host context.
+ *
+ * @summary Expanded Codex session view: sticky header + ordered transcript items
  * @module streams/codex-session/www/components/expanded/CodexExpandedView
  */
 
 import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { ToolAccordion, ToolGroup } from '../../../../lib/accordions';
-import { Boundary } from '../../../../lib/Boundary';
-import { looksLikeMarkdown, renderMarkdownNodes } from '../../../../lib/markdown';
-import { RawFallback } from '../../../../lib/RawFallback';
-import { groupToolCalls } from '../../lib/group-tool-calls';
+import { SessionHeader } from '../../../../lib/SessionHeader';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
-import { summarizeCodexTool } from '../../lib/tool-summary';
+import { deriveStatus, renderTranscriptGroups } from './TranscriptItemView';
 
 /**
- * Reads the primary stream file's lines from the store.
- * @returns The primary file's lines.
+ * Reads the primary stream file's lines and liveness from the store.
+ * @returns The primary file's lines and `isActive` flag.
  */
-function readPrimaryLines(): string[] {
+function readPrimary(): { lines: string[]; isActive: boolean } {
   const s = streamStore.getState();
   const file = s.files.get(s.primary);
-  return file ? file.lines : [];
+  return { lines: file ? file.lines : [], isActive: file?.meta.isActive ?? false };
 }
 
 /**
- * Renders the ordered transcript items for a Codex session.
+ * Renders the ordered transcript items for a Codex session, with a sticky
+ * {@link SessionHeader} above the scrolling transcript body.
  * @returns Rendered expanded transcript view element.
  */
 export function CodexExpandedView(): React.ReactElement {
-  const [items, setItems] = useState<TranscriptItem[]>(() => renderCodexTranscript(readPrimaryLines()));
+  const [items, setItems] = useState<TranscriptItem[]>(() => renderCodexTranscript(readPrimary().lines));
+  const [isActive, setIsActive] = useState<boolean>(() => readPrimary().isActive);
 
   // Bootstrap-then-subscribe. Rebuilding from the full line array on every
   // update keeps append and reset both correct: appends re-derive prior items
@@ -51,214 +55,35 @@ export function CodexExpandedView(): React.ReactElement {
   // strictly smaller list (so stale items are discarded).
   useEffect(() => {
     const sync = (): void => {
-      setItems(renderCodexTranscript(readPrimaryLines()));
+      const primary = readPrimary();
+      setItems(renderCodexTranscript(primary.lines));
+      setIsActive(primary.isActive);
     };
     sync();
     return streamStore.subscribe(sync);
   }, []);
 
-  if (items.length === 0) {
-    return <div className="cx-empty">No Codex session activity yet.</div>;
-  }
+  const header = items.find(
+    (item): item is Extract<TranscriptItem, { kind: 'session_header' }> => item.kind === 'session_header'
+  );
+  const status = deriveStatus(items, isActive);
 
-  return <div className="cx-transcript font-vscode-editor">{renderTranscriptGroups(items)}</div>;
-}
-
-/**
- * Renders the flat transcript items, coalescing consecutive `tool_call` runs
- * into a single shared {@link ToolGroup} (see {@link groupToolCalls}). A
- * running counter reproduces each item's original array index for
- * {@link itemKey} — `groupToolCalls` neither drops nor reorders items, so the
- * counter advances in lockstep with the source array as groups are unpacked.
- * @param items - The flat transcript items from `renderCodexTranscript`.
- * @returns The rendered transcript nodes, tool_call runs wrapped in ToolGroup.
- */
-function renderTranscriptGroups(items: TranscriptItem[]): React.ReactElement[] {
-  const nodes: React.ReactElement[] = [];
-  let index = 0;
-  let toolGroupKey = 0;
-
-  for (const group of groupToolCalls(items)) {
-    if (group.kind === 'tool_run') {
-      const children = group.items.map((item) => {
-        const el = <TranscriptItemView key={itemKey(item, index)} item={item} />;
-        index += 1;
-        return el;
-      });
-      nodes.push(<ToolGroup key={`tool-group-${toolGroupKey++}`}>{children}</ToolGroup>);
-    } else {
-      nodes.push(<TranscriptItemView key={itemKey(group.item, index)} item={group.item} />);
-      index += 1;
-    }
-  }
-
-  return nodes;
-}
-
-/**
- * Derives a stable-enough React key for a transcript item from its kind and a
- * discriminating field, suffixed with its index so duplicates stay distinct.
- * @param item - The transcript item.
- * @param index - The item's position in the list.
- * @returns A string key.
- */
-function itemKey(item: TranscriptItem, index: number): string {
-  switch (item.kind) {
-    case 'tool_call':
-    case 'orphan_output':
-      return `${index}:${item.kind}:${item.callId}`;
-    case 'session_header':
-      return `${index}:session_header`;
-    default:
-      return `${index}:${item.kind}`;
-  }
-}
-
-/**
- * Renders a single {@link TranscriptItem} per its discriminated kind.
- * @param root0 - The component props.
- * @param root0.item - The transcript item to render.
- * @returns The rendered item, or null for a kind with nothing to show.
- */
-function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElement | null {
-  switch (item.kind) {
-    case 'session_header':
-      return (
-        <div className="cx-header">
-          {item.model !== undefined && (
-            <span>
-              <span className="cx-header-key">model</span> {item.model}
-            </span>
-          )}
-          {item.provider !== undefined && (
-            <span>
-              <span className="cx-header-key">provider</span> {item.provider}
-            </span>
-          )}
-          {item.threadId !== undefined && (
-            <span>
-              <span className="cx-header-key">thread</span> {item.threadId}
-            </span>
-          )}
-          {item.cwd !== undefined && (
-            <span>
-              <span className="cx-header-key">cwd</span> {item.cwd}
-            </span>
-          )}
-          {item.timestamp !== undefined && (
-            <span>
-              <span className="cx-header-key">started</span> {item.timestamp}
-            </span>
-          )}
-        </div>
-      );
-
-    case 'user_message':
-      return (
-        <div className="cx-item cx-user">
-          <div className="cx-role-label">User</div>
-          <div className="cx-message-text">{renderMarkdownNodes(item.text, 'user')}</div>
-        </div>
-      );
-
-    case 'assistant_message':
-      return (
-        <div className="cx-item cx-assistant">
-          <div className="cx-role-label">Assistant</div>
-          <div className="cx-message-text">{renderMarkdownNodes(item.text, 'assistant')}</div>
-        </div>
-      );
-
-    case 'reasoning':
-      return (
-        <div className="cx-item cx-reasoning">
-          <div className="cx-role-label">Reasoning</div>
-          {item.summaryText.length > 0 && (
-            <div className="cx-message-text">{renderMarkdownNodes(item.summaryText, 'reasoning-summary')}</div>
-          )}
-          {item.contentText !== undefined && item.contentText.length > 0 && (
-            <div className="cx-message-text cx-reasoning-content">
-              {renderMarkdownNodes(item.contentText, 'reasoning-content')}
-            </div>
-          )}
-        </div>
-      );
-
-    case 'tool_call':
-      return (
-        <ToolAccordion
-          toolName={item.name}
-          summary={summarizeCodexTool(item.name, item.argumentsText)}
-          input={{}}
-          result={item.hasOutput && item.outputText !== undefined ? item.outputText : null}
-          severity={item.severity}
-          errorLabel={item.errorLabel}
-          rawArgs={
-            item.argumentsText.length > 0
-              ? {
-                  label: (item.argsLabel ?? 'arguments') + (item.prettyPrinted ? '' : ' (raw)'),
-                  text: item.argumentsText
-                }
-              : undefined
-          }
-        />
-      );
-
-    case 'orphan_output':
-      return (
-        <div className="cx-orphan">
-          <div className="cx-tool-output-label">output (call {item.callId})</div>
-          {looksLikeMarkdown(item.outputText) ? (
-            <div className="cx-message-text cx-orphan-text">
-              {renderMarkdownNodes(item.outputText, `orphan-${item.callId}`)}
-            </div>
-          ) : (
-            <pre className="cx-pre">{item.outputText}</pre>
-          )}
-        </div>
-      );
-
-    case 'turn_boundary':
-      return <Boundary kind="turn" label={item.turnId !== undefined ? `Turn ${item.turnId}` : 'Turn'} />;
-
-    case 'compaction':
-      return (
-        <>
-          <Boundary kind="compaction" label="Context compacted" />
-          {item.message.length > 0 && (
-            <div className="cx-message-text cx-compaction-detail">
-              {renderMarkdownNodes(item.message, 'compaction')}
-            </div>
-          )}
-        </>
-      );
-
-    case 'error':
-      return <RawFallback data={item.message} label="Error" severity="error" />;
-
-    case 'event_activity':
-      return (
-        <div className="cx-event">
-          <div className="cx-event-label">{item.label}</div>
-          {item.detailText !== undefined &&
-            item.detailText.length > 0 &&
-            (item.label === 'plan_update' && looksLikeMarkdown(item.detailText) ? (
-              <div className="cx-message-text cx-event-detail">
-                {renderMarkdownNodes(item.detailText, 'plan-update')}
-              </div>
-            ) : (
-              <pre className="cx-pre">{item.detailText}</pre>
-            ))}
-        </div>
-      );
-
-    case 'unknown_item':
-      return <RawFallback data={item.raw} label="Unrecognized item" severity="info" />;
-
-    case 'malformed':
-      return <RawFallback data={item.rawLine} label="Malformed line" severity="warning" />;
-
-    default:
-      return null;
-  }
+  return (
+    <div className="h-full flex flex-col min-h-0 overflow-hidden">
+      <SessionHeader
+        model={header?.model ?? ''}
+        cwd={header?.cwd ?? ''}
+        status={status}
+        provider={header?.provider}
+        threadId={header?.threadId}
+      />
+      <div className="cx-transcript font-vscode-editor flex-1 min-h-0 overflow-y-auto">
+        {items.length === 0 ? (
+          <div className="cx-empty">No Codex session activity yet.</div>
+        ) : (
+          renderTranscriptGroups(items)
+        )}
+      </div>
+    </div>
+  );
 }

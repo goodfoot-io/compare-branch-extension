@@ -13,9 +13,15 @@
    no direct `--vscode-*` reads and no literal colors — so this renderer's
    surfaces, text, and accents stay in lockstep with claude-code-session's
    `.cc-*` styling and any future token change updates both at once. Structural
-   markers (turn/compaction) and unrecognized/error content route through the
-   shared `Boundary`/`RawFallback`/`JsonBlock` components (boundary.css /
-   json-block.css, imported above) rather than bespoke `.cx-*` boxes.
+   markers (turn/result/compaction) and unrecognized/error content route
+   through the shared `Boundary`/`RawFallback`/`JsonBlock`/`SessionHeader`/
+   `ReasoningAccordion` components (imported above / from streams/lib) rather
+   than bespoke `.cx-*` boxes.
+
+   `.stream-turn`/`.stream-turn--user`/`.stream-turn--assistant`/
+   `.stream-role-label` are the shared turn-anatomy classes from the visual
+   design spec — duplicated here (not yet lifted into streams/lib) so both
+   renderers render byte-identical turn markup independently for now.
    ============================================================================= */
 
 html,
@@ -47,9 +53,10 @@ body.mode-compact {
 /* ============================================================================
    Expanded transcript
 
-   An ordered list of Codex rollout items: session header, user/assistant
-   messages, reasoning, tool calls with paired outputs, orphan outputs, and
-   readable raw fallbacks for unknown/malformed lines.
+   A sticky shared SessionHeader (rendered by the component, styled entirely
+   within streams/lib) above a scrolling ordered list of Codex rollout items:
+   turns, reasoning, tool calls with paired outputs, orphan outputs, structural
+   boundaries, and readable fallbacks for errors/unknown/malformed content.
    ============================================================================ */
 body.mode-expanded {
   margin: 0;
@@ -63,39 +70,33 @@ body.mode-expanded {
   box-sizing: border-box;
 }
 
-.cx-header {
+/* ----------------------------------------------------------------------------
+   Turn anatomy (shared pattern — see the module doc comment above)
+   ---------------------------------------------------------------------------- */
+.stream-role-label {
   font-size: var(--stream-text-label);
-  color: var(--stream-fg-muted);
-  padding: 6px 8px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--stream-border-subtle);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.cx-header .cx-header-key {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   font-weight: 600;
-  color: var(--stream-fg);
+  color: var(--stream-role-label-fg);
+  margin-bottom: 3px;
 }
 
-.cx-item {
+.stream-turn {
   margin-bottom: 10px;
 }
 
-.cx-role-label {
-  font-size: var(--stream-text-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-weight: 700;
-  margin-bottom: 3px;
-  color: var(--stream-role-label-fg);
+.stream-turn--user {
+  background: var(--stream-role-user-tint);
+  max-width: 85%;
+  margin-left: auto;
+  padding: 12px;
+  border-radius: 4px;
 }
-/* User/assistant already read apart by the message-bubble background (see
-   `.cx-item.cx-user .cx-message-text`) and alignment, so the label itself stays
-   on the primary-foreground tier rather than adding a redundant hue. Reasoning
-   drops a tier to muted, matching its italic/dimmed body. */
-.cx-item.cx-reasoning .cx-role-label {
-  color: var(--stream-fg-muted);
+
+.stream-turn--assistant {
+  background: var(--stream-role-assistant-tint);
+  width: 100%;
 }
 
 .cx-message-text {
@@ -169,6 +170,11 @@ body.mode-expanded {
 .cx-message-text li {
   margin-bottom: 0.1em;
 }
+
+/* Heading ladder — matches claude-code-session's `.cc-transcript` sizes/margins
+   exactly (2em/1.5em/1.25em/1em/0.875em/0.85em) so both renderers' markdown
+   content reads at the same visual scale. Borders read the single
+   `--stream-border-subtle` token directly rather than per-theme overrides. */
 .cx-message-text h1,
 .cx-message-text h2,
 .cx-message-text h3,
@@ -176,23 +182,32 @@ body.mode-expanded {
 .cx-message-text h5,
 .cx-message-text h6 {
   font-weight: 600;
-  margin: 0.9em 0 0.5em;
+  margin-top: 20px;
+  margin-bottom: 14px;
   line-height: 1.25;
   color: var(--stream-fg);
 }
 .cx-message-text h1 {
-  font-size: 1.4em;
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--stream-border-subtle);
 }
 .cx-message-text h2 {
-  font-size: 1.25em;
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--stream-border-subtle);
 }
 .cx-message-text h3 {
-  font-size: 1.1em;
+  font-size: 1.25em;
 }
-.cx-message-text h4,
-.cx-message-text h5,
-.cx-message-text h6 {
+.cx-message-text h4 {
   font-size: 1em;
+}
+.cx-message-text h5 {
+  font-size: 0.875em;
+}
+.cx-message-text h6 {
+  font-size: 0.85em;
 }
 .cx-message-text table {
   border-collapse: collapse;
@@ -216,31 +231,14 @@ body.mode-expanded {
 .cx-message-text hr {
   border: 0;
   height: 1px;
-  background: var(--stream-border-subtle);
+  border-bottom: 1px solid var(--stream-border-subtle);
   margin: 0.75em 0;
-}
-
-.cx-item.cx-user .cx-message-text {
-  background: var(--stream-role-user-tint);
-  border-radius: 6px;
-  padding: 10px 12px;
-  width: 75%;
-  margin-left: auto;
-}
-
-.cx-reasoning .cx-message-text {
-  font-style: italic;
-  color: var(--stream-fg-muted);
-  border-left: 2px solid var(--stream-fg-muted);
-  padding-left: 8px;
 }
 
 /* Tool calls now render through the shared cc-* ToolAccordion/ToolGroup
    (accordions.css, @imported above); `.cx-pre` (still used by the non-markdown
    branch of orphan_output/event_activity) and `.cx-tool-output-label` (still
-   used by the orphan_output block) remain. Unknown/malformed/error content
-   now routes through the shared `RawFallback`/`JsonBlock` components instead
-   of a bespoke `.cx-raw` box. */
+   used by the orphan_output block) remain. */
 .cx-pre {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: var(--stream-text-code);
@@ -254,7 +252,7 @@ body.mode-expanded {
   tab-size: 4;
 }
 .cx-tool-output-label {
-  font-size: var(--stream-text-micro);
+  font-size: var(--stream-text-label);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--stream-fg-muted);
@@ -273,20 +271,54 @@ body.mode-expanded {
   padding: 3px 10px 8px;
 }
 
-/* Reasoning detail content rendered alongside the summary. */
-.cx-reasoning-content {
-  margin-top: 4px;
-  font-style: normal;
-  color: var(--stream-fg);
-}
-
 /* Compaction detail body (below the shared Boundary marker), when the
    underlying compacted line carried a human-readable message. */
 .cx-compaction-detail {
   margin: -4px 0 10px;
 }
 
-/* Persisted high-level event activity (mcp/web_search/image/patch/plan/task). */
+/* Session-level error event (event_msg type:'error') — the only `.cx-*`
+   content block escalated to the error severity color; unknown/malformed
+   content (below) stays at info/warning via the shared RawFallback. */
+.cx-error-block {
+  padding: 4px 0 8px 10px;
+  margin-bottom: 10px;
+  border-left: 2px solid var(--stream-severity-error-fg);
+}
+.cx-error-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--stream-text-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--stream-severity-error-fg);
+  margin-bottom: 3px;
+}
+
+/* Muted single-line status markers (task_started, task_complete's optional
+   last-agent-message recap) — italic via the shared .stream-status-line
+   (accordions.css), laid out here since neither carries an icon by default. */
+.cx-status-line {
+  color: var(--stream-fg-muted);
+  font-size: var(--stream-text-label);
+  padding: 2px 0 10px;
+}
+
+/* Visible placeholder for input_image content items dropped from text
+   extraction (messages and tool outputs) — icon + muted status line so an
+   attached image is never silently lost. */
+.cx-image-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--stream-fg-muted);
+  font-size: var(--stream-text-label);
+  margin-top: 4px;
+}
+
+/* Persisted high-level event activity (mcp/web_search/image/patch/plan). */
 .cx-event {
   border: 1px solid var(--stream-border);
   border-radius: 4px;
@@ -294,7 +326,7 @@ body.mode-expanded {
   overflow: hidden;
 }
 .cx-event-label {
-  font-size: var(--stream-text-micro);
+  font-size: var(--stream-text-label);
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--stream-fg);

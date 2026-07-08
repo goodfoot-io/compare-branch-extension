@@ -19,7 +19,6 @@
  * @module streams/codex-session/www/lib/render-transcript
  */
 
-import { formatDuration } from '../../../lib/compact-facts.js';
 import { countImageItems, createTurnDedupMatcher, extractMessageText } from './dedup.js';
 import type { ContentItem, EventMsgPayload, ResponseItemPayload } from './parser.js';
 import { type CodexRolloutLine, parseCodexLine } from './parser.js';
@@ -29,8 +28,8 @@ import { type CodexRolloutLine, parseCodexLine } from './parser.js';
  */
 export type TranscriptItem =
   | { kind: 'session_header'; model?: string; provider?: string; threadId?: string; cwd?: string; timestamp?: string }
-  | { kind: 'user_message'; text: string; timestamp?: string }
-  | { kind: 'assistant_message'; text: string; timestamp?: string }
+  | { kind: 'user_message'; text: string; imageCount?: number; timestamp?: string }
+  | { kind: 'assistant_message'; text: string; imageCount?: number; timestamp?: string }
   | { kind: 'reasoning'; summaryText: string; contentText?: string; timestamp?: string }
   | {
       kind: 'tool_call';
@@ -41,17 +40,21 @@ export type TranscriptItem =
       prettyPrinted: boolean;
       outputText?: string;
       hasOutput: boolean;
+      /** Count of `input_image` items dropped from an array-shaped paired output's text extraction. */
+      outputImageCount?: number;
       /** Failure escalation for the collapsed-header row (see {@link shellExitSeverity}). */
       severity?: 'normal' | 'error';
       /** Preview text shown when `severity` is `'error'` (e.g. `'✗ exit 1'`, `'patch failed'`). */
       errorLabel?: string;
       timestamp?: string;
     }
-  | { kind: 'orphan_output'; callId: string; outputText: string; timestamp?: string }
+  | { kind: 'orphan_output'; callId: string; outputText: string; imageCount?: number; timestamp?: string }
   | { kind: 'turn_boundary'; turnId?: string; timestamp?: string }
   | { kind: 'compaction'; message: string; timestamp?: string }
   | { kind: 'event_activity'; label: string; detailText?: string; timestamp?: string }
   | { kind: 'error'; message: string; timestamp?: string }
+  | { kind: 'task_started'; timestamp?: string }
+  | { kind: 'task_complete'; durationMs?: number; lastAgentMessage?: string; timestamp?: string }
   | { kind: 'unknown_item'; raw: unknown; timestamp?: string }
   | { kind: 'malformed'; rawLine: string };
 
@@ -143,6 +146,7 @@ export function renderCodexTranscript(lines: string[]): TranscriptItem[] {
           if (target !== undefined && target.kind === 'tool_call') {
             target.outputText = item.outputText;
             target.hasOutput = true;
+            target.outputImageCount = item.imageCount;
             if (target.name === 'shell' || target.name === 'local_shell_call') {
               const outcome = shellExitSeverity(target.outputText);
               target.severity = outcome.severity;
@@ -380,20 +384,6 @@ export function eventActivity(
       return { kind: 'event_activity', label: 'plan_update', detailText: summary };
     }
 
-    case 'task_started':
-      // Turn lifecycle marker. No structured detail on the wire beyond
-      // `turn_id`, already shown by the adjacent `turn_boundary` item.
-      return { kind: 'event_activity', label: 'task_started' };
-
-    case 'task_complete': {
-      const durationMs = typeof payload['duration_ms'] === 'number' ? payload['duration_ms'] : undefined;
-      return {
-        kind: 'event_activity',
-        label: 'task_complete',
-        detailText: durationMs !== undefined ? `duration: ${formatDuration(durationMs)}` : undefined
-      };
-    }
-
     default:
       return undefined;
   }
@@ -454,10 +444,11 @@ export function parseArguments(raw: string): { text: string; prettyPrinted: bool
  * `custom_tool_call_output` output value (`string | ContentItem[]`).
  *
  * A plain string is returned as-is. A `ContentItem[]` has its `input_text`
- * and `output_text` items concatenated in source order, with a visible
- * placeholder appended for any `input_image` items the concatenation drops
- * (see {@link withImagePlaceholder}) so an image-bearing output is never
- * silently thinned to just its text. Neither shape throws on the other.
+ * and `output_text` items concatenated in source order. `input_image` items
+ * are dropped from this text (see {@link extractMessageText}) — callers pair
+ * this with {@link extractOutputImageCount} so the dropped count can be
+ * rendered as a visible placeholder rather than being silently lost. Neither
+ * shape throws on the other.
  *
  * @param output - The output value from the function call output payload.
  * @returns The flat display string.
@@ -467,29 +458,34 @@ export function extractOutputText(output: unknown): string {
     return output;
   }
   if (Array.isArray(output)) {
-    const content = output as ContentItem[];
-    return withImagePlaceholder(extractMessageText(content), countImageItems(content));
+    return extractMessageText(output as ContentItem[]);
   }
   return '';
 }
 
 /**
- * Appends a visible `_[N image(s) attached]_` placeholder to `text` when
- * `imageCount` is positive, so content that dropped `input_image` items (see
- * {@link extractMessageText}, {@link countImageItems}) never reads as if
- * nothing was there. The placeholder uses markdown emphasis syntax since
- * every caller renders through `renderMarkdownNodes`.
+ * Counts the `input_image` items an array-shaped output value carries, so a
+ * caller can render a visible placeholder for what {@link extractOutputText}
+ * drops from its text concatenation. A string output (never an array) has no
+ * images to count.
  *
- * @param text - The already-extracted text (may be empty).
- * @param imageCount - The number of `input_image` items dropped from the source content.
- * @returns `text` unchanged when `imageCount` is 0; otherwise `text` with the placeholder appended.
+ * @param output - The output value from the function call output payload.
+ * @returns The number of `input_image` items, or `0` for a string output.
  */
-function withImagePlaceholder(text: string, imageCount: number): string {
-  if (imageCount <= 0) {
-    return text;
-  }
-  const placeholder = `_[${imageCount} image${imageCount === 1 ? '' : 's'} attached]_`;
-  return text.length > 0 ? `${text}\n\n${placeholder}` : placeholder;
+export function extractOutputImageCount(output: unknown): number {
+  return Array.isArray(output) ? countImageItems(output as ContentItem[]) : 0;
+}
+
+/**
+ * Returns `count` when positive, or `undefined` — the convention this module
+ * follows throughout for optional numeric fields (a missing count is omitted
+ * rather than rendered as a literal `0`).
+ *
+ * @param count - The raw count.
+ * @returns `count` when `> 0`, otherwise `undefined`.
+ */
+function positiveOrUndefined(count: number): number | undefined {
+  return count > 0 ? count : undefined;
 }
 
 /**
@@ -622,9 +618,18 @@ function eventMsgToItems(rawPayload: EventMsgPayload, timestamp: string): Transc
     // lines carry.
     return [{ kind: 'error', message, timestamp: ts }];
   }
-  // Persisted high-level tool-activity/lifecycle events (mcp/web_search/image/
-  // patch/plan/task) render as event_activity; all other event_msg types
-  // (e.g. token_count, folded separately into the compact card) produce no item.
+  if (payload.type === 'task_started') {
+    return [{ kind: 'task_started', timestamp: ts }];
+  }
+  if (payload.type === 'task_complete') {
+    const durationMs = typeof payload['duration_ms'] === 'number' ? payload['duration_ms'] : undefined;
+    const lastAgentMessage =
+      typeof payload['last_agent_message'] === 'string' ? payload['last_agent_message'] : undefined;
+    return [{ kind: 'task_complete', durationMs, lastAgentMessage, timestamp: ts }];
+  }
+  // Persisted high-level tool-activity events (mcp/web_search/image/patch/plan)
+  // render as event_activity; all other event_msg types (e.g. token_count,
+  // folded separately into the compact card) produce no item.
   const activity = eventActivity(payload);
   if (activity !== undefined) {
     return [{ ...activity, timestamp: ts }];
@@ -689,11 +694,12 @@ function responseItemToItems(rawPayload: ResponseItemPayload, timestamp: string)
   switch (payload.type) {
     case 'message': {
       const content = Array.isArray(payload['content']) ? (payload['content'] as ContentItem[]) : [];
-      const text = withImagePlaceholder(extractMessageText(content), countImageItems(content));
+      const text = extractMessageText(content);
+      const imageCount = positiveOrUndefined(countImageItems(content));
       if (payload['role'] === 'user') {
-        return [{ kind: 'user_message', text, timestamp: ts }];
+        return [{ kind: 'user_message', text, imageCount, timestamp: ts }];
       }
-      return [{ kind: 'assistant_message', text, timestamp: ts }];
+      return [{ kind: 'assistant_message', text, imageCount, timestamp: ts }];
     }
 
     case 'reasoning': {
@@ -737,7 +743,8 @@ function responseItemToItems(rawPayload: ResponseItemPayload, timestamp: string)
     case 'tool_search_output': {
       const callId = typeof payload['call_id'] === 'string' ? payload['call_id'] : '';
       const outputText = extractOutputText(payload['output']);
-      return [{ kind: 'orphan_output', callId, outputText, timestamp: ts }];
+      const imageCount = positiveOrUndefined(extractOutputImageCount(payload['output']));
+      return [{ kind: 'orphan_output', callId, outputText, imageCount, timestamp: ts }];
     }
 
     // Mid-turn compaction markers. These nested response_item variants carry
