@@ -1,6 +1,7 @@
 @import '@cards.management/web/styles';
 @import '@vscode/codicons/dist/codicon.css';
 @import '../../lib/compact-card.css';
+@import '../../lib/accordions.css';
 
 /* =============================================================================
    TRANSCRIPT RENDERER STYLES (`.cc-*` classes)
@@ -485,41 +486,15 @@ body {
   margin-top: 1.25rem;
 }
 
-/* Thin divider between consecutive tool rows inside a ToolGroup */
-.cc-tool-group > .cc-tool-row + .cc-tool-row {
-  border-top: 1px solid var(--vscode-panel-border);
-}
+/* Accordion styles (cc-tool-*, cc-accordion-*, cc-chevron, cc-tool-val-clip)
+   now live in ../../lib/accordions.css (imported above) so every stream
+   renderer shares byte-identical accordion classes. */
 
 @layer components {
-  /* Accordion open/close transition */
-  .cc-accordion-body {
-    opacity: 0;
-    transition: opacity 0.1s ease;
-  }
-
-  .cc-accordion-body.open {
-    opacity: 1;
-  }
-
-  /* Chevron rotation on accordion toggle */
-  .cc-chevron {
-    transition: transform 0.15s;
-    display: inline-block;
-  }
-
-  .cc-accordion.open .cc-chevron {
-    transform: rotate(90deg);
-  }
-
   /* Gradient-fade clipping for long content */
   .cc-fade-clip {
     mask-image: linear-gradient(to bottom, black 110px, transparent 155px);
     -webkit-mask-image: linear-gradient(to bottom, black 110px, transparent 155px);
-  }
-
-  .cc-tool-val-clip {
-    mask-image: linear-gradient(to bottom, black 40px, transparent 58px);
-    -webkit-mask-image: linear-gradient(to bottom, black 40px, transparent 58px);
   }
 
   .cc-result-clip {

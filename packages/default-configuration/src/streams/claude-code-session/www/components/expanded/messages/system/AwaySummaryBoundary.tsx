@@ -13,8 +13,8 @@
  */
 
 import type React from 'react';
+import { ExpandableRow } from '../../../../../../lib/accordions';
 import { renderMarkdown } from '../../../../../../lib/markdown';
-import { ExpandableRow } from '../../../accordions/ExpandableRow';
 
 interface AwaySummaryBoundaryProps {
   /** The full away-summary content shown when expanded. */

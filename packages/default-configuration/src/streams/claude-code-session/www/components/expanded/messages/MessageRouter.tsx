@@ -13,11 +13,11 @@
  */
 
 import type React from 'react';
+import { ToolGroup } from '../../../../../lib/accordions';
 import { StatusLine } from '../../../../../lib/status-line';
 import { classifyAttachment } from '../../../lib/classify-attachment';
 import type { AttachmentPayload, ContentBlock, SessionMsg } from '../../../lib/parse-session';
 import { ToolAccordion } from '../../accordions/ToolAccordion';
-import { ToolGroup } from '../../accordions/ToolGroup';
 import { AmbientGroup, AmbientRow } from './AmbientGroup';
 import { AssistantTurn } from './AssistantTurn';
 import { AuthStatus } from './AuthStatus';

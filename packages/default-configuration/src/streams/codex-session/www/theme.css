@@ -1,6 +1,7 @@
 @import '@cards.management/web/styles';
 @import '@vscode/codicons/dist/codicon.css';
 @import '../../lib/compact-card.css';
+@import '../../lib/accordions.css';
 
 /* =============================================================================
    CODEX SESSION RENDERER STYLES (`.cx-*` classes)

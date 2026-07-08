@@ -18,6 +18,7 @@
  */
 
 import type React from 'react';
+import { ExpandableRow } from '../../../../../../lib/accordions';
 import { renderMarkdown } from '../../../../../../lib/markdown';
 import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
 import type {
@@ -27,7 +28,6 @@ import type {
   NestedMemoryAttachment,
   SkillListingAttachment
 } from '../../../../lib/parse-session';
-import { ExpandableRow } from '../../../accordions/ExpandableRow';
 
 interface DisclosureRowProps {
   /** The classifier descriptor for this attachment. */

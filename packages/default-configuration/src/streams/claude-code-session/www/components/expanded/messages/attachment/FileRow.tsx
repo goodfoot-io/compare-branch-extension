@@ -21,6 +21,7 @@
  */
 
 import type React from 'react';
+import { ExpandableRow } from '../../../../../../lib/accordions';
 import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
 import type {
   AttachmentPayload,
@@ -29,7 +30,6 @@ import type {
   QueuedCommandAttachment,
   SelectedLinesInIdeAttachment
 } from '../../../../lib/parse-session';
-import { ExpandableRow } from '../../../accordions/ExpandableRow';
 
 interface FileRowProps {
   /** The classifier descriptor for this attachment. */

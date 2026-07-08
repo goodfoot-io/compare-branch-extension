@@ -1,22 +1,33 @@
 /**
- * Collapsible tool call accordion for the expanded transcript.
+ * Claude-specific wrapper around the shared, provider-neutral tool accordion.
  *
- * Renders as a timeline row (no box, no background fill) with a tool name,
- * input preview, and chevron. Expands to reveal the full input table and
- * result section.
+ * Keeps the same module path and export name (`ToolAccordion`) as before the
+ * lift so `MessageRouter.tsx`'s referential `node.type === ToolAccordion`
+ * tool-run grouping check keeps working unchanged. This wrapper owns every
+ * Claude-specific concern — preview summarization, hook-driven escalation,
+ * the Skill input-hiding rule, and nesting the {@link HookSection} footer —
+ * then delegates all rendering to the shared `ToolAccordion`.
  *
- * @summary Tool timeline row: name + preview + chevron, expands to input/result
+ * @summary Claude wrapper: computes preview/escalation/footer, renders the shared accordion
  * @module components/accordions/ToolAccordion
  */
 
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { ToolAccordion as SharedToolAccordion, type ToolSeverity } from '../../../../lib/accordions';
 import { truncate } from '../../../../lib/markdown';
 import type { AttachmentPayload, HookBlockingErrorAttachment } from '../../lib/parse-session';
 import { summarizeTool } from '../../lib/tool-summary';
 import { HookSection } from './HookSection';
-import { ToolInputTable } from './ToolInputTable';
-import { ToolResult } from './ToolResult';
+
+/** Input keys skipped in the tool input table (shown elsewhere or redundant). */
+const SKIP_INPUT_KEYS = new Set([
+  'description',
+  'timeout',
+  'dangerouslyDisableSandbox',
+  'run_in_background',
+  'saveAllEditors',
+  'summary'
+]);
 
 interface ToolAccordionProps {
   /** Name of the tool that was called. */
@@ -59,96 +70,32 @@ export function ToolAccordion({
   supplementalResult,
   hooks
 }: ToolAccordionProps): React.ReactElement {
-  const [open, setOpen] = useState(false);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const displayResult = supplementalResult ?? result;
   const blockingHook = findBlockingHook(hooks);
-  const escalated = blockingHook !== undefined;
-  const hasHooks = hooks !== undefined && hooks.length > 0;
+  const severity: ToolSeverity = blockingHook !== undefined ? 'error' : 'normal';
+  const errorLabel = blockingHook !== undefined ? `✗ blocked by ${blockingHook.hookName}` : undefined;
 
   // Build preview string from summarizeTool or first input value
-  let previewStr = summarizeTool(toolName, input);
-  if (!previewStr) {
+  let summary = summarizeTool(toolName, input);
+  if (!summary) {
     const entries = Object.entries(input);
     if (entries.length > 0) {
       const [, firstVal] = entries[0] as [string, unknown];
       const valStr = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal);
-      previewStr = truncate(valStr, 60);
+      summary = truncate(valStr, 60);
     }
   }
 
-  const handleToggle = useCallback(() => {
-    setOpen((prev) => {
-      const next = !prev;
-      if (next && bodyRef.current) {
-        const el = bodyRef.current;
-        el.style.opacity = '0';
-        requestAnimationFrame(() => {
-          el.style.opacity = '1';
-        });
-      }
-      return next;
-    });
-  }, []);
-
   return (
-    <div
-      className="cc-tool-row overflow-hidden"
-      style={escalated ? { borderLeft: '2px solid var(--vscode-errorForeground)' } : undefined}
-    >
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={handleToggle}
-        className="flex items-center gap-2 w-full text-left bg-transparent border-none font-vscode text-[11px] cursor-pointer"
-        style={{ color: 'var(--vscode-foreground)' }}
-      >
-        <span
-          className="shrink-0 pr-2"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            paddingTop: '6px',
-            paddingBottom: '6px',
-            color: 'var(--vscode-disabledForeground)',
-            borderRight: '1px solid var(--vscode-panel-border)'
-          }}
-        >
-          <span
-            title={toolName}
-            style={{
-              display: 'inline-block',
-              width: '8rem',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {toolName}
-          </span>
-        </span>
-        <span
-          className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-          style={{ color: escalated ? 'var(--vscode-errorForeground)' : 'var(--vscode-disabledForeground)' }}
-        >
-          {escalated ? `✗ blocked by ${blockingHook?.hookName ?? ''}` : previewStr}
-        </span>
-        <span
-          className="cc-chevron shrink-0"
-          style={{ color: 'var(--vscode-disabledForeground)', transform: open ? 'rotate(90deg)' : undefined }}
-        >
-          ▷
-        </span>
-      </button>
-      <div
-        ref={bodyRef}
-        className="cc-accordion-body"
-        style={{ display: open ? 'block' : 'none', opacity: open ? 1 : 0, transition: 'opacity 0.1s ease' }}
-      >
-        <ToolInputTable toolName={toolName} input={input} />
-        {displayResult !== null && displayResult !== undefined && <ToolResult result={displayResult} />}
-        {hasHooks && hooks !== undefined && <HookSection hooks={hooks} />}
-      </div>
-    </div>
+    <SharedToolAccordion
+      toolName={toolName}
+      summary={summary}
+      input={input}
+      inputSkipKeys={SKIP_INPUT_KEYS}
+      hideInput={toolName === 'Skill'}
+      result={supplementalResult ?? result}
+      severity={severity}
+      errorLabel={errorLabel}
+      footer={hooks !== undefined && hooks.length > 0 ? <HookSection hooks={hooks} /> : undefined}
+    />
   );
 }

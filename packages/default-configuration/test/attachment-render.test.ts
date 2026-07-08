@@ -23,12 +23,12 @@
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import { ToolAccordion } from '../src/streams/claude-code-session/www/components/accordions/ToolAccordion.js';
-import { ToolGroup } from '../src/streams/claude-code-session/www/components/accordions/ToolGroup.js';
 import { AmbientGroup } from '../src/streams/claude-code-session/www/components/expanded/messages/AmbientGroup.js';
 import { AttachmentRouter } from '../src/streams/claude-code-session/www/components/expanded/messages/attachment/AttachmentRouter.js';
 import { MessageRouter } from '../src/streams/claude-code-session/www/components/expanded/messages/MessageRouter.js';
 import { classifyAttachment } from '../src/streams/claude-code-session/www/lib/classify-attachment.js';
 import type { AttachmentPayload, SessionMsg } from '../src/streams/claude-code-session/www/lib/parse-session.js';
+import { ToolGroup } from '../src/streams/lib/accordions/ToolGroup.js';
 
 // ============================================================================
 // Element-tree traversal helpers

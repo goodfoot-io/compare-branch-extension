@@ -17,6 +17,7 @@
  */
 
 import type React from 'react';
+import { ExpandableRow } from '../../../../../../lib/accordions';
 import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
 import type {
   AttachmentPayload,
@@ -26,7 +27,6 @@ import type {
   TaskReminderAttachment,
   TeamContextAttachment
 } from '../../../../lib/parse-session';
-import { ExpandableRow } from '../../../accordions/ExpandableRow';
 
 interface ContextStateRowProps {
   /** The classifier descriptor for this attachment. */

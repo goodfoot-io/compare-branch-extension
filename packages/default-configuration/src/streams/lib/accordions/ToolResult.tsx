@@ -11,7 +11,7 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../../../../lib/markdown';
+import { renderMarkdown } from '../markdown';
 
 interface ToolResultProps {
   /** Result string to display. */

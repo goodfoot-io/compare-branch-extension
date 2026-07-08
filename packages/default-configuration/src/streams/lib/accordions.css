@@ -1,0 +1,42 @@
+/* =============================================================================
+   SHARED ACCORDION STYLES (`cc-tool-*`, `cc-accordion-*`, `cc-chevron` classes)
+
+   Styles for the provider-neutral accordion primitives in
+   `src/streams/lib/accordions/` (ToolAccordion, ToolGroup, ToolInputTable,
+   ExpandableRow, ToolResult). Shared by every stream renderer so a provider's
+   accordion markup and class names — and therefore its rendered DOM — stay
+   byte-identical regardless of which theme.css imports this file.
+   ============================================================================= */
+
+/* Thin divider between consecutive tool rows inside a ToolGroup */
+.cc-tool-group > .cc-tool-row + .cc-tool-row {
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+@layer components {
+  /* Accordion open/close transition */
+  .cc-accordion-body {
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+
+  .cc-accordion-body.open {
+    opacity: 1;
+  }
+
+  /* Chevron rotation on accordion toggle */
+  .cc-chevron {
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+
+  .cc-accordion.open .cc-chevron {
+    transform: rotate(90deg);
+  }
+
+  /* Gradient-fade clipping for long tool-input values */
+  .cc-tool-val-clip {
+    mask-image: linear-gradient(to bottom, black 40px, transparent 58px);
+    -webkit-mask-image: linear-gradient(to bottom, black 40px, transparent 58px);
+  }
+}

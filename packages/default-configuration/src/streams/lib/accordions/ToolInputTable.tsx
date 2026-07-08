@@ -2,43 +2,41 @@
  * Key-value input table for tool accordions.
  *
  * Renders tool input fields as a table with key (dimmed) and value (clipped
- * for long entries). Skips keys in SKIP_INPUT_KEYS and all entries for Skill.
+ * for long entries). Skips keys in `skipKeys` and omits the table entirely
+ * when `hidden` is set.
  *
  * @summary Tool input key-value table with gradient-fade clipping
- * @module components/accordions/ToolInputTable
+ * @module streams/lib/accordions/ToolInputTable
  */
 
 import type React from 'react';
 
-/** Input keys skipped in the tool input table (shown elsewhere or redundant). */
-const SKIP_INPUT_KEYS = new Set([
-  'description',
-  'timeout',
-  'dangerouslyDisableSandbox',
-  'run_in_background',
-  'saveAllEditors',
-  'summary'
-]);
-
 interface ToolInputTableProps {
-  /** Tool name — if "Skill", the table is omitted entirely. */
-  toolName: string;
   /** Tool input object. */
   input: Record<string, unknown>;
+  /** When true, the table is omitted entirely (e.g. a provider's Skill tool). */
+  hidden?: boolean;
+  /** Input keys to skip (shown elsewhere or redundant). */
+  skipKeys?: Set<string>;
 }
 
 /**
  * Renders tool inputs as a bordered key-value table.
  * Returns null when there are no displayable entries.
  * @param root0 - The component props.
- * @param root0.toolName - Tool name — if "Skill", the table is omitted entirely.
  * @param root0.input - Tool input object.
+ * @param root0.hidden - When true, the table is omitted entirely.
+ * @param root0.skipKeys - Input keys to skip.
  * @returns Rendered key-value table, or null when nothing to display.
  */
-export function ToolInputTable({ toolName, input }: ToolInputTableProps): React.ReactElement | null {
-  if (toolName === 'Skill') return null;
+export function ToolInputTable({
+  input,
+  hidden = false,
+  skipKeys = new Set()
+}: ToolInputTableProps): React.ReactElement | null {
+  if (hidden) return null;
 
-  const entries = Object.entries(input).filter(([k]) => !SKIP_INPUT_KEYS.has(k));
+  const entries = Object.entries(input).filter(([k]) => !skipKeys.has(k));
   if (entries.length === 0) return null;
 
   return (
