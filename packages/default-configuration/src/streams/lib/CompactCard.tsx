@@ -19,6 +19,18 @@ import type { CompactCardModel, FactModel, TailLineModel } from './compact-card-
 /** Number of trailing tail lines the split right panel displays. */
 const VISIBLE_LINES = 3;
 
+/**
+ * Codicon glyph for each liveness state — `running` spins in place, `ended`
+ * shows a filled circle, `error` shows the standard error glyph. Rendered
+ * inside the existing 6x6px `.dot` footprint (size/color set entirely by
+ * compact-card.css) so the host's fixed compact-card box is unaffected.
+ */
+const DOT_ICON: Record<CompactCardModel['dotClass'], string> = {
+  running: 'codicon-sync codicon-modifier-spin',
+  ended: 'codicon-circle-filled',
+  error: 'codicon-error'
+};
+
 interface CompactCardProps {
   /** The provider-neutral model to render. */
   model: CompactCardModel;
@@ -94,7 +106,9 @@ export function CompactCard({ model }: CompactCardProps): React.ReactElement {
         <div className="panel panel-left">
           <div className="body">
             <div className="row-head">
-              <span className={`dot ${model.dotClass}`} />
+              <span className={`dot ${model.dotClass}`}>
+                <span className={`codicon ${DOT_ICON[model.dotClass]}`} />
+              </span>
               <span className="status">{model.statusWord}</span>
               {model.subagentLabel && (
                 <span className="subagent-label" title={`Subagent: ${model.subagentLabel}`}>

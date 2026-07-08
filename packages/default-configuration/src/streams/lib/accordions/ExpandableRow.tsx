@@ -74,10 +74,10 @@ export function ExpandableRow({
     return (
       <div className={className} style={style}>
         <div
-          className="flex items-center gap-2 w-full text-left font-vscode text-[11px]"
-          style={{ color: 'var(--vscode-foreground)' }}
+          className="flex items-center gap-2 w-full text-left font-vscode"
+          style={{ color: 'var(--stream-fg)', fontSize: 'var(--stream-text-label)' }}
         >
-          <span className="cc-chevron shrink-0" style={{ color: 'var(--vscode-disabledForeground)' }}>
+          <span className="cc-chevron shrink-0" style={{ color: 'var(--stream-fg-muted)' }}>
             ·
           </span>
           <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{header}</span>
@@ -92,16 +92,14 @@ export function ExpandableRow({
         type="button"
         aria-expanded={open}
         onClick={handleToggle}
-        className="flex items-center gap-2 w-full text-left bg-transparent border-none font-vscode text-[11px] cursor-pointer"
-        style={{ color: 'var(--vscode-foreground)' }}
+        className="flex items-center gap-2 w-full text-left bg-transparent border-none font-vscode cursor-pointer"
+        style={{ color: 'var(--stream-fg)', fontSize: 'var(--stream-text-label)' }}
       >
         <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{header}</span>
         <span
-          className="cc-chevron shrink-0"
-          style={{ color: 'var(--vscode-disabledForeground)', transform: open ? 'rotate(90deg)' : undefined }}
-        >
-          ▷
-        </span>
+          className="codicon codicon-chevron-right cc-chevron shrink-0"
+          style={{ color: 'var(--stream-fg-muted)', transform: open ? 'rotate(90deg)' : undefined }}
+        />
       </button>
       <div
         ref={bodyRef}

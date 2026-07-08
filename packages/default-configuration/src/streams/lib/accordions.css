@@ -10,17 +10,38 @@
 
 /* Thin divider between consecutive tool rows inside a ToolGroup */
 .cc-tool-group > .cc-tool-row + .cc-tool-row {
-  border-top: 1px solid var(--vscode-panel-border);
+  border-top: 1px solid var(--stream-border-subtle);
 }
 
 /* Raw free-text tool-arguments block (e.g. Codex shell command / apply_patch
    text) — no hard max-height, full content always visible when open. */
 .cc-raw-args-pre {
-  background: color-mix(in srgb, var(--vscode-foreground, #cccccc) 4%, transparent);
+  background: var(--stream-surface-muted);
   border-radius: 3px;
   padding: 6px 8px;
   overflow: auto;
   tab-size: 4;
+  font-size: var(--stream-text-code);
+}
+
+/* Shared uppercase section label (rawArgs / Result headings) — a single
+   class replacing the copy-pasted Tailwind arbitrary-value string that used
+   to live independently in ToolAccordion and ToolResult. */
+.stream-block-label {
+  font-size: var(--stream-text-label);
+  color: var(--stream-fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 0 2px;
+}
+
+/* Shared de-emphasized structural one-liner (StatusLine and, eventually, the
+   per-renderer CoordinationLine/HookLine/TaskNotification rows) — matches
+   the Timeline view's muted trailing-metadata idiom. Severity variants add
+   `color: var(--stream-severity-error-fg)`/`--stream-severity-warning-fg` at
+   the call site; the base rule only sets weight/style. */
+.stream-status-line {
+  font-style: italic;
 }
 
 @layer components {
@@ -34,10 +55,13 @@
     opacity: 1;
   }
 
-  /* Chevron rotation on accordion toggle */
+  /* Chevron rotation on accordion toggle — a single codicon-chevron-right
+     glyph that rotates 90deg open, replacing the two inconsistent hand-drawn
+     glyphs (`▷`/`▶`) previously used across ToolAccordion/ThinkingAccordion. */
   .cc-chevron {
-    transition: transform 0.15s;
-    display: inline-block;
+    transition: transform var(--stream-transition-fast);
+    display: inline-flex;
+    align-items: center;
   }
 
   .cc-accordion.open .cc-chevron {

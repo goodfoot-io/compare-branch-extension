@@ -9,11 +9,11 @@
 
 .json-block {
   font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 11px;
+  font-size: var(--stream-text-code, 11px);
   line-height: 1.5;
-  color: var(--vscode-editor-foreground);
-  background: var(--vscode-textCodeBlock-background);
-  border: 1px solid var(--vscode-widget-border);
+  color: var(--stream-fg);
+  background: var(--stream-surface-raised);
+  border: 1px solid var(--stream-border);
   border-radius: 3px;
   padding: 10px 12px;
   margin: 0;

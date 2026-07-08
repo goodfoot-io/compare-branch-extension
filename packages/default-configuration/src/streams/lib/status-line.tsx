@@ -21,5 +21,12 @@ interface StatusLineProps {
  * @returns Rendered italic dimmed status line element.
  */
 export function StatusLine({ text }: StatusLineProps): React.ReactElement {
-  return <div className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">{text}</div>;
+  return (
+    <div
+      className="stream-status-line text-vscode-descriptionForeground italic py-0.5"
+      style={{ fontSize: 'var(--stream-text-label)' }}
+    >
+      {text}
+    </div>
+  );
 }

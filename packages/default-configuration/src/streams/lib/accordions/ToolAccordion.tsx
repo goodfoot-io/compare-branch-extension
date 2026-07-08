@@ -99,14 +99,14 @@ export function ToolAccordion({
   return (
     <div
       className="cc-tool-row overflow-hidden"
-      style={escalated ? { borderLeft: '2px solid var(--vscode-errorForeground)' } : undefined}
+      style={escalated ? { borderLeft: '2px solid var(--stream-severity-error-fg)' } : undefined}
     >
       <button
         type="button"
         aria-expanded={open}
         onClick={handleToggle}
-        className="flex items-center gap-2 w-full text-left bg-transparent border-none font-vscode text-[11px] cursor-pointer"
-        style={{ color: 'var(--vscode-foreground)' }}
+        className="flex items-center gap-2 w-full text-left bg-transparent border-none font-vscode cursor-pointer"
+        style={{ color: 'var(--stream-fg)', fontSize: 'var(--stream-text-label)' }}
       >
         <span
           className="shrink-0 pr-2"
@@ -115,8 +115,8 @@ export function ToolAccordion({
             alignItems: 'center',
             paddingTop: '6px',
             paddingBottom: '6px',
-            color: 'var(--vscode-disabledForeground)',
-            borderRight: '1px solid var(--vscode-panel-border)'
+            color: 'var(--stream-fg-muted)',
+            borderRight: '1px solid var(--stream-border-subtle)'
           }}
         >
           <span
@@ -134,16 +134,31 @@ export function ToolAccordion({
         </span>
         <span
           className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-          style={{ color: escalated ? 'var(--vscode-errorForeground)' : 'var(--vscode-disabledForeground)' }}
+          style={{ color: escalated ? 'var(--stream-severity-error-fg)' : 'var(--stream-fg-muted)' }}
         >
           {escalated ? (errorLabel ?? '') : summary}
         </span>
+        {escalated ? (
+          <span
+            className="codicon codicon-error shrink-0"
+            style={{ color: 'var(--stream-severity-error-fg)', fontSize: 'var(--stream-text-label)' }}
+          />
+        ) : (
+          result !== null && (
+            <span
+              className="codicon codicon-check shrink-0"
+              style={{ color: 'var(--stream-severity-success-fg)', fontSize: 'var(--stream-text-label)' }}
+            />
+          )
+        )}
         <span
-          className="cc-chevron shrink-0"
-          style={{ color: 'var(--vscode-disabledForeground)', transform: open ? 'rotate(90deg)' : undefined }}
-        >
-          ▷
-        </span>
+          className="codicon codicon-chevron-right cc-chevron shrink-0"
+          style={{
+            color: 'var(--stream-fg-muted)',
+            fontSize: 'var(--stream-text-label)',
+            transform: open ? 'rotate(90deg)' : undefined
+          }}
+        />
       </button>
       <div
         ref={bodyRef}
@@ -153,10 +168,11 @@ export function ToolAccordion({
         <ToolInputTable input={input} hidden={hideInput} skipKeys={inputSkipKeys} />
         {rawArgs !== undefined && (
           <div className="cc-raw-args">
-            <div className="text-[10px] text-vscode-descriptionForeground opacity-60 font-vscode-editor pt-1 pb-0.5 uppercase tracking-wider">
-              {rawArgs.label}
-            </div>
-            <pre className="cc-raw-args-pre m-0 whitespace-pre-wrap break-words font-vscode-editor text-[11px] text-vscode-foreground">
+            <div className="stream-block-label font-vscode-editor">{rawArgs.label}</div>
+            <pre
+              className="cc-raw-args-pre m-0 whitespace-pre-wrap break-words font-vscode-editor text-vscode-foreground"
+              style={{ fontSize: 'var(--stream-text-code)' }}
+            >
               {rawArgs.text}
             </pre>
           </div>

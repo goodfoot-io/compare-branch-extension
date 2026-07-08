@@ -1,5 +1,6 @@
 @import '@cards.management/web/styles';
 @import '@vscode/codicons/dist/codicon.css';
+@import '../../lib/tokens.css';
 @import '../../lib/compact-card.css';
 @import '../../lib/accordions.css';
 @import '../../lib/json-block.css';

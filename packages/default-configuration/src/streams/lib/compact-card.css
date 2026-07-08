@@ -18,7 +18,7 @@
    there.
    ============================================================================ */
 .compact-container {
-  background: var(--vscode-textCodeBlock-background);
+  background: var(--stream-surface-raised);
   border-radius: 4px;
   padding: 12px;
   box-sizing: border-box;
@@ -58,42 +58,44 @@
   gap: 6px;
   line-height: 1.5em;
 }
+/* The dot is now an icon container (codicon glyph rendered by CompactCard.tsx)
+   rather than a CSS-only filled circle — a spinning `sync` icon for `running`,
+   `circle-filled`/`error` for the terminal states — sized to the same 6x6px
+   footprint the host's fixed compact-card box already assumes, so this
+   doesn't change the box's dimensions. */
 .compact-container .dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
   flex: 0 0 6px;
+  overflow: hidden;
 }
-.compact-container .dot.ended {
-  background: var(--vscode-descriptionForeground);
+.compact-container .dot .codicon {
+  font-size: 6px;
+  line-height: 6px;
 }
-.compact-container .dot.running {
-  background: var(--vscode-terminal-ansiBlue);
-  animation: compact-pulse 1.6s ease-in-out infinite;
+.compact-container .dot.ended .codicon {
+  color: var(--stream-fg-muted);
 }
-.compact-container .dot.error {
-  background: var(--vscode-errorForeground);
+.compact-container .dot.running .codicon {
+  color: var(--stream-status-active);
 }
-@keyframes compact-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
+.compact-container .dot.error .codicon {
+  color: var(--stream-severity-error-fg);
 }
 .compact-container .status {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-weight: 700;
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
 }
 .compact-container .meta-right {
   margin-left: auto;
   font-size: 0.78em;
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
@@ -108,7 +110,7 @@
    (never renders it empty) when the model's `subagentLabel` is absent. */
 .compact-container .subagent-label {
   font-size: 0.78em;
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -119,7 +121,7 @@
 .compact-container .headline {
   font-size: 0.85em;
   line-height: 1.5em;
-  color: var(--vscode-editor-foreground);
+  color: var(--stream-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -130,7 +132,7 @@
 .compact-container .metrics {
   font-size: 0.78em;
   line-height: 1.5em;
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -140,7 +142,7 @@
   padding: 0 5px;
 }
 .compact-container .metrics b {
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
   font-weight: 600;
 }
 /* Only one of the stacked/split metrics rows renders per layout; the other is
@@ -156,7 +158,7 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
 }
 .compact-container .panel-right .line .lbl {
   flex: 0 0 auto;
@@ -177,17 +179,17 @@
    (`tool`/`asst`/`user`, Claude-only) is carried by the label text itself
    plus the `font-weight: 600` above — no per-role hue. */
 .compact-container .panel-right .line.milestone .txt {
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
 }
 .compact-container .panel-right .line.plumbing .txt {
-  color: var(--vscode-descriptionForeground);
+  color: var(--stream-fg-muted);
 }
 .compact-container .panel-right .line.error .txt,
 .compact-container .panel-right .line.error .lbl {
-  color: var(--vscode-errorForeground);
+  color: var(--stream-severity-error-fg);
 }
 .compact-container .panel-right .line.neutral .txt {
-  color: var(--vscode-foreground);
+  color: var(--stream-fg);
 }
 
 /* ----------------------------------------------------------------------------
@@ -210,7 +212,7 @@
     align-items: stretch;
   }
   .compact-container .panel {
-    background: var(--vscode-textCodeBlock-background);
+    background: var(--stream-surface-raised);
     border-radius: 4px;
     padding: 12px;
     box-sizing: border-box;
@@ -226,7 +228,7 @@
     flex: 0 0 40%;
     /* A faint shift toward foreground so the latest-lines column reads as its
        own distinct area. */
-    background: color-mix(in srgb, var(--vscode-textCodeBlock-background) 93%, var(--vscode-foreground) 7%);
+    background: color-mix(in srgb, var(--stream-surface-raised) 93%, var(--stream-fg) 7%);
   }
 
   /* Swap the metrics + meta-right variants for the split layout. */

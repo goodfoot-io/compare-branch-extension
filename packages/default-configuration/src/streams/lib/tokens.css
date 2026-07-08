@@ -1,0 +1,74 @@
+/* =============================================================================
+   SHARED DESIGN TOKENS (`--stream-*` custom properties)
+
+   Provider-neutral token layer for both stream renderers. Every token maps to
+   a `--vscode-*` variable so the transcript stays fully themeable across
+   light/dark/high-contrast; the only literal (non-var) fallbacks are the
+   Cards status accents below, which intentionally match
+   packages/cards/web/src/utils/cardStatusBadge.ts's hex values exactly so a
+   stream-embedded status chip reads as the same color family as the Cards
+   list/detail view. Imported first by both renderers' theme.css, before
+   compact-card.css / accordions.css / json-block.css.
+   ============================================================================= */
+
+:root {
+  /* Surfaces */
+  --stream-surface: var(--vscode-editor-background);
+  --stream-surface-raised: var(--vscode-textCodeBlock-background);
+  --stream-surface-muted: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+
+  /* Text */
+  --stream-fg: var(--vscode-editor-foreground);
+  --stream-fg-muted: var(--vscode-descriptionForeground);
+  --stream-fg-faint: color-mix(in srgb, var(--vscode-descriptionForeground) 70%, transparent);
+
+  /* Borders */
+  --stream-border: var(--vscode-widget-border, var(--vscode-panel-border));
+  --stream-border-subtle: color-mix(in srgb, var(--stream-border) 60%, transparent);
+  --stream-focus-border: var(--vscode-focusBorder);
+
+  /* Role accents — strength/tint only, never hue (VS Code chat idiom: request
+     bubbles get a subtle tint, responses flow as plain text). */
+  --stream-role-user-tint: var(--stream-surface-raised);
+  --stream-role-assistant-tint: transparent;
+  --stream-role-label-fg: var(--stream-fg-muted);
+
+  /* Reasoning/thinking "aside" — canonical VS Code textBlockQuote pattern. */
+  --stream-aside-bg: var(--vscode-textBlockQuote-background);
+  --stream-aside-border: var(--vscode-textBlockQuote-border);
+
+  /* Severity triad — canonical Problems-panel mapping. */
+  --stream-severity-error-fg: var(--vscode-errorForeground, var(--vscode-editorError-foreground));
+  --stream-severity-error-border: var(--vscode-inputValidation-errorBorder, var(--stream-severity-error-fg));
+  --stream-severity-warning-fg: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow));
+  --stream-severity-warning-border: var(--vscode-inputValidation-warningBorder, var(--stream-severity-warning-fg));
+  --stream-severity-info-fg: var(--vscode-editorInfo-foreground, var(--vscode-charts-blue));
+  --stream-severity-success-fg: var(--vscode-charts-green);
+
+  /* Cards status accents — fixed semantic set, literal fallback permitted. */
+  --stream-status-todo: var(--vscode-charts-blue, #2563eb);
+  --stream-status-active: var(--vscode-charts-purple, #9333ea);
+  --stream-status-needs-review: var(--vscode-charts-yellow, #f59e0b);
+  --stream-status-done: var(--vscode-charts-green, #16a34a);
+  --stream-status-archived: var(--stream-fg-muted);
+
+  /* Tool-category accents — formalizes the existing per-tool badge hues. */
+  --stream-tool-read: var(--vscode-charts-blue);
+  --stream-tool-write: var(--vscode-charts-green);
+  --stream-tool-bash: var(--vscode-charts-orange);
+  --stream-tool-agent: var(--vscode-charts-purple);
+
+  /* Typography scale — four tiers replacing the previous ad-hoc px/em mix. */
+  --stream-text-body: 13px;
+  --stream-text-dense: 12px;
+  --stream-text-label: 11px;
+  --stream-text-micro: 10px;
+  /* Monospace/code tier: matches the pre-existing fenced-code-block and
+     JsonBlock treatment (11px) — kept distinct from --stream-text-label so
+     code sizing can evolve independently of label sizing even though they
+     currently coincide. */
+  --stream-text-code: 11px;
+
+  /* State-change transition timing (hover/focus/open-close) — ui-design rule 9. */
+  --stream-transition-fast: 0.12s ease;
+}

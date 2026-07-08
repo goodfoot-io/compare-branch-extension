@@ -30,19 +30,23 @@ export function ToolResult({ result }: ToolResultProps): React.ReactElement {
   return (
     <div
       style={{
-        borderTop: '0.5px solid var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))',
-        background: 'color-mix(in srgb, var(--vscode-foreground, #cccccc) 3%, transparent)'
+        borderTop: '0.5px solid var(--stream-border-subtle)',
+        background: 'var(--stream-surface-muted)'
       }}
     >
-      <div className="text-[10px] text-vscode-descriptionForeground opacity-60 font-vscode-editor pt-1 pb-0.5 uppercase tracking-wider">
-        Result
-      </div>
+      <div className="stream-block-label font-vscode-editor">Result</div>
       {isMarkdown ? (
-        <div className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full">
+        <div
+          className="cc-text pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full"
+          style={{ fontSize: 'var(--stream-text-code)' }}
+        >
           {renderMarkdownNodes(result, 'tool-result')}
         </div>
       ) : (
-        <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
+        <div
+          className="text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5"
+          style={{ fontSize: 'var(--stream-text-code)' }}
+        >
           {result}
         </div>
       )}

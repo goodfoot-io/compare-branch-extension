@@ -40,7 +40,10 @@ export function ToolInputTable({
   if (entries.length === 0) return null;
 
   return (
-    <table className="border-collapse text-[0.85em] font-vscode-editor w-full" style={{ borderCollapse: 'collapse' }}>
+    <table
+      className="border-collapse font-vscode-editor w-full"
+      style={{ borderCollapse: 'collapse', fontSize: 'var(--stream-text-dense)' }}
+    >
       <tbody>
         {entries.map(([key, value]) => {
           const valStr = stringifyValue(value);
@@ -51,7 +54,7 @@ export function ToolInputTable({
               <td
                 className="text-vscode-descriptionForeground opacity-50 text-left whitespace-nowrap w-px pr-3 align-top py-1.5"
                 style={{
-                  borderTop: '0.5px solid var(--vscode-inlineChatInput-border, var(--vscode-panel-border, #3c3c3c))'
+                  borderTop: '0.5px solid var(--stream-border-subtle)'
                 }}
               >
                 {key}
@@ -59,7 +62,7 @@ export function ToolInputTable({
               <td
                 className={`text-vscode-foreground break-words whitespace-pre-wrap align-top py-1.5${isShort ? '' : ' cc-tool-val-clip'}`}
                 style={{
-                  borderTop: '0.5px solid var(--vscode-inlineChatInput-border, var(--vscode-panel-border, #3c3c3c))',
+                  borderTop: '0.5px solid var(--stream-border-subtle)',
                   maxHeight: isShort ? undefined : '60px',
                   overflow: isShort ? undefined : 'hidden'
                 }}

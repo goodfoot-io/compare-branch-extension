@@ -26,8 +26,8 @@ export function ToolGroup({ children }: ToolGroupProps): React.ReactElement {
     <div
       className="cc-tool-group my-1"
       style={{
-        borderTop: '1px solid var(--vscode-panel-border)',
-        borderBottom: '1px solid var(--vscode-panel-border)'
+        borderTop: '1px solid var(--stream-border-subtle)',
+        borderBottom: '1px solid var(--stream-border-subtle)'
       }}
     >
       {children}
