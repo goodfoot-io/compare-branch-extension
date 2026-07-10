@@ -1,0 +1,63 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  font-size: 13px;
+  color: #1e1e1e;
+  background: #fff;
+}
+
+.spike-message {
+  margin: 8px 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.spike-message[data-role='user'] {
+  background: #e8f0fe;
+}
+
+.spike-message[data-role='assistant'] {
+  background: #f4f4f4;
+}
+
+.spike-reasoning {
+  color: #666;
+  font-style: italic;
+  border-left: 2px solid #999;
+  padding-left: 8px;
+  margin: 4px 0;
+}
+
+.spike-tool-call {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 4px 0;
+  background: #fffef0;
+}
+
+.spike-data {
+  border: 1px solid #9c9;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 4px 0;
+  background: #f0fff0;
+}
+
+.spike-markdown pre {
+  background: #272822;
+  color: #f8f8f2;
+  padding: 8px;
+  overflow-x: auto;
+  border-radius: 4px;
+}
+
+.spike-markdown table {
+  border-collapse: collapse;
+}
+
+.spike-markdown th,
+.spike-markdown td {
+  border: 1px solid #999;
+  padding: 4px 8px;
+}
