@@ -27,6 +27,8 @@ interface ReasoningAccordionProps {
    * pass this and see no change to the existing bare "Thinking…" header.
    */
   summary?: string;
+  /** Whether the accordion starts open. Defaults to false (existing collapsed-by-default behavior). */
+  defaultOpen?: boolean;
 }
 
 /**
@@ -34,10 +36,15 @@ interface ReasoningAccordionProps {
  * @param root0 - The component props.
  * @param root0.thinking - Raw thinking/reasoning text to display when expanded.
  * @param root0.summary - Optional short label shown next to "Thinking…" in the collapsed header.
+ * @param root0.defaultOpen - Whether the accordion starts open.
  * @returns Rendered collapsible reasoning accordion element.
  */
-export function ReasoningAccordion({ thinking, summary }: ReasoningAccordionProps): React.ReactElement {
-  const [open, setOpen] = useState(false);
+export function ReasoningAccordion({
+  thinking,
+  summary,
+  defaultOpen = false
+}: ReasoningAccordionProps): React.ReactElement {
+  const [open, setOpen] = useState(defaultOpen);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const handleToggle = useCallback(() => {
