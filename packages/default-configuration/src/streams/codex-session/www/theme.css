@@ -6,6 +6,7 @@
 @import '../../lib/json-block.css';
 @import '../../lib/boundary.css';
 @import '../../lib/turns.css';
+@import '../../lib/aui/aui.css';
 
 /* =============================================================================
    CODEX SESSION RENDERER STYLES (`.cx-*` classes)
@@ -13,16 +14,16 @@
    Reads the shared `--stream-*` design-token layer (tokens.css) exclusively —
    no direct `--vscode-*` reads and no literal colors — so this renderer's
    surfaces, text, and accents stay in lockstep with claude-code-session's
-   `.cc-*` styling and any future token change updates both at once. Structural
-   markers (turn/result/compaction) and unrecognized/error content route
-   through the shared `Boundary`/`RawFallback`/`JsonBlock`/`SessionHeader`/
-   `ReasoningAccordion` components (imported above / from streams/lib) rather
-   than bespoke `.cx-*` boxes.
+   `.cc-*` styling and any future token change updates both at once.
 
-   `.stream-turn`/`.stream-turn--user`/`.stream-turn--assistant`/
-   `.stream-role-label` are the shared turn-anatomy classes from the visual
-   design spec — duplicated here (not yet lifted into streams/lib) so both
-   renderers render byte-identical turn markup independently for now.
+   The expanded transcript now renders through the shared `StreamThread`
+   (streams/lib/aui) — turn anatomy, markdown, reasoning, tool calls, and the
+   four shared `data` parts (boundary/raw/status-line/error-line) all come
+   from aui.css/turns.css/accordions.css/boundary.css/json-block.css imported
+   above. What remains below is only what the shared foundation has no shape
+   for: two provider-specific `data` parts (`image-note`, `event-activity` —
+   see ./components/expanded/CodexDataParts.tsx) and the empty-transcript
+   placeholder.
    ============================================================================= */
 
 html,
@@ -207,10 +208,10 @@ body.mode-expanded {
   margin: 0.75em 0;
 }
 
-/* Tool calls now render through the shared cc-* ToolAccordion/ToolGroup
-   (accordions.css, @imported above); `.cx-pre` (still used by the non-markdown
-   branch of orphan_output/event_activity) and `.cx-tool-output-label` (still
-   used by the orphan_output block) remain. */
+/* `.cx-pre` — non-markdown branch of the `event-activity` data part
+   (CodexDataParts.tsx). Tool calls, orphan outputs, errors, and status lines
+   now all route through the shared aui/accordion/boundary components above;
+   this is the one remaining bespoke `<pre>` block. */
 .cx-pre {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: var(--stream-text-code);
@@ -222,69 +223,6 @@ body.mode-expanded {
   word-break: break-word;
   color: var(--stream-fg);
   tab-size: 4;
-}
-.cx-tool-output-label {
-  font-size: var(--stream-text-label);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--stream-fg-muted);
-  padding: 3px 8px 0;
-}
-
-.cx-orphan {
-  border: 1px dashed var(--stream-border-subtle);
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-/* Markdown-rendered orphan output (looksLikeMarkdown branch) needs the same
-   horizontal breathing room the raw `.cx-pre` branch gets for free from its
-   own padding. */
-.cx-orphan-text {
-  padding: 3px 10px 8px;
-}
-
-/* Compaction detail body (below the shared Boundary marker), when the
-   underlying compacted line carried a human-readable message. */
-.cx-compaction-detail {
-  margin: -4px 0 10px;
-}
-
-/* Session-level error event (event_msg type:'error') — the only `.cx-*`
-   content block escalated to the error severity color; unknown/malformed
-   content (below) stays at info/warning via the shared RawFallback. */
-.cx-error-block {
-  padding: 4px 0 8px 10px;
-  margin-bottom: 10px;
-  border-left: 2px solid var(--stream-severity-error-fg);
-}
-.cx-error-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--stream-text-label);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--stream-severity-error-fg);
-  margin-bottom: 3px;
-}
-
-/* Muted single-line status markers (task_started, task_complete's optional
-   last-agent-message recap) — italic via the shared .stream-status-line
-   (accordions.css), laid out here since neither carries an icon by default. */
-.cx-status-line {
-  color: var(--stream-fg-muted);
-  font-size: var(--stream-text-label);
-  padding: 2px 0 10px;
-}
-
-/* Summary-only reasoning (no contentText) — a non-collapsible muted line
-   rather than a ReasoningAccordion, since one short summary line is not
-   worth the toggle chrome. */
-.cx-reasoning-summary {
-  color: var(--stream-fg-muted);
-  font-size: var(--stream-text-dense);
-  padding: 2px 0 10px;
 }
 
 /* Visible placeholder for input_image content items dropped from text
