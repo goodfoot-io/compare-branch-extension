@@ -151,6 +151,7 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
   const messages: ThreadMessageLike[] = [];
   let pendingAssistant: ThreadPart[] | null = null;
   let seq = 0;
+  let anonToolSeq = 0;
 
   const flushAssistant = (): void => {
     if (pendingAssistant === null || pendingAssistant.length === 0) {
@@ -217,9 +218,13 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
       }
 
       case 'tool_call': {
+        // Some rollout payloads (e.g. web-search calls) carry no call_id, which
+        // render-transcript surfaces as ''. assistant-ui keys tool-call parts by
+        // toolCallId and rejects duplicates, so synthesize a unique fallback.
+        anonToolSeq += 1;
         pushPart({
           type: 'tool-call',
-          toolCallId: item.callId,
+          toolCallId: item.callId.length > 0 ? item.callId : `anon-tool-${anonToolSeq}`,
           toolName: item.name,
           args: buildToolArgs(item),
           result: buildToolResult(item),
