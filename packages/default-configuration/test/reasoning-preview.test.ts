@@ -18,10 +18,8 @@ describe('firstLinePreview', () => {
     expect(firstLinePreview('The agent is **active** right now.')).toBe('The agent is active right now.');
   });
 
-  it('strips inline-code spans (backticks and content) from the preview', () => {
-    // Matches `stripMarkup`'s existing behavior elsewhere (e.g. attachment
-    // one-line summaries) — a code span is removed entirely, not unwrapped.
-    expect(firstLinePreview('Reading `package.json` for scripts.')).toBe('Reading for scripts.');
+  it('unwraps inline-code spans in the preview, keeping the identifier', () => {
+    expect(firstLinePreview('Reading `package.json` for scripts.')).toBe('Reading package.json for scripts.');
   });
 
   it('replaces link syntax with the link text', () => {

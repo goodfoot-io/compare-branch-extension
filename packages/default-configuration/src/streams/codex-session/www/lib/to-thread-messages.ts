@@ -278,6 +278,11 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
   let seq = 0;
   let anonToolSeq = 0;
 
+  // The most recent assistant_message text, so task_complete can recognize a
+  // `lastAgentMessage` that merely echoes the turn text already rendered
+  // directly above it and skip the duplicate (fail-open: any non-echo renders).
+  let lastAssistantText: string | undefined;
+
   // The currently-open run (content or service — see module doc) and its
   // accumulated parts/createdAt, plus the triggering item's timestamp for the
   // loop iteration currently in progress.
@@ -403,6 +408,7 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
           break;
         }
         if (gatheringPreamble) closeSessionStartGathering();
+        lastAssistantText = item.text;
         pushPart({ type: 'text', text: item.text });
         if (item.imageCount !== undefined) {
           pushPart({ type: 'data', name: 'image-note', data: { text: imageNoteText(item.imageCount) } });
@@ -527,11 +533,21 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         // register) replaces the old "TURN COMPLETE · 32S"-style result boundary.
         const text = item.durationMs !== undefined ? formatDuration(item.durationMs) : 'Turn complete';
         pushPart({ type: 'data', name: 'turn-time', data: { text } });
-        if (item.lastAgentMessage !== undefined && item.lastAgentMessage.length > 0) {
+        // `lastAgentMessage` normally echoes the assistant text rendered
+        // directly above this marker verbatim — repeating it as a truncated
+        // status line is pure noise, so an exact echo is skipped. Anything
+        // else (e.g. the closing message of an aborted stream that never
+        // produced an assistant_message item) still renders, markup-stripped
+        // like every other one-line preview.
+        if (
+          item.lastAgentMessage !== undefined &&
+          item.lastAgentMessage.length > 0 &&
+          item.lastAgentMessage.trim() !== lastAssistantText?.trim()
+        ) {
           pushPart({
             type: 'data',
             name: STREAM_DATA_PART_NAME.statusLine,
-            data: { text: truncate(item.lastAgentMessage, 140) }
+            data: { text: truncate(stripMarkup(item.lastAgentMessage), 140) }
           });
         }
         break;

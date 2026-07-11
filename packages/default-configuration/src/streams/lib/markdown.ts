@@ -64,14 +64,19 @@ export function looksLikeMarkdown(text: string): boolean {
  * @returns Plain text with tags and markup removed, whitespace collapsed.
  */
 export function stripMarkup(text: string): string {
-  return String(text ?? '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
-    .replace(/`[^`]+`/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    String(text ?? '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+      // Unwrap code spans rather than deleting them — inline code in these
+      // one-line previews is usually an identifier (a card id, a file name),
+      // which is exactly the token the preview exists to show.
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /**

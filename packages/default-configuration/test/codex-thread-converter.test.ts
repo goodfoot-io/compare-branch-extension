@@ -203,7 +203,7 @@ describe('toThreadMessages — reasoning', () => {
       false
     );
     expect(messages[0]?.content).toEqual([
-      { type: 'data', name: 'status-line', data: { text: 'Card is currently active. Key details: …' } }
+      { type: 'data', name: 'status-line', data: { text: 'Card main-377 is currently active. Key details: …' } }
     ]);
   });
 
@@ -358,6 +358,30 @@ describe('toThreadMessages — task_started / task_complete', () => {
       { type: 'data', name: 'turn-time', data: { text: '1s' } },
       { type: 'data', name: 'status-line', data: { text: 'All done, ran the tests.' } }
     ]);
+  });
+
+  it('strips inline markdown from the last-agent-message status-line', () => {
+    const { messages } = toThreadMessages(
+      [{ kind: 'task_complete', durationMs: 1000, lastAgentMessage: 'Card `main-377` is currently **active**.' }],
+      false
+    );
+    expect(messages[0]?.content).toEqual([
+      { type: 'data', name: 'turn-time', data: { text: '1s' } },
+      { type: 'data', name: 'status-line', data: { text: 'Card main-377 is currently active.' } }
+    ]);
+  });
+
+  it('skips the last-agent-message status-line when it exactly echoes the preceding assistant text', () => {
+    const { messages } = toThreadMessages(
+      [
+        { kind: 'assistant_message', text: 'All done, ran the tests.' },
+        { kind: 'task_complete', durationMs: 1000, lastAgentMessage: 'All done, ran the tests.' }
+      ],
+      false
+    );
+    const parts = messages.flatMap((m) => (typeof m.content === 'string' ? [] : [...m.content]));
+    expect(parts.filter((p) => p.type === 'data' && p.name === 'status-line')).toEqual([]);
+    expect(parts.filter((p) => p.type === 'data' && p.name === 'turn-time')).toHaveLength(1);
   });
 });
 
