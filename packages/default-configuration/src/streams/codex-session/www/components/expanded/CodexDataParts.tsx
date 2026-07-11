@@ -67,7 +67,7 @@ export const EventActivityDataPart: DataMessagePartComponent<EventActivityData> 
     {data.detailText !== undefined &&
       data.detailText.length > 0 &&
       (data.label === 'plan_update' && looksLikeMarkdown(data.detailText) ? (
-        <div className="cx-message-text cx-event-detail">{renderMarkdownNodes(data.detailText, 'plan-update')}</div>
+        <div className="aui-markdown cx-event-detail">{renderMarkdownNodes(data.detailText, 'plan-update')}</div>
       ) : (
         <pre className="cx-pre">{data.detailText}</pre>
       ))}

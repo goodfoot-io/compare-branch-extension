@@ -17,178 +17,16 @@
    (link color, code font family) fall back to the underlying `--vscode-*`
    variable directly.
 
+   The full markdown ladder (headings, tables, blockquotes, lists, fenced
+   code) now lives once, shared with codex-session, as `.aui-markdown` in
+   ../../lib/aui/aui.css — this renderer carries zero `.cc-transcript` rules
+   of its own; every element that renders `marked`/`renderMarkdownNodes`
+   output pairs `.cc-text` (sizing/color) with `.aui-markdown` (the ladder).
+
    Two-tier typographic hierarchy:
      Tier 1 (content):  .cc-text — 13px, editor font, primary reading
      Tier 2 (metadata): dimmed system/boundary lines — 10-11px, reduced opacity
    ============================================================================= */
-
-.cc-transcript {
-  position: relative;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--stream-fg);
-}
-
-/* Base typography (scoped under .cc-transcript) — replaces Tailwind `prose`
-   for all HTML that `marked` can produce. */
-
-.cc-transcript p {
-  margin: 0 0 0.5em;
-}
-
-.cc-transcript p:last-child {
-  margin-bottom: 0;
-}
-
-.cc-transcript li p {
-  margin-bottom: 0.3em;
-}
-
-.cc-transcript pre {
-  font-family: var(--vscode-editor-font-family, monospace);
-  font-size: var(--stream-text-code);
-  background: var(--stream-surface-raised);
-  border: 1px solid var(--stream-border);
-  border-radius: 3px;
-  padding: 10px 12px;
-  overflow: auto;
-  margin: 0.5em 0;
-  white-space: pre;
-}
-
-.cc-transcript code {
-  font-family: var(--vscode-editor-font-family, monospace);
-  font-size: var(--stream-text-code);
-  background: var(--stream-surface-raised);
-  border-radius: 2px;
-  padding: 1px 3px;
-}
-
-.cc-transcript pre code {
-  background: none;
-  padding: 0;
-  border-radius: 0;
-  color: var(--stream-fg);
-  tab-size: 4;
-}
-
-.cc-transcript a {
-  color: var(--vscode-textLink-foreground);
-  text-decoration: none;
-}
-
-.cc-transcript a:hover {
-  text-decoration: underline;
-}
-
-.cc-transcript blockquote {
-  margin: 0;
-  padding: 0 12px 0 8px;
-  border-left-width: 5px;
-  border-left-style: solid;
-  border-left-color: var(--stream-aside-border);
-  border-radius: 2px;
-  background: var(--stream-aside-bg);
-}
-
-.cc-transcript ul,
-.cc-transcript ol {
-  margin: 0.25em 0 0.5em;
-  padding-left: 1.5em;
-}
-
-.cc-transcript ul {
-  list-style-type: disc;
-}
-
-.cc-transcript ol {
-  list-style-type: decimal;
-}
-
-.cc-transcript ul ul,
-.cc-transcript ol ul {
-  list-style-type: circle;
-}
-
-.cc-transcript ul ul ul,
-.cc-transcript ol ul ul,
-.cc-transcript ul ol ul,
-.cc-transcript ol ol ul {
-  list-style-type: square;
-}
-
-.cc-transcript li {
-  margin-bottom: 0.1em;
-}
-
-.cc-transcript h1,
-.cc-transcript h2,
-.cc-transcript h3,
-.cc-transcript h4,
-.cc-transcript h5,
-.cc-transcript h6 {
-  font-weight: 600;
-  margin-top: 20px;
-  margin-bottom: 14px;
-  line-height: 1.25;
-  color: var(--stream-fg);
-}
-
-.cc-transcript h1 {
-  font-size: 2em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--stream-border-subtle);
-}
-
-.cc-transcript h2 {
-  font-size: 1.5em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--stream-border-subtle);
-}
-
-.cc-transcript h3 { font-size: 1.25em; }
-.cc-transcript h4 { font-size: 1em; }
-.cc-transcript h5 { font-size: 0.875em; }
-.cc-transcript h6 { font-size: 0.85em; }
-
-.cc-transcript .cc-text table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5em 0;
-  font-size: 11px;
-}
-
-.cc-transcript .cc-text th {
-  text-align: left;
-  border-bottom: 1px solid var(--stream-border-subtle);
-  font-weight: 600;
-  background: var(--stream-surface-raised);
-}
-
-.cc-transcript .cc-text th,
-.cc-transcript .cc-text td {
-  padding: 3px 6px;
-  border-color: var(--stream-border-subtle);
-}
-
-.cc-transcript .cc-text table > tbody > tr + tr > td {
-  border-top: 1px solid var(--stream-border-subtle);
-}
-
-.cc-transcript hr {
-  border: 0;
-  height: 1px;
-  border-bottom: 1px solid var(--stream-border-subtle);
-  margin: 0.75em 0;
-}
-
-.cc-transcript strong {
-  font-weight: 600;
-}
-
-.cc-transcript em {
-  font-style: italic;
-}
 
 /* Turn containers (`.stream-turn`, `.stream-turn--user`/`--assistant`,
    `.stream-role-label`) now live in ../../lib/turns.css (imported above), so
@@ -238,25 +76,6 @@ body,
 /* Match DocumentEntry markdown text colour. */
 body {
   color: var(--vscode-editor-foreground);
-}
-
-/* Stream-renderer overrides of the transcript defaults above */
-.cc-transcript p {
-  margin: 0 0 0.75em;
-}
-
-.cc-transcript h1,
-.cc-transcript h2,
-.cc-transcript h3,
-.cc-transcript h4,
-.cc-transcript h5,
-.cc-transcript h6 {
-  margin-top: 1.25em;
-}
-
-/* Extra breathing room before each user turn (exchange boundary) */
-.cc-transcript [data-turn="user"]:not(:first-child) {
-  margin-top: 1.25rem;
 }
 
 /* Accordion styles (cc-tool-*, cc-accordion-*, cc-chevron, cc-tool-val-clip)

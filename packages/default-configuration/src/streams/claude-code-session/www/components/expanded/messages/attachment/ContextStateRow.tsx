@@ -2,8 +2,9 @@
  * Ambient turn-state attachment row.
  *
  * Renders the quiet, ambient-tier turn-context attachments — `team_context`,
- * `command_permissions`, `deferred_tools_delta`, `mcp_instructions_delta`, and
- * `task_reminder` — as a muted one-line summary. Types whose payload carries a
+ * `command_permissions`, `deferred_tools_delta`, `mcp_instructions_delta`,
+ * `agent_listing_delta`, and `task_reminder` — as a muted one-line summary.
+ * Types whose payload carries a
  * body (the descriptor's `expandable` flag) reveal that body in place via the
  * shared {@link ExpandableRow} primitive; the rest render as static leaf lines.
  *
@@ -22,6 +23,7 @@ import { JsonBlock } from '../../../../../../lib/JsonBlock';
 import { looksLikeMarkdown, renderMarkdownNodes } from '../../../../../../lib/markdown';
 import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
 import type {
+  AgentListingDeltaAttachment,
   AttachmentPayload,
   CommandPermissionsAttachment,
   DeferredToolsDeltaAttachment,
@@ -64,7 +66,7 @@ function renderBody(body: string): React.ReactElement {
   if (looksLikeMarkdown(body)) {
     return (
       <div
-        className="cc-text pb-1.5 break-words overflow-wrap-anywhere min-w-0 max-w-full"
+        className="cc-text aui-markdown pb-1.5 break-words overflow-wrap-anywhere min-w-0 max-w-full"
         style={{ fontSize: 'var(--stream-text-code)' }}
       >
         {renderMarkdownNodes(body, 'context-state')}
@@ -129,6 +131,11 @@ function bodyText(attachment: AttachmentPayload): string | null {
       const a = attachment as TaskReminderAttachment;
       const items = a.content ?? [];
       return items.length > 0 ? items.map((item) => String(item)).join('\n') : null;
+    }
+    case 'agent_listing_delta': {
+      const a = attachment as AgentListingDeltaAttachment;
+      const lines = [...(a.addedTypes ?? []).map((n) => `+ ${n}`), ...(a.removedTypes ?? []).map((n) => `− ${n}`)];
+      return lines.length > 0 ? lines.join('\n') : null;
     }
     default:
       return null;

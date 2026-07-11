@@ -26,17 +26,19 @@
 import type { ReasoningMessagePartComponent } from '@assistant-ui/react';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
-import { renderMarkdownNodes, truncate } from '../markdown';
+import { renderMarkdownNodes, stripMarkup, truncate } from '../markdown';
 
 /**
  * Extracts a short preview of a reasoning text's first non-empty line, for
- * the collapsed header.
+ * the collapsed header. The line is run through {@link stripMarkup} so the
+ * preview reads as plain text (no literal `**bold**`/backtick/link syntax) —
+ * the expanded body still renders the same text as full markdown.
  * @param text - The full reasoning/thinking text.
- * @returns The truncated first non-empty line, or `''` when the text is blank.
+ * @returns The truncated, markup-stripped first non-empty line, or `''` when the text is blank.
  */
-function firstLinePreview(text: string): string {
+export function firstLinePreview(text: string): string {
   const line = text.split('\n').find((candidate) => candidate.trim().length > 0);
-  return line === undefined ? '' : truncate(line.trim(), 80);
+  return line === undefined ? '' : truncate(stripMarkup(line), 80);
 }
 
 /**

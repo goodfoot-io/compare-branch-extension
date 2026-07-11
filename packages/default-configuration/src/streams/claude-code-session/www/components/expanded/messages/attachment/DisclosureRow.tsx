@@ -104,7 +104,7 @@ export function DisclosureRow({ descriptor, attachment }: DisclosureRowProps): R
   return (
     <ExpandableRow header={header}>
       {looksLikeMarkdown(body) ? (
-        <div className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full">
+        <div className="cc-text aui-markdown text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full">
           {renderMarkdownNodes(body, 'disclosure')}
         </div>
       ) : (

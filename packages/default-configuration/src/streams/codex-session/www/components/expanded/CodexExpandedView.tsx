@@ -94,7 +94,7 @@ export function CodexExpandedView(): React.ReactElement {
         provider={header?.provider}
         threadId={header?.threadId}
       />
-      <div className="cx-transcript font-vscode-editor flex-1 min-h-0 overflow-y-auto">
+      <div className="font-vscode-editor flex-1 min-h-0">
         {items.length === 0 ? (
           <div className="cx-empty">No Codex session activity yet.</div>
         ) : (

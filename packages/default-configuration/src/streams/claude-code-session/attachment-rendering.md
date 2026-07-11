@@ -8,7 +8,7 @@ keywords: [attachment, hook, classifier, to-thread-messages, CcDataParts, Attach
 
 # Attachment Rendering
 
-The Claude Code CLI writes a large family of JSONL lines with `type: "attachment"`, each carrying its own `attachment.type` discriminator (22 known kinds). In the **expanded** transcript view these were once dumped verbatim through the raw-JSON fallback; this subsystem gives every known kind a deliberate outcome — a purpose-built row, or nothing at all — while keeping the fallback for genuinely unknown future kinds.
+The Claude Code CLI writes a large family of JSONL lines with `type: "attachment"`, each carrying its own `attachment.type` discriminator (23 known kinds). In the **expanded** transcript view these were once dumped verbatim through the raw-JSON fallback; this subsystem gives every known kind a deliberate outcome — a purpose-built row, or nothing at all — while keeping the fallback for genuinely unknown future kinds.
 
 ## The pipeline
 
@@ -34,7 +34,7 @@ flowchart TD
 
 ## Tool-scoped — hooks nest in their tool
 
-The six `hook_*` types are events *about* a specific tool call. A pre-pass, [computeWillNestToolUseIds](./www/lib/to-thread-messages.ts#L259-L286), determines up front which tool ids will render an accordion; a hook whose `toolUseID` is in that set is nested (never duplicated), and a hook with no owning tool renders as a standalone orphan. Both paths share one row component, [HookRow](./www/components/accordions/HookRow.tsx#L190-L283), so nested and orphan hooks look and expand identically. Inside a tool they are grouped by `hookEvent` in the [HookSection](./www/components/accordions/HookSection.tsx#L48-L80); the expandable body text is assembled by [hookBodyText](./www/components/accordions/HookRow.tsx#L77-L108).
+The six `hook_*` types are events *about* a specific tool call. A pre-pass, [computeWillNestToolUseIds](./www/lib/to-thread-messages.ts#L335-L362), determines up front which tool ids will render an accordion; a hook whose `toolUseID` is in that set is nested (never duplicated), and a hook with no owning tool renders as a standalone orphan. Both paths share one row component, [HookRow](./www/components/accordions/HookRow.tsx#L190-L283), so nested and orphan hooks look and expand identically. Inside a tool they are grouped by `hookEvent` in the [HookSection](./www/components/accordions/HookSection.tsx#L48-L80); the expandable body text is assembled by [hookBodyText](./www/components/accordions/HookRow.tsx#L77-L108).
 
 A hook's free-text body is never dumped as an opaque string: [renderHookBody](./www/components/accordions/HookRow.tsx#L149-L173) auto-detects its shape — a JSON-looking payload renders through the shared `JsonBlock`, a markdown-shaped one through `renderMarkdownNodes`, otherwise plain pre-wrapped text. `hook_system_message` and `hook_additional_context` are prose meant to be read, so they always render as markdown regardless of shape. Separately, a hook's structured `hookSpecificOutput` object — when present and non-empty — always renders as its own "Hook-specific output" key/value table via the shared `ToolInputTable` ([HookRow](./www/components/accordions/HookRow.tsx#L193-L279)), alongside (not instead of) the free-text body.
 
@@ -53,7 +53,7 @@ A `hook_blocking_error` is the one signal the design draws the eye to: it tints 
 
 Turn-scoped attachments are environment/context events with no owning tool. The **ambient tier** reads quieter than a tool row and consecutive ambient rows fold into one bordered zone (or a `context updated · N changes` summary for long runs) via [AmbientGroup](./www/components/expanded/messages/AmbientGroup.tsx#L57-L76). The **content tier** carries openable payloads at tool-row weight.
 
-Ambient rows — [ContextStateRow](./www/components/expanded/messages/attachment/ContextStateRow.tsx#L92-L114):
+Ambient rows — [ContextStateRow](./www/components/expanded/messages/attachment/ContextStateRow.tsx#L94-L116):
 
 | Type | Summary | Note | Classifier |
 |---|---|---|---|
@@ -61,7 +61,8 @@ Ambient rows — [ContextStateRow](./www/components/expanded/messages/attachment
 | `command_permissions` | `Permissions: {n} tools allowed` | **hidden when empty** | [case](./www/lib/classify-attachment.ts#L282-L296) |
 | `deferred_tools_delta` | `Tools available +{a} −{r}` | **hidden when every delta empty** | [case](./www/lib/classify-attachment.ts#L297-L315) |
 | `mcp_instructions_delta` | `MCP instructions +{addedNames}` | | [case](./www/lib/classify-attachment.ts#L316-L329) |
-| `task_reminder` | `Tasks pending · {itemCount}` | **hidden when `itemCount === 0`** | [case](./www/lib/classify-attachment.ts#L330-L344) |
+| `agent_listing_delta` | `Agents available +{a} −{r}` | **hidden when added/removed both empty** | [case](./www/lib/classify-attachment.ts#L331-L345) |
+| `task_reminder` | `Tasks pending · {itemCount}` | **hidden when `itemCount === 0`** | [case](./www/lib/classify-attachment.ts#L347-L361) |
 
 Content-tier disclosures — [DisclosureRow](./www/components/expanded/messages/attachment/DisclosureRow.tsx#L92-L117) (memory / skills) and [FileRow](./www/components/expanded/messages/attachment/FileRow.tsx#L158-L207) (files / edits / queued commands / IDE leaves):
 
@@ -82,7 +83,7 @@ File-reference **leaves** (`compact_file_reference`, `opened_file_in_ide`, `sele
 
 ## Session-scoped — timeline markers
 
-- `date_change` → [DateMarker](./www/components/expanded/messages/attachment/DateMarker.tsx#L28-L34): a thin, right-aligned `{newDate}`, demoted below the compaction/session boundaries so the markers don't read as equal-weight noise. Because it is session-scoped it is **not** wrapped in `AmbientRow`, so it never folds into (or is collapsed away by) an `AmbientGroup`. [case](./www/lib/classify-attachment.ts#L507-L520)
+- `date_change` → [DateMarker](./www/components/expanded/messages/attachment/DateMarker.tsx#L28-L34): a thin, right-aligned `{newDate}`, demoted below the compaction/session boundaries so the markers don't read as equal-weight noise. Because it is session-scoped it is **not** wrapped in `AmbientRow`, so it never folds into (or is collapsed away by) an `AmbientGroup`. [case](./www/lib/classify-attachment.ts#L524-L537)
 - `away_summary` is a `system` subtype (not an attachment): the converter emits a `cc-away-summary` data part that [CcDataParts.tsx](./www/components/aui/CcDataParts.tsx) renders through [AwaySummaryBoundary](./www/components/expanded/messages/system/AwaySummaryBoundary.tsx#L30-L48), a session-boundary separator that expands to the full content.
 
 ## What is actually hidden

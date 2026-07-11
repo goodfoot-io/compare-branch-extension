@@ -19,6 +19,7 @@ import { PLANS_PREFIX } from '@cards.management/sdk/card-repo-layout';
 import { describe, expect, it } from 'vitest';
 import { classifyAttachment } from '../src/streams/claude-code-session/www/lib/classify-attachment.js';
 import type {
+  AgentListingDeltaAttachment,
   AttachmentPayload,
   CommandPermissionsAttachment,
   CompactFileReferenceAttachment,
@@ -153,6 +154,38 @@ const mcpInstructionsDeltaFixture: McpInstructionsDeltaAttachment = {
     '## plugin:voice:voice\nThe voice server is already running on port 3000 (another Claude Code session owns it).'
   ],
   removedNames: []
+};
+
+const agentListingDeltaInitialFixture: AgentListingDeltaAttachment = {
+  type: 'agent_listing_delta',
+  addedTypes: ['claude', 'claude-code-guide', 'Explore', 'general-purpose'],
+  addedLines: [
+    "- claude: Catch-all for any task that doesn't fit a more specific agent.",
+    '- claude-code-guide: Use this agent when the user asks questions about Claude Code.',
+    '- Explore: Fast read-only search agent for locating code.',
+    '- general-purpose: General-purpose agent for researching complex questions.'
+  ],
+  removedTypes: [],
+  isInitial: true,
+  showConcurrencyNote: true
+};
+
+const agentListingDeltaRemovalFixture: AgentListingDeltaAttachment = {
+  type: 'agent_listing_delta',
+  addedTypes: [],
+  addedLines: [],
+  removedTypes: ['browser:screenshot-description', 'claude-code-guide', 'git-mesh:expert'],
+  isInitial: false,
+  showConcurrencyNote: true
+};
+
+const agentListingDeltaEmptyFixture: AgentListingDeltaAttachment = {
+  type: 'agent_listing_delta',
+  addedTypes: [],
+  addedLines: [],
+  removedTypes: [],
+  isInitial: false,
+  showConcurrencyNote: false
 };
 
 const taskReminderEmptyFixture: TaskReminderAttachment = {
@@ -416,6 +449,31 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.hidden).toBe(false);
     expect(d.summary).toContain('plugin:voice:voice');
     expect(d.expandable).toBe(true);
+  });
+
+  it('agent_listing_delta: rendered (hidden=false) with addedTypes populated, summary includes added count', () => {
+    const d = classifyAttachment(agentListingDeltaInitialFixture);
+    expect(d.kind).toBe('agent_listing_delta');
+    expect(d.scope).toBe('turn');
+    expect(d.tier).toBe('ambient');
+    expect(d.hidden).toBe(false);
+    expect(d.summary).toContain('+4');
+    expect(d.summary).toContain('−0');
+    expect(d.expandable).toBe(true);
+  });
+
+  it('agent_listing_delta: rendered (hidden=false) with only removedTypes populated, summary includes removed count', () => {
+    const d = classifyAttachment(agentListingDeltaRemovalFixture);
+    expect(d.kind).toBe('agent_listing_delta');
+    expect(d.hidden).toBe(false);
+    expect(d.summary).toContain('+0');
+    expect(d.summary).toContain('−3');
+  });
+
+  it('agent_listing_delta: hidden when added/removed both empty', () => {
+    const d = classifyAttachment(agentListingDeltaEmptyFixture);
+    expect(d.kind).toBe('agent_listing_delta');
+    expect(d.hidden).toBe(true);
   });
 
   it('task_reminder: hidden when itemCount is 0', () => {

@@ -14,7 +14,10 @@
  * shared data parts (./DataParts.tsx) plus any caller-supplied
  * `dataComponents` for `data` parts. `ThreadPrimitive.Viewport`'s default
  * `autoScroll` (true, bottom-anchored) keeps the transcript pinned to the
- * latest turn as new messages arrive.
+ * latest turn as new messages arrive. `Messages` renders inside an
+ * `.aui-thread-content` div (aui.css) that caps and centers the readable
+ * column while the viewport itself stays full width, so its scrollbar sits at
+ * the pane edge rather than beside the text.
  *
  * @summary Read-only assistant-ui thread shell shared by both stream renderers
  * @module streams/lib/aui/StreamThread
@@ -141,7 +144,9 @@ export function StreamThread({
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="aui-thread-root">
         <ThreadPrimitive.Viewport className="aui-thread-viewport">
-          <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage, SystemMessage }} />
+          <div className="aui-thread-content">
+            <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage, SystemMessage }} />
+          </div>
         </ThreadPrimitive.Viewport>
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>

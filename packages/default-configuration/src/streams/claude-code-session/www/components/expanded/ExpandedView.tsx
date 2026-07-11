@@ -25,6 +25,7 @@ import {
   CcAttachmentPart,
   CcAwaySummaryPart,
   CcHookPart,
+  CcSessionStartPart,
   CcSupplementalPart,
   CcToolPart
 } from '../aui';
@@ -35,6 +36,7 @@ const CC_DATA_COMPONENTS = {
   'cc-attachment': CcAttachmentPart,
   'cc-ambient-group': CcAmbientGroupPart,
   'cc-away-summary': CcAwaySummaryPart,
+  'cc-session-start': CcSessionStartPart,
   'cc-supplemental': CcSupplementalPart
 };
 
@@ -77,14 +79,6 @@ export function ExpandedView(): React.ReactElement {
   const [agentId, setAgentId] = useState<string | undefined>(() => readPrimaryAgentId());
 
   const lastLineCountRef = useRef<number>(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // column-reverse auto-pins on subsequent appends, but the initial layout
-    // with prepopulated content from __STREAM_INIT__ does not start at the
-    // bottom in Chromium. scrollTop = 0 is the bottom in column-reverse.
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, []);
 
   // Bootstrap-then-subscribe. Reconcile against the current store before
   // subscribing so lines that arrived between the initial useState and this
@@ -149,20 +143,18 @@ export function ExpandedView(): React.ReactElement {
         status={converted.status}
         agentId={agentId}
       />
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse">
-        <div className="cc-transcript px-4 pt-4 pb-10 flex flex-col gap-2 overflow-visible">
-          {converted.messages.length === 0 ? (
-            <div className="text-vscode-descriptionForeground italic text-[0.9em] px-3.5 py-4">No output yet.</div>
-          ) : (
-            <StreamThread
-              messages={converted.messages}
-              isRunning={converted.isRunning}
-              toolComponents={toolComponents}
-              dataComponents={CC_DATA_COMPONENTS}
-              assistantName="Claude Code"
-            />
-          )}
-        </div>
+      <div className="flex-1 min-h-0">
+        {converted.messages.length === 0 ? (
+          <div className="text-vscode-descriptionForeground italic text-[0.9em] px-3.5 py-4">No output yet.</div>
+        ) : (
+          <StreamThread
+            messages={converted.messages}
+            isRunning={converted.isRunning}
+            toolComponents={toolComponents}
+            dataComponents={CC_DATA_COMPONENTS}
+            assistantName="Claude Code"
+          />
+        )}
       </div>
     </div>
   );

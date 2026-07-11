@@ -313,9 +313,11 @@ describe('toThreadMessages — error', () => {
 });
 
 describe('toThreadMessages — task_started / task_complete', () => {
-  it('renders task_started as a status-line data part', () => {
+  it('renders task_started as a quiet boundary data part, not a floating status line', () => {
     const { messages } = toThreadMessages([{ kind: 'task_started' }], false);
-    expect(messages[0]?.content).toEqual([{ type: 'data', name: 'status-line', data: { text: 'Task started' } }]);
+    expect(messages[0]?.content).toEqual([
+      { type: 'data', name: 'boundary', data: { kind: 'turn', label: 'Task started' } }
+    ]);
   });
 
   it('renders task_complete as a quiet turn-time line with a formatted duration, replacing the old result boundary', () => {

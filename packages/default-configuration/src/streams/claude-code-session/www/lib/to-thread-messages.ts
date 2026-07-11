@@ -9,8 +9,9 @@
  * `role: 'system'` message whose content isn't exactly one `text` part —
  * every structural/status row here (`boundary`, `status-line`, `error-line`,
  * `raw`, plus the renderer-local `cc-hook`/`cc-attachment`/`cc-ambient-group`/
- * `cc-away-summary`/`cc-supplemental` parts) is a `data` part, so none of
- * them can ever be a system message's content. Instead, only `user` messages
+ * `cc-away-summary`/`cc-supplemental`/`cc-session-start` parts) is a `data`
+ * part, so none of them can ever be a system message's content. Instead,
+ * only `user` messages
  * start a new `ThreadMessageLike`; every other message contributes to one of
  * two alternating "run" kinds, both `role: 'assistant'`:
  *
@@ -19,10 +20,25 @@
  *   `AssistantMessage`).
  * - **Service runs** carry every `data` part (`boundary`/`status-line`/
  *   `error-line`/`raw`/`cc-hook`/`cc-attachment`/`cc-ambient-group`/
- *   `cc-away-summary`/`cc-supplemental`) — structural/system content — marked
- *   `metadata: { custom: { service: true } }` so the shared `AssistantMessage`
- *   renders it header-less and full-width instead of under a captioned
- *   "Assistant" turn.
+ *   `cc-away-summary`/`cc-supplemental`/`cc-session-start`) — structural/system
+ *   content — marked `metadata: { custom: { service: true } }` so the shared
+ *   `AssistantMessage` renders it header-less and full-width instead of under
+ *   a captioned "Assistant" turn.
+ *
+ * **Session-preamble gathering.** Every real transcript opens with a run of
+ * service/structural debris — orphan `SessionStart` hooks, a `skill_listing`
+ * content row, `Mode:`/`Title:` coordination lines — that used to render as
+ * scattered top-level rows before the first real exchange. This converter
+ * instead buffers every such part (see `gatheringSessionStart` / `emit` /
+ * `closeSessionStartGathering`) until the first genuine content part arrives
+ * (a real user turn's prose, or an assistant `text`/`reasoning`/`tool-call`),
+ * then flushes the buffer as one `cc-session-start` disclosure — collapsed by
+ * default, expanding to every original row unchanged — immediately before
+ * that first content. `boundary` parts (the "Session started · N tools" turn
+ * marker, plus `compaction`/`result`) and `cc-away-summary` are deliberately
+ * excluded from this grouping and keep rendering exactly as before, even
+ * while gathering is open; everything after the first content part is
+ * likewise ungrouped, rendered exactly as it always was.
  *
  * Appending a part whose category differs from the currently-open run flushes
  * that run and starts a new one of the new category, preserving source order
@@ -105,6 +121,27 @@ export interface CcAwaySummaryData {
 export interface CcSupplementalData {
   /** The injected text content to disclose. */
   text: string;
+}
+
+/** One grouped part inside a `cc-session-start` disclosure — a data part's `name`/`data`, stripped of its `type` wrapper. */
+export interface CcSessionStartEntry {
+  /** The original data part's `name` (e.g. `status-line`, `cc-hook`, `cc-attachment`). */
+  name: string;
+  /** The original data part's payload. */
+  data: unknown;
+}
+
+/**
+ * Data payload for the `cc-session-start` data part — the collapsed-by-default
+ * disclosure grouping every service/structural row that precedes the first
+ * real conversation content (see {@link summarizeSessionStart} and the
+ * gathering logic in {@link toThreadMessages}).
+ */
+export interface CcSessionStartData {
+  /** Short derived summary shown in the collapsed header (e.g. "Session started · normal · 57 skills"). */
+  summary: string;
+  /** Every grouped row, in original arrival order, unchanged. */
+  entries: CcSessionStartEntry[];
 }
 
 /** Structured `result` payload a `tool-call` part carries once resolved. */
@@ -208,6 +245,45 @@ function awaySummaryPart(content: string): ThreadMessagePart {
 
 function supplementalPart(text: string): ThreadMessagePart {
   return { type: 'data', name: 'cc-supplemental', data: { text } satisfies CcSupplementalData };
+}
+
+function sessionStartPart(summary: string, entries: CcSessionStartEntry[]): ThreadMessagePart {
+  return { type: 'data', name: 'cc-session-start', data: { summary, entries } satisfies CcSessionStartData };
+}
+
+/**
+ * Derives the collapsed `cc-session-start` disclosure's one-line summary from
+ * what it actually contains — short and honest rather than a generic "Session
+ * setup" label. Reads the buffered entries for a `Mode: …` status-line (the
+ * session's mode), a `skill_listing` attachment's `skillCount`, and a count of
+ * `cc-hook` entries; each is appended only when present, so a session with no
+ * hooks (say) doesn't show a stray "0 hooks".
+ * @param entries - The buffered leading-run entries (see {@link toThreadMessages}'s gathering logic).
+ * @returns The derived summary line, always starting with "Session started".
+ */
+function summarizeSessionStart(entries: CcSessionStartEntry[]): string {
+  let mode: string | undefined;
+  let skillCount: number | undefined;
+  let hookCount = 0;
+  for (const entry of entries) {
+    if (entry.name === STREAM_DATA_PART_NAME.statusLine) {
+      const match = /^Mode: (.+)$/.exec((entry.data as StatusLineData).text);
+      if (match?.[1]) mode = match[1];
+    } else if (entry.name === 'cc-hook') {
+      hookCount += 1;
+    } else if (entry.name === 'cc-attachment') {
+      const attachment = (entry.data as CcAttachmentData).attachment;
+      if (attachment.type === 'skill_listing') {
+        const count = (attachment as Extract<AttachmentPayload, { type: 'skill_listing' }>).skillCount;
+        if (typeof count === 'number') skillCount = count;
+      }
+    }
+  }
+  const segments = ['Session started'];
+  if (mode) segments.push(mode);
+  if (skillCount !== undefined) segments.push(`${skillCount} skill${skillCount === 1 ? '' : 's'}`);
+  if (hookCount > 0) segments.push(`${hookCount} hook${hookCount === 1 ? '' : 's'}`);
+  return segments.join(' · ');
 }
 
 /**
@@ -403,6 +479,18 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
   let runCreatedAt: Date | undefined;
   let currentMsgTimestamp: Date | undefined;
 
+  // Session-preamble gathering (issue: scattered orphan rows at the top of
+  // every transcript). While `gatheringSessionStart` is true, every
+  // service/structural data part *other than* a `boundary` or
+  // `cc-away-summary` (both excluded from grouping — see module doc) is
+  // buffered here instead of emitted directly. The first genuine content part
+  // (text/reasoning/tool-call, from either a real user turn or assistant
+  // output) flushes the buffer as one `cc-session-start` disclosure and
+  // permanently closes gathering, so nothing after real content starts is
+  // ever grouped.
+  let gatheringSessionStart = true;
+  let sessionStartBuffer: ThreadMessagePart[] = [];
+
   // Coordination status-lines ("Mode: …", "Title: …", and classifyCoordinationText
   // output) repeat around nearly every exchange; suppress an exact-duplicate
   // consecutive value per coordination kind (keyed by the text before ':'),
@@ -471,9 +559,79 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
     }
   };
 
+  /**
+   * True for a `boundary` or `cc-away-summary` data part — the two kinds of
+   * structural marker explicitly excluded from session-preamble grouping (see
+   * module doc): they keep rendering exactly as they do today, even while
+   * gathering is open.
+   * @param part - The part to test.
+   * @returns Whether this part is a boundary or away-summary marker.
+   */
+  function isUngroupedStructuralPart(part: ThreadMessagePart): boolean {
+    return part.type === 'data' && (part.name === STREAM_DATA_PART_NAME.boundary || part.name === 'cc-away-summary');
+  }
+
+  /**
+   * Flushes the buffered leading-run parts (see {@link gatheringSessionStart})
+   * into one `cc-session-start` disclosure part, deriving its summary from
+   * what it contains. No-op when nothing was buffered.
+   */
+  const flushSessionStartBuffer = (): void => {
+    if (sessionStartBuffer.length === 0) return;
+    const entries: CcSessionStartEntry[] = sessionStartBuffer.map((part) => {
+      // Every buffered part is a `data` part — `isUngroupedStructuralPart`
+      // and the content check in `emit` route anything else away before it
+      // ever reaches this buffer.
+      const dataPart = part as Extract<ThreadMessagePart, { type: 'data' }>;
+      return { name: dataPart.name, data: dataPart.data };
+    });
+    const summary = summarizeSessionStart(entries);
+    sessionStartBuffer = [];
+    appendAssistant(sessionStartPart(summary, entries));
+  };
+
+  /**
+   * The single entry point every message-processing branch below uses in
+   * place of `appendAssistant` directly, so the session-preamble grouping
+   * (see module doc) is transparent to the rest of the converter: once
+   * gathering has closed (or for the ungrouped boundary/away-summary kinds),
+   * this behaves exactly like `appendAssistant`; while gathering is still
+   * open, every other data part is buffered instead, and the first content
+   * part flushes that buffer before itself being appended.
+   * @param parts - Parts to emit, in order.
+   */
+  /**
+   * Ends session-preamble gathering (idempotent), flushing whatever was
+   * buffered first. Called both by `emit` (for a genuine content part on an
+   * assistant run) and directly by the `user` case (whose real-turn message
+   * is built and pushed to `threadMessages` without going through `emit` at
+   * all — see module doc on user turns being built directly).
+   */
+  const closeSessionStartGathering = (): void => {
+    if (!gatheringSessionStart) return;
+    flushSessionStartBuffer();
+    gatheringSessionStart = false;
+  };
+
+  const emit = (...parts: ThreadMessagePart[]): void => {
+    for (const part of parts) {
+      if (!gatheringSessionStart || isUngroupedStructuralPart(part)) {
+        appendAssistant(part);
+        continue;
+      }
+      if (part.type !== 'data') {
+        // Genuine content (text/reasoning/tool-call): the session preamble is over.
+        closeSessionStartGathering();
+        appendAssistant(part);
+        continue;
+      }
+      sessionStartBuffer.push(part);
+    }
+  };
+
   const flushAmbient = (): void => {
     if (ambientBuffer.length === 0) return;
-    appendAssistant(ambientGroupPart(ambientBuffer));
+    emit(ambientGroupPart(ambientBuffer));
     ambientBuffer = [];
   };
 
@@ -504,7 +662,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
       pendingToolCalls.delete(toolUseId);
       return;
     }
-    appendAssistant({
+    emit({
       type: 'tool-call',
       toolCallId: `orphan-${toolUseId}`,
       toolName: 'tool',
@@ -526,14 +684,14 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             cwd = initMsg.cwd ?? '';
             const toolCount = initMsg.tools?.length ?? 0;
             flushAmbient();
-            appendAssistant(boundaryPart('turn', `Session started · ${toolCount} tool${toolCount !== 1 ? 's' : ''}`));
+            emit(boundaryPart('turn', `Session started · ${toolCount} tool${toolCount !== 1 ? 's' : ''}`));
             break;
           }
           case 'status': {
             const statusMsg = sysMsg as SystemStatusMsg;
             if (statusMsg.status === 'compacting') {
               flushAmbient();
-              appendAssistant(statusLinePart('Compacting context…'));
+              emit(statusLinePart('Compacting context…'));
             }
             break;
           }
@@ -542,9 +700,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             const trigger = cbMsg.compact_metadata?.trigger ?? 'auto';
             const preTokens = cbMsg.compact_metadata?.pre_tokens ?? 0;
             flushAmbient();
-            appendAssistant(
-              boundaryPart('compaction', `Context compacted (${trigger}) · ${preTokens.toLocaleString()} tokens`)
-            );
+            emit(boundaryPart('compaction', `Context compacted (${trigger}) · ${preTokens.toLocaleString()} tokens`));
             break;
           }
           case 'hook_started':
@@ -561,21 +717,19 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             const text =
               failed > 0 ? `Files persisted: ${saved} saved, ${failed} failed` : `Files persisted: ${saved} saved`;
             flushAmbient();
-            appendAssistant(statusLinePart(text));
+            emit(statusLinePart(text));
             break;
           }
           case 'task_notification': {
             const tnMsg = sysMsg as SystemTaskNotificationMsg;
             flushAmbient();
-            appendAssistant(
-              statusLinePart(`Task ${tnMsg.task_id ?? ''}: ${tnMsg.status ?? ''} — ${tnMsg.summary ?? ''}`)
-            );
+            emit(statusLinePart(`Task ${tnMsg.task_id ?? ''}: ${tnMsg.status ?? ''} — ${tnMsg.summary ?? ''}`));
             break;
           }
           case 'away_summary': {
             const awayMsg = sysMsg as SystemAwaySummaryMsg;
             flushAmbient();
-            appendAssistant(awaySummaryPart(awayMsg.content));
+            emit(awaySummaryPart(awayMsg.content));
             break;
           }
           case 'turn_duration': {
@@ -587,12 +741,12 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             const seconds = ((tdMsg.durationMs ?? 0) / 1000).toFixed(1);
             const count = tdMsg.messageCount ?? 0;
             flushAmbient();
-            appendAssistant(statusLinePart(`Turn · ${seconds}s · ${count} message${count === 1 ? '' : 's'}`));
+            emit(statusLinePart(`Turn · ${seconds}s · ${count} message${count === 1 ? '' : 's'}`));
             break;
           }
           default:
             flushAmbient();
-            appendAssistant(rawPart(sysMsg, `Unrecognized system event · ${sysMsg.subtype}`));
+            emit(rawPart(sysMsg, `Unrecognized system event · ${sysMsg.subtype}`));
         }
         break;
       }
@@ -606,7 +760,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             const text = extractIsMetaText(raw);
             if (text) {
               flushAmbient();
-              appendAssistant(supplementalPart(text));
+              emit(supplementalPart(text));
             }
           }
           break;
@@ -658,6 +812,11 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             // A real user turn closes out whatever run preceded it —
             // user/assistant messages alternate as distinct ThreadMessageLikes;
             // only the structural/status content in between folds into runs.
+            // A user turn carrying genuine human prose is exactly the "first
+            // real conversation content" the session-preamble gathering waits
+            // for (see module doc) — a coordination-only user turn (no
+            // humanParts) is not, so it doesn't close gathering.
+            if (humanParts.length > 0) closeSessionStartGathering();
             flushAssistant(false);
             threadMessages.push({
               id: nextId(),
@@ -674,7 +833,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
         const aMsg = msg as AssistantMsg;
         if (aMsg.error) {
           flushAmbient();
-          appendAssistant(errorLinePart(`API Error: ${String(aMsg.error)}`));
+          emit(errorLinePart(`API Error: ${String(aMsg.error)}`));
           break;
         }
 
@@ -710,7 +869,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           // message — consecutive assistant SessionMsgs (and any structural
           // content between them) share one ThreadMessageLike (see module doc).
           flushAmbient();
-          appendAssistant(...parts);
+          emit(...parts);
         }
         break;
       }
@@ -727,7 +886,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           }
         }
         if (!rendered && summary) {
-          appendAssistant({
+          emit({
             type: 'tool-call',
             toolCallId: `tus-${nextId()}`,
             toolName: 'tool',
@@ -748,15 +907,15 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           ? `Session complete · ${rMsg.num_turns ?? 0} turns · ${durationS}s${costStr}`
           : `Session error (${rMsg.subtype ?? 'unknown'}) · ${rMsg.num_turns ?? 0} turns · ${durationS}s`;
         flushAmbient();
-        appendAssistant(boundaryPart('result', label));
+        emit(boundaryPart('result', label));
         break;
       }
 
       case 'auth_status': {
         const authMsg = msg as AuthStatusMsg;
         flushAmbient();
-        if (authMsg.error) appendAssistant(errorLinePart(`Auth error: ${authMsg.error}`));
-        else if (authMsg.isAuthenticating) appendAssistant(statusLinePart('Authenticating…'));
+        if (authMsg.error) emit(errorLinePart(`Auth error: ${authMsg.error}`));
+        else if (authMsg.isAuthenticating) emit(statusLinePart('Authenticating…'));
         break;
       }
 
@@ -767,7 +926,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           const toolUseID = (attachment as { toolUseID?: string }).toolUseID;
           if (toolUseID && willNestToolUseIds.has(toolUseID)) break;
           flushAmbient();
-          appendAssistant(hookPart(attachment));
+          emit(hookPart(attachment));
           break;
         }
 
@@ -780,7 +939,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
         }
 
         flushAmbient();
-        appendAssistant(attachmentPart(attachment));
+        emit(attachmentPart(attachment));
         break;
       }
 
@@ -790,7 +949,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           const line = dedupeCoordinationLine(`Mode: ${modeMsg.mode}`);
           if (line) {
             flushAmbient();
-            appendAssistant(statusLinePart(line));
+            emit(statusLinePart(line));
           }
         }
         break;
@@ -802,7 +961,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           const line = dedupeCoordinationLine(`Title: "${titleMsg.aiTitle}"`);
           if (line) {
             flushAmbient();
-            appendAssistant(statusLinePart(line));
+            emit(statusLinePart(line));
           }
         }
         break;
@@ -813,11 +972,11 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
         flushAmbient();
         if (queueMsg.operation === 'enqueue') {
           const preview = truncate(stripMarkup(queueMsg.content ?? '').trim(), 60);
-          appendAssistant(statusLinePart(preview ? `Queued: ${preview}` : 'Queued'));
+          emit(statusLinePart(preview ? `Queued: ${preview}` : 'Queued'));
         } else if (queueMsg.operation === 'remove' || queueMsg.operation === 'dequeue') {
-          appendAssistant(statusLinePart(`Queue: ${queueMsg.operation}`));
+          emit(statusLinePart(`Queue: ${queueMsg.operation}`));
         } else {
-          appendAssistant(rawPart(msg, `Unrecognized queue operation · ${String(queueMsg.operation)}`));
+          emit(rawPart(msg, `Unrecognized queue operation · ${String(queueMsg.operation)}`));
         }
         break;
       }
@@ -826,14 +985,14 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
         const worktreeMsg = msg as { worktreeSession?: { worktreeName?: string; worktreePath?: string } };
         const name = worktreeMsg.worktreeSession?.worktreeName;
         flushAmbient();
-        appendAssistant(statusLinePart(name ? `Worktree: ${name}` : 'Worktree state'));
+        emit(statusLinePart(name ? `Worktree: ${name}` : 'Worktree state'));
         break;
       }
 
       case 'bridge-session': {
         const bridgeMsg = msg as { bridgeSessionId?: string };
         flushAmbient();
-        appendAssistant(
+        emit(
           statusLinePart(bridgeMsg.bridgeSessionId ? `Bridge session ${bridgeMsg.bridgeSessionId}` : 'Bridge session')
         );
         break;
@@ -852,18 +1011,25 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
         }
         if (lines.length > 0) {
           flushAmbient();
-          appendAssistant(...lines);
+          emit(...lines);
         }
         break;
       }
 
       default:
         flushAmbient();
-        appendAssistant(rawPart(msg, `Unrecognized message · ${msg.type}`));
+        emit(rawPart(msg, `Unrecognized message · ${msg.type}`));
     }
   }
 
-  flushAssistant(true);
+  // A transcript that is nothing but preamble (no real content ever arrives)
+  // still must not drop its buffered rows. `flushAmbient` must run first —
+  // any still-pending ambient buffer becomes (via `emit`) one more buffered
+  // entry — before `flushSessionStartBuffer` drains the buffer for good;
+  // `flushRun` last finalizes whatever run either flush left open.
+  flushAmbient();
+  flushSessionStartBuffer();
+  flushRun(true);
 
   return { messages: threadMessages, isRunning, model, cwd, status };
 }

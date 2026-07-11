@@ -87,7 +87,26 @@ const teamContext: AttachmentPayload = {
 } as AttachmentPayload;
 
 /**
- * Finds every part named `name` across a set of ThreadMessageLike messages, with its owning message role.
+ * A real assistant content message (genuine prose), prepended to a test's
+ * message array so session-preamble gathering (see `to-thread-messages.ts`'s
+ * module doc) closes immediately — the message under test then renders
+ * exactly as it would mid-session, ungrouped, letting these tests keep
+ * asserting each message kind's shape in isolation rather than reaching into
+ * a `cc-session-start` disclosure's buffered entries.
+ */
+const realContent: SessionMsg = {
+  type: 'assistant',
+  message: { content: [{ type: 'text', text: 'Real content, closing session-preamble gathering.' }] }
+} as SessionMsg;
+
+/**
+ * Finds every part named `name` across a set of ThreadMessageLike messages,
+ * with its owning message role. Also looks *inside* any `cc-session-start`
+ * disclosure's grouped entries — session-preamble gathering (see
+ * `to-thread-messages.ts`'s module doc) relocates a leading run of
+ * service/structural parts into that one disclosure without dropping or
+ * altering them, so a part this helper is looking for may live there instead
+ * of at the top level; either way it is still present, unchanged.
  * @param messages - Converted thread messages to search.
  * @param name - The data part `name` to match.
  * @returns Matching parts' `data`, alongside their owning message's `role`.
@@ -100,7 +119,14 @@ function findDataParts(
   for (const message of messages) {
     if (typeof message.content === 'string') continue;
     for (const part of message.content) {
-      if (part.type === 'data' && part.name === name) found.push({ role: message.role, data: part.data });
+      if (part.type !== 'data') continue;
+      if (part.name === name) found.push({ role: message.role, data: part.data });
+      if (part.name === 'cc-session-start') {
+        const entries = (part.data as { entries: { name: string; data: unknown }[] }).entries;
+        for (const entry of entries) {
+          if (entry.name === name) found.push({ role: message.role, data: entry.data });
+        }
+      }
     }
   }
   return found;
@@ -464,7 +490,14 @@ describe('toThreadMessages — createdAt', () => {
 
 describe('toThreadMessages — coordination content and reasoning', () => {
   it('splits a coordination status-line and genuine prose in the same assistant turn into a service run and a content run', () => {
+    // Prepends `realContent` so session-preamble gathering has already closed
+    // (see `to-thread-messages.ts` module doc) by the time the turn under
+    // test runs — otherwise its coordination status-line would itself be the
+    // very first thing in the transcript and land inside a `cc-session-start`
+    // disclosure instead of a bare service run, which is a different feature
+    // covered by its own tests below.
     const messages: SessionMsg[] = [
+      realContent,
       {
         type: 'assistant',
         message: {
@@ -481,16 +514,16 @@ describe('toThreadMessages — coordination content and reasoning', () => {
     // Structural content (the coordination status-line) must not share a
     // message with genuine assistant prose — the service run is flushed
     // before the content run starts, so the two land in separate messages.
-    expect(threadMessages).toHaveLength(2);
-    expect(threadMessages[0]?.role).toBe('assistant');
-    expect(threadMessages[0]?.metadata?.custom?.['service']).toBe(true);
-    expect(threadMessages[0]?.content).toEqual([
+    expect(threadMessages).toHaveLength(3);
+    expect(threadMessages[1]?.role).toBe('assistant');
+    expect(threadMessages[1]?.metadata?.custom?.['service']).toBe(true);
+    expect(threadMessages[1]?.content).toEqual([
       { type: 'data', name: 'status-line', data: { text: 'reviewer: approval' } }
     ]);
 
-    expect(threadMessages[1]?.role).toBe('assistant');
-    expect(threadMessages[1]?.metadata?.custom?.['service']).toBeUndefined();
-    expect(threadMessages[1]?.content).toContainEqual({ type: 'text', text: 'Looks good to merge.' });
+    expect(threadMessages[2]?.role).toBe('assistant');
+    expect(threadMessages[2]?.metadata?.custom?.['service']).toBeUndefined();
+    expect(threadMessages[2]?.content).toContainEqual({ type: 'text', text: 'Looks good to merge.' });
   });
 
   it('produces no message for an assistant turn whose only text block is a suppressed idle_notification', () => {
@@ -635,6 +668,128 @@ describe('toThreadMessages — turn_duration, queue-operation, worktree-state, b
     const statusLines = findDataParts(messages, 'status-line');
     expect(statusLines).toHaveLength(1);
     expect((statusLines[0]?.data as { text: string }).text).toBe('Bridge session bridge-42');
+  });
+});
+
+// ============================================================================
+// Session-preamble gathering — cc-session-start disclosure
+// ============================================================================
+
+describe('toThreadMessages — session-preamble gathering (cc-session-start)', () => {
+  it('groups the leading run of mode/hook/skill-listing/title debris into one cc-session-start part, ahead of the first real user message', () => {
+    const skillListing: AttachmentPayload = {
+      type: 'skill_listing',
+      content: '- copywriting\n- css-animations',
+      skillCount: 57
+    } as AttachmentPayload;
+
+    const messages: SessionMsg[] = [
+      { type: 'mode', mode: 'normal' } as SessionMsg,
+      attachmentMsg(hookSuccessFor('SessionStart:startup')),
+      attachmentMsg(skillListing),
+      { type: 'ai-title', aiTitle: 'Fix the flaky test' } as SessionMsg,
+      { type: 'user', message: { content: [{ type: 'text', text: 'Please fix the flaky test.' }] } } as SessionMsg
+    ];
+
+    const { messages: threadMessages } = toThreadMessages(messages);
+
+    // Nothing renders as a scattered top-level row anymore — every debris
+    // part is still present (findDataParts also looks inside a
+    // cc-session-start's entries), but each now lives at the top level of
+    // exactly one message: the group.
+    expect(threadMessages).toHaveLength(2);
+    const group = threadMessages[0];
+    expect(group?.role).toBe('assistant');
+    expect(group?.metadata?.custom?.['service']).toBe(true);
+    expect(group?.content).toHaveLength(1);
+    const part = (group?.content as { type: string; name: string; data: unknown }[])[0];
+    expect(part?.type).toBe('data');
+    expect(part?.name).toBe('cc-session-start');
+
+    const data = part?.data as { summary: string; entries: { name: string; data: unknown }[] };
+    expect(data.summary).toBe('Session started · normal · 57 skills · 1 hook');
+    expect(data.entries.map((e) => e.name)).toEqual(['status-line', 'cc-hook', 'cc-attachment', 'status-line']);
+
+    // The first real user message follows, ungrouped.
+    expect(threadMessages[1]?.role).toBe('user');
+    expect(threadMessages[1]?.content).toEqual([{ type: 'text', text: 'Please fix the flaky test.' }]);
+  });
+
+  it('does not group the boundary/away_summary parts even while gathering is open', () => {
+    const messages: SessionMsg[] = [
+      { type: 'system', subtype: 'init', model: 'x', cwd: '/w', tools: ['Bash'] } as SessionMsg,
+      { type: 'mode', mode: 'normal' } as SessionMsg,
+      { type: 'system', subtype: 'away_summary', content: 'Away for a while.' } as SessionMsg,
+      { type: 'user', message: { content: [{ type: 'text', text: 'hi' }] } } as SessionMsg
+    ];
+
+    const { messages: threadMessages } = toThreadMessages(messages);
+
+    // The turn boundary and away-summary both render exactly as before —
+    // never folded into the cc-session-start disclosure.
+    expect(findDataParts(threadMessages, 'boundary')).toEqual([
+      { role: 'assistant', data: { kind: 'turn', label: 'Session started · 1 tool' } }
+    ]);
+    expect(findDataParts(threadMessages, 'cc-away-summary')).toEqual([
+      { role: 'assistant', data: { content: 'Away for a while.' } }
+    ]);
+
+    const sessionStartParts = findDataParts(threadMessages, 'status-line').length;
+    expect(sessionStartParts).toBe(1); // the Mode: normal line, relocated into the group
+  });
+
+  it('does not create a cc-session-start part when there is no leading debris (real content is the very first thing)', () => {
+    const { messages } = toThreadMessages([
+      { type: 'user', message: { content: [{ type: 'text', text: 'Hello.' }] } } as SessionMsg
+    ]);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.role).toBe('user');
+  });
+
+  it('still flushes buffered debris into a cc-session-start part when the whole transcript is nothing but preamble', () => {
+    const { messages } = toThreadMessages([{ type: 'mode', mode: 'normal' } as SessionMsg]);
+
+    expect(messages).toHaveLength(1);
+    const content = messages[0]?.content as { type: string; name: string }[];
+    expect(content[0]?.name).toBe('cc-session-start');
+  });
+
+  it('a coordination-only user turn (no human prose) does not close gathering, and keeps rendering as its own ungrouped user message', () => {
+    // A user turn is always built directly (never through the buffering
+    // `emit`, per the module doc), so it's never itself absorbed into the
+    // group — but since it carries no human prose, it also isn't "real
+    // conversation content", so gathering stays open through it: the debris
+    // before AND after it (the two Mode: lines) still land in one group,
+    // flushed only once real human text arrives.
+    const messages: SessionMsg[] = [
+      { type: 'mode', mode: 'normal' } as SessionMsg,
+      {
+        type: 'user',
+        message: { content: [{ type: 'text', text: '{"from":"user","type":"task_id"}' }] }
+      } as SessionMsg,
+      { type: 'mode', mode: 'auto' } as SessionMsg,
+      { type: 'user', message: { content: [{ type: 'text', text: 'Real question.' }] } } as SessionMsg
+    ];
+
+    const { messages: threadMessages } = toThreadMessages(messages);
+
+    const coordinationOnlyUser = threadMessages.find(
+      (m) => m.role === 'user' && Array.isArray(m.content) && m.content.some((p) => p.type === 'data')
+    );
+    expect(coordinationOnlyUser?.content).toEqual([
+      { type: 'data', name: 'status-line', data: { text: 'user: task id' } }
+    ]);
+
+    const group = threadMessages.find(
+      (m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'data' && p.name === 'cc-session-start')
+    );
+    const groupPart = (group?.content as { name: string; data: { entries: { name: string }[] } }[])[0];
+    expect(groupPart?.data.entries.map((e) => e.name)).toEqual(['status-line', 'status-line']);
+
+    const lastMessage = threadMessages[threadMessages.length - 1];
+    expect(lastMessage?.role).toBe('user');
+    expect(lastMessage?.content).toEqual([{ type: 'text', text: 'Real question.' }]);
   });
 });
 

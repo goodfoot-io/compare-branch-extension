@@ -11,6 +11,7 @@
  */
 
 import type {
+  AgentListingDeltaAttachment,
   AttachmentPayload,
   CommandPermissionsAttachment,
   CompactFileReferenceAttachment,
@@ -323,6 +324,22 @@ export function classifyAttachment(attachment: AttachmentPayload): AttachmentDes
         glyphSeverity: 'neutral',
         summary: `MCP instructions +${names.join(', ')}`,
         hidden: false,
+        expandable: true
+      };
+    }
+
+    case 'agent_listing_delta': {
+      const a = attachment as AgentListingDeltaAttachment;
+      const added = a.addedTypes ?? [];
+      const removed = a.removedTypes ?? [];
+      const hidden = added.length === 0 && removed.length === 0;
+      return {
+        kind: 'agent_listing_delta',
+        scope: 'turn',
+        tier: 'ambient',
+        glyphSeverity: 'neutral',
+        summary: `Agents available +${added.length} −${removed.length}`,
+        hidden,
         expandable: true
       };
     }

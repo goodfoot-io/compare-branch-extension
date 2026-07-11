@@ -5,5 +5,12 @@
  * @module components/aui/index
  */
 
-export { CcAmbientGroupPart, CcAttachmentPart, CcAwaySummaryPart, CcHookPart, CcSupplementalPart } from './CcDataParts';
+export {
+  CcAmbientGroupPart,
+  CcAttachmentPart,
+  CcAwaySummaryPart,
+  CcHookPart,
+  CcSessionStartPart,
+  CcSupplementalPart
+} from './CcDataParts';
 export { CcToolPart } from './CcToolPart';

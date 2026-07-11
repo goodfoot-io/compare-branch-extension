@@ -46,7 +46,8 @@ const CONTEXT_STATE_TYPES = new Set<string>([
   'command_permissions',
   'deferred_tools_delta',
   'task_reminder',
-  'mcp_instructions_delta'
+  'mcp_instructions_delta',
+  'agent_listing_delta'
 ]);
 
 /** File-lifecycle attachments rendered as FileRow (expandable or leaf). */

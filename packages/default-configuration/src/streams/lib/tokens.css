@@ -20,7 +20,14 @@
   /* Text */
   --stream-fg: var(--vscode-editor-foreground);
   --stream-fg-muted: var(--vscode-descriptionForeground);
-  --stream-fg-faint: color-mix(in srgb, var(--vscode-descriptionForeground) 70%, transparent);
+  /* 80% (not 70%): faint text (10px timestamps/durations) needs 4.5:1 small-text
+     contrast. Composited over --stream-surface, a 70% mix estimates to only
+     ~4.55:1 on a default light theme (descriptionForeground #3b3b3b on
+     #ffffff) — too close to the line given this varies by theme. 80% clears
+     both estimated defaults with margin (~6.1:1 light, ~7.1:1 dark, using
+     #3b3b3b/#ffffff and #cccccc/#1e1e1e) while staying visibly subordinate to
+     --stream-fg-muted. */
+  --stream-fg-faint: color-mix(in srgb, var(--vscode-descriptionForeground) 80%, transparent);
 
   /* Borders */
   --stream-border: var(--vscode-widget-border, var(--vscode-panel-border));
@@ -71,4 +78,16 @@
 
   /* State-change transition timing (hover/focus/open-close) — ui-design rule 9. */
   --stream-transition-fast: 0.12s ease;
+
+  /* Layout — content readability cap. These transcripts open in the full
+     editor area, so prose is capped and centered rather than running edge to
+     edge (2025/26 chat-surface convention, ~760px ≈ 65-72ch at body size). */
+  --stream-content-max-width: 760px;
+
+  /* Vertical rhythm — 4px-grid scale replacing the ad-hoc px literals
+     previously scattered across turns.css/boundary.css/aui.css. */
+  --stream-gap-section: 16px;
+  --stream-gap-turn: 12px;
+  --stream-gap-row: 4px;
+  --stream-gap-hairline: 2px;
 }

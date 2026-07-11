@@ -21,9 +21,9 @@
    four shared `data` parts (boundary/raw/status-line/error-line) all come
    from aui.css/turns.css/accordions.css/boundary.css/json-block.css imported
    above. What remains below is only what the shared foundation has no shape
-   for: two provider-specific `data` parts (`image-note`, `event-activity` —
-   see ./components/expanded/CodexDataParts.tsx) and the empty-transcript
-   placeholder.
+   for: three provider-specific `data` parts (`image-note`, `event-activity`,
+   `turn-time` — see ./components/expanded/CodexDataParts.tsx) and the
+   empty-transcript placeholder.
    ============================================================================= */
 
 html,
@@ -64,149 +64,12 @@ body.mode-expanded {
   margin: 0;
 }
 
-.cx-transcript {
-  font-size: var(--stream-text-body);
-  line-height: 1.5;
-  color: var(--stream-fg);
-  padding: 12px;
-  box-sizing: border-box;
-}
-
-.cx-message-text {
-  word-break: break-word;
-  color: var(--stream-fg);
-}
-
-/* Base markdown typography (scoped under .cx-message-text) — the message text
-   is now rendered through `marked` (see lib/markdown.ts), mirroring the
-   claude-code-session renderer's `.cc-transcript` block treatment. */
-.cx-message-text p {
-  margin: 0 0 0.5em;
-}
-.cx-message-text p:last-child {
-  margin-bottom: 0;
-}
-.cx-message-text li p {
-  margin-bottom: 0.3em;
-}
-.cx-message-text pre {
-  font-family: var(--vscode-editor-font-family, monospace);
-  font-size: var(--stream-text-code);
-  background: var(--stream-surface-raised);
-  border: 1px solid var(--stream-border);
-  border-radius: 3px;
-  padding: 10px 12px;
-  overflow: auto;
-  margin: 0.5em 0;
-  white-space: pre;
-}
-.cx-message-text code {
-  font-family: var(--vscode-editor-font-family, monospace);
-  font-size: var(--stream-text-code);
-  background: var(--stream-surface-raised);
-  border-radius: 2px;
-  padding: 1px 3px;
-}
-.cx-message-text pre code {
-  background: none;
-  padding: 0;
-  border-radius: 0;
-  tab-size: 4;
-}
-.cx-message-text a {
-  color: var(--vscode-textLink-foreground);
-  text-decoration: none;
-}
-.cx-message-text a:hover {
-  text-decoration: underline;
-}
-.cx-message-text blockquote {
-  margin: 0;
-  padding: 0 12px 0 8px;
-  border-left-width: 5px;
-  border-left-style: solid;
-  border-left-color: var(--stream-aside-border);
-  border-radius: 2px;
-  background: var(--stream-aside-bg);
-}
-.cx-message-text ul,
-.cx-message-text ol {
-  margin: 0.25em 0 0.5em;
-  padding-left: 1.5em;
-}
-.cx-message-text ul {
-  list-style-type: disc;
-}
-.cx-message-text ol {
-  list-style-type: decimal;
-}
-.cx-message-text li {
-  margin-bottom: 0.1em;
-}
-
-/* Heading ladder — matches claude-code-session's `.cc-transcript` sizes/margins
-   exactly (2em/1.5em/1.25em/1em/0.875em/0.85em) so both renderers' markdown
-   content reads at the same visual scale. Borders read the single
-   `--stream-border-subtle` token directly rather than per-theme overrides. */
-.cx-message-text h1,
-.cx-message-text h2,
-.cx-message-text h3,
-.cx-message-text h4,
-.cx-message-text h5,
-.cx-message-text h6 {
-  font-weight: 600;
-  margin-top: 20px;
-  margin-bottom: 14px;
-  line-height: 1.25;
-  color: var(--stream-fg);
-}
-.cx-message-text h1 {
-  font-size: 2em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--stream-border-subtle);
-}
-.cx-message-text h2 {
-  font-size: 1.5em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--stream-border-subtle);
-}
-.cx-message-text h3 {
-  font-size: 1.25em;
-}
-.cx-message-text h4 {
-  font-size: 1em;
-}
-.cx-message-text h5 {
-  font-size: 0.875em;
-}
-.cx-message-text h6 {
-  font-size: 0.85em;
-}
-.cx-message-text table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5em 0;
-  font-size: 0.9em;
-}
-.cx-message-text th {
-  text-align: left;
-  border-bottom: 1px solid var(--stream-border-subtle);
-  font-weight: 600;
-  background: var(--stream-surface-raised);
-}
-.cx-message-text th,
-.cx-message-text td {
-  padding: 3px 6px;
-}
-.cx-message-text table > tbody > tr + tr > td {
-  border-top: 1px solid var(--stream-border-subtle);
-}
-.cx-message-text hr {
-  border: 0;
-  height: 1px;
-  border-bottom: 1px solid var(--stream-border-subtle);
-  margin: 0.75em 0;
-}
+/* `.cx-transcript`/`.cx-message-text` are gone: the wrapper's font-size/
+   line-height/color folded into `.aui-thread-root` (aui.css) and its padding
+   was a doubled gutter over `.aui-thread-viewport`'s (removed, not folded).
+   The markdown ladder duplicated `.aui-markdown` (aui.css) byte-for-byte in
+   spirit — the one remaining usage (CodexDataParts.tsx's plan_update detail)
+   now renders through `.aui-markdown` directly. */
 
 /* `.cx-pre` — non-markdown branch of the `event-activity` data part
    (CodexDataParts.tsx). Tool calls, orphan outputs, errors, and status lines

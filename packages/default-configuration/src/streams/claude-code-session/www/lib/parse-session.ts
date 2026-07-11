@@ -307,6 +307,17 @@ export interface McpInstructionsDeltaAttachment {
   [key: string]: unknown;
 }
 
+/** agent_listing_delta — available subagent-type roster changes. */
+export interface AgentListingDeltaAttachment {
+  type: 'agent_listing_delta';
+  addedTypes?: string[];
+  addedLines?: string[];
+  removedTypes?: string[];
+  isInitial?: boolean;
+  showConcurrencyNote?: boolean;
+  [key: string]: unknown;
+}
+
 /** task_reminder — pending task list reminder. */
 export interface TaskReminderAttachment {
   type: 'task_reminder';
@@ -413,7 +424,7 @@ export interface DateChangeAttachment {
 }
 
 /**
- * Discriminated union of all 22 known attachment subtypes, plus a catch-all for
+ * Discriminated union of all 23 known attachment subtypes, plus a catch-all for
  * future/unknown types.  Modeled permissively so additive fields on real JSONL
  * lines do not fail typecheck.
  *
@@ -430,6 +441,7 @@ export type AttachmentPayload =
   | CommandPermissionsAttachment
   | DeferredToolsDeltaAttachment
   | McpInstructionsDeltaAttachment
+  | AgentListingDeltaAttachment
   | TaskReminderAttachment
   | NestedMemoryAttachment
   | SkillListingAttachment

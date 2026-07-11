@@ -66,7 +66,7 @@ export function SupplementalContentRow({ text }: SupplementalContentRowProps): R
   } else if (looksLikeMarkdown(text)) {
     body = (
       <div
-        className="cc-text pb-1.5 break-words overflow-wrap-anywhere min-w-0 max-w-full"
+        className="cc-text aui-markdown pb-1.5 break-words overflow-wrap-anywhere min-w-0 max-w-full"
         style={{ fontSize: 'var(--stream-text-code)' }}
       >
         {renderMarkdownNodes(text, 'supplemental')}

@@ -358,7 +358,10 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         break;
 
       case 'task_started':
-        pushPart({ type: 'data', name: STREAM_DATA_PART_NAME.statusLine, data: { text: 'Task started' } });
+        // A quiet structural marker (matches the turn_boundary idiom) rather
+        // than a floating italic status line — this is a boundary event, not
+        // a system status message.
+        pushPart({ type: 'data', name: STREAM_DATA_PART_NAME.boundary, data: { kind: 'turn', label: 'Task started' } });
         break;
 
       case 'task_complete': {

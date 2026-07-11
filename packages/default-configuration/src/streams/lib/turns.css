@@ -4,7 +4,8 @@
    User/assistant message presentation shared by both stream renderers,
    following mainstream chat idioms (ChatGPT/Claude.ai/VS Code Chat) rather
    than an explicit role caption: the user turn's tint alone conveys its role
-   (right-aligned, 85% max width, quoted-request look, no label); the
+   (right-aligned, shrink-to-fit up to an 85% max width, quoted-request look,
+   no label); the
    assistant turn is transparent, flows as full-width document text, and gets
    a compact avatar-style header (codicon chip + provider name + time) instead
    of an uppercase "ASSISTANT" caption — VS Code Chat's icon+name idiom.
@@ -22,15 +23,23 @@
 }
 
 .stream-turn {
-  margin-bottom: 10px;
+  margin-bottom: var(--stream-gap-turn);
 }
 
 .stream-turn--user {
   background: var(--stream-role-user-tint);
+  width: fit-content;
   max-width: 85%;
   margin-left: auto;
   padding: 12px;
   border-radius: 4px;
+}
+
+/* Extra breathing room before each user turn (exchange boundary) —
+   previously scoped under claude-code-session's `.cc-transcript` wrapper;
+   now shared since both renderers' turns carry `data-turn="user"` directly. */
+.stream-turn--user:not(:first-child) {
+  margin-top: 1.25rem;
 }
 
 .stream-turn--assistant {
@@ -43,7 +52,7 @@
    avatar header and a tightened margin, so consecutive service rows read as
    one quiet block instead of a run of separately-captioned "Assistant" turns. */
 .stream-turn--service {
-  margin-bottom: 2px;
+  margin-bottom: var(--stream-gap-hairline);
 }
 
 /* Compact avatar-style header for a genuine assistant content turn: codicon
@@ -52,7 +61,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
+  margin-bottom: var(--stream-gap-row);
 }
 
 .stream-assistant-header__chip {
@@ -85,5 +94,5 @@
   font-size: var(--stream-text-micro);
   color: var(--stream-fg-faint);
   text-align: right;
-  margin-bottom: 2px;
+  margin-bottom: var(--stream-gap-hairline);
 }
