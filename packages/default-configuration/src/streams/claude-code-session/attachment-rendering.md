@@ -3,7 +3,7 @@ title: Attachment Rendering
 summary: How the expanded subagent-transcript webview renders or hides each Claude Code attachment type, from the pure classifier through the per-type presenters.
 aliases: [Attachment Types, Transcript Attachments, Render or Hide]
 tags: [transcript, webview, streams]
-keywords: [attachment, hook, classifier, MessageRouter, AttachmentRouter, RawFallback, ambient, presenter]
+keywords: [attachment, hook, classifier, to-thread-messages, CcDataParts, AttachmentRouter, RawFallback, ambient, presenter]
 ---
 
 # Attachment Rendering
@@ -17,24 +17,24 @@ Rendering is a three-stage, data-driven flow. The decision lives entirely in one
 ```mermaid
 flowchart TD
   L["JSONL line · type: attachment"] --> P["parseLine → AttachmentMsg"]
-  P --> MR["MessageRouter · case 'attachment'"]
-  MR --> C["classifyAttachment(attachment) → AttachmentDescriptor"]
+  P --> CV["to-thread-messages.ts · attachment case"]
+  CV --> C["classifyAttachment(attachment) → AttachmentDescriptor"]
   C -->|hidden| X["(render nothing)"]
-  C -->|scope: tool, will nest| TA["ToolAccordion → HookSection → HookRow"]
-  C -->|scope: tool, orphan| AR["AttachmentRouter → OrphanHookRow → HookRow"]
-  C -->|scope: turn| AR2["AttachmentRouter → ContextStateRow / DisclosureRow / FileRow"]
-  C -->|scope: session| DM["DateMarker"]
-  C -->|kind __unknown__| RF["RawFallback (preserved, shared)"]
-  AR2 -->|tier: ambient| AG["AmbientGroup folds consecutive ambient rows"]
+  C -->|scope: tool, will nest| TA["tool-call part → ToolAccordion → HookSection → HookRow"]
+  C -->|scope: tool, orphan| CH["cc-hook data part → HookRow"]
+  C -->|scope: turn, ambient| AG["cc-ambient-group data part → AmbientGroup"]
+  C -->|scope: turn, content| AR2["cc-attachment data part → AttachmentRouter → ContextStateRow / DisclosureRow / FileRow"]
+  C -->|scope: session| DM["cc-attachment data part → DateMarker"]
+  C -->|kind __unknown__| RF["RawFallback (collapsed disclosure, shared)"]
 ```
 
 1. **Classify.** [classify-attachment.ts](./www/lib/classify-attachment.ts#L167-L520)`#classifyAttachment` maps each payload to an `AttachmentDescriptor` carrying `scope` (`tool` / `turn` / `session`), `tier` (`content` / `ambient`), a `summary` one-liner, an optional severity `glyph`, the fail-closed `hidden` flag, an optional `linkPath`, and `expandable`. An unrecognized `attachment.type` returns the `__unknown__` sentinel.
-2. **Route.** [MessageRouter.tsx](./www/components/expanded/messages/MessageRouter.tsx#L438-L470)`#MessageRouter` (the `case 'attachment'` arm) skips hooks that will nest in a tool, drops `hidden` rows, wraps turn-scoped ambient rows in an [AmbientRow](./www/components/expanded/messages/AmbientGroup.tsx#L41-L41) marker, and otherwise hands off to the [AttachmentRouter](./www/components/expanded/messages/attachment/AttachmentRouter.tsx#L103-L120).
-3. **Present.** The per-type presenters render the descriptor; the [AttachmentRouter](./www/components/expanded/messages/attachment/AttachmentRouter.tsx#L103-L120) dispatches to one of them or, for `__unknown__`, to the shared [RawFallback](../lib/RawFallback.tsx#L56-L56) — the same component `SystemRouter` falls back to for unrecognized `system` subtypes.
+2. **Route.** The converter, [to-thread-messages.ts](./www/lib/to-thread-messages.ts) (attachment case), nests hooks whose owning tool will resolve into that tool-call part's result, drops `hidden` rows, buffers consecutive turn-scoped ambient rows into a `cc-ambient-group` data part, and otherwise emits a `cc-hook` or `cc-attachment` data part into the enclosing assistant message. The parts render inside the shared assistant-ui `StreamThread` via the renderer-local registry in [CcDataParts.tsx](./www/components/aui/CcDataParts.tsx).
+3. **Present.** The per-type presenters render the descriptor; the [AttachmentRouter](./www/components/expanded/messages/attachment/AttachmentRouter.tsx) dispatches to one of them or, for `__unknown__`, to the shared [RawFallback](../lib/RawFallback.tsx) — the same collapsed-by-default disclosure the converter uses for unrecognized `system` subtypes and message types (labeled `Unrecognized … · {type}`).
 
 ## Tool-scoped — hooks nest in their tool
 
-The six `hook_*` types are events *about* a specific tool call. A pre-pass, [computeWillNestToolUseIds](./www/components/expanded/messages/MessageRouter.tsx#L68-L107), determines up front which tool ids will render an accordion; a hook whose `toolUseID` is in that set is nested (never duplicated), and a hook with no owning tool renders as a standalone orphan. Both paths share one row component, [HookRow](./www/components/accordions/HookRow.tsx#L190-L283), so nested and orphan hooks look and expand identically. Inside a tool they are grouped by `hookEvent` in the [HookSection](./www/components/accordions/HookSection.tsx#L48-L80); the expandable body text is assembled by [hookBodyText](./www/components/accordions/HookRow.tsx#L77-L108).
+The six `hook_*` types are events *about* a specific tool call. A pre-pass, [computeWillNestToolUseIds](./www/lib/to-thread-messages.ts#L230-L257), determines up front which tool ids will render an accordion; a hook whose `toolUseID` is in that set is nested (never duplicated), and a hook with no owning tool renders as a standalone orphan. Both paths share one row component, [HookRow](./www/components/accordions/HookRow.tsx#L190-L283), so nested and orphan hooks look and expand identically. Inside a tool they are grouped by `hookEvent` in the [HookSection](./www/components/accordions/HookSection.tsx#L48-L80); the expandable body text is assembled by [hookBodyText](./www/components/accordions/HookRow.tsx#L77-L108).
 
 A hook's free-text body is never dumped as an opaque string: [renderHookBody](./www/components/accordions/HookRow.tsx#L149-L173) auto-detects its shape — a JSON-looking payload renders through the shared `JsonBlock`, a markdown-shaped one through `renderMarkdownNodes`, otherwise plain pre-wrapped text. `hook_system_message` and `hook_additional_context` are prose meant to be read, so they always render as markdown regardless of shape. Separately, a hook's structured `hookSpecificOutput` object — when present and non-empty — always renders as its own "Hook-specific output" key/value table via the shared `ToolInputTable` ([HookRow](./www/components/accordions/HookRow.tsx#L193-L279)), alongside (not instead of) the free-text body.
 
@@ -83,7 +83,7 @@ File-reference **leaves** (`compact_file_reference`, `opened_file_in_ide`, `sele
 ## Session-scoped — timeline markers
 
 - `date_change` → [DateMarker](./www/components/expanded/messages/attachment/DateMarker.tsx#L28-L34): a thin, right-aligned `{newDate}`, demoted below the compaction/session boundaries so the markers don't read as equal-weight noise. Because it is session-scoped it is **not** wrapped in `AmbientRow`, so it never folds into (or is collapsed away by) an `AmbientGroup`. [case](./www/lib/classify-attachment.ts#L507-L520)
-- `away_summary` is a `system` subtype (not an attachment): [SystemRouter](./www/components/expanded/messages/system/SystemRouter.tsx) dispatches it to [AwaySummaryBoundary](./www/components/expanded/messages/system/AwaySummaryBoundary.tsx#L30-L48), a session-boundary separator that expands to the full content.
+- `away_summary` is a `system` subtype (not an attachment): the converter emits a `cc-away-summary` data part that [CcDataParts.tsx](./www/components/aui/CcDataParts.tsx) renders through [AwaySummaryBoundary](./www/components/expanded/messages/system/AwaySummaryBoundary.tsx#L30-L48), a session-boundary separator that expands to the full content.
 
 ## What is actually hidden
 
