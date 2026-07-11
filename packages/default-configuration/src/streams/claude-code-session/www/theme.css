@@ -6,6 +6,7 @@
 @import '../../lib/json-block.css';
 @import '../../lib/boundary.css';
 @import '../../lib/turns.css';
+@import '../../lib/aui/aui.css';
 
 /* =============================================================================
    TRANSCRIPT RENDERER STYLES (`.cc-*` classes)

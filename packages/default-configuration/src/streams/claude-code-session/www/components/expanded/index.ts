@@ -8,4 +8,3 @@
 export type { SessionStatus } from '../../../../lib/SessionHeader';
 export { SessionHeader } from '../../../../lib/SessionHeader';
 export { ExpandedView } from './ExpandedView';
-export { Transcript } from './Transcript';

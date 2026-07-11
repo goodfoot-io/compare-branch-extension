@@ -27,6 +27,17 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 
+// jsdom has no ResizeObserver; assistant-ui's ThreadPrimitive.Viewport observes
+// its own size via one (useOnResizeContent), so a real DOM mount (as this test
+// performs, unlike the renderToStaticMarkup-based aui-foundation tests) needs a
+// stub or the mount throws before any assertion runs.
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+
 // Hoisted so the mock factory can reference these identifiers.  Without
 // vi.hoisted the references would be out of scope when vi.mock is hoisted.
 const { mockGetState, mockSubscribe } = vi.hoisted(() => ({

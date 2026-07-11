@@ -1,22 +1,42 @@
 /**
  * Expanded session transcript view for the claude-code-session renderer.
  *
- * Subscribes to the stream store, parses all JSONL lines, and renders the
- * SessionHeader + Transcript. Appends new lines incrementally as they arrive
- * via store subscription. Re-renders from scratch on mode transition.
+ * Subscribes to the stream store, parses all JSONL lines, converts them to
+ * `ThreadMessageLike[]` (../../lib/to-thread-messages.ts), and renders the
+ * SessionHeader + shared assistant-ui `StreamThread`. Appends new lines
+ * incrementally as they arrive via store subscription. Re-renders from
+ * scratch on mode transition.
  *
- * @summary Expanded session view: header + full transcript
+ * @summary Expanded session view: header + shared assistant-ui transcript
  * @module components/expanded/ExpandedView
  */
 
+import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { streamStore } from '@cards.management/sdk/stream-store';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { StreamThread } from '../../../../lib/aui';
 import type { SessionStatus } from '../../../../lib/SessionHeader';
 import { SessionHeader } from '../../../../lib/SessionHeader';
-import type { SessionMsg } from '../../lib/parse-session';
-import { mergeConsecutiveMessages, parseLines } from '../../lib/parse-session';
-import { Transcript } from './Transcript';
+import { mergeConsecutiveMessages, parseLines, type SessionMsg } from '../../lib/parse-session';
+import { toThreadMessages } from '../../lib/to-thread-messages';
+import {
+  CcAmbientGroupPart,
+  CcAttachmentPart,
+  CcAwaySummaryPart,
+  CcHookPart,
+  CcSupplementalPart,
+  CcToolPart
+} from '../aui';
+
+/** The Claude-specific data parts, merged over the four shared ones by `StreamThread`. */
+const CC_DATA_COMPONENTS = {
+  'cc-hook': CcHookPart,
+  'cc-attachment': CcAttachmentPart,
+  'cc-ambient-group': CcAmbientGroupPart,
+  'cc-away-summary': CcAwaySummaryPart,
+  'cc-supplemental': CcSupplementalPart
+};
 
 interface ExpandedState {
   messages: SessionMsg[];
@@ -66,14 +86,6 @@ export function ExpandedView(): React.ReactElement {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, []);
 
-  const handleInit = useCallback((model: string, cwd: string) => {
-    setState((prev) => ({ ...prev, model, cwd }));
-  }, []);
-
-  const handleResult = useCallback((status: 'success' | 'error') => {
-    setState((prev) => ({ ...prev, status }));
-  }, []);
-
   // Bootstrap-then-subscribe. Reconcile against the current store before
   // subscribing so lines that arrived between the initial useState and this
   // effect are not dropped — the empty-on-boot primary's subscribe:response
@@ -112,11 +124,44 @@ export function ExpandedView(): React.ReactElement {
     });
   }, []);
 
+  const converted = useMemo(() => toThreadMessages(state.messages), [state.messages]);
+
+  // assistant-ui has no wildcard `toolComponents` entry, so every tool name
+  // observed in the transcript is registered against the same CcToolPart —
+  // it, not the shared ToolFallbackPart, is what carries hook nesting and the
+  // isMeta supplemental result (see CcToolPart.tsx).
+  const toolComponents = useMemo<Record<string, ToolCallMessagePartComponent>>(() => {
+    const names = new Set<string>();
+    for (const message of converted.messages) {
+      if (typeof message.content === 'string') continue;
+      for (const part of message.content) {
+        if (part.type === 'tool-call') names.add(part.toolName);
+      }
+    }
+    return Object.fromEntries(Array.from(names, (name) => [name, CcToolPart]));
+  }, [converted.messages]);
+
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
-      <SessionHeader model={state.model} cwd={state.cwd} status={state.status} agentId={agentId} />
+      <SessionHeader
+        model={converted.model || state.model}
+        cwd={converted.cwd || state.cwd}
+        status={converted.status}
+        agentId={agentId}
+      />
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse">
-        <Transcript messages={state.messages} onInit={handleInit} onResult={handleResult} />
+        <div className="cc-transcript px-4 pt-4 pb-10 flex flex-col gap-2 overflow-visible">
+          {converted.messages.length === 0 ? (
+            <div className="text-vscode-descriptionForeground italic text-[0.9em] px-3.5 py-4">No output yet.</div>
+          ) : (
+            <StreamThread
+              messages={converted.messages}
+              isRunning={converted.isRunning}
+              toolComponents={toolComponents}
+              dataComponents={CC_DATA_COMPONENTS}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
