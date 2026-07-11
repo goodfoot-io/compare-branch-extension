@@ -202,10 +202,15 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
       case 'reasoning': {
         const hasContent = item.contentText !== undefined && item.contentText.length > 0;
         if (hasContent) {
-          // Both summary and content are kept — nothing is dropped — but the
-          // shared ReasoningPart has one fixed "Thinking…" header (no room for
-          // a distinct summary preview like the old ReasoningAccordion), so
-          // the summary (when present) becomes a lead-in line inside the body.
+          // Both summary and content are kept — nothing is dropped. The
+          // shared ReasoningPart shows a muted preview of the text's first
+          // line while collapsed (its header stays a fixed "Thinking…"), so
+          // prepending the summary here doubles as that preview's source —
+          // deliberately not deduplicated against contentText's own first
+          // line (a `summary === firstLine` check is its own source of
+          // fragility for a value that's already free-text), and the
+          // fallback of "summary, blank line, then content" reads fine even
+          // on the rare turn where the two happen to echo each other.
           const text =
             item.summaryText.length > 0 ? `${item.summaryText}\n\n${item.contentText as string}` : item.contentText;
           pushPart({ type: 'reasoning', text: text as string });
@@ -249,7 +254,11 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
       }
 
       case 'turn_boundary': {
-        const label = item.turnId !== undefined ? `Turn ${item.turnId}` : 'Turn';
+        // turnId is a full UUID (e.g. `019e467f-e069-7250-bd28-0cb46c0b5778`) —
+        // the first 8 chars (its time-ordered prefix under UUIDv7) are enough
+        // to distinguish adjacent turns without the boundary label dominating
+        // the line.
+        const label = item.turnId !== undefined ? `Turn ${item.turnId.slice(0, 8)}` : 'Turn';
         pushPart({ type: 'data', name: STREAM_DATA_PART_NAME.boundary, data: { kind: 'turn', label } });
         break;
       }

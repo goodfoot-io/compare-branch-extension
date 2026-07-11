@@ -4,9 +4,17 @@
  * whose `toolName` has no caller-supplied entry in `tools.by_name`.
  *
  * Thin adapter over the existing `ToolAccordion` (../accordions/ToolAccordion.tsx):
- * a timeline row with the tool name, a one-line JSON preview of `args`, and a
- * chevron that expands to the full `ToolInputTable`/`JsonBlock` input and the
- * result. `isError` escalates the row to the error severity treatment.
+ * a timeline row with the tool name, a one-line preview, and a chevron that
+ * expands to the full `ToolInputTable`/`JsonBlock` input and the result.
+ * `isError` escalates the row to the error severity treatment.
+ *
+ * The preview is pluggable: {@link createToolFallbackComponent} builds a
+ * fallback component from a caller-supplied `(toolName, args) => string`
+ * summarizer, and {@link ToolFallbackPart} is just that factory applied to
+ * the generic JSON-preview default ({@link summarizeArgs}) — a provider whose
+ * tool names carry a richer domain summary (e.g. Codex's shell/apply_patch/
+ * mcp previews) can pass its own summarizer instead of duplicating the
+ * `ToolAccordion` wiring (see `StreamThread`'s `toolFallback` prop).
  *
  * @summary Default tool-call renderer: accordion row over the shared ToolAccordion
  * @module streams/lib/aui/ToolFallbackPart
@@ -43,7 +51,7 @@ function summarizeArgs(args: unknown): string {
  * @param result - Tool result value (may be undefined if no result yet).
  * @returns String representation of the result, or null when absent.
  */
-function resultToText(result: unknown): string | null {
+export function resultToText(result: unknown): string | null {
   if (result === undefined) return null;
   if (typeof result === 'string') return result;
   try {
@@ -54,29 +62,36 @@ function resultToText(result: unknown): string | null {
 }
 
 /**
- * Default renderer for a tool-call message part with no dedicated component.
- * @param root0 - The component props.
- * @param root0.toolName - Name of the tool that was called.
- * @param root0.args - Arguments supplied to the tool.
- * @param root0.result - Result returned by the tool, if completed.
- * @param root0.isError - Whether the result represents a tool execution error.
- * @returns Rendered tool accordion element.
+ * Builds a `tools.Fallback` component that renders the shared `ToolAccordion`
+ * with a caller-supplied collapsed-header preview, instead of the generic
+ * JSON-preview {@link summarizeArgs} default.
+ * @param summarize - Computes the one-line collapsed-header preview from the tool name and its (possibly empty) args object.
+ * @returns A tool-call part component suitable for `tools.Fallback` or a `tools.by_name` entry.
  */
-export const ToolFallbackPart: ToolCallMessagePartComponent = ({
-  toolName,
-  args,
-  result,
-  isError
-}): React.ReactElement => {
-  const resultText = resultToText(result);
-  return (
-    <ToolAccordion
-      toolName={toolName}
-      summary={summarizeArgs(args)}
-      input={(args ?? {}) as Record<string, unknown>}
-      result={resultText}
-      severity={isError ? 'error' : 'normal'}
-      errorLabel={isError ? (resultText ?? 'Tool call failed') : undefined}
-    />
-  );
-};
+export function createToolFallbackComponent(
+  summarize: (toolName: string, args: Record<string, unknown>) => string
+): ToolCallMessagePartComponent {
+  return function ToolFallback({ toolName, args, result, isError }): React.ReactElement {
+    const resultText = resultToText(result);
+    const argsObj = (args ?? {}) as Record<string, unknown>;
+    return (
+      <ToolAccordion
+        toolName={toolName}
+        summary={summarize(toolName, argsObj)}
+        input={argsObj}
+        result={resultText}
+        severity={isError ? 'error' : 'normal'}
+        errorLabel={isError ? (resultText ?? 'Tool call failed') : undefined}
+      />
+    );
+  };
+}
+
+/**
+ * Default renderer for a tool-call message part with no dedicated component:
+ * {@link createToolFallbackComponent} applied to the generic JSON-preview
+ * {@link summarizeArgs}.
+ */
+export const ToolFallbackPart: ToolCallMessagePartComponent = createToolFallbackComponent((_toolName, args) =>
+  summarizeArgs(args)
+);

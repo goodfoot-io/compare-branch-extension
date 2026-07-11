@@ -22,6 +22,6 @@ export {
 } from './messages';
 export { ReasoningPart } from './ReasoningPart';
 export { StreamThread } from './StreamThread';
-export { ToolFallbackPart } from './ToolFallbackPart';
+export { createToolFallbackComponent, resultToText, ToolFallbackPart } from './ToolFallbackPart';
 export type { BoundaryData, ErrorLineData, RawData, StatusLineData, ThreadMessageLike } from './types';
 export { STREAM_DATA_PART_NAME } from './types';

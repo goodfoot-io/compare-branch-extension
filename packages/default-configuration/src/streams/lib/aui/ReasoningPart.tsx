@@ -12,6 +12,13 @@
  * override it). `ReasoningAccordion` itself does not react to a changing
  * status, so this is a dedicated component rather than a reuse of it.
  *
+ * While collapsed, the header also shows a muted one-line preview of the
+ * text's first non-empty line (truncated ~80 chars) next to "Thinking…", so a
+ * collapsed reasoning block stays scannable without a per-provider "summary"
+ * contract on the part itself — a provider whose reasoning text opens with a
+ * short label (e.g. Codex's `summary_text`, prepended by its converter ahead
+ * of the full content) gets that label as the preview for free.
+ *
  * @summary Collapsible reasoning part: auto-expand while running, then user-controlled
  * @module streams/lib/aui/ReasoningPart
  */
@@ -19,7 +26,18 @@
 import type { ReasoningMessagePartComponent } from '@assistant-ui/react';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
-import { renderMarkdownNodes } from '../markdown';
+import { renderMarkdownNodes, truncate } from '../markdown';
+
+/**
+ * Extracts a short preview of a reasoning text's first non-empty line, for
+ * the collapsed header.
+ * @param text - The full reasoning/thinking text.
+ * @returns The truncated first non-empty line, or `''` when the text is blank.
+ */
+function firstLinePreview(text: string): string {
+  const line = text.split('\n').find((candidate) => candidate.trim().length > 0);
+  return line === undefined ? '' : truncate(line.trim(), 80);
+}
 
 /**
  * Collapsible reasoning/thinking block whose open state follows the part's
@@ -34,6 +52,7 @@ export const ReasoningPart: ReasoningMessagePartComponent = ({ text, status }): 
   const bodyRef = useRef<HTMLDivElement>(null);
   const isRunning = status.type === 'running';
   const open = userOpen ?? isRunning;
+  const preview = open ? '' : firstLinePreview(text);
 
   const handleToggle = useCallback(() => {
     setUserOpen((prevUserOpen) => {
@@ -58,6 +77,7 @@ export const ReasoningPart: ReasoningMessagePartComponent = ({ text, status }): 
           style={{ transform: open ? 'rotate(90deg)' : undefined }}
         />
         <span className="aui-reasoning__label">Thinking…</span>
+        {preview.length > 0 && <span className="aui-reasoning__preview">{preview}</span>}
       </button>
       <div
         ref={bodyRef}

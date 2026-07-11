@@ -98,7 +98,7 @@ describe('StreamThread', () => {
     expect(html).toContain('Weighing whether to read the file first.');
   });
 
-  it('collapses a reasoning part once its message is complete', () => {
+  it('collapses a reasoning part once its message is complete, showing a header preview of its first line', () => {
     const html = render([
       {
         id: 'a-complete',
@@ -110,6 +110,19 @@ describe('StreamThread', () => {
     expect(html).toContain('data-status="complete"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('style="display:none');
+    expect(html).toContain('class="aui-reasoning__preview">This reasoning already finished.</span>');
+  });
+
+  it('omits the header preview while a reasoning part is expanded (running)', () => {
+    const html = render([
+      {
+        id: 'a-running',
+        role: 'assistant',
+        status: { type: 'running' },
+        content: [{ type: 'reasoning', text: 'Weighing whether to read the file first.' }]
+      }
+    ]);
+    expect(html).not.toContain('aui-reasoning__preview');
   });
 
   it('renders an unregistered tool call as a ToolFallbackPart accordion with args and result', () => {
@@ -173,7 +186,7 @@ describe('StreamThread', () => {
     expect(html).toContain('Session complete · 2 turns · 5s');
   });
 
-  it('renders the raw data part as a labeled, severity-aware JSON block', () => {
+  it('renders the raw data part as a collapsed-by-default, labeled, severity-aware disclosure row', () => {
     const html = render([
       {
         id: 'a1',
@@ -190,6 +203,8 @@ describe('StreamThread', () => {
     ]);
     expect(html).toContain('Unrecognized message');
     expect(html).toContain('codicon-warning');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('style="display:none');
     expect(html).toContain('&quot;weird&quot;: true');
   });
 
@@ -221,7 +236,7 @@ describe('StreamThread', () => {
     expect(html).toContain('&quot;code&quot;: 1');
   });
 
-  it('falls back to a labeled warning JSON block for an unregistered data part name', () => {
+  it('falls back to a collapsed, labeled warning disclosure row for an unregistered data part name', () => {
     const html = render([
       {
         id: 'a1',
@@ -232,6 +247,8 @@ describe('StreamThread', () => {
     ]);
     expect(html).toContain('Unrecognized data part: totally-unknown');
     expect(html).toContain('codicon-warning');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('style="display:none');
     expect(html).toContain('&quot;anything&quot;: &quot;here&quot;');
   });
 });

@@ -40,6 +40,7 @@
 
 import type { BoundaryData, ErrorLineData, RawData, StatusLineData, ThreadMessageLike } from '../../../lib/aui';
 import { STREAM_DATA_PART_NAME } from '../../../lib/aui';
+import { stripMarkup, truncate } from '../../../lib/markdown';
 import { classifyAttachment } from './classify-attachment';
 import { classifyCoordinationText, isCoordinationContent } from './classify-coordination';
 import type {
@@ -492,9 +493,21 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             appendAssistant(awaySummaryPart(awayMsg.content));
             break;
           }
+          case 'turn_duration': {
+            // Parsed for the compact path as TurnDurationEvent (parse-session.ts);
+            // the expanded/converter path has no dedicated type for it, so its
+            // extra fields are read defensively here, matching the `mode`/
+            // `ai-title` top-level cases below.
+            const tdMsg = sysMsg as { durationMs?: number; messageCount?: number };
+            const seconds = ((tdMsg.durationMs ?? 0) / 1000).toFixed(1);
+            const count = tdMsg.messageCount ?? 0;
+            flushAmbient();
+            appendAssistant(statusLinePart(`Turn · ${seconds}s · ${count} message${count === 1 ? '' : 's'}`));
+            break;
+          }
           default:
             flushAmbient();
-            appendAssistant(rawPart(sysMsg, 'Unrecognized system event'));
+            appendAssistant(rawPart(sysMsg, `Unrecognized system event · ${sysMsg.subtype}`));
         }
         break;
       }
@@ -693,6 +706,37 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
         break;
       }
 
+      case 'queue-operation': {
+        const queueMsg = msg as { operation?: string; content?: string };
+        flushAmbient();
+        if (queueMsg.operation === 'enqueue') {
+          const preview = truncate(stripMarkup(queueMsg.content ?? '').trim(), 60);
+          appendAssistant(statusLinePart(preview ? `Queued: ${preview}` : 'Queued'));
+        } else if (queueMsg.operation === 'remove' || queueMsg.operation === 'dequeue') {
+          appendAssistant(statusLinePart(`Queue: ${queueMsg.operation}`));
+        } else {
+          appendAssistant(rawPart(msg, `Unrecognized queue operation · ${String(queueMsg.operation)}`));
+        }
+        break;
+      }
+
+      case 'worktree-state': {
+        const worktreeMsg = msg as { worktreeSession?: { worktreeName?: string; worktreePath?: string } };
+        const name = worktreeMsg.worktreeSession?.worktreeName;
+        flushAmbient();
+        appendAssistant(statusLinePart(name ? `Worktree: ${name}` : 'Worktree state'));
+        break;
+      }
+
+      case 'bridge-session': {
+        const bridgeMsg = msg as { bridgeSessionId?: string };
+        flushAmbient();
+        appendAssistant(
+          statusLinePart(bridgeMsg.bridgeSessionId ? `Bridge session ${bridgeMsg.bridgeSessionId}` : 'Bridge session')
+        );
+        break;
+      }
+
       case 'progress': {
         const pMsg = msg as ProgressMsg;
         if (pMsg.data?.type !== 'agent_progress') break;
@@ -713,7 +757,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
 
       default:
         flushAmbient();
-        appendAssistant(rawPart(msg, 'Unrecognized message'));
+        appendAssistant(rawPart(msg, `Unrecognized message · ${msg.type}`));
     }
   }
 

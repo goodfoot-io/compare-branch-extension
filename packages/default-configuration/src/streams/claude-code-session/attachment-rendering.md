@@ -30,7 +30,7 @@ flowchart TD
 
 1. **Classify.** [classify-attachment.ts](./www/lib/classify-attachment.ts#L167-L520)`#classifyAttachment` maps each payload to an `AttachmentDescriptor` carrying `scope` (`tool` / `turn` / `session`), `tier` (`content` / `ambient`), a `summary` one-liner, an optional severity `glyph`, the fail-closed `hidden` flag, an optional `linkPath`, and `expandable`. An unrecognized `attachment.type` returns the `__unknown__` sentinel.
 2. **Route.** [MessageRouter.tsx](./www/components/expanded/messages/MessageRouter.tsx#L438-L470)`#MessageRouter` (the `case 'attachment'` arm) skips hooks that will nest in a tool, drops `hidden` rows, wraps turn-scoped ambient rows in an [AmbientRow](./www/components/expanded/messages/AmbientGroup.tsx#L41-L41) marker, and otherwise hands off to the [AttachmentRouter](./www/components/expanded/messages/attachment/AttachmentRouter.tsx#L103-L120).
-3. **Present.** The per-type presenters render the descriptor; the [AttachmentRouter](./www/components/expanded/messages/attachment/AttachmentRouter.tsx#L103-L120) dispatches to one of them or, for `__unknown__`, to the shared [RawFallback](../lib/RawFallback.tsx#L50-L50) — the same component `SystemRouter` falls back to for unrecognized `system` subtypes.
+3. **Present.** The per-type presenters render the descriptor; the [AttachmentRouter](./www/components/expanded/messages/attachment/AttachmentRouter.tsx#L103-L120) dispatches to one of them or, for `__unknown__`, to the shared [RawFallback](../lib/RawFallback.tsx#L56-L56) — the same component `SystemRouter` falls back to for unrecognized `system` subtypes.
 
 ## Tool-scoped — hooks nest in their tool
 
@@ -91,4 +91,4 @@ Three types carry a fail-closed hide predicate — a populated payload always re
 
 ## The preserved fallback
 
-Genuinely unknown / future `attachment.type` values classify as `__unknown__` and still render through the shared [RawFallback](../lib/RawFallback.tsx#L50-L50) component — the safety net stays, so a new producer type is visible (as a labeled, dimmed JSON block) rather than silently dropped. `SystemRouter` falls back to the same shared component for unknown `system` subtypes.
+Genuinely unknown / future `attachment.type` values classify as `__unknown__` and still render through the shared [RawFallback](../lib/RawFallback.tsx#L56-L56) component — the safety net stays, so a new producer type is visible (as a labeled, dimmed JSON block) rather than silently dropped. `SystemRouter` falls back to the same shared component for unknown `system` subtypes.

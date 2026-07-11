@@ -1,18 +1,23 @@
 /**
  * Shared fallback renderer for stream content with no dedicated component.
  *
- * Displays the raw JSON of unrecognized/unparseable content via the shared
- * `JsonBlock`, prefixed by a severity-aware icon + label so unhandled
- * content stays visible (never silently dropped) and its severity is
- * conveyed honestly: most unrecognized content is merely unclassified, not
- * an error, so `info` is the default — only genuine tool/session errors
- * should pass `severity="error"`.
+ * Collapsed-by-default disclosure row for unrecognized/unparseable content:
+ * one line (severity codicon + label + chevron) that expands in place to the
+ * raw JSON via the shared `JsonBlock`. Matches the `ToolAccordion`/
+ * `ReasoningPart` chevron mechanics (../accordions/ToolAccordion.tsx,
+ * ./aui/ReasoningPart.tsx) so a transcript full of unrecognized rows (e.g. a
+ * newer message type from a provider) stays scannable instead of dominating
+ * the viewport with expanded JSON. Content is never dropped — only its
+ * default visibility changes. Severity conveys honestly: most unrecognized
+ * content is merely unclassified, not an error, so `info` is the default —
+ * only genuine tool/session errors should pass `severity="error"`.
  *
- * @summary Severity-aware raw/unknown-content fallback block
+ * @summary Severity-aware collapsed-by-default raw/unknown-content disclosure row
  * @module streams/lib/RawFallback
  */
 
 import type React from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { JsonBlock } from './JsonBlock';
 
 /** Severity of the unrecognized/fallback content — drives icon + color only. */
@@ -21,7 +26,7 @@ export type RawFallbackSeverity = 'info' | 'warning' | 'error';
 interface RawFallbackProps {
   /** The value to display as pretty-printed JSON (or a raw string). */
   data: unknown;
-  /** Optional label shown before the payload (e.g. "Unrecognized message", "Malformed line"). */
+  /** Label shown in the collapsed row. Defaults to "Raw data" when omitted. */
   label?: string;
   /** Severity of the fallback content. Defaults to `info` — unrecognized is not the same as erroneous. */
   severity?: RawFallbackSeverity;
@@ -40,24 +45,57 @@ const SEVERITY_COLOR: Record<RawFallbackSeverity, string> = {
 };
 
 /**
- * Renders unrecognized/fallback content as a severity-aware labeled JSON block.
+ * Renders unrecognized/fallback content as a collapsed-by-default,
+ * severity-aware disclosure row that expands to a labeled JSON block.
  * @param root0 - The component props.
  * @param root0.data - The value to display.
- * @param root0.label - Optional label shown before the payload.
+ * @param root0.label - Label shown in the collapsed row.
  * @param root0.severity - Severity of the fallback content.
- * @returns Rendered fallback block element.
+ * @returns Rendered fallback disclosure element.
  */
 export function RawFallback({ data, label, severity = 'info' }: RawFallbackProps): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const color = SEVERITY_COLOR[severity];
+  const displayLabel = label ?? 'Raw data';
+
+  const handleToggle = useCallback(() => {
+    setOpen((prev) => {
+      const next = !prev;
+      if (next && bodyRef.current) {
+        const el = bodyRef.current;
+        el.style.opacity = '0';
+        requestAnimationFrame(() => {
+          el.style.opacity = '1';
+        });
+      }
+      return next;
+    });
+  }, []);
+
   return (
-    <div className="my-0.5" style={{ borderLeft: `2px solid ${color}` }}>
-      {label !== undefined && (
-        <div className="stream-block-label flex items-center gap-1" style={{ color }}>
-          <span className={`codicon ${SEVERITY_ICON[severity]}`} />
-          {label}
-        </div>
-      )}
-      <JsonBlock value={data} />
+    <div className="aui-raw-fallback">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={handleToggle}
+        className="aui-raw-fallback__toggle"
+        style={{ color }}
+      >
+        <span
+          className="codicon codicon-chevron-right cc-chevron aui-raw-fallback__chevron"
+          style={{ transform: open ? 'rotate(90deg)' : undefined }}
+        />
+        <span className={`codicon ${SEVERITY_ICON[severity]} aui-raw-fallback__icon`} />
+        <span className="aui-raw-fallback__label">{displayLabel}</span>
+      </button>
+      <div
+        ref={bodyRef}
+        className="cc-accordion-body aui-raw-fallback__body"
+        style={{ display: open ? 'block' : 'none', opacity: open ? 1 : 0, borderLeft: `2px solid ${color}` }}
+      >
+        <JsonBlock value={data} />
+      </div>
     </div>
   );
 }

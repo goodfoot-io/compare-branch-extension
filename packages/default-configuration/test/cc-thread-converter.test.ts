@@ -460,7 +460,7 @@ describe('toThreadMessages — unrecognized shapes fall through to `raw`', () =>
 
     const rawParts = findDataParts(messages, 'raw');
     expect(rawParts).toHaveLength(1);
-    expect((rawParts[0]?.data as { label?: string }).label).toBe('Unrecognized system event');
+    expect((rawParts[0]?.data as { label?: string }).label).toBe('Unrecognized system event · some_future_subtype');
   });
 
   it('renders the shared raw data part for an unrecognized top-level message type', () => {
@@ -470,7 +470,89 @@ describe('toThreadMessages — unrecognized shapes fall through to `raw`', () =>
 
     const rawParts = findDataParts(messages, 'raw');
     expect(rawParts).toHaveLength(1);
-    expect((rawParts[0]?.data as { label?: string }).label).toBe('Unrecognized message');
+    expect((rawParts[0]?.data as { label?: string }).label).toBe('Unrecognized message · some_future_message_type');
+  });
+});
+
+// ============================================================================
+// Previously-unrecognized message types now classified as status-lines
+// ============================================================================
+
+describe('toThreadMessages — turn_duration, queue-operation, worktree-state, bridge-session', () => {
+  it('renders a system turn_duration message as a duration + message-count status-line', () => {
+    const { messages } = toThreadMessages([
+      { type: 'system', subtype: 'turn_duration', durationMs: 1600, messageCount: 80 } as SessionMsg
+    ]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect(statusLines).toHaveLength(1);
+    expect((statusLines[0]?.data as { text: string }).text).toBe('Turn · 1.6s · 80 messages');
+    expect(findDataParts(messages, 'raw')).toHaveLength(0);
+  });
+
+  it('singularizes the message count for a turn_duration of exactly one message', () => {
+    const { messages } = toThreadMessages([
+      { type: 'system', subtype: 'turn_duration', durationMs: 500, messageCount: 1 } as SessionMsg
+    ]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect((statusLines[0]?.data as { text: string }).text).toBe('Turn · 0.5s · 1 message');
+  });
+
+  it('renders an enqueue queue-operation as a "Queued:" status-line with a stripped, truncated preview', () => {
+    const { messages } = toThreadMessages([
+      { type: 'queue-operation', operation: 'enqueue', content: '<task>Fix the flaky test</task>' } as SessionMsg
+    ]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect(statusLines).toHaveLength(1);
+    expect((statusLines[0]?.data as { text: string }).text).toBe('Queued: Fix the flaky test');
+  });
+
+  it('truncates a long enqueue preview to ~60 chars', () => {
+    const content = 'x'.repeat(200);
+    const { messages } = toThreadMessages([{ type: 'queue-operation', operation: 'enqueue', content } as SessionMsg]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect((statusLines[0]?.data as { text: string }).text).toBe(`Queued: ${'x'.repeat(60)}…`);
+  });
+
+  it.each(['remove', 'dequeue'] as const)('renders a %s queue-operation as "Queue: %s"', (operation) => {
+    const { messages } = toThreadMessages([{ type: 'queue-operation', operation } as SessionMsg]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect((statusLines[0]?.data as { text: string }).text).toBe(`Queue: ${operation}`);
+  });
+
+  it('falls through to the raw fallback for an unrecognized queue-operation operation', () => {
+    const { messages } = toThreadMessages([
+      { type: 'queue-operation', operation: 'some_future_op' } as unknown as SessionMsg
+    ]);
+
+    const rawParts = findDataParts(messages, 'raw');
+    expect(rawParts).toHaveLength(1);
+    expect((rawParts[0]?.data as { label?: string }).label).toBe('Unrecognized queue operation · some_future_op');
+  });
+
+  it('renders a worktree-state message as a "Worktree:" status-line naming the worktree', () => {
+    const { messages } = toThreadMessages([
+      {
+        type: 'worktree-state',
+        worktreeSession: { worktreeName: 'workspace-c52ddf65', worktreePath: '/home/node/.cards/worktrees/x' }
+      } as SessionMsg
+    ]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect(statusLines).toHaveLength(1);
+    expect((statusLines[0]?.data as { text: string }).text).toBe('Worktree: workspace-c52ddf65');
+  });
+
+  it('renders a bridge-session message as a "Bridge session" status-line naming the session id', () => {
+    const { messages } = toThreadMessages([{ type: 'bridge-session', bridgeSessionId: 'bridge-42' } as SessionMsg]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect(statusLines).toHaveLength(1);
+    expect((statusLines[0]?.data as { text: string }).text).toBe('Bridge session bridge-42');
   });
 });
 

@@ -144,6 +144,19 @@ describe('toThreadMessages — turn grouping', () => {
     ]);
   });
 
+  it('truncates a full turn_boundary UUID to its first 8 chars', () => {
+    const items: TranscriptItem[] = [
+      { kind: 'turn_boundary', turnId: '019e467f-e069-7250-bd28-0cb46c0b5778' },
+      { kind: 'assistant_message', text: 'Hi.' }
+    ];
+    const { messages } = toThreadMessages(items, false);
+    expect(messages[0]?.content).toContainEqual({
+      type: 'data',
+      name: 'boundary',
+      data: { kind: 'turn', label: 'Turn 019e467f' }
+    });
+  });
+
   it('produces no message for a reasoning item with no summary/content followed by nothing else', () => {
     // A reasoning item with empty summaryText and no contentText contributes
     // nothing — it must not produce a stray empty assistant message.

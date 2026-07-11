@@ -104,7 +104,9 @@ export function AttachmentRouter({ attachment }: AttachmentRouterProps): React.R
   const descriptor = classifyAttachment(attachment);
 
   if (descriptor.hidden) return null;
-  if (descriptor.kind === '__unknown__') return <RawFallback data={attachment} label="Unrecognized attachment" />;
+  if (descriptor.kind === '__unknown__') {
+    return <RawFallback data={attachment} label={`Unrecognized attachment · ${attachment.type}`} />;
+  }
 
   const kind = descriptor.kind;
 
@@ -116,5 +118,5 @@ export function AttachmentRouter({ attachment }: AttachmentRouterProps): React.R
 
   // Unreachable for known types — every classifier `kind` is handled above.
   // Preserved as the fail-closed safety net should a new kind slip through.
-  return <RawFallback data={attachment} label="Unrecognized attachment" />;
+  return <RawFallback data={attachment} label={`Unrecognized attachment · ${attachment.type}`} />;
 }

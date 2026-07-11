@@ -19,7 +19,10 @@
  * stays unit-testable without a live `window.__STREAM_INIT__` host context.
  * The messages render through the shared `StreamThread` (../../../../lib/aui),
  * with `image-note`/`event-activity` provider-specific data parts registered
- * via `dataComponents` (./CodexDataParts).
+ * via `dataComponents` (./CodexDataParts) and the domain tool-call preview
+ * (shell/apply_patch/mcp summaries) registered via `toolFallback`
+ * (./CodexToolFallbackPart) — Codex tool names are dynamic, so a per-name
+ * `toolComponents` registry isn't feasible.
  *
  * @summary Expanded Codex session view: sticky header + shared StreamThread
  * @module streams/codex-session/www/components/expanded/CodexExpandedView
@@ -34,6 +37,7 @@ import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
 import { deriveStatus, toThreadMessages } from '../../lib/to-thread-messages';
 import { EventActivityDataPart, ImageNoteDataPart } from './CodexDataParts';
+import { CodexToolFallbackPart } from './CodexToolFallbackPart';
 
 /** Codex-specific `data` part renderers, merged over the shared four in `StreamThread`. */
 const CODEX_DATA_COMPONENTS = {
@@ -93,7 +97,12 @@ export function CodexExpandedView(): React.ReactElement {
         {items.length === 0 ? (
           <div className="cx-empty">No Codex session activity yet.</div>
         ) : (
-          <StreamThread messages={messages} isRunning={isRunning} dataComponents={CODEX_DATA_COMPONENTS} />
+          <StreamThread
+            messages={messages}
+            isRunning={isRunning}
+            dataComponents={CODEX_DATA_COMPONENTS}
+            toolFallback={CodexToolFallbackPart}
+          />
         )}
       </div>
     </div>

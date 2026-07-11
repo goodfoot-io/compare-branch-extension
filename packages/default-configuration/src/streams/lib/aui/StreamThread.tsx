@@ -8,8 +8,9 @@
  * Renders `ThreadPrimitive.Root`/`Viewport`/`Messages` with role-labeled
  * user/assistant/system message shells (./messages.tsx) sharing one
  * `MessagePrimitive.Content` components registry: {@link MarkdownText} for
- * text, {@link ReasoningPart} for reasoning, {@link ToolFallbackPart} (or a
- * caller-supplied `toolComponents[toolName]`) for tool calls, and the four
+ * text, {@link ReasoningPart} for reasoning, a caller-supplied
+ * `toolComponents[toolName]` (falling back to a caller-supplied
+ * `toolFallback`, then {@link ToolFallbackPart}) for tool calls, and the four
  * shared data parts (./DataParts.tsx) plus any caller-supplied
  * `dataComponents` for `data` parts. `ThreadPrimitive.Viewport`'s default
  * `autoScroll` (true, bottom-anchored) keeps the transcript pinned to the
@@ -45,8 +46,15 @@ interface StreamThreadProps {
   messages: readonly ThreadMessageLike[];
   /** Whether the session is still actively producing content. */
   isRunning: boolean;
-  /** Provider-specific tool-name renderers, tried before {@link ToolFallbackPart}. */
+  /** Provider-specific tool-name renderers, tried before `toolFallback`/{@link ToolFallbackPart}. */
   toolComponents?: Record<string, ToolCallMessagePartComponent>;
+  /**
+   * Overrides the default {@link ToolFallbackPart} for any tool-call part
+   * whose `toolName` has no entry in `toolComponents` — for a provider whose
+   * tool names are dynamic (e.g. Codex's `exec_command`/`apply_patch`/MCP
+   * tool names), so a per-name `toolComponents` registry isn't feasible.
+   */
+  toolFallback?: ToolCallMessagePartComponent;
   /** Provider-specific data-part renderers, merged over (never replacing) the four shared parts in ./DataParts.tsx. */
   dataComponents?: Record<string, DataMessagePartComponent>;
 }
@@ -86,6 +94,7 @@ async function noopOnNew(): Promise<void> {
  * @param root0.messages - The full transcript, in display order.
  * @param root0.isRunning - Whether the session is still actively producing content.
  * @param root0.toolComponents - Provider-specific tool-name renderers.
+ * @param root0.toolFallback - Overrides the default {@link ToolFallbackPart} for tool calls with no `toolComponents` entry.
  * @param root0.dataComponents - Provider-specific data-part renderers.
  * @returns Rendered read-only thread element.
  */
@@ -93,6 +102,7 @@ export function StreamThread({
   messages,
   isRunning,
   toolComponents,
+  toolFallback,
   dataComponents
 }: StreamThreadProps): React.ReactElement {
   const runtime = useExternalStoreRuntime<ThreadMessageLike>({
@@ -106,10 +116,10 @@ export function StreamThread({
     () => ({
       Text: MarkdownText,
       Reasoning: ReasoningPart,
-      tools: { by_name: toolComponents, Fallback: ToolFallbackPart },
+      tools: { by_name: toolComponents, Fallback: toolFallback ?? ToolFallbackPart },
       data: { by_name: { ...SHARED_DATA_COMPONENTS, ...dataComponents }, Fallback: UnregisteredDataPart }
     }),
-    [toolComponents, dataComponents]
+    [toolComponents, toolFallback, dataComponents]
   );
 
   const UserMessage = useMemo(() => createUserMessage(contentComponents), [contentComponents]);

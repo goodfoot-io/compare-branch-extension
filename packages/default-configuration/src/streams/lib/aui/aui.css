@@ -254,6 +254,15 @@
   flex-shrink: 0;
 }
 
+.aui-reasoning__preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
 .aui-reasoning__body {
   padding: 0 8px 8px;
   font-size: var(--stream-text-dense);
@@ -276,4 +285,47 @@
 
 .aui-error-line__icon {
   flex-shrink: 0;
+}
+
+/* -----------------------------------------------------------------------
+   RawFallback (../RawFallback.tsx) — collapsed-by-default disclosure row
+   for unrecognized/unparseable content. Shares `.cc-chevron`/
+   `.cc-accordion-body` from ../accordions.css for the open/close mechanics.
+   ----------------------------------------------------------------------- */
+
+.aui-raw-fallback {
+  margin: 2px 0;
+}
+
+.aui-raw-fallback__toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 0;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--stream-text-label);
+}
+
+.aui-raw-fallback__chevron {
+  font-size: 0.85em;
+  flex-shrink: 0;
+}
+
+.aui-raw-fallback__icon {
+  flex-shrink: 0;
+}
+
+.aui-raw-fallback__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aui-raw-fallback__body {
+  padding-left: 8px;
+  margin-top: 2px;
 }
