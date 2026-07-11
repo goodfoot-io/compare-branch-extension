@@ -28,17 +28,25 @@
  * **Session-preamble gathering.** Every real transcript opens with a run of
  * service/structural debris — orphan `SessionStart` hooks, a `skill_listing`
  * content row, `Mode:`/`Title:` coordination lines — that used to render as
- * scattered top-level rows before the first real exchange. This converter
- * instead buffers every such part (see `gatheringSessionStart` / `emit` /
- * `closeSessionStartGathering`) until the first genuine content part arrives
- * (a real user turn's prose, or an assistant `text`/`reasoning`/`tool-call`),
- * then flushes the buffer as one `cc-session-start` disclosure — collapsed by
- * default, expanding to every original row unchanged — immediately before
- * that first content. `boundary` parts (the "Session started · N tools" turn
- * marker, plus `compaction`/`result`) and `cc-away-summary` are deliberately
- * excluded from this grouping and keep rendering exactly as before, even
- * while gathering is open; everything after the first content part is
- * likewise ungrouped, rendered exactly as it always was.
+ * scattered top-level rows before (and even after, straddling) the first
+ * real exchange. This converter instead buffers every such part (see
+ * `gatheringSessionStart` / `emit` / `closeSessionStartGathering`) until the
+ * first genuine assistant content part arrives (`text`/`reasoning`/
+ * `tool-call`), then flushes the buffer as one `cc-session-start` disclosure
+ * — collapsed by default, expanding to every original row unchanged.
+ * A genuine user turn never closes gathering (it renders in place, as its
+ * own ungrouped message, but service parts arriving after it keep buffering
+ * into the same eventual group) and the flushed disclosure is always
+ * spliced in at the position of the very first user turn seen while
+ * gathering was open (see `sessionStartInsertIndex`) — or appended normally
+ * when no user turn ever preceded the close — so session-setup material
+ * always reads as one block at the very top of the transcript, never at the
+ * point where gathering happened to close. `boundary` parts (the "Session
+ * started · N tools" turn marker, plus `compaction`/`result`) and
+ * `cc-away-summary` are deliberately excluded from this grouping and keep
+ * rendering exactly as before, even while gathering is open; everything
+ * after the first assistant content part is likewise ungrouped, rendered
+ * exactly as it always was.
  *
  * Appending a part whose category differs from the currently-open run flushes
  * that run and starts a new one of the new category, preserving source order
@@ -255,20 +263,26 @@ function sessionStartPart(summary: string, entries: CcSessionStartEntry[]): Thre
  * Derives the collapsed `cc-session-start` disclosure's one-line summary from
  * what it actually contains — short and honest rather than a generic "Session
  * setup" label. Reads the buffered entries for a `Mode: …` status-line (the
- * session's mode), a `skill_listing` attachment's `skillCount`, and a count of
- * `cc-hook` entries; each is appended only when present, so a session with no
- * hooks (say) doesn't show a stray "0 hooks".
+ * session's mode), a `Title: "…"` status-line (surfaced verbatim — a session
+ * title is high-value orientation, so it's quoted directly rather than
+ * reduced to a generic "title" placeholder), a `skill_listing` attachment's
+ * `skillCount`, and a count of `cc-hook` entries; each is appended only when
+ * present, so a session with no hooks (say) doesn't show a stray "0 hooks".
  * @param entries - The buffered leading-run entries (see {@link toThreadMessages}'s gathering logic).
  * @returns The derived summary line, always starting with "Session started".
  */
 function summarizeSessionStart(entries: CcSessionStartEntry[]): string {
   let mode: string | undefined;
+  let title: string | undefined;
   let skillCount: number | undefined;
   let hookCount = 0;
   for (const entry of entries) {
     if (entry.name === STREAM_DATA_PART_NAME.statusLine) {
-      const match = /^Mode: (.+)$/.exec((entry.data as StatusLineData).text);
-      if (match?.[1]) mode = match[1];
+      const text = (entry.data as StatusLineData).text;
+      const modeMatch = /^Mode: (.+)$/.exec(text);
+      if (modeMatch?.[1]) mode = modeMatch[1];
+      const titleMatch = /^Title: "(.+)"$/.exec(text);
+      if (titleMatch?.[1]) title = titleMatch[1];
     } else if (entry.name === 'cc-hook') {
       hookCount += 1;
     } else if (entry.name === 'cc-attachment') {
@@ -281,6 +295,7 @@ function summarizeSessionStart(entries: CcSessionStartEntry[]): string {
   }
   const segments = ['Session started'];
   if (mode) segments.push(mode);
+  if (title) segments.push(`"${title}"`);
   if (skillCount !== undefined) segments.push(`${skillCount} skill${skillCount === 1 ? '' : 's'}`);
   if (hookCount > 0) segments.push(`${hookCount} hook${hookCount === 1 ? '' : 's'}`);
   return segments.join(' · ');
@@ -479,17 +494,26 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
   let runCreatedAt: Date | undefined;
   let currentMsgTimestamp: Date | undefined;
 
-  // Session-preamble gathering (issue: scattered orphan rows at the top of
-  // every transcript). While `gatheringSessionStart` is true, every
-  // service/structural data part *other than* a `boundary` or
+  // Session-preamble gathering (issue: scattered orphan rows at the top of,
+  // and straddling, every transcript). While `gatheringSessionStart` is true,
+  // every service/structural data part *other than* a `boundary` or
   // `cc-away-summary` (both excluded from grouping — see module doc) is
-  // buffered here instead of emitted directly. The first genuine content part
-  // (text/reasoning/tool-call, from either a real user turn or assistant
-  // output) flushes the buffer as one `cc-session-start` disclosure and
-  // permanently closes gathering, so nothing after real content starts is
-  // ever grouped.
+  // buffered here instead of emitted directly. Only the first genuine
+  // *assistant* content part (text/reasoning/tool-call) flushes the buffer as
+  // one `cc-session-start` disclosure and permanently closes gathering — a
+  // real user turn renders in place but never closes gathering, so debris
+  // arriving after it keeps buffering into the same eventual group.
   let gatheringSessionStart = true;
   let sessionStartBuffer: ThreadMessagePart[] = [];
+
+  // The `threadMessages` index the flushed `cc-session-start` disclosure gets
+  // spliced into — captured once, the first time a user turn is pushed while
+  // gathering is still open, so the disclosure always lands immediately
+  // before the very first user bubble (however much later gathering actually
+  // closes) rather than at the flush point. Stays `undefined` when no user
+  // turn ever precedes the close, in which case the disclosure is simply
+  // appended where gathering closed, exactly as before.
+  let sessionStartInsertIndex: number | undefined;
 
   // Coordination status-lines ("Mode: …", "Title: …", and classifyCoordinationText
   // output) repeat around nearly every exchange; suppress an exact-duplicate
@@ -573,8 +597,12 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
 
   /**
    * Flushes the buffered leading-run parts (see {@link gatheringSessionStart})
-   * into one `cc-session-start` disclosure part, deriving its summary from
-   * what it contains. No-op when nothing was buffered.
+   * into one standalone `cc-session-start` disclosure message, deriving its
+   * summary from what it contains. No-op when nothing was buffered. Built and
+   * spliced directly rather than routed through `appendAssistant`/`flushRun`
+   * — the disclosure must land at {@link sessionStartInsertIndex} (the first
+   * user turn's position), which is very likely earlier than wherever the
+   * currently-open run (if any) would otherwise flush to.
    */
   const flushSessionStartBuffer = (): void => {
     if (sessionStartBuffer.length === 0) return;
@@ -587,7 +615,14 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
     });
     const summary = summarizeSessionStart(entries);
     sessionStartBuffer = [];
-    appendAssistant(sessionStartPart(summary, entries));
+    const message: ThreadMessageLike = {
+      id: nextId(),
+      role: 'assistant',
+      content: asContent([sessionStartPart(summary, entries)]),
+      status: { type: 'complete', reason: 'stop' },
+      metadata: { custom: { service: true } }
+    };
+    threadMessages.splice(sessionStartInsertIndex ?? threadMessages.length, 0, message);
   };
 
   /**
@@ -602,10 +637,11 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
    */
   /**
    * Ends session-preamble gathering (idempotent), flushing whatever was
-   * buffered first. Called both by `emit` (for a genuine content part on an
-   * assistant run) and directly by the `user` case (whose real-turn message
-   * is built and pushed to `threadMessages` without going through `emit` at
-   * all — see module doc on user turns being built directly).
+   * buffered first. Only ever called by `emit`, for a genuine assistant
+   * content part (`text`/`reasoning`/`tool-call`) — a real user turn's own
+   * message is built and pushed to `threadMessages` directly, without going
+   * through `emit` at all (see module doc), and deliberately never closes
+   * gathering.
    */
   const closeSessionStartGathering = (): void => {
     if (!gatheringSessionStart) return;
@@ -812,12 +848,18 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             // A real user turn closes out whatever run preceded it —
             // user/assistant messages alternate as distinct ThreadMessageLikes;
             // only the structural/status content in between folds into runs.
-            // A user turn carrying genuine human prose is exactly the "first
-            // real conversation content" the session-preamble gathering waits
-            // for (see module doc) — a coordination-only user turn (no
-            // humanParts) is not, so it doesn't close gathering.
-            if (humanParts.length > 0) closeSessionStartGathering();
+            // Unlike the retired closing rule, a user turn — human prose or
+            // coordination-only — never closes session-preamble gathering
+            // (see module doc): only a genuine assistant content part does.
+            // It does, however, mark where the eventual `cc-session-start`
+            // disclosure belongs, the first time this fires while gathering
+            // is still open — captured *after* `flushAssistant` so it points
+            // just before this user message, not before whatever run that
+            // flush just pushed ahead of it.
             flushAssistant(false);
+            if (gatheringSessionStart && sessionStartInsertIndex === undefined) {
+              sessionStartInsertIndex = threadMessages.length;
+            }
             threadMessages.push({
               id: nextId(),
               role: 'user',

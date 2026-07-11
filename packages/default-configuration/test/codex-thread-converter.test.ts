@@ -32,6 +32,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  CxSessionStartPart,
   EventActivityDataPart,
   ImageNoteDataPart
 } from '../src/streams/codex-session/www/components/expanded/CodexDataParts.js';
@@ -41,7 +42,8 @@ import { StreamThread } from '../src/streams/lib/aui/StreamThread.js';
 
 const CODEX_DATA_COMPONENTS = {
   'image-note': ImageNoteDataPart,
-  'event-activity': EventActivityDataPart
+  'event-activity': EventActivityDataPart,
+  'cx-session-start': CxSessionStartPart
 };
 
 function toolCall(
@@ -195,6 +197,16 @@ describe('toThreadMessages — reasoning', () => {
     ]);
   });
 
+  it('strips markdown syntax from a summary-only reasoning line before rendering (StatusLine has no markdown engine)', () => {
+    const { messages } = toThreadMessages(
+      [{ kind: 'reasoning', summaryText: 'Card `main-377` is currently **active**. Key details: …' }],
+      false
+    );
+    expect(messages[0]?.content).toEqual([
+      { type: 'data', name: 'status-line', data: { text: 'Card is currently active. Key details: …' } }
+    ]);
+  });
+
   it('produces no message when both summaryText and contentText are empty', () => {
     const { messages } = toThreadMessages([{ kind: 'reasoning', summaryText: '' }], false);
     expect(messages).toHaveLength(0);
@@ -313,10 +325,17 @@ describe('toThreadMessages — error', () => {
 });
 
 describe('toThreadMessages — task_started / task_complete', () => {
-  it('renders task_started as a quiet boundary data part, not a floating status line', () => {
+  it('renders task_started as a quiet bare-hairline boundary, not a loud labeled divider', () => {
     const { messages } = toThreadMessages([{ kind: 'task_started' }], false);
     expect(messages[0]?.content).toEqual([
-      { type: 'data', name: 'boundary', data: { kind: 'turn', label: 'Task started' } }
+      { type: 'data', name: 'boundary', data: { kind: 'turn', label: '', tooltip: 'Task started' } }
+    ]);
+  });
+
+  it('includes the turn id in the task_started tooltip when present', () => {
+    const { messages } = toThreadMessages([{ kind: 'task_started', turnId: 'turn-42' }], false);
+    expect(messages[0]?.content).toEqual([
+      { type: 'data', name: 'boundary', data: { kind: 'turn', label: '', tooltip: 'Task started · turn-42' } }
     ]);
   });
 
@@ -369,6 +388,121 @@ describe('toThreadMessages — event_activity, unknown_item, malformed', () => {
     expect(messages[0]?.content).toEqual([
       { type: 'data', name: 'raw', data: { data: '{"broken":', label: 'Malformed line', severity: 'warning' } }
     ]);
+  });
+});
+
+describe('toThreadMessages — session-preamble gathering (cx-session-start)', () => {
+  it('gathers a developer-role assistant_message and an instructions/environment user_message into one disclosure ahead of the real first prompt', () => {
+    const items: TranscriptItem[] = [
+      { kind: 'session_header', model: 'gpt-5.5' },
+      {
+        kind: 'assistant_message',
+        text: '<permissions instructions>\n...\n</permissions instructions>',
+        role: 'developer'
+      },
+      {
+        kind: 'user_message',
+        text: '# AGENTS.md instructions for /repo\n\n<environment_context>\n...\n</environment_context>'
+      },
+      { kind: 'user_message', text: 'What is the status of this card?' },
+      { kind: 'assistant_message', text: 'Checking now.' }
+    ];
+    const { messages } = toThreadMessages(items, false);
+
+    // session_header produced no message; the gathered disclosure is message 0.
+    expect(messages).toHaveLength(3);
+    expect(messages[0]?.metadata?.custom?.['service']).toBe(true);
+    expect(messages[0]?.content).toEqual([
+      {
+        type: 'data',
+        name: 'cx-session-start',
+        data: {
+          summary: 'Session started · gpt-5.5 · instructions · environment · 1 developer note',
+          entries: [
+            {
+              label: 'Developer instructions',
+              text: '<permissions instructions>\n...\n</permissions instructions>'
+            },
+            {
+              label: 'Instructions',
+              text: '# AGENTS.md instructions for /repo\n\n<environment_context>\n...\n</environment_context>'
+            }
+          ]
+        }
+      }
+    ]);
+    expect(messages[1]).toMatchObject({
+      role: 'user',
+      content: [{ type: 'text', text: 'What is the status of this card?' }]
+    });
+    expect(messages[2]).toMatchObject({ role: 'assistant', content: [{ type: 'text', text: 'Checking now.' }] });
+  });
+
+  it('does not gather a real user prompt that happens to arrive first (no cx-session-start emitted)', () => {
+    const { messages } = toThreadMessages([{ kind: 'user_message', text: 'Fix the bug.' }], false);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ role: 'user', content: [{ type: 'text', text: 'Fix the bug.' }] });
+  });
+
+  it('renders a leading turn_boundary/task_started as-is, ungathered, even while gathering is still open', () => {
+    const items: TranscriptItem[] = [
+      { kind: 'turn_boundary', turnId: 't1' },
+      { kind: 'task_started', turnId: 't1' },
+      { kind: 'assistant_message', text: '<permissions instructions>', role: 'developer' },
+      { kind: 'user_message', text: 'Fix the bug.' }
+    ];
+    const { messages } = toThreadMessages(items, false);
+    // The boundary/task_started/cx-session-start data parts are every one a
+    // "service" category, so — matching every other consecutive run of
+    // service data parts — they fold into one message ahead of the real user turn.
+    expect(messages).toHaveLength(2);
+    expect(messages[0]?.content).toEqual([
+      { type: 'data', name: 'boundary', data: { kind: 'turn', label: '', tooltip: 't1' } },
+      { type: 'data', name: 'boundary', data: { kind: 'turn', label: '', tooltip: 'Task started · t1' } },
+      {
+        type: 'data',
+        name: 'cx-session-start',
+        data: {
+          summary: 'Session started · 1 developer note',
+          entries: [{ label: 'Developer instructions', text: '<permissions instructions>' }]
+        }
+      }
+    ]);
+    expect(messages[1]).toMatchObject({ role: 'user', content: [{ type: 'text', text: 'Fix the bug.' }] });
+  });
+
+  it('still flushes the gathered buffer when the entire transcript is preamble (no genuine content ever arrives)', () => {
+    const items: TranscriptItem[] = [
+      { kind: 'assistant_message', text: '<permissions instructions>', role: 'developer' }
+    ];
+    const { messages } = toThreadMessages(items, false);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.content).toEqual([
+      {
+        type: 'data',
+        name: 'cx-session-start',
+        data: {
+          summary: 'Session started · 1 developer note',
+          entries: [{ label: 'Developer instructions', text: '<permissions instructions>' }]
+        }
+      }
+    ]);
+  });
+
+  it('renders the cx-session-start disclosure collapsed by default, with its summary visible and entry markdown hidden', () => {
+    const { messages, isRunning } = toThreadMessages(
+      [
+        { kind: 'assistant_message', text: '<permissions instructions>', role: 'developer' },
+        { kind: 'user_message', text: 'Fix the bug.' }
+      ],
+      false
+    );
+    const html = renderToStaticMarkup(
+      createElement(StreamThread, { messages, isRunning, dataComponents: CODEX_DATA_COMPONENTS })
+    );
+    expect(html).toContain('Session started · 1 developer note');
+    expect(html).toContain('style="display:none');
+    expect(html).toContain('Developer instructions');
   });
 });
 

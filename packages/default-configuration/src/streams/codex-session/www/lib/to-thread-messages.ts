@@ -12,10 +12,29 @@
  *   run split on its own; it simply joins whatever run is already open
  *   (typically the tool-call or orphan-output part it annotates).
  * - **Service runs** carry every other `data` part (`boundary`/`status-line`/
- *   `error-line`/`raw`/`event-activity`/`turn-time`) — structural/system
- *   content — marked `metadata: { custom: { service: true } }` so the shared
- *   `AssistantMessage` renders it header-less and full-width instead of
- *   under a captioned "Assistant" turn.
+ *   `error-line`/`raw`/`event-activity`/`turn-time`/`cx-session-start`) —
+ *   structural/system content — marked `metadata: { custom: { service: true } }`
+ *   so the shared `AssistantMessage` renders it header-less and full-width
+ *   instead of under a captioned "Assistant" turn.
+ *
+ * **Session-preamble gathering.** Codex injects a leading run of instructions
+ * content ahead of the user's own first prompt — a developer-role
+ * `<permissions instructions>` blob, a user-role AGENTS.md instructions block
+ * concatenated with an `<environment_context>` block, and any plugin-injected
+ * developer instructions in between — that used to render as full-weight
+ * turns (a giant assistant bubble, a giant user bubble) dominating the first
+ * screens. This converter instead buffers every such item (see
+ * `gatheringPreamble` / `closeSessionStartGathering` inside
+ * {@link toThreadMessages}) until the first genuine content arrives — a real
+ * user prompt (`looksLikeUserPreambleText` returning `false`), a non-developer
+ * `assistant_message`, any `reasoning` carrying a summary/content, or any
+ * `tool_call` — then flushes the buffer as one `cx-session-start` disclosure
+ * (collapsed by default, expanding to every original block unchanged)
+ * immediately before that first content. `session_header` and every
+ * boundary/lifecycle kind (`turn_boundary`, `compaction`, `task_started`,
+ * `task_complete`) are never gathered and keep rendering exactly as they
+ * always have, even while gathering is open; everything after the first
+ * content item is likewise ungrouped, rendered exactly as it always was.
  *
  * That everything (besides `user_message`) folds into one of these two
  * `role: 'assistant'` run kinds — rather than a `system`-role message for the
@@ -42,7 +61,7 @@
 
 import { STREAM_DATA_PART_NAME, type ThreadMessageLike } from '../../../lib/aui/types';
 import { formatDuration } from '../../../lib/compact-facts';
-import { truncate } from '../../../lib/markdown';
+import { stripMarkup, truncate } from '../../../lib/markdown';
 import type { SessionStatus } from '../../../lib/SessionHeader';
 import type { TranscriptItem } from './render-transcript';
 
@@ -136,8 +155,71 @@ const SERVICE_DATA_PART_NAMES = new Set<string>([
   STREAM_DATA_PART_NAME.errorLine,
   STREAM_DATA_PART_NAME.raw,
   'event-activity',
-  'turn-time'
+  'turn-time',
+  'cx-session-start'
 ]);
+
+/**
+ * One grouped entry inside a `cx-session-start` disclosure (see
+ * {@link toThreadMessages}'s session-preamble gathering) — a labeled
+ * preamble text block, unchanged from the source item's full text.
+ */
+export interface CxSessionStartEntry {
+  /** Human label for this block (e.g. "Instructions", "Developer instructions"). */
+  label: string;
+  /** The original item's full text, unchanged (still rendered as markdown). */
+  text: string;
+  /** Count of images the source item carried, if any (rendered as an image-note line). */
+  imageCount?: number;
+}
+
+/**
+ * Data payload for the `cx-session-start` data part — the collapsed-by-default
+ * disclosure grouping the leading run of Codex-injected preamble content
+ * (permissions/AGENTS.md/environment-context/plugin instructions) that
+ * precedes the first real conversation content (see {@link summarizeCxSessionStart}
+ * and the gathering logic in {@link toThreadMessages}).
+ */
+export interface CxSessionStartData {
+  /** Short derived summary shown in the collapsed header (e.g. "Session started · gpt-5.5 · instructions · environment"). */
+  summary: string;
+  /** Every grouped entry, in original arrival order, unchanged. */
+  entries: CxSessionStartEntry[];
+}
+
+/**
+ * Detects a Codex-injected preamble text blob carried by a `user_message`
+ * item — the combined AGENTS.md "user instructions" + `<environment_context>`
+ * block Codex always sends as an early `user`-role `response_item`, ahead of
+ * the user's own first real prompt. A `user_message` item is otherwise
+ * indistinguishable from a genuine user turn, so this is the only mechanical
+ * signal available for it (unlike `assistant_message`, whose source `role`
+ * survives onto the item — see {@link TranscriptItem}'s `assistant_message.role`).
+ * @param text - The `user_message` item's text.
+ * @returns Whether this looks like an injected instructions/environment blob rather than genuine user prose.
+ */
+function looksLikeUserPreambleText(text: string): boolean {
+  return /^# AGENTS\.md instructions for /.test(text) || text.includes('<environment_context>');
+}
+
+/**
+ * Derives the collapsed `cx-session-start` disclosure's one-line summary from
+ * what it actually contains — short and honest rather than a generic "Session
+ * setup" label. Each segment is appended only when present, so a session with
+ * no developer-authored blocks (say) doesn't show a stray "0 developer notes".
+ * @param entries - The buffered leading-run entries (see {@link toThreadMessages}'s gathering logic).
+ * @param model - The session's model, when already known (from `session_header`), or `undefined`.
+ * @returns The derived summary line, always starting with "Session started".
+ */
+function summarizeCxSessionStart(entries: CxSessionStartEntry[], model: string | undefined): string {
+  const segments = ['Session started'];
+  if (model) segments.push(model);
+  if (entries.some((entry) => /^# AGENTS\.md instructions for /.test(entry.text))) segments.push('instructions');
+  if (entries.some((entry) => entry.text.includes('<environment_context>'))) segments.push('environment');
+  const developerCount = entries.filter((entry) => entry.label === 'Developer instructions').length;
+  if (developerCount > 0) segments.push(`${developerCount} developer note${developerCount === 1 ? '' : 's'}`);
+  return segments.join(' · ');
+}
 
 /**
  * Categorizes a part for the content/service run split (see module doc).
@@ -204,6 +286,41 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
   let runCreatedAt: Date | undefined;
   let currentItemTimestamp: Date | undefined;
 
+  // Session-preamble gathering (issue: the leading `<permissions
+  // instructions>`/AGENTS.md/environment-context/plugin-instructions blobs
+  // Codex injects ahead of the user's own first prompt used to render as
+  // full-weight turns dominating the first screens). While
+  // `gatheringPreamble` is true, every developer-authored `assistant_message`
+  // (see `TranscriptItem`'s `assistant_message.role`) and every
+  // instructions/environment-flavored `user_message` (see
+  // `looksLikeUserPreambleText`) is buffered here instead of emitted. The
+  // first genuine content — a real user prompt, any `reasoning` carrying a
+  // summary/content, any `tool_call`, or a non-developer `assistant_message`
+  // — flushes the buffer as one `cx-session-start` disclosure and
+  // permanently closes gathering. `session_header` (rendered separately, see
+  // `CodexExpandedView`) and every boundary/lifecycle kind (`turn_boundary`,
+  // `compaction`, `task_started`, `task_complete`) are never gathered and
+  // keep rendering exactly as they always have, even while gathering is open.
+  let gatheringPreamble = true;
+  let preambleBuffer: CxSessionStartEntry[] = [];
+  let preambleModel: string | undefined;
+
+  /**
+   * Ends session-preamble gathering (idempotent), flushing whatever was
+   * buffered first as one `cx-session-start` data part on the currently-open
+   * run (via `pushPart`, so it participates in the normal content/service run
+   * split like any other data part).
+   */
+  const closeSessionStartGathering = (): void => {
+    if (!gatheringPreamble) return;
+    gatheringPreamble = false;
+    if (preambleBuffer.length === 0) return;
+    const summary = summarizeCxSessionStart(preambleBuffer, preambleModel);
+    const entries = preambleBuffer;
+    preambleBuffer = [];
+    pushPart({ type: 'data', name: 'cx-session-start', data: { summary, entries } satisfies CxSessionStartData });
+  };
+
   const flushAssistant = (): void => {
     if (runParts.length === 0) {
       runCreatedAt = undefined;
@@ -247,10 +364,24 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
     switch (item.kind) {
       case 'session_header':
         // Rendered once, above the scrolling transcript, as the sticky shared
-        // SessionHeader (see CodexExpandedView) — not a thread message.
+        // SessionHeader (see CodexExpandedView) — not a thread message. Its
+        // model (once back-patched by renderCodexTranscript) doubles as the
+        // cx-session-start disclosure's summary model segment.
+        preambleModel = item.model;
         break;
 
       case 'user_message': {
+        if (gatheringPreamble) {
+          if (looksLikeUserPreambleText(item.text)) {
+            preambleBuffer.push({ label: 'Instructions', text: item.text, imageCount: item.imageCount });
+            break;
+          }
+          // A genuine user prompt is exactly the "first real conversation
+          // content" gathering waits for (see module doc) — close it before
+          // this turn's own flush/push so the disclosure lands immediately
+          // ahead of it, in source order.
+          closeSessionStartGathering();
+        }
         flushAssistant();
         seq += 1;
         const parts: ThreadPart[] = [{ type: 'text', text: item.text }];
@@ -267,6 +398,11 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
       }
 
       case 'assistant_message': {
+        if (gatheringPreamble && item.role === 'developer') {
+          preambleBuffer.push({ label: 'Developer instructions', text: item.text, imageCount: item.imageCount });
+          break;
+        }
+        if (gatheringPreamble) closeSessionStartGathering();
         pushPart({ type: 'text', text: item.text });
         if (item.imageCount !== undefined) {
           pushPart({ type: 'data', name: 'image-note', data: { text: imageNoteText(item.imageCount) } });
@@ -276,6 +412,12 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
 
       case 'reasoning': {
         const hasContent = item.contentText !== undefined && item.contentText.length > 0;
+        if (gatheringPreamble && (hasContent || item.summaryText.length > 0)) {
+          // Real reasoning never precedes the preamble in practice, but is
+          // unambiguously genuine assistant content when it does occur — closes
+          // gathering exactly like a real user prompt or non-developer reply.
+          closeSessionStartGathering();
+        }
         if (hasContent) {
           // Both summary and content are kept — nothing is dropped. The
           // shared ReasoningPart shows a muted preview of the text's first
@@ -292,12 +434,21 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         } else if (item.summaryText.length > 0) {
           // Summary-only reasoning: one short line is not worth an accordion —
           // matches the old non-collapsible muted line via the shared status-line part.
-          pushPart({ type: 'data', name: STREAM_DATA_PART_NAME.statusLine, data: { text: item.summaryText } });
+          // `StatusLine` renders its text as plain, unparsed text (no markdown
+          // engine) — stripMarkup (the same helper ReasoningPart's collapsed
+          // preview uses) keeps a summary written with markdown emphasis from
+          // showing its literal `**bold**`/backtick syntax here.
+          pushPart({
+            type: 'data',
+            name: STREAM_DATA_PART_NAME.statusLine,
+            data: { text: stripMarkup(item.summaryText) }
+          });
         }
         break;
       }
 
       case 'tool_call': {
+        if (gatheringPreamble) closeSessionStartGathering();
         // Some rollout payloads (e.g. web-search calls) carry no call_id, which
         // render-transcript surfaces as ''. assistant-ui keys tool-call parts by
         // toolCallId and rejects duplicates, so synthesize a unique fallback.
@@ -358,10 +509,17 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         break;
 
       case 'task_started':
-        // A quiet structural marker (matches the turn_boundary idiom) rather
-        // than a floating italic status line — this is a boundary event, not
-        // a system status message.
-        pushPart({ type: 'data', name: STREAM_DATA_PART_NAME.boundary, data: { kind: 'turn', label: 'Task started' } });
+        // A quiet bare hairline (matches the turn_boundary idiom — see that
+        // case above) rather than a loud uppercase-labeled divider: a task
+        // starts on every user submission, so a full section boundary here
+        // repeats once per turn. The full "Task started" label (plus the
+        // task/turn id, when present) is still available via the boundary's
+        // hover tooltip.
+        pushPart({
+          type: 'data',
+          name: STREAM_DATA_PART_NAME.boundary,
+          data: { kind: 'turn', label: '', tooltip: item.turnId ? `Task started · ${item.turnId}` : 'Task started' }
+        });
         break;
 
       case 'task_complete': {
@@ -403,6 +561,9 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         break;
     }
   }
+  // A transcript that is nothing but preamble (gathering never closed because
+  // no genuine content ever arrived) still must not drop its buffered rows.
+  closeSessionStartGathering();
   flushAssistant();
 
   // The last assistant message reflects live stream status (drives the

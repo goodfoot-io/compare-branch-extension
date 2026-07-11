@@ -707,7 +707,7 @@ describe('toThreadMessages — session-preamble gathering (cc-session-start)', (
     expect(part?.name).toBe('cc-session-start');
 
     const data = part?.data as { summary: string; entries: { name: string; data: unknown }[] };
-    expect(data.summary).toBe('Session started · normal · 57 skills · 1 hook');
+    expect(data.summary).toBe('Session started · normal · "Fix the flaky test" · 57 skills · 1 hook');
     expect(data.entries.map((e) => e.name)).toEqual(['status-line', 'cc-hook', 'cc-attachment', 'status-line']);
 
     // The first real user message follows, ungrouped.
@@ -758,10 +758,10 @@ describe('toThreadMessages — session-preamble gathering (cc-session-start)', (
   it('a coordination-only user turn (no human prose) does not close gathering, and keeps rendering as its own ungrouped user message', () => {
     // A user turn is always built directly (never through the buffering
     // `emit`, per the module doc), so it's never itself absorbed into the
-    // group — but since it carries no human prose, it also isn't "real
-    // conversation content", so gathering stays open through it: the debris
-    // before AND after it (the two Mode: lines) still land in one group,
-    // flushed only once real human text arrives.
+    // group. Only a genuine assistant content part closes gathering now, so
+    // neither user turn below (coordination-only, nor real prose) closes it —
+    // the debris before, between, and after both keeps landing in one group,
+    // flushed only once real assistant content finally arrives.
     const messages: SessionMsg[] = [
       { type: 'mode', mode: 'normal' } as SessionMsg,
       {
@@ -769,27 +769,76 @@ describe('toThreadMessages — session-preamble gathering (cc-session-start)', (
         message: { content: [{ type: 'text', text: '{"from":"user","type":"task_id"}' }] }
       } as SessionMsg,
       { type: 'mode', mode: 'auto' } as SessionMsg,
-      { type: 'user', message: { content: [{ type: 'text', text: 'Real question.' }] } } as SessionMsg
+      { type: 'user', message: { content: [{ type: 'text', text: 'Real question.' }] } } as SessionMsg,
+      { type: 'assistant', message: { content: [{ type: 'text', text: 'Answering.' }] } } as SessionMsg
     ];
 
     const { messages: threadMessages } = toThreadMessages(messages);
 
-    const coordinationOnlyUser = threadMessages.find(
-      (m) => m.role === 'user' && Array.isArray(m.content) && m.content.some((p) => p.type === 'data')
-    );
+    // The disclosure renders first — before either user bubble — even though
+    // gathering didn't actually close until the trailing assistant message.
+    expect(threadMessages).toHaveLength(4);
+    const group = threadMessages[0];
+    expect(group?.content).toHaveLength(1);
+    const groupPart = (group?.content as { name: string; data: { entries: { name: string }[] } }[])[0];
+    expect(groupPart?.data.entries.map((e) => e.name)).toEqual(['status-line', 'status-line']);
+
+    const coordinationOnlyUser = threadMessages[1];
+    expect(coordinationOnlyUser?.role).toBe('user');
     expect(coordinationOnlyUser?.content).toEqual([
       { type: 'data', name: 'status-line', data: { text: 'user: task id' } }
     ]);
 
-    const group = threadMessages.find(
-      (m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'data' && p.name === 'cc-session-start')
-    );
-    const groupPart = (group?.content as { name: string; data: { entries: { name: string }[] } }[])[0];
-    expect(groupPart?.data.entries.map((e) => e.name)).toEqual(['status-line', 'status-line']);
+    const realQuestionUser = threadMessages[2];
+    expect(realQuestionUser?.role).toBe('user');
+    expect(realQuestionUser?.content).toEqual([{ type: 'text', text: 'Real question.' }]);
 
-    const lastMessage = threadMessages[threadMessages.length - 1];
-    expect(lastMessage?.role).toBe('user');
-    expect(lastMessage?.content).toEqual([{ type: 'text', text: 'Real question.' }]);
+    const lastMessage = threadMessages[3];
+    expect(lastMessage?.role).toBe('assistant');
+    expect(lastMessage?.metadata?.custom?.['service']).toBeUndefined();
+    expect(lastMessage?.content).toContainEqual({ type: 'text', text: 'Answering.' });
+  });
+
+  it('keeps gathering service parts that arrive after the first user bubble (skills, agent deltas, title) into the same top-of-transcript disclosure', () => {
+    // The live-design-review regression: a session-start disclosure, then a
+    // user bubble, then a skill listing and an ai-title line delivered
+    // alongside that first message — these must not escape as loose rows
+    // between the user bubble and the assistant's reply.
+    const skillListing: AttachmentPayload = {
+      type: 'skill_listing',
+      content: '- copywriting',
+      skillCount: 57
+    } as AttachmentPayload;
+
+    const messages: SessionMsg[] = [
+      { type: 'mode', mode: 'normal' } as SessionMsg,
+      { type: 'user', message: { content: [{ type: 'text', text: 'Check card status' }] } } as SessionMsg,
+      attachmentMsg(skillListing),
+      { type: 'ai-title', aiTitle: 'Check card status' } as SessionMsg,
+      realContent
+    ];
+
+    const { messages: threadMessages } = toThreadMessages(messages);
+
+    expect(threadMessages).toHaveLength(3);
+
+    // The disclosure renders first, at the very top — ahead of the user
+    // bubble — gathering every service part regardless of which side of the
+    // user turn it arrived on.
+    const group = threadMessages[0];
+    expect(group?.role).toBe('assistant');
+    expect(group?.metadata?.custom?.['service']).toBe(true);
+    const part = (group?.content as { name: string; data: { summary: string; entries: { name: string }[] } }[])[0];
+    expect(part?.data.entries.map((e) => e.name)).toEqual(['status-line', 'cc-attachment', 'status-line']);
+    expect(part?.data.summary).toBe('Session started · normal · "Check card status" · 57 skills');
+
+    // The user bubble renders in place, second, untouched.
+    expect(threadMessages[1]?.role).toBe('user');
+    expect(threadMessages[1]?.content).toEqual([{ type: 'text', text: 'Check card status' }]);
+
+    // Real assistant content closes gathering and renders last, ungrouped.
+    expect(threadMessages[2]?.role).toBe('assistant');
+    expect(threadMessages[2]?.metadata?.custom?.['service']).toBeUndefined();
   });
 });
 

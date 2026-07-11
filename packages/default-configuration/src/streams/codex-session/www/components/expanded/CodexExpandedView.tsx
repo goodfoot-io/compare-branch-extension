@@ -36,14 +36,15 @@ import { SessionHeader } from '../../../../lib/SessionHeader';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
 import { deriveStatus, toThreadMessages } from '../../lib/to-thread-messages';
-import { EventActivityDataPart, ImageNoteDataPart, TurnTimeDataPart } from './CodexDataParts';
+import { CxSessionStartPart, EventActivityDataPart, ImageNoteDataPart, TurnTimeDataPart } from './CodexDataParts';
 import { CodexToolFallbackPart } from './CodexToolFallbackPart';
 
 /** Codex-specific `data` part renderers, merged over the shared four in `StreamThread`. */
 const CODEX_DATA_COMPONENTS = {
   'image-note': ImageNoteDataPart,
   'event-activity': EventActivityDataPart,
-  'turn-time': TurnTimeDataPart
+  'turn-time': TurnTimeDataPart,
+  'cx-session-start': CxSessionStartPart
 };
 
 /**

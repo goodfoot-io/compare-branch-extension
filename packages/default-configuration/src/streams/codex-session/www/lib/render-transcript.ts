@@ -29,7 +29,24 @@ import { type CodexRolloutLine, parseCodexLine } from './parser.js';
 export type TranscriptItem =
   | { kind: 'session_header'; model?: string; provider?: string; threadId?: string; cwd?: string; timestamp?: string }
   | { kind: 'user_message'; text: string; imageCount?: number; timestamp?: string }
-  | { kind: 'assistant_message'; text: string; imageCount?: number; timestamp?: string }
+  | {
+      kind: 'assistant_message';
+      text: string;
+      imageCount?: number;
+      timestamp?: string;
+      /**
+       * Set to `'developer'` when this message's source `response_item` carried
+       * `role: 'developer'` (a Codex-injected instructions blob — e.g. the
+       * `<permissions instructions>` block — folded into this kind because
+       * Codex's own protocol has no separate "developer message" transcript
+       * concept). Omitted (rather than `'assistant'`) for genuine assistant
+       * output, so existing structural-equality fixtures asserting a plain
+       * `{ kind: 'assistant_message', text }` are unaffected. The converter's
+       * session-preamble gathering (../to-thread-messages.ts) is the only
+       * reader of this field.
+       */
+      role?: 'developer';
+    }
   | { kind: 'reasoning'; summaryText: string; contentText?: string; timestamp?: string }
   | {
       kind: 'tool_call';
@@ -53,7 +70,7 @@ export type TranscriptItem =
   | { kind: 'compaction'; message: string; timestamp?: string }
   | { kind: 'event_activity'; label: string; detailText?: string; timestamp?: string }
   | { kind: 'error'; message: string; timestamp?: string }
-  | { kind: 'task_started'; timestamp?: string }
+  | { kind: 'task_started'; turnId?: string; timestamp?: string }
   | { kind: 'task_complete'; durationMs?: number; lastAgentMessage?: string; timestamp?: string }
   | { kind: 'unknown_item'; raw: unknown; timestamp?: string }
   | { kind: 'malformed'; rawLine: string };
@@ -619,7 +636,8 @@ function eventMsgToItems(rawPayload: EventMsgPayload, timestamp: string): Transc
     return [{ kind: 'error', message, timestamp: ts }];
   }
   if (payload.type === 'task_started') {
-    return [{ kind: 'task_started', timestamp: ts }];
+    const turnId = typeof payload['turn_id'] === 'string' ? payload['turn_id'] : undefined;
+    return [{ kind: 'task_started', turnId, timestamp: ts }];
   }
   if (payload.type === 'task_complete') {
     const durationMs = typeof payload['duration_ms'] === 'number' ? payload['duration_ms'] : undefined;
@@ -699,7 +717,8 @@ function responseItemToItems(rawPayload: ResponseItemPayload, timestamp: string)
       if (payload['role'] === 'user') {
         return [{ kind: 'user_message', text, imageCount, timestamp: ts }];
       }
-      return [{ kind: 'assistant_message', text, imageCount, timestamp: ts }];
+      const role = payload['role'] === 'developer' ? ({ role: 'developer' } as const) : {};
+      return [{ kind: 'assistant_message', text, imageCount, timestamp: ts, ...role }];
     }
 
     case 'reasoning': {
