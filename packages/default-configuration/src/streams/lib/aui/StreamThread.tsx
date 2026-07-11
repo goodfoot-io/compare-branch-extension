@@ -57,6 +57,10 @@ interface StreamThreadProps {
   toolFallback?: ToolCallMessagePartComponent;
   /** Provider-specific data-part renderers, merged over (never replacing) the four shared parts in ./DataParts.tsx. */
   dataComponents?: Record<string, DataMessagePartComponent>;
+  /** Provider display name shown in the assistant turn's avatar header (e.g. "Claude Code", "Codex"). Defaults to "Assistant". */
+  assistantName?: string;
+  /** Codicon name for the assistant turn's avatar header chip. Defaults to "robot". */
+  assistantIcon?: string;
 }
 
 /** The four shared `data` part renderers every converter can rely on out of the box. */
@@ -96,6 +100,8 @@ async function noopOnNew(): Promise<void> {
  * @param root0.toolComponents - Provider-specific tool-name renderers.
  * @param root0.toolFallback - Overrides the default {@link ToolFallbackPart} for tool calls with no `toolComponents` entry.
  * @param root0.dataComponents - Provider-specific data-part renderers.
+ * @param root0.assistantName - Provider display name shown in the assistant turn's avatar header.
+ * @param root0.assistantIcon - Codicon name for the assistant turn's avatar header chip.
  * @returns Rendered read-only thread element.
  */
 export function StreamThread({
@@ -103,7 +109,9 @@ export function StreamThread({
   isRunning,
   toolComponents,
   toolFallback,
-  dataComponents
+  dataComponents,
+  assistantName = 'Assistant',
+  assistantIcon = 'robot'
 }: StreamThreadProps): React.ReactElement {
   const runtime = useExternalStoreRuntime<ThreadMessageLike>({
     messages,
@@ -123,7 +131,10 @@ export function StreamThread({
   );
 
   const UserMessage = useMemo(() => createUserMessage(contentComponents), [contentComponents]);
-  const AssistantMessage = useMemo(() => createAssistantMessage(contentComponents), [contentComponents]);
+  const AssistantMessage = useMemo(
+    () => createAssistantMessage(contentComponents, assistantName, assistantIcon),
+    [contentComponents, assistantName, assistantIcon]
+  );
   const SystemMessage = useMemo(() => createSystemMessage(contentComponents), [contentComponents]);
 
   return (

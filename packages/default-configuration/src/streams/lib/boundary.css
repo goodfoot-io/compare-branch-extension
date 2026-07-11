@@ -27,3 +27,11 @@
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
+
+/* Bare hairline (no label) — a quieter structural marker than the
+   line-label-line shape, e.g. codex's turn boundary. No gap, so the two line
+   spans read as one continuous rule. */
+.stream-boundary--bare {
+  gap: 0;
+  margin: 10px 0;
+}

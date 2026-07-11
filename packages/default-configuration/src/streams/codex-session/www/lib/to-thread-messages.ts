@@ -3,21 +3,30 @@
  *
  * Groups the flat, source-ordered item list from {@link renderCodexTranscript}
  * into role-labeled messages for the shared `StreamThread` (../../../../lib/aui).
- * Only `user_message` starts a new message; every other item kind — including
- * structural markers (turn boundaries, compaction, task lifecycle) and
- * unrecognized/error content — appends a content part to the enclosing
- * assistant run.
+ * Only `user_message` starts a new message; every other item kind contributes
+ * to one of two alternating "run" kinds, both `role: 'assistant'`:
  *
- * That "everything folds into the assistant run" design is forced by a hard
- * assistant-ui runtime constraint, not a stylistic choice: `fromThreadMessageLike`
- * (`@assistant-ui/core`) throws `"System messages must have exactly one text
- * message part."` for any `role: 'system'` message whose content is not
- * exactly one `text` part — so a `data` part (boundary/raw/status-line/
- * error-line) can never live in a `system`-role message. `assistant` and
- * `user` messages both accept `data` parts freely; `assistant` is used here
- * since none of this content is user-authored. See this module's test file
- * for the runtime reproduction. This is a foundation gap, not something fixed
- * here (out of scope — see the migration report).
+ * - **Content runs** carry `text`/`reasoning`/`tool-call` parts (assistant
+ *   replies, reasoning, tool calls) plus the content-adjacent `image-note`
+ *   data part — `image-note` is a "passthrough" part that never triggers a
+ *   run split on its own; it simply joins whatever run is already open
+ *   (typically the tool-call or orphan-output part it annotates).
+ * - **Service runs** carry every other `data` part (`boundary`/`status-line`/
+ *   `error-line`/`raw`/`event-activity`/`turn-time`) — structural/system
+ *   content — marked `metadata: { custom: { service: true } }` so the shared
+ *   `AssistantMessage` renders it header-less and full-width instead of
+ *   under a captioned "Assistant" turn.
+ *
+ * That everything (besides `user_message`) folds into one of these two
+ * `role: 'assistant'` run kinds — rather than a `system`-role message for the
+ * service half — is forced by a hard assistant-ui runtime constraint, not a
+ * stylistic choice: `fromThreadMessageLike` (`@assistant-ui/core`) throws
+ * `"System messages must have exactly one text message part."` for any
+ * `role: 'system'` message whose content is not exactly one `text` part — so
+ * a `data` part (boundary/raw/status-line/error-line/etc.) can never live in
+ * a `system`-role message. See this module's test file for the runtime
+ * reproduction. This is a foundation gap, not something fixed here (out of
+ * scope — see the migration report).
  *
  * `session_header` produces no message — it is rendered once, above the
  * scrolling transcript, as the sticky shared `SessionHeader` (see
@@ -120,6 +129,41 @@ function buildToolArgs(item: Extract<TranscriptItem, { kind: 'tool_call' }>): Re
   return { [label]: item.argumentsText };
 }
 
+/** `data` part names classified as "service" (structural/system) content — everything else `data`-typed is content-adjacent (`image-note`) or handled per-kind below. */
+const SERVICE_DATA_PART_NAMES = new Set<string>([
+  STREAM_DATA_PART_NAME.boundary,
+  STREAM_DATA_PART_NAME.statusLine,
+  STREAM_DATA_PART_NAME.errorLine,
+  STREAM_DATA_PART_NAME.raw,
+  'event-activity',
+  'turn-time'
+]);
+
+/**
+ * Categorizes a part for the content/service run split (see module doc).
+ * `image-note` is "passthrough": it never triggers a run split on its own,
+ * it just joins whichever run is already open (the tool-call/orphan-output
+ * part it annotates).
+ * @param part - The part to categorize.
+ * @returns The part's run category.
+ */
+function categorizePart(part: ThreadPart): 'content' | 'service' | 'passthrough' {
+  if (part.type !== 'data') return 'content';
+  if (part.name === 'image-note') return 'passthrough';
+  return SERVICE_DATA_PART_NAMES.has(part.name) ? 'service' : 'content';
+}
+
+/**
+ * Extracts a `TranscriptItem`'s `timestamp` field, when present, as a `Date`.
+ * Not every variant carries `timestamp` (`malformed` does not), hence the `in` guard.
+ * @param item - The transcript item.
+ * @returns The item's timestamp, or `undefined` when absent.
+ */
+function itemTimestamp(item: TranscriptItem): Date | undefined {
+  const ts = 'timestamp' in item ? item.timestamp : undefined;
+  return ts !== undefined ? new Date(ts) : undefined;
+}
+
 /**
  * Builds a tool-call part's `result` from a `tool_call` item's paired output.
  * When the row is escalated (`severity === 'error'`), the concise
@@ -149,13 +193,20 @@ function buildToolResult(item: Extract<TranscriptItem, { kind: 'tool_call' }>): 
  */
 export function toThreadMessages(items: TranscriptItem[], isActive: boolean): ToThreadMessagesResult {
   const messages: ThreadMessageLike[] = [];
-  let pendingAssistant: ThreadPart[] | null = null;
   let seq = 0;
   let anonToolSeq = 0;
 
+  // The currently-open run (content or service — see module doc) and its
+  // accumulated parts/createdAt, plus the triggering item's timestamp for the
+  // loop iteration currently in progress.
+  let runParts: ThreadPart[] = [];
+  let runIsService = false;
+  let runCreatedAt: Date | undefined;
+  let currentItemTimestamp: Date | undefined;
+
   const flushAssistant = (): void => {
-    if (pendingAssistant === null || pendingAssistant.length === 0) {
-      pendingAssistant = null;
+    if (runParts.length === 0) {
+      runCreatedAt = undefined;
       return;
     }
     seq += 1;
@@ -163,17 +214,36 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
       id: `assistant-${seq}`,
       role: 'assistant',
       status: { type: 'complete', reason: 'stop' },
-      content: pendingAssistant
+      content: runParts,
+      ...(runCreatedAt ? { createdAt: runCreatedAt } : {}),
+      ...(runIsService ? { metadata: { custom: { service: true } } } : {})
     } as ThreadMessageLike);
-    pendingAssistant = null;
+    runParts = [];
+    runCreatedAt = undefined;
   };
 
+  /**
+   * Appends a part to the currently-open run, splitting into a new run
+   * whenever a content/service part's category differs from the run
+   * currently open (see module doc); a `passthrough` part (`image-note`)
+   * never triggers a split — it just joins whatever run is already open.
+   * @param part - The part to append.
+   */
   const pushPart = (part: ThreadPart): void => {
-    pendingAssistant ??= [];
-    pendingAssistant.push(part);
+    const category = categorizePart(part);
+    if (category !== 'passthrough' && runParts.length > 0) {
+      const service = category === 'service';
+      if (service !== runIsService) flushAssistant();
+    }
+    if (runParts.length === 0) {
+      runIsService = category === 'service';
+      runCreatedAt = currentItemTimestamp;
+    }
+    runParts.push(part);
   };
 
   for (const item of items) {
+    currentItemTimestamp = itemTimestamp(item);
     switch (item.kind) {
       case 'session_header':
         // Rendered once, above the scrolling transcript, as the sticky shared
@@ -187,7 +257,12 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         if (item.imageCount !== undefined) {
           parts.push({ type: 'data', name: 'image-note', data: { text: imageNoteText(item.imageCount) } });
         }
-        messages.push({ id: `user-${seq}`, role: 'user', content: parts } as ThreadMessageLike);
+        messages.push({
+          id: `user-${seq}`,
+          role: 'user',
+          content: parts,
+          ...(currentItemTimestamp ? { createdAt: currentItemTimestamp } : {})
+        } as ThreadMessageLike);
         break;
       }
 
@@ -254,12 +329,15 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
       }
 
       case 'turn_boundary': {
-        // turnId is a full UUID (e.g. `019e467f-e069-7250-bd28-0cb46c0b5778`) —
-        // the first 8 chars (its time-ordered prefix under UUIDv7) are enough
-        // to distinguish adjacent turns without the boundary label dominating
-        // the line.
-        const label = item.turnId !== undefined ? `Turn ${item.turnId.slice(0, 8)}` : 'Turn';
-        pushPart({ type: 'data', name: STREAM_DATA_PART_NAME.boundary, data: { kind: 'turn', label } });
+        // A quiet bare hairline (no visible label) rather than a "Turn
+        // 019e467f"-style caption — the full UUID (e.g.
+        // `019e467f-e069-7250-bd28-0cb46c0b5778`) is still available via the
+        // boundary's hover tooltip.
+        pushPart({
+          type: 'data',
+          name: STREAM_DATA_PART_NAME.boundary,
+          data: { kind: 'turn', label: '', tooltip: item.turnId }
+        });
         break;
       }
 
@@ -284,9 +362,10 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         break;
 
       case 'task_complete': {
-        const label =
-          item.durationMs !== undefined ? `Turn complete · ${formatDuration(item.durationMs)}` : 'Turn complete';
-        pushPart({ type: 'data', name: STREAM_DATA_PART_NAME.boundary, data: { kind: 'result', label } });
+        // A quiet right-aligned muted duration line (iMessage-timestamp
+        // register) replaces the old "TURN COMPLETE · 32S"-style result boundary.
+        const text = item.durationMs !== undefined ? formatDuration(item.durationMs) : 'Turn complete';
+        pushPart({ type: 'data', name: 'turn-time', data: { text } });
         if (item.lastAgentMessage !== undefined && item.lastAgentMessage.length > 0) {
           pushPart({
             type: 'data',

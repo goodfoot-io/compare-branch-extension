@@ -36,15 +36,27 @@ function render(messages: readonly ThreadMessageLike[], isRunning = false): stri
 }
 
 describe('StreamThread', () => {
-  it('renders a user turn with the role label and right-shifted turn class', () => {
+  it('renders a user turn with no role label and the right-shifted turn class (role conveyed by tint alone)', () => {
     const html = render([{ id: 'u1', role: 'user', content: [{ type: 'text', text: 'Summarize the readme.' }] }]);
     expect(html).toContain('class="stream-turn stream-turn--user"');
     expect(html).toContain('data-turn="user"');
-    expect(html).toContain('<div class="stream-role-label">User</div>');
+    expect(html).not.toContain('stream-role-label');
     expect(html).toContain('Summarize the readme.');
   });
 
-  it('renders an assistant turn with the role label and transparent full-width turn class', () => {
+  it('renders a user turn with a muted HH:MM timestamp when createdAt is present', () => {
+    const html = render([
+      {
+        id: 'u1',
+        role: 'user',
+        content: [{ type: 'text', text: 'Hi.' }],
+        createdAt: new Date(2026, 0, 1, 9, 5)
+      }
+    ]);
+    expect(html).toContain('class="stream-turn__time">09:05</div>');
+  });
+
+  it('renders an assistant content turn with an avatar-style header (codicon chip + name) instead of a role label', () => {
     const html = render([
       {
         id: 'a1',
@@ -55,7 +67,59 @@ describe('StreamThread', () => {
     ]);
     expect(html).toContain('class="stream-turn stream-turn--assistant"');
     expect(html).toContain('data-turn="assistant"');
-    expect(html).toContain('<div class="stream-role-label">Assistant</div>');
+    expect(html).not.toContain('stream-role-label');
+    expect(html).toContain('class="stream-assistant-header"');
+    expect(html).toContain('codicon-robot');
+    expect(html).toContain('class="stream-assistant-header__name">Assistant</span>');
+  });
+
+  it('renders the assistant header time and passes assistantName/assistantIcon through', () => {
+    const html = renderToStaticMarkup(
+      createElement(StreamThread, {
+        messages: [
+          {
+            id: 'a1',
+            role: 'assistant',
+            status: { type: 'complete', reason: 'stop' },
+            content: [{ type: 'text', text: 'Hi there.' }],
+            createdAt: new Date(2026, 0, 1, 14, 30)
+          }
+        ],
+        isRunning: false,
+        assistantName: 'Claude Code',
+        assistantIcon: 'hubot'
+      })
+    );
+    expect(html).toContain('codicon-hubot');
+    expect(html).toContain('class="stream-assistant-header__name">Claude Code</span>');
+    expect(html).toContain('class="stream-assistant-header__time">14:30</span>');
+  });
+
+  it('suppresses the avatar header for a message flagged metadata.custom.service, even if it also carried a data part', () => {
+    const html = render([
+      {
+        id: 'a1',
+        role: 'assistant',
+        status: { type: 'complete', reason: 'stop' },
+        content: [{ type: 'data', name: 'status-line', data: { text: 'Compacting context…' } }],
+        metadata: { custom: { service: true } }
+      }
+    ]);
+    expect(html).not.toContain('stream-assistant-header');
+    expect(html).toContain('stream-turn--service');
+  });
+
+  it('suppresses the avatar header for any message with no text/reasoning/tool-call part, as a defensive fallback with no explicit service flag', () => {
+    const html = render([
+      {
+        id: 'a1',
+        role: 'assistant',
+        status: { type: 'complete', reason: 'stop' },
+        content: [{ type: 'data', name: 'boundary', data: { kind: 'turn', label: 'Session started · 2 tools' } }]
+      }
+    ]);
+    expect(html).not.toContain('stream-assistant-header');
+    expect(html).toContain('stream-turn--service');
   });
 
   it('renders a system turn with the role label and the new --system turn class', () => {
@@ -184,6 +248,26 @@ describe('StreamThread', () => {
     ]);
     expect(html).toContain('class="stream-boundary" data-boundary-kind="result"');
     expect(html).toContain('Session complete · 2 turns · 5s');
+  });
+
+  it('renders a bare hairline with no label span for an empty boundary label, with the full detail in a title tooltip', () => {
+    const html = render([
+      {
+        id: 'a1',
+        role: 'assistant',
+        status: { type: 'complete', reason: 'stop' },
+        content: [
+          {
+            type: 'data',
+            name: 'boundary',
+            data: { kind: 'turn', label: '', tooltip: '019e467f-e069-7250-bd28-0cb46c0b5778' }
+          }
+        ]
+      }
+    ]);
+    expect(html).toContain('class="stream-boundary stream-boundary--bare" data-boundary-kind="turn"');
+    expect(html).toContain('title="019e467f-e069-7250-bd28-0cb46c0b5778"');
+    expect(html).not.toContain('stream-boundary__label');
   });
 
   it('renders the raw data part as a collapsed-by-default, labeled, severity-aware disclosure row', () => {

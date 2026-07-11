@@ -5,14 +5,17 @@
  *
  * Only `user_message` starts a new message; every other item kind — reasoning,
  * tool calls, and structural markers (turn boundaries, compaction, task
- * lifecycle, errors, unknown/malformed content) alike — appends a content
- * part to the enclosing assistant run. This is forced by a hard assistant-ui
- * runtime constraint: `fromThreadMessageLike` throws
+ * lifecycle, errors, unknown/malformed content) alike — joins one of two
+ * alternating `role: 'assistant'` run kinds: a content run (text/reasoning/
+ * tool-call, plus the passthrough `image-note`) or a service run (every other
+ * `data` part), the latter marked `metadata: { custom: { service: true } }`.
+ * Neither ever becomes a `role: 'system'` message — this is forced by a hard
+ * assistant-ui runtime constraint: `fromThreadMessageLike` throws
  * `"System messages must have exactly one text message part."` for any
  * `role: 'system'` message carrying a `data` part, so structural/system-style
  * rows cannot live in their own `system`-role message (see the "runtime
- * constraint" describe block below for the reproduction) — they fold into the
- * assistant run instead.
+ * constraint" describe block below for the reproduction) — they fold into an
+ * assistant-role service run instead.
  *
  * The first half asserts structure directly against `toThreadMessages`'
  * return value (message roles, content-part shapes) for every
@@ -106,22 +109,23 @@ describe('toThreadMessages — user_message', () => {
 });
 
 describe('toThreadMessages — turn grouping', () => {
-  it('merges consecutive assistant_message/reasoning/tool_call/turn_boundary items into one assistant message', () => {
+  it('splits a run of content/service items into alternating messages, each marked by category', () => {
     const items: TranscriptItem[] = [
-      { kind: 'assistant_message', text: 'Starting.' },
-      { kind: 'reasoning', summaryText: 'thinking' },
-      toolCall({ callId: 'call-a' }),
-      { kind: 'turn_boundary', turnId: 't1' },
-      { kind: 'assistant_message', text: 'Done.' }
+      { kind: 'assistant_message', text: 'Starting.' }, // content
+      { kind: 'reasoning', summaryText: 'thinking' }, // service (summary-only → status-line)
+      toolCall({ callId: 'call-a' }), // content
+      { kind: 'turn_boundary', turnId: 't1' }, // service (boundary)
+      { kind: 'assistant_message', text: 'Done.' } // content
     ];
     const { messages } = toThreadMessages(items, false);
-    expect(messages).toHaveLength(1);
-    expect(messages[0]?.role).toBe('assistant');
-    const content = messages[0]?.content as unknown as { type: string }[];
-    expect(content.map((p) => p.type)).toEqual(['text', 'data', 'tool-call', 'data', 'text']);
+    expect(messages.map((m) => m.role)).toEqual(['assistant', 'assistant', 'assistant', 'assistant', 'assistant']);
+    expect(messages.map((m) => Boolean(m.metadata?.custom?.['service']))).toEqual([false, true, false, true, false]);
+    expect((messages[0]?.content as unknown as { type: string }[]).map((p) => p.type)).toEqual(['text']);
+    expect((messages[2]?.content as unknown as { type: string }[]).map((p) => p.type)).toEqual(['tool-call']);
+    expect((messages[4]?.content as unknown as { type: string }[]).map((p) => p.type)).toEqual(['text']);
   });
 
-  it('flushes the assistant run at a user_message boundary, producing two messages in order', () => {
+  it('flushes the open run at a user_message boundary, producing two messages in order', () => {
     const items: TranscriptItem[] = [
       { kind: 'assistant_message', text: 'First.' },
       { kind: 'user_message', text: 'Follow-up question.' }
@@ -130,21 +134,23 @@ describe('toThreadMessages — turn grouping', () => {
     expect(messages.map((m) => m.role)).toEqual(['assistant', 'user']);
   });
 
-  it('folds a leading turn_boundary into the assistant message that follows it, rather than flushing', () => {
+  it('renders a leading turn_boundary as a service message ahead of the content message that follows it', () => {
     const items: TranscriptItem[] = [
       { kind: 'turn_boundary', turnId: 't1' },
       { kind: 'assistant_message', text: 'Hi.' }
     ];
     const { messages } = toThreadMessages(items, false);
-    expect(messages).toHaveLength(1);
+    expect(messages).toHaveLength(2);
     expect(messages[0]?.role).toBe('assistant');
+    expect(messages[0]?.metadata?.custom?.['service']).toBe(true);
     expect(messages[0]?.content).toEqual([
-      { type: 'data', name: 'boundary', data: { kind: 'turn', label: 'Turn t1' } },
-      { type: 'text', text: 'Hi.' }
+      { type: 'data', name: 'boundary', data: { kind: 'turn', label: '', tooltip: 't1' } }
     ]);
+    expect(messages[1]?.metadata?.custom?.['service']).toBeUndefined();
+    expect(messages[1]?.content).toEqual([{ type: 'text', text: 'Hi.' }]);
   });
 
-  it('truncates a full turn_boundary UUID to its first 8 chars', () => {
+  it('renders turn_boundary with an empty visible label, carrying the full turn UUID as the tooltip', () => {
     const items: TranscriptItem[] = [
       { kind: 'turn_boundary', turnId: '019e467f-e069-7250-bd28-0cb46c0b5778' },
       { kind: 'assistant_message', text: 'Hi.' }
@@ -153,7 +159,7 @@ describe('toThreadMessages — turn grouping', () => {
     expect(messages[0]?.content).toContainEqual({
       type: 'data',
       name: 'boundary',
-      data: { kind: 'turn', label: 'Turn 019e467f' }
+      data: { kind: 'turn', label: '', tooltip: '019e467f-e069-7250-bd28-0cb46c0b5778' }
     });
   });
 
@@ -285,12 +291,15 @@ describe('toThreadMessages — compaction', () => {
     ]);
   });
 
-  it('appends a text part with the compaction message when present', () => {
+  it('splits the compaction boundary (service) and its detail text (content) into separate messages', () => {
     const { messages } = toThreadMessages([{ kind: 'compaction', message: 'Summarized 10 turns.' }], false);
+    expect(messages).toHaveLength(2);
+    expect(messages[0]?.metadata?.custom?.['service']).toBe(true);
     expect(messages[0]?.content).toEqual([
-      { type: 'data', name: 'boundary', data: { kind: 'compaction', label: 'Context compacted' } },
-      { type: 'text', text: 'Summarized 10 turns.' }
+      { type: 'data', name: 'boundary', data: { kind: 'compaction', label: 'Context compacted' } }
     ]);
+    expect(messages[1]?.metadata?.custom?.['service']).toBeUndefined();
+    expect(messages[1]?.content).toEqual([{ type: 'text', text: 'Summarized 10 turns.' }]);
   });
 });
 
@@ -309,27 +318,23 @@ describe('toThreadMessages — task_started / task_complete', () => {
     expect(messages[0]?.content).toEqual([{ type: 'data', name: 'status-line', data: { text: 'Task started' } }]);
   });
 
-  it('renders task_complete as a result boundary with a formatted duration', () => {
+  it('renders task_complete as a quiet turn-time line with a formatted duration, replacing the old result boundary', () => {
     const { messages } = toThreadMessages([{ kind: 'task_complete', durationMs: 65000 }], false);
-    expect(messages[0]?.content).toEqual([
-      { type: 'data', name: 'boundary', data: { kind: 'result', label: 'Turn complete · 1m 5s' } }
-    ]);
+    expect(messages[0]?.content).toEqual([{ type: 'data', name: 'turn-time', data: { text: '1m 5s' } }]);
   });
 
-  it('renders task_complete with a bare label when durationMs is absent', () => {
+  it('renders task_complete with a bare "Turn complete" turn-time text when durationMs is absent', () => {
     const { messages } = toThreadMessages([{ kind: 'task_complete' }], false);
-    expect(messages[0]?.content).toEqual([
-      { type: 'data', name: 'boundary', data: { kind: 'result', label: 'Turn complete' } }
-    ]);
+    expect(messages[0]?.content).toEqual([{ type: 'data', name: 'turn-time', data: { text: 'Turn complete' } }]);
   });
 
-  it('appends a truncated last-agent-message status-line when present', () => {
+  it('appends a truncated last-agent-message status-line after the turn-time line when present', () => {
     const { messages } = toThreadMessages(
       [{ kind: 'task_complete', durationMs: 1000, lastAgentMessage: 'All done, ran the tests.' }],
       false
     );
     expect(messages[0]?.content).toEqual([
-      { type: 'data', name: 'boundary', data: { kind: 'result', label: 'Turn complete · 1s' } },
+      { type: 'data', name: 'turn-time', data: { text: '1s' } },
       { type: 'data', name: 'status-line', data: { text: 'All done, ran the tests.' } }
     ]);
   });
@@ -384,6 +389,33 @@ describe('toThreadMessages — running status', () => {
     const { messages, isRunning } = toThreadMessages([{ kind: 'assistant_message', text: 'done' }], false);
     expect(isRunning).toBe(false);
     expect(messages[0]?.status).toEqual({ type: 'complete', reason: 'stop' });
+  });
+});
+
+describe('toThreadMessages — createdAt', () => {
+  it('stamps a user message with its item timestamp', () => {
+    const { messages } = toThreadMessages(
+      [{ kind: 'user_message', text: 'Fix the bug.', timestamp: '2026-07-10T09:05:00.000Z' }],
+      false
+    );
+    expect(messages[0]?.createdAt).toEqual(new Date('2026-07-10T09:05:00.000Z'));
+  });
+
+  it('stamps an assistant run with the timestamp of the item that opened it', () => {
+    const { messages } = toThreadMessages(
+      [
+        { kind: 'assistant_message', text: 'Starting.', timestamp: '2026-07-10T09:00:00.000Z' },
+        { kind: 'assistant_message', text: 'Done.', timestamp: '2026-07-10T09:01:00.000Z' }
+      ],
+      false
+    );
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.createdAt).toEqual(new Date('2026-07-10T09:00:00.000Z'));
+  });
+
+  it('omits createdAt when the item carries no timestamp', () => {
+    const { messages } = toThreadMessages([{ kind: 'assistant_message', text: 'done' }], false);
+    expect(messages[0]?.createdAt).toBeUndefined();
   });
 });
 
@@ -443,8 +475,8 @@ describe('toThreadMessages + StreamThread — representative transcript render',
     expect(html).toContain('/src/index.ts');
     expect(html).toContain('export function main');
     expect(html).toContain('Fixed it.');
-    expect(html).toContain('class="stream-boundary" data-boundary-kind="turn"');
-    expect(html).toContain('Turn turn-1');
+    expect(html).toContain('class="stream-boundary stream-boundary--bare" data-boundary-kind="turn"');
+    expect(html).toContain('title="turn-1"');
   });
 
   it('renders a shell tool_call escalated to error with the errorLabel visible', () => {

@@ -40,7 +40,8 @@ describe('SessionHeader', () => {
     );
     expect(html).toContain('title="Subagent: sub-1">sub-1</span>');
     expect(html).toContain('>codex</span>');
-    expect(html).toContain('title="thread-123">thread-123</span>');
+    // threadId is truncated to its first 8 chars, with the full id kept in the title tooltip.
+    expect(html).toContain('title="thread-123">thread-1</span>');
     // Field order: agentId · model · provider · cwd · threadId
     expect(html.indexOf('sub-1')).toBeLessThan(html.indexOf('gpt-5-codex'));
     expect(html.indexOf('gpt-5-codex')).toBeLessThan(html.indexOf('>codex<'));

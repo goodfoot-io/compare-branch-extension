@@ -93,7 +93,7 @@ export function SessionHeader({
       key: 'thread',
       node: (
         <span className="font-vscode-editor shrink-0" title={threadId}>
-          {threadId}
+          {threadId.slice(0, 8)}
         </span>
       )
     });

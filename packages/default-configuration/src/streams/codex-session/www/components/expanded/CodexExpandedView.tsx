@@ -36,13 +36,14 @@ import { SessionHeader } from '../../../../lib/SessionHeader';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderCodexTranscript } from '../../lib/render-transcript';
 import { deriveStatus, toThreadMessages } from '../../lib/to-thread-messages';
-import { EventActivityDataPart, ImageNoteDataPart } from './CodexDataParts';
+import { EventActivityDataPart, ImageNoteDataPart, TurnTimeDataPart } from './CodexDataParts';
 import { CodexToolFallbackPart } from './CodexToolFallbackPart';
 
 /** Codex-specific `data` part renderers, merged over the shared four in `StreamThread`. */
 const CODEX_DATA_COMPONENTS = {
   'image-note': ImageNoteDataPart,
-  'event-activity': EventActivityDataPart
+  'event-activity': EventActivityDataPart,
+  'turn-time': TurnTimeDataPart
 };
 
 /**
@@ -102,6 +103,7 @@ export function CodexExpandedView(): React.ReactElement {
             isRunning={isRunning}
             dataComponents={CODEX_DATA_COMPONENTS}
             toolFallback={CodexToolFallbackPart}
+            assistantName="Codex"
           />
         )}
       </div>

@@ -271,6 +271,19 @@
 }
 
 /* -----------------------------------------------------------------------
+   turn-time data part (codex-session's CodexDataParts.tsx) — quiet
+   right-aligned muted duration line replacing the old
+   "TURN COMPLETE · 32S"-style result boundary (iMessage-timestamp register).
+   ----------------------------------------------------------------------- */
+
+.stream-turn-time {
+  text-align: right;
+  font-size: var(--stream-text-micro);
+  color: var(--stream-fg-faint);
+  padding: 1px 0;
+}
+
+/* -----------------------------------------------------------------------
    error-line data part (DataParts.tsx)
    ----------------------------------------------------------------------- */
 

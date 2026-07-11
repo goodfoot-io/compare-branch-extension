@@ -159,6 +159,7 @@ export function ExpandedView(): React.ReactElement {
               isRunning={converted.isRunning}
               toolComponents={toolComponents}
               dataComponents={CC_DATA_COMPONENTS}
+              assistantName="Claude Code"
             />
           )}
         </div>

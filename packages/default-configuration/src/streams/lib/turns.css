@@ -1,12 +1,15 @@
 /* =============================================================================
    SHARED TURN ANATOMY
 
-   User/assistant message presentation shared by both stream renderers (design
-   spec Part 3.3): role is conveyed by an uppercase muted label plus tint
-   strength — the user turn gets the only background tint (right-aligned,
-   85% max width, quoted-request look); the assistant turn is transparent and
-   flows as full-width document text, matching VS Code Chat's response
-   treatment. Imported by both renderers' theme.css after tokens.css.
+   User/assistant message presentation shared by both stream renderers,
+   following mainstream chat idioms (ChatGPT/Claude.ai/VS Code Chat) rather
+   than an explicit role caption: the user turn's tint alone conveys its role
+   (right-aligned, 85% max width, quoted-request look, no label); the
+   assistant turn is transparent, flows as full-width document text, and gets
+   a compact avatar-style header (codicon chip + provider name + time) instead
+   of an uppercase "ASSISTANT" caption — VS Code Chat's icon+name idiom.
+   `.stream-role-label` remains for the (never-produced, defensive-only)
+   system turn shell. Imported by both renderers' theme.css after tokens.css.
    ============================================================================= */
 
 .stream-role-label {
@@ -33,4 +36,54 @@
 .stream-turn--assistant {
   background: var(--stream-role-assistant-tint);
   width: 100%;
+}
+
+/* Structural/service turns (boundaries, status lines, errors, raw fallbacks —
+   see each converter's content/service run split) render full-width with no
+   avatar header and a tightened margin, so consecutive service rows read as
+   one quiet block instead of a run of separately-captioned "Assistant" turns. */
+.stream-turn--service {
+  margin-bottom: 2px;
+}
+
+/* Compact avatar-style header for a genuine assistant content turn: codicon
+   chip + provider name + time, replacing the old uppercase "ASSISTANT" label. */
+.stream-assistant-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.stream-assistant-header__chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--stream-surface-raised);
+  color: var(--stream-fg-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.stream-assistant-header__name {
+  font-size: var(--stream-text-label);
+  font-weight: 600;
+  color: var(--stream-fg-muted);
+}
+
+.stream-assistant-header__time {
+  font-size: var(--stream-text-micro);
+  color: var(--stream-fg-faint);
+  margin-left: auto;
+}
+
+/* Tiny muted timestamp above a user turn's bubble — iMessage-timestamp register. */
+.stream-turn__time {
+  font-size: var(--stream-text-micro);
+  color: var(--stream-fg-faint);
+  text-align: right;
+  margin-bottom: 2px;
 }

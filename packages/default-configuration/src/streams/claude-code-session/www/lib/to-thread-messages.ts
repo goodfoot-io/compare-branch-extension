@@ -11,22 +11,36 @@
  * `raw`, plus the renderer-local `cc-hook`/`cc-attachment`/`cc-ambient-group`/
  * `cc-away-summary`/`cc-supplemental` parts) is a `data` part, so none of
  * them can ever be a system message's content. Instead, only `user` messages
- * start a new `ThreadMessageLike`; every other message folds its parts into
- * one open "assistant run" accumulator (`assistantParts`, flushed by
- * `flushAssistant`), which becomes a single `role: 'assistant'` message once
- * a `user` message (or the end of the transcript) closes it — `assistant`
- * and `user` roles both accept mixed `data`/`text`/`reasoning`/`tool-call`
- * content freely. Net visual effect: one "Assistant" role caption per
- * turn-group instead of one per structural row, with boundaries/status-lines/
- * errors/hooks/attachments interleaved inline inside it.
+ * start a new `ThreadMessageLike`; every other message contributes to one of
+ * two alternating "run" kinds, both `role: 'assistant'`:
  *
- * Tool calls become `tool-call` parts on the owning assistant run; a
+ * - **Content runs** carry `text`/`reasoning`/`tool-call` parts — genuine
+ *   assistant output, rendered under the avatar header (`../../../lib/aui`'s
+ *   `AssistantMessage`).
+ * - **Service runs** carry every `data` part (`boundary`/`status-line`/
+ *   `error-line`/`raw`/`cc-hook`/`cc-attachment`/`cc-ambient-group`/
+ *   `cc-away-summary`/`cc-supplemental`) — structural/system content — marked
+ *   `metadata: { custom: { service: true } }` so the shared `AssistantMessage`
+ *   renders it header-less and full-width instead of under a captioned
+ *   "Assistant" turn.
+ *
+ * Appending a part whose category differs from the currently-open run flushes
+ * that run and starts a new one of the new category, preserving source order
+ * exactly — every `data` part in this converter is service (there is no
+ * content-adjacent data part here, unlike codex's `image-note`), so the
+ * split is a simple binary check per part. `assistant` and `user` roles both
+ * accept mixed `data`/`text`/`reasoning`/`tool-call` content freely at the
+ * `ThreadMessageLike` type level; a real `user` turn's own content (prose
+ * plus any coordination status-lines from the same source message) is built
+ * as one message directly, since it never renders an avatar header anyway.
+ *
+ * Tool calls become `tool-call` parts on the owning content run; a
  * `tool_result` (or `tool_use_summary`) arriving later mutates that same part
  * object in place (`result`/`isError`) rather than emitting a new one — the
  * mutation works regardless of whether the run has flushed yet, since the
  * part object reference is shared. An orphan result (no matching `tool_use`
  * was ever registered) still renders, as its own resolved `tool-call` part
- * appended to the current run.
+ * appended to the current content run.
  *
  * Every pre-pass below (`computeWillNestToolUseIds`, `computeToolResultCarrierIds`,
  * `buildSupplementalResultMap`, `buildToolAttachmentsMap`) is a direct port of
@@ -197,6 +211,21 @@ function supplementalPart(text: string): ThreadMessagePart {
 }
 
 /**
+ * Extracts a message's source `timestamp` field, when present, as a `Date`.
+ * Not modeled on any `SessionMsg` interface (the raw JSONL carries it on
+ * every line, but it is orthogonal to each message kind's own shape) — read
+ * defensively via the same `Record<string, unknown>` cast the converter
+ * already uses for other loosely-typed fields (`isMeta`, `sourceToolUseID`).
+ * @param msg - The parsed session message.
+ * @returns The message's timestamp, or `undefined` when absent/malformed.
+ */
+function extractTimestamp(msg: SessionMsg): Date | undefined {
+  const raw = msg as Record<string, unknown>;
+  const ts = raw['timestamp'];
+  return typeof ts === 'string' ? new Date(ts) : undefined;
+}
+
+/**
  * True when any of a tool's hooks is a blocking error, escalating the tool-call to error severity.
  * @param hooks - Hook attachments that fired for the tool, if any.
  * @returns Whether one of the hooks is a `hook_blocking_error`.
@@ -364,17 +393,82 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
   let cwd = '';
   let status: SessionStatus = 'running';
   let ambientBuffer: AttachmentPayload[] = [];
-  let assistantParts: ThreadMessagePart[] = [];
   let idCounter = 0;
+
+  // The currently-open run (content or service — see module doc) and its
+  // accumulated parts/createdAt, plus the triggering message's timestamp for
+  // the loop iteration currently in progress.
+  let runParts: ThreadMessagePart[] = [];
+  let runIsService = false;
+  let runCreatedAt: Date | undefined;
+  let currentMsgTimestamp: Date | undefined;
+
+  // Coordination status-lines ("Mode: …", "Title: …", and classifyCoordinationText
+  // output) repeat around nearly every exchange; suppress an exact-duplicate
+  // consecutive value per coordination kind (keyed by the text before ':'),
+  // always rendering the first occurrence and any changed value.
+  const lastCoordinationValue = new Map<string, string>();
 
   const nextId = (): string => `cc-msg-${idCounter++}`;
 
   /**
-   * Appends parts to the currently-open assistant run (see module doc for why no part is ever a system message).
+   * Reduces a coordination line to its display text, or `null` when it's an
+   * exact repeat of the last value seen for its kind (see module-level dedupe map).
+   * @param line - The rendered coordination line text.
+   * @returns The line, or `null` if it's a suppressed duplicate.
+   */
+  function dedupeCoordinationLine(line: string): string | null {
+    const colonIdx = line.indexOf(':');
+    const key = colonIdx >= 0 ? line.slice(0, colonIdx) : line;
+    if (lastCoordinationValue.get(key) === line) return null;
+    lastCoordinationValue.set(key, line);
+    return line;
+  }
+
+  /**
+   * Flushes the currently-open run into a `ThreadMessageLike`, if it has any content.
+   * @param final - Whether this is the transcript's terminal flush, whose
+   *   status reflects overall `isRunning`. Every interior flush (triggered by
+   *   an upcoming `user` message, or a run-category switch) is always
+   *   `complete`, since more content follows it.
+   */
+  const flushRun = (final: boolean): void => {
+    if (runParts.length === 0) {
+      runCreatedAt = undefined;
+      return;
+    }
+    threadMessages.push({
+      id: nextId(),
+      role: 'assistant',
+      content: asContent(runParts),
+      status: final && isRunning ? { type: 'running' } : { type: 'complete', reason: 'stop' },
+      ...(runCreatedAt ? { createdAt: runCreatedAt } : {}),
+      ...(runIsService ? { metadata: { custom: { service: true } } } : {})
+    });
+    runParts = [];
+    runCreatedAt = undefined;
+  };
+
+  /**
+   * Appends parts to the currently-open run, splitting into a new run
+   * whenever a part's category (content vs. service — every `data` part is
+   * service, everything else is content) differs from the run currently
+   * open, so structural/system content never shares a message with genuine
+   * assistant output (see module doc).
    * @param parts - Parts to append, in order.
    */
   const appendAssistant = (...parts: ThreadMessagePart[]): void => {
-    assistantParts.push(...parts);
+    for (const part of parts) {
+      const service = part.type === 'data';
+      if (runParts.length > 0 && service !== runIsService) {
+        flushRun(false);
+      }
+      if (runParts.length === 0) {
+        runIsService = service;
+        runCreatedAt = currentMsgTimestamp;
+      }
+      runParts.push(part);
+    }
   };
 
   const flushAmbient = (): void => {
@@ -384,22 +478,12 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
   };
 
   /**
-   * Flushes the accumulated assistant run into a `ThreadMessageLike`, if it
-   * has any content.
-   * @param final - Whether this is the transcript's terminal flush, whose
-   *   status reflects overall `isRunning`. Every interior flush (triggered by
-   *   an upcoming `user` message) is always `complete`, since more content follows it.
+   * Flushes both the ambient buffer and the currently-open run.
+   * @param final - Whether this is the transcript's terminal flush (see {@link flushRun}).
    */
   const flushAssistant = (final: boolean): void => {
     flushAmbient();
-    if (assistantParts.length === 0) return;
-    threadMessages.push({
-      id: nextId(),
-      role: 'assistant',
-      content: asContent(assistantParts),
-      status: final && isRunning ? { type: 'running' } : { type: 'complete', reason: 'stop' }
-    });
-    assistantParts = [];
+    flushRun(final);
   };
 
   /**
@@ -431,6 +515,7 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
   };
 
   for (const msg of messages) {
+    currentMsgTimestamp = extractTimestamp(msg);
     switch (msg.type) {
       case 'system': {
         const sysMsg = msg as SystemMsg;
@@ -559,7 +644,10 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           const humanParts: string[] = [];
           for (const raw2 of textBlocks) {
             if (isCoordinationContent(raw2)) {
-              for (const line of classifyCoordinationText(raw2)) parts.push(statusLinePart(line));
+              for (const line of classifyCoordinationText(raw2)) {
+                const deduped = dedupeCoordinationLine(line);
+                if (deduped) parts.push(statusLinePart(deduped));
+              }
             } else {
               humanParts.push(raw2);
             }
@@ -567,11 +655,16 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
           if (humanParts.length > 0) parts.push({ type: 'text', text: humanParts.join('\n\n') });
 
           if (parts.length > 0) {
-            // A real user turn closes out whatever assistant run preceded it —
+            // A real user turn closes out whatever run preceded it —
             // user/assistant messages alternate as distinct ThreadMessageLikes;
-            // only the structural/status content in between folds into one run.
+            // only the structural/status content in between folds into runs.
             flushAssistant(false);
-            threadMessages.push({ id: nextId(), role: 'user', content: asContent(parts) });
+            threadMessages.push({
+              id: nextId(),
+              role: 'user',
+              content: asContent(parts),
+              ...(currentMsgTimestamp ? { createdAt: currentMsgTimestamp } : {})
+            });
           }
         }
         break;
@@ -600,7 +693,10 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
             pendingToolCalls.set(b.id, part);
           } else if (b.type === 'text' && b.text) {
             if (isCoordinationContent(b.text)) {
-              for (const line of classifyCoordinationText(b.text)) parts.push(statusLinePart(line));
+              for (const line of classifyCoordinationText(b.text)) {
+                const deduped = dedupeCoordinationLine(line);
+                if (deduped) parts.push(statusLinePart(deduped));
+              }
             } else {
               parts.push({ type: 'text', text: b.text });
             }
@@ -691,8 +787,11 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
       case 'mode': {
         const modeMsg = msg as { mode?: string };
         if (modeMsg.mode) {
-          flushAmbient();
-          appendAssistant(statusLinePart(`Mode: ${modeMsg.mode}`));
+          const line = dedupeCoordinationLine(`Mode: ${modeMsg.mode}`);
+          if (line) {
+            flushAmbient();
+            appendAssistant(statusLinePart(line));
+          }
         }
         break;
       }
@@ -700,8 +799,11 @@ export function toThreadMessages(messages: SessionMsg[]): ConvertedSession {
       case 'ai-title': {
         const titleMsg = msg as { aiTitle?: string };
         if (titleMsg.aiTitle) {
-          flushAmbient();
-          appendAssistant(statusLinePart(`Title: "${titleMsg.aiTitle}"`));
+          const line = dedupeCoordinationLine(`Title: "${titleMsg.aiTitle}"`);
+          if (line) {
+            flushAmbient();
+            appendAssistant(statusLinePart(line));
+          }
         }
         break;
       }

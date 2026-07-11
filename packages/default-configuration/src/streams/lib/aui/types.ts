@@ -31,8 +31,10 @@ export const STREAM_DATA_PART_NAME = {
 export interface BoundaryData {
   /** Which kind of structural marker this separator represents. */
   kind: 'turn' | 'result' | 'compaction';
-  /** Label text shown between the two divider lines. */
+  /** Label text shown between the two divider lines. Empty string renders a bare hairline with no label. */
   label: string;
+  /** Full detail shown as a hover tooltip (e.g. a full turn id) when the visible label is abbreviated or empty. */
+  tooltip?: string;
 }
 
 /** Payload for the `raw` data part — unrecognized/malformed content shown as labeled, severity-aware JSON. */

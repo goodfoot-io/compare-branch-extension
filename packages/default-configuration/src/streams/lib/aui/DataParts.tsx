@@ -25,7 +25,7 @@ import type { BoundaryData, ErrorLineData, RawData, StatusLineData } from './typ
  * @returns Rendered boundary separator element.
  */
 export const BoundaryDataPart: DataMessagePartComponent<BoundaryData> = ({ data }) => (
-  <Boundary kind={data.kind} label={data.label} />
+  <Boundary kind={data.kind} label={data.label} tooltip={data.tooltip} />
 );
 
 /**

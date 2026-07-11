@@ -384,11 +384,86 @@ describe('toThreadMessages — boundaries', () => {
 });
 
 // ============================================================================
+// Coordination line dedupe — Title:/Mode: repeat around nearly every exchange
+// ============================================================================
+
+describe('toThreadMessages — coordination line dedupe', () => {
+  it('renders the first Mode: line, suppresses an exact-duplicate repeat, and re-renders once the value changes', () => {
+    const { messages } = toThreadMessages([
+      { type: 'mode', mode: 'interactive' } as SessionMsg,
+      { type: 'mode', mode: 'interactive' } as SessionMsg,
+      { type: 'mode', mode: 'auto' } as SessionMsg
+    ]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect(statusLines.map((p) => (p.data as { text: string }).text)).toEqual(['Mode: interactive', 'Mode: auto']);
+  });
+
+  it('tracks Title: and Mode: as independent coordination kinds, keyed by the prefix before the colon', () => {
+    const { messages } = toThreadMessages([
+      { type: 'mode', mode: 'interactive' } as SessionMsg,
+      { type: 'ai-title', aiTitle: 'Fix the flaky test' } as SessionMsg,
+      { type: 'mode', mode: 'interactive' } as SessionMsg
+    ]);
+
+    const statusLines = findDataParts(messages, 'status-line');
+    expect(statusLines.map((p) => (p.data as { text: string }).text)).toEqual([
+      'Mode: interactive',
+      'Title: "Fix the flaky test"'
+    ]);
+  });
+});
+
+// ============================================================================
+// createdAt — propagated from a message's source `timestamp` field
+// ============================================================================
+
+describe('toThreadMessages — createdAt', () => {
+  it('stamps a real user turn with its source timestamp', () => {
+    const { messages } = toThreadMessages([
+      {
+        type: 'user',
+        timestamp: '2026-07-10T09:05:00.000Z',
+        message: { content: [{ type: 'text', text: 'thanks' }] }
+      } as unknown as SessionMsg
+    ]);
+
+    expect(messages[0]?.createdAt).toEqual(new Date('2026-07-10T09:05:00.000Z'));
+  });
+
+  it('stamps an assistant run with the timestamp of the first message that opened it', () => {
+    const { messages } = toThreadMessages([
+      {
+        type: 'assistant',
+        timestamp: '2026-07-10T09:00:00.000Z',
+        message: { content: [{ type: 'text', text: 'Starting.' }] }
+      } as unknown as SessionMsg,
+      {
+        type: 'assistant',
+        timestamp: '2026-07-10T09:01:00.000Z',
+        message: { content: [{ type: 'text', text: 'Done.' }] }
+      } as unknown as SessionMsg
+    ]);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.createdAt).toEqual(new Date('2026-07-10T09:00:00.000Z'));
+  });
+
+  it('omits createdAt when the source message carries no timestamp', () => {
+    const { messages } = toThreadMessages([
+      { type: 'user', message: { content: [{ type: 'text', text: 'thanks' }] } } as SessionMsg
+    ]);
+
+    expect(messages[0]?.createdAt).toBeUndefined();
+  });
+});
+
+// ============================================================================
 // Coordination content and reasoning inside user/assistant turns
 // ============================================================================
 
 describe('toThreadMessages — coordination content and reasoning', () => {
-  it('renders a coordination status-line for an assistant JSON text block, and a text part for genuine prose', () => {
+  it('splits a coordination status-line and genuine prose in the same assistant turn into a service run and a content run', () => {
     const messages: SessionMsg[] = [
       {
         type: 'assistant',
@@ -403,12 +478,19 @@ describe('toThreadMessages — coordination content and reasoning', () => {
 
     const { messages: threadMessages } = toThreadMessages(messages);
 
-    expect(threadMessages).toHaveLength(1);
+    // Structural content (the coordination status-line) must not share a
+    // message with genuine assistant prose — the service run is flushed
+    // before the content run starts, so the two land in separate messages.
+    expect(threadMessages).toHaveLength(2);
     expect(threadMessages[0]?.role).toBe('assistant');
-    const statusLines = findDataParts(threadMessages, 'status-line');
-    expect(statusLines).toHaveLength(1);
-    expect((statusLines[0]?.data as { text: string }).text).toBe('reviewer: approval');
-    expect(threadMessages[0]?.content).toContainEqual({ type: 'text', text: 'Looks good to merge.' });
+    expect(threadMessages[0]?.metadata?.custom?.['service']).toBe(true);
+    expect(threadMessages[0]?.content).toEqual([
+      { type: 'data', name: 'status-line', data: { text: 'reviewer: approval' } }
+    ]);
+
+    expect(threadMessages[1]?.role).toBe('assistant');
+    expect(threadMessages[1]?.metadata?.custom?.['service']).toBeUndefined();
+    expect(threadMessages[1]?.content).toContainEqual({ type: 'text', text: 'Looks good to merge.' });
   });
 
   it('produces no message for an assistant turn whose only text block is a suppressed idle_notification', () => {

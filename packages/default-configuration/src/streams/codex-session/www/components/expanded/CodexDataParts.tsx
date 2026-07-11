@@ -12,7 +12,11 @@
  * patch/plan) — mirrors the pre-migration `event_activity` case's labeled box,
  * including the plan_update markdown-detail special case.
  *
- * @summary Codex-specific data parts: image-note, event-activity
+ * `turn-time`: the quiet right-aligned muted duration line the converter
+ * emits for `task_complete` (../../lib/to-thread-messages.ts), replacing the
+ * old "TURN COMPLETE · 32S"-style result boundary.
+ *
+ * @summary Codex-specific data parts: image-note, event-activity, turn-time
  * @module streams/codex-session/www/components/expanded/CodexDataParts
  */
 
@@ -68,4 +72,22 @@ export const EventActivityDataPart: DataMessagePartComponent<EventActivityData> 
         <pre className="cx-pre">{data.detailText}</pre>
       ))}
   </div>
+);
+
+/** Payload for the `turn-time` data part. */
+interface TurnTimeData {
+  /** Precomputed duration text (e.g. "1m 8s"), or "Turn complete" when no duration is known. */
+  text: string;
+}
+
+/**
+ * Quiet right-aligned muted duration line for a completed turn — the
+ * iMessage-timestamp register, replacing the old "TURN COMPLETE · 32S"-style
+ * result boundary.
+ * @param root0 - The component props.
+ * @param root0.data - The turn-time payload.
+ * @returns Rendered muted duration line element.
+ */
+export const TurnTimeDataPart: DataMessagePartComponent<TurnTimeData> = ({ data }): React.ReactElement => (
+  <div className="stream-turn-time">{data.text}</div>
 );
