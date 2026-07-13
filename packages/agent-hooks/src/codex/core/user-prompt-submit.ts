@@ -4,7 +4,9 @@
  *
  * Fires on every prompt submission (no matcher). The hook short-circuits when
  * the `cards:cards` skill has already been loaded this session (checked via
- * {@link hasSessionSkillLoaded}), then scans the prompt for three signals:
+ * {@link hasSessionSkillLoaded}), or when the prompt is a `<task-notification>`
+ * body (a background subagent's completion report, not user-typed text — see
+ * {@link TASK_NOTIFICATION_RE}), then scans the prompt for three signals:
  *
  * 1. **Term match** — the standalone word "card" or "cards" (case-insensitive,
  *    bounded by whitespace or string start/end, not `\b`, so it won't match
@@ -46,6 +48,20 @@ import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/codex-ho
 // ---------------------------------------------------------------------------
 // Card ID detection helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Matches the literal `<task-notification>` wrapper tag that the harness uses
+ * to deliver background subagent completions as a synthetic user turn.
+ *
+ * These bodies are agent-authored prose (tool summaries, exploration
+ * reports), not something the user typed, and can incidentally contain a
+ * standalone "card"/"cards" term (e.g. a report section titled "Key
+ * implication for the card") that would otherwise false-positive the nudge.
+ * The SDK's `UserPromptSubmitHookInput` carries no provenance field to
+ * distinguish this case (`prompt`/`session_id` only), so detect it from the
+ * prompt text itself.
+ */
+const TASK_NOTIFICATION_RE = /^\s*<task-notification>/i;
 
 /**
  * Card ID candidate regex — captures tokens matching `<prefix>-<counter>`.
@@ -231,6 +247,10 @@ export default userPromptSubmitHook({}, async (input, { logger }) => {
   try {
     // Short-circuit when the skill has already been loaded this session.
     if (hasSessionSkillLoaded(input.session_id, 'cards:cards')) return undefined;
+
+    // Short-circuit on task-notification bodies — agent-authored prose, not a
+    // real user prompt, so incidental "card"/"cards" mentions shouldn't nudge.
+    if (TASK_NOTIFICATION_RE.test(input.prompt)) return undefined;
 
     const hasTerm = promptHasCardTerm(input.prompt);
     const hasCreationIntent = promptHasCreationIntent(input.prompt);

@@ -97,6 +97,21 @@ describe('codex user-prompt-submit card-nudge hook', () => {
     expect(result).toBeUndefined();
   });
 
+  it('does not fire on a task-notification body that incidentally mentions a card term', async () => {
+    const result = await runHook(
+      '<task-notification>\n<task-id>abc123</task-id>\n<result>### Key implication for the card\nMore prose.</result>\n</task-notification>'
+    );
+
+    expect(result).toBeUndefined();
+    expect(mockLogger.info).not.toHaveBeenCalled();
+  });
+
+  it('does not fire on a task-notification body with leading whitespace', async () => {
+    const result = await runHook('  \n<task-notification>\n<result>create a card</result>\n</task-notification>');
+
+    expect(result).toBeUndefined();
+  });
+
   it.each([
     'Create a new card for the staffUserIds production issue',
     'Can you file a card for this bug',
