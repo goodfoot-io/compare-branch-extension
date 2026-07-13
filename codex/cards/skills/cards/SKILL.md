@@ -222,6 +222,8 @@ cd "$REPO" && git add "comments/my-slug-name.md" && git commit -m "Added comment
 
 ### Adding an Attachment
 
+Add relevant miscellaneous files (screenshots, logs, exports) as attachments whenever the user provides or references one during card creation or comments — don't just describe it in text. If only part of a screenshot is relevant, crop it to that portion before attaching.
+
 Attachments use UUID4 identifiers with a sanitized original filename, plus a
 `.meta.json` sidecar describing the file.
 
