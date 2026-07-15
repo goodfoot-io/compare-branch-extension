@@ -7,6 +7,7 @@
  */
 
 import { existsSync } from 'node:fs';
+import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,11 +16,16 @@ vi.mock('@cards.management/sessions/card-repo', () => ({
   hasSessionSkillLoaded: vi.fn()
 }));
 
+vi.mock('@cards.management/sdk/adhoc-attribution', () => ({
+  resolveWorktreeCardId: vi.fn()
+}));
+
 vi.mock('node:fs', () => ({
   existsSync: vi.fn()
 }));
 
 const mockHasSessionSkillLoaded = vi.mocked(hasSessionSkillLoaded);
+const mockResolveWorktreeCardId = vi.mocked(resolveWorktreeCardId);
 const mockExistsSync = vi.mocked(existsSync);
 
 const mockLogger: Logger = {
@@ -35,6 +41,8 @@ describe('claude user-prompt-submit card-nudge hook', () => {
   beforeEach(() => {
     mockHasSessionSkillLoaded.mockReset();
     mockHasSessionSkillLoaded.mockReturnValue(false);
+    mockResolveWorktreeCardId.mockReset();
+    mockResolveWorktreeCardId.mockResolvedValue(null);
     mockExistsSync.mockReset();
     mockExistsSync.mockReturnValue(false);
     vi.mocked(mockLogger.info).mockReset();
@@ -51,9 +59,9 @@ describe('claude user-prompt-submit card-nudge hook', () => {
     }
   });
 
-  async function runHook(prompt: string, sessionId = 'sess-abc') {
+  async function runHook(prompt: string, sessionId = 'sess-abc', cwd = '/workspace') {
     const hookFn = (await import('../../../src/claude/core/user-prompt-submit.js')).default;
-    return hookFn({ session_id: sessionId, prompt } as Parameters<typeof hookFn>[0], { logger: mockLogger });
+    return hookFn({ session_id: sessionId, prompt, cwd } as Parameters<typeof hookFn>[0], { logger: mockLogger });
   }
 
   function additionalContextOf(result: Awaited<ReturnType<typeof runHook>>): string | undefined {
@@ -203,5 +211,34 @@ describe('claude user-prompt-submit card-nudge hook', () => {
     const result = await runHook('the card system needs work');
 
     expect(additionalContextOf(result)).toContain('Load the `cards:cards` skill.');
+  });
+
+  it('suppresses the nudge when cwd resolves to the card ID mentioned in the prompt', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockResolveWorktreeCardId.mockResolvedValue('main-369');
+
+    const result = await runHook('continue card main-369 implementation', 'sess-abc', '/worktrees/main-369/1');
+
+    expect(result).toBeNull();
+    expect(mockLogger.info).not.toHaveBeenCalled();
+    expect(mockResolveWorktreeCardId).toHaveBeenCalledWith('/worktrees/main-369/1');
+  });
+
+  it('still nudges when cwd resolves to a card ID that does not match the one in the prompt', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockResolveWorktreeCardId.mockResolvedValue('main-370');
+
+    const result = await runHook('continue card main-369 implementation', 'sess-abc', '/worktrees/main-370/1');
+
+    expect(additionalContextOf(result)).toContain('Card `main-369` is available');
+  });
+
+  it('still nudges when cwd is not inside any card worktree', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockResolveWorktreeCardId.mockResolvedValue(null);
+
+    const result = await runHook('continue card main-369 implementation', 'sess-abc', '/workspace');
+
+    expect(additionalContextOf(result)).toContain('Card `main-369` is available');
   });
 });

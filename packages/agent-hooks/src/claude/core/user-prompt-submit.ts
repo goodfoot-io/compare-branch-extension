@@ -22,9 +22,11 @@
  *    `parseCardId`), and confirms the card exists on disk at
  *    `~/.cards/cards-repos/<candidate>`.
  *
- * Also short-circuits when the execution wrapper's `CARD_ID` env var matches
- * one of the confirmed card IDs in the prompt — the agent is already working
- * that card, so naming it again is not a signal to nudge.
+ * Also short-circuits when the agent is already working one of the confirmed
+ * card IDs — either because the execution wrapper's `CARD_ID` env var matches
+ * it, or because `input.cwd` resolves (via {@link resolveWorktreeCardId}) to
+ * it — since naming a card the agent is already inside is not a signal to
+ * nudge.
  *
  * When a signal is found, the hook injects an `additionalContext` nudge
  * instructing the agent to load the skill, and lists any confirmed card IDs
@@ -43,6 +45,7 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
 import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/claude-code-hooks';
 
@@ -258,8 +261,9 @@ export default userPromptSubmitHook({}, async (input, { logger }) => {
     const cardIds = findCardIds(input.prompt);
 
     // Already working the identified card (CARD_ID env set by the execution
-    // wrapper) — the prompt naming that same card is not a signal to nudge.
-    const currentCardId = process.env['CARD_ID']?.trim();
+    // wrapper, or cwd inside that card's worktree) — the prompt naming that
+    // same card is not a signal to nudge.
+    const currentCardId = process.env['CARD_ID']?.trim() || (await resolveWorktreeCardId(input.cwd));
     if (currentCardId && cardIds.includes(currentCardId)) return null;
 
     if (!hasTerm && !hasCreationIntent && cardIds.length === 0) return null;
