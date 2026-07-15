@@ -636,7 +636,8 @@ async function outfitCreatedWorktree(
       sessionId,
       transcriptPath,
       runtime: runtime ?? undefined,
-      compiledScriptPaths
+      compiledScriptPaths,
+      agentPid: process.pid
     });
 
     // Make a skipped activation observable. The disk + API phases succeeded —
@@ -1248,7 +1249,8 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     sessionId,
     transcriptPath,
     runtime: runtime ?? undefined,
-    compiledScriptPaths
+    compiledScriptPaths,
+    agentPid: process.pid
   });
 
   // Fail closed: at this point the branch is registered, but if session

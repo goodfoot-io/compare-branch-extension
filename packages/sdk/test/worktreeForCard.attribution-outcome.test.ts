@@ -204,4 +204,51 @@ describe('outfitWorktreeForCard attribution outcome', () => {
     expect(outcome).toBeDefined();
     expect(outcome).toMatchObject({ attribution: 'spawned' });
   });
+
+  it('resolves agentPid via findAgentPid() — ties cleanup to the ambient agent, not the CLI process', async () => {
+    // Reproduction: outfitWorktreeForCard always calls findAgentPid() to
+    // resolve the PID passed to spawnAdhocAttribution. For the card-create
+    // path this returns the ambient agent PID — which persists long after
+    // `cards create` exits — so the card stays `active` until the whole agent
+    // session ends. Action-launched cards monitor a dedicated handler PID that
+    // exits promptly; worktree-created cards need a caller-supplied PID so
+    // the CLI process exit drives the flip to `needs_review`.
+    vi.mocked(resolveCardRepoPath).mockResolvedValue('/home/.cards/cards-repos/main-196');
+    vi.mocked(findAgentPid).mockReturnValue(99999);
+    vi.mocked(isKnownAgentComm).mockReturnValue(true);
+    vi.mocked(spawnAdhocAttribution).mockResolvedValue({ activated: true, attribution: 'spawned' } as never);
+
+    const client = makeClient();
+    await outfitWorktreeForCard(client, WORKTREE_PATH, {
+      ...BASE_OPTIONS,
+      sessionId: 'sess-abc',
+      transcriptPath: '/transcripts/sess-abc.jsonl',
+      runtime: 'claude-code'
+    });
+
+    // The PID passed to spawnAdhocAttribution is the agent PID resolved by
+    // findAgentPid — NOT process.pid (the CLI). This is the bug.
+    expect(findAgentPid).toHaveBeenCalled();
+    expect(spawnAdhocAttribution).toHaveBeenCalledWith(expect.objectContaining({ agentPid: 99999 }), expect.anything());
+  });
+
+  it('uses a caller-supplied agentPid when provided, bypassing findAgentPid', async () => {
+    vi.mocked(resolveCardRepoPath).mockResolvedValue('/home/.cards/cards-repos/main-196');
+    vi.mocked(isKnownAgentComm).mockReturnValue(true);
+    vi.mocked(spawnAdhocAttribution).mockResolvedValue({ activated: true, attribution: 'spawned' } as never);
+
+    const client = makeClient();
+    await outfitWorktreeForCard(client, WORKTREE_PATH, {
+      ...BASE_OPTIONS,
+      sessionId: 'sess-abc',
+      transcriptPath: '/transcripts/sess-abc.jsonl',
+      runtime: 'claude-code',
+      agentPid: 77777
+    });
+
+    // The caller-supplied PID must reach spawnAdhocAttribution, and
+    // findAgentPid must NOT be consulted.
+    expect(findAgentPid).not.toHaveBeenCalled();
+    expect(spawnAdhocAttribution).toHaveBeenCalledWith(expect.objectContaining({ agentPid: 77777 }), expect.anything());
+  });
 });

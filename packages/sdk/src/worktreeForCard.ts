@@ -123,6 +123,17 @@ export interface OutfitWorktreeForCardOptions {
   runtime?: string;
   /** Map of git hook name to compiled .mjs path — required to avoid D10a attribution loss. */
   compiledScriptPaths: Record<string, string>;
+  /**
+   * Agent PID to monitor for cleanup teardown. When provided by the caller
+   * (e.g. the `card create` CLI passing its own `process.pid`), this PID is
+   * forwarded to {@link spawnAdhocAttribution} instead of resolving one via
+   * {@link findAgentPid}. When omitted the orchestrator resolves the PID by
+   * walking the process tree — correct for re-attach paths where the ambient
+   * agent session IS the work session, but wrong for first-bind paths where
+   * the CLI process exit (not the agent exit) marks the end of the logical
+   * unit of work on the card.
+   */
+  agentPid?: number;
 }
 
 /**
@@ -326,7 +337,7 @@ export async function outfitWorktreeForCard(
     return { attribution: 'skipped', reason: 'card-repo-path-unresolved' };
   }
 
-  const agentPid = findAgentPid();
+  const agentPid = options.agentPid ?? findAgentPid();
   if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
     stderrLogger.warn(
       'outfitWorktreeForCard: bound worktree but could not resolve a known agent PID — attribution not spawned',
