@@ -163,7 +163,7 @@ This work owns: [absolute paths the findings touch — do not modify files outsi
 
 Wait for every developer child in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
 
-Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
+Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
 
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.

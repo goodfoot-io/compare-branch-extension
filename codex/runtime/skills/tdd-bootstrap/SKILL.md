@@ -59,7 +59,7 @@ This is the payoff phase. The check code exercises the stubs as a consumer would
 Unskip one check, run it, watch it fail against the stub, then implement the minimum to pass. Repeat until no skipped checks remain.
 
 - Unskip in small batches — one concern at a time
-- Lint and typecheck per CLAUDE.md `<validation>`. Re-run the single check just unskipped until it passes; once green, run the file's unskipped checks together before moving to the next
+- Lint and typecheck per the project's AGENTS.md validation conventions. Re-run the single check just unskipped until it passes; once green, run the file's unskipped checks together before moving to the next
 - Refactor only after the check passes
 - New behavior discovered mid-implementation goes back to Phase 1 for its own contract — do not broaden scope inline
 

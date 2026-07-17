@@ -197,7 +197,7 @@ Wait for every developer in the current group (Parallel, Coherent, or current Se
 
 Developers do not commit — record the group's pre-dispatch HEAD SHA before delegating in Step 6, and on return compare it to current HEAD. If HEAD moved, a developer committed despite the constraint: `git reset --soft <pre-dispatch-SHA>` before validating, so the group's work folds into the single commit this step produces rather than leaving a stray commit ahead of it.
 
-Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
+Lint and typecheck per the project's CLAUDE.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
 
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.

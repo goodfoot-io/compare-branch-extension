@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.798",
+    "version": "1.0.799",
     "pluginRoot": "./claude"
   },
   "plugins": [
@@ -32,7 +32,7 @@
     },
     {
       "name": "runtime",
-      "version": "1.0.407",
+      "version": "1.0.408",
       "source": "./claude/runtime",
       "description": "Plugin for the Cards extension Claude Code runtime",
       "author": {

@@ -74,7 +74,7 @@ NEEDS_REVISION is depth exhaustion — you tried, it kept failing, another pass 
 
 **Fix.** Apply the fix at the root cause. Rebuild any derived artifacts as needed.
 
-**Re-validate.** During the fix-then-recheck loop, scope test runs to the failing test or suite per CLAUDE.md `<validation>`. The final certification before reporting COMPLETED runs the orchestrator's full validation command end-to-end; do not report COMPLETED until it exits 0.
+**Re-validate.** During the fix-then-recheck loop, scope test runs to the failing test or suite per the project's AGENTS.md validation conventions. The final certification before reporting COMPLETED runs the orchestrator's full validation command end-to-end; do not report COMPLETED until it exits 0.
 
 **Escalate only on structural impossibility.** If the root cause is outside your reach (external system, missing credential, hardware constraint, unresolved upstream bug on the base branch), return BLOCKED with a recommended next step the orchestrator can take.
 

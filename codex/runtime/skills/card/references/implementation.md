@@ -86,7 +86,7 @@ const handler = createHandler(db, testLogger);
 
 <per-unit-gate>
 
-Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
+Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
 
 - **All pass** — commit, then tag the rollback point.
 - **Failure originates in this unit's changes** — fix and re-run.

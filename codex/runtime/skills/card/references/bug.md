@@ -197,7 +197,7 @@ Based on the resolver's status:
 - **TEST_MODIFIED**: Proceed to Step 2.4: Test Correction Flow.
 - **SUCCESS**: Continue below.
 
-Run every reproduction test. Then lint and typecheck per CLAUDE.md `<validation>`, and re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 3: Validate Full Suite.
+Run every reproduction test. Then lint and typecheck per the project's AGENTS.md validation conventions, and re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 3: Validate Full Suite.
 
 Based on the combined result:
 - **All reproduction tests pass and all validations pass**: Commit the fix and proceed to Step 3: Validate Full Suite.

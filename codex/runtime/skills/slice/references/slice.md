@@ -71,7 +71,7 @@ Implement the public API boundary and behavioral expectations for [SLICE_LABEL].
 
 ## Constraints
 - Touch only the files named in Scope.
-- Follow the repository's `<golden-rule>`: run the package's lint, typecheck, and test commands before returning.
+- Follow the project's AGENTS.md validation conventions: run the package's lint, typecheck, and test commands before returning.
 - Commit each logical step per `<workspace-commit-style>`.
 
 ## Success Criteria
@@ -96,7 +96,7 @@ Read the full diff against the prior commit. Check:
 
 ### 5.2 Run Validation
 
-Validate per CLAUDE.md `<validation>`. Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Defer cross-package or full-validation runs to Step 6: Complete or Await Review (merge.md owns the final gate).
+Validate per the project's AGENTS.md validation conventions. Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Defer cross-package or full-validation runs to Step 6: Complete or Await Review (merge.md owns the final gate).
 
 ### 5.3 Route on Result
 

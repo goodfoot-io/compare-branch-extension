@@ -135,7 +135,7 @@ This work owns: [absolute paths from plan]
 
 Wait for every child in the current group to return before validating.
 
-Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
+Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
 
 - **All pass** — commit the group's changes per the workspace commit style, then return to `<verify-plan-state>`.
 - **Orchestrator-scope error** (syntax, import correction, config typo, test polyfill — per `<orchestrator-constraints>`) — fix inline and re-run.

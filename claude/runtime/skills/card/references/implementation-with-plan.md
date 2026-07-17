@@ -148,7 +148,7 @@ Wait for every agent in the current group to return before validating.
 
 Developers do not commit — record the group's pre-dispatch HEAD SHA before delegating in `<dispatch>`, and on return compare it to current HEAD. If HEAD moved, an agent committed despite the constraint: `git reset --soft <pre-dispatch-SHA>` before validating, so the group's work folds into the single commit this gate produces rather than leaving a stray commit ahead of it.
 
-Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
+Lint and typecheck per the project's CLAUDE.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
 
 - **All pass** — commit the group's changes per the workspace commit style, then return to `<verify-plan-state>`.
 - **Orchestrator-scope error** (syntax, import correction, config typo, test polyfill — per `<orchestrator-constraints>`) — fix inline and re-run.

@@ -49,7 +49,7 @@ Do not edit files in [REPO_ROOT]
 
 **Follow scope.** Execute the Scope section literally — complete the specified todos, stop at the specified gate.
 
-**Validate after each logical unit per CLAUDE.md `<validation>`.** Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Do not proceed if validation fails.
+**Validate after each logical unit per the project's CLAUDE.md validation conventions.** Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Do not proceed if validation fails.
 
 ## Output Contract
 
