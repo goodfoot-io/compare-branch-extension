@@ -16,6 +16,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS, resolveWorktreeDir } from '@cards.management/sdk';
 import { execFileNoWindowAsync } from '@cards.management/sdk/bin/child-process';
+import { readCardStatus } from '@cards.management/sdk/bin/process-utils';
 import type { CardsClient } from '@cards.management/sdk/client';
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import { compiledHookScriptPaths } from '@cards.management/sdk/git-hooks';
@@ -519,6 +520,21 @@ export async function readBranchEntries(cardRepoPath: string): Promise<Array<[st
 }
 
 /**
+ * Outcome of a single branch's cleanup attempt, or a single sentinel entry
+ * (`branch: '(all)'`) describing why the entire sweep was skipped.
+ */
+export interface BranchCleanupOutcome {
+  /** Card ID the sweep ran for. */
+  cardId: string;
+  /** Branch name, or `'(all)'` for a sweep-wide skip. */
+  branch: string;
+  /** What happened to this branch. */
+  action: 'cleaned' | 'skipped' | 'error';
+  /** Short machine-readable reason for the action. */
+  reason: string;
+}
+
+/**
  * Removes branches that are fully merged into their parent branch.
  *
  * For each merged branch the worktree directory is removed, the local branch
@@ -532,11 +548,17 @@ export async function readBranchEntries(cardRepoPath: string): Promise<Array<[st
  * created from), not the workspace's current HEAD. This ensures branches are
  * only cleaned up when truly merged into their intended target.
  *
+ * Before doing anything else, the sweep checks the card's own status: an
+ * `active` card must never have its worktree or branch reclaimed out from
+ * under it, so the sweep is skipped entirely (no `branches/` read, no git
+ * calls) when the card is active.
+ *
  * @param input - Action input containing cardId and workspace paths.
  * @param cardRepoPath - Absolute path to the card's git repository.
  * @param logger - Logger for diagnostic output.
  * @param sessionId - Claude Code session ID set as CARDS_SESSION_ID in the git subprocess environment so the card repo post-commit hook can attribute the commit.
  * @param options - Optional configuration (backoffMaxMs for the liveness gate).
+ * @returns Per-branch cleanup outcomes, or a single sweep-wide skip outcome.
  */
 export async function cleanupMergedBranches(
   input: Pick<ActionInput, 'cardId' | 'repoRoot'>,
@@ -544,13 +566,20 @@ export async function cleanupMergedBranches(
   logger: ActionContext['logger'],
   sessionId?: string,
   options?: CleanupOptions
-): Promise<void> {
+): Promise<BranchCleanupOutcome[]> {
+  const cardStatus = await readCardStatus(cardRepoPath);
+  if (cardStatus === 'active') {
+    logger.info('Skipping branch cleanup — card is active', { cardId: input.cardId });
+    return [{ cardId: input.cardId, branch: '(all)', action: 'skipped', reason: 'active' }];
+  }
+
+  const outcomes: BranchCleanupOutcome[] = [];
   let t0 = performance.now();
 
   const entries = await readBranchEntries(cardRepoPath);
   if (entries.length === 0) {
     logger.debug(`No ${BRANCHES_DIR}/ found, nothing to clean up`);
-    return;
+    return outcomes;
   }
 
   // Compute existence for each branch via git
@@ -573,7 +602,10 @@ export async function cleanupMergedBranches(
       });
     }
 
-    if (!branchExists) continue;
+    if (!branchExists) {
+      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'branch-not-found' });
+      continue;
+    }
 
     // Self-referential parentBranch is a corrupt state — `merge-base --is-ancestor X X`
     // trivially succeeds, so cleanup would incorrectly remove unmerged work.
@@ -597,6 +629,7 @@ export async function cleanupMergedBranches(
         branch: branchName,
         elapsedMs: Math.round(performance.now() - t0)
       });
+      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'not-merged' });
       continue;
     }
     logger.debug('merge-base check completed (merged)', {
@@ -645,6 +678,7 @@ export async function cleanupMergedBranches(
             retries,
             elapsedS: Math.round((performance.now() - backoffStart) / 1000)
           });
+          outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'in-use' });
           continue;
         }
 
@@ -730,10 +764,14 @@ export async function cleanupMergedBranches(
       });
 
       logger.info('Cleaned up merged branch', { branch: branchName });
+      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'cleaned', reason: 'merged' });
     } else {
       logger.info('Skipped branch record removal — git branch still exists', { branch: branchName });
+      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'error', reason: 'branch-delete-failed' });
     }
   }
+
+  return outcomes;
 }
 
 // ============================================================================

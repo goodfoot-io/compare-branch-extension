@@ -598,6 +598,26 @@ describe('claude-session shared utilities', () => {
       });
     });
 
+    it('skips the entire sweep with zero git calls when the card is active', async () => {
+      const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
+      const { execFile } = await import('node:child_process');
+      const { readFile, readdir } = await import('node:fs/promises');
+
+      vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+        const p = String(filePath);
+        if (p.endsWith('CARD.meta.json')) {
+          return Promise.resolve(JSON.stringify({ status: 'active' }));
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      });
+
+      const outcomes = await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
+
+      expect(outcomes).toEqual([{ cardId: 'card-123', branch: '(all)', action: 'skipped', reason: 'active' }]);
+      expect(vi.mocked(execFile)).not.toHaveBeenCalled();
+      expect(vi.mocked(readdir)).not.toHaveBeenCalled();
+    });
+
     it('removes fully merged branches (worktree, ref, and branch record)', async () => {
       const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
       const { execFile } = await import('node:child_process');
@@ -625,7 +645,7 @@ describe('claude-session shared utilities', () => {
         return {} as ReturnType<typeof execFile>;
       });
 
-      await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
+      const outcomes = await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
 
       const execCalls = vi.mocked(execFile).mock.calls;
 
@@ -656,6 +676,8 @@ describe('claude-session shared utilities', () => {
         (c) => (c[1] as string[])?.[0] === 'rm' && (c[1] as string[])?.includes('--ignore-unmatch')
       );
       expect(gitRmCall).toBeDefined();
+
+      expect(outcomes).toContainEqual(expect.objectContaining({ action: 'cleaned', branch: 'cards/card-123/1' }));
     });
 
     it('checks each branch against its own parentBranch, not workspace HEAD', async () => {
@@ -720,7 +742,7 @@ describe('claude-session shared utilities', () => {
         return {} as ReturnType<typeof execFile>;
       });
 
-      await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
+      const outcomes = await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
 
       const execCalls = vi.mocked(execFile).mock.calls;
       const worktreeRemoveCall = execCalls.find(
@@ -732,6 +754,8 @@ describe('claude-session shared utilities', () => {
         (c) => (c[1] as string[])?.includes('branch') && (c[1] as string[])?.includes('-d')
       );
       expect(branchDeleteCall).toBeUndefined();
+
+      expect(outcomes).toContainEqual(expect.objectContaining({ action: 'skipped', reason: 'not-merged' }));
     });
 
     it('continues cleanup when individual operations fail (partial failure)', async () => {
@@ -767,7 +791,9 @@ describe('claude-session shared utilities', () => {
         return {} as ReturnType<typeof execFile>;
       });
 
-      await expect(cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger())).resolves.toBeUndefined();
+      await expect(cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger())).resolves.toEqual(
+        expect.any(Array)
+      );
 
       const execCalls = vi.mocked(execFile).mock.calls;
       const branchDeleteCall = execCalls.find(
