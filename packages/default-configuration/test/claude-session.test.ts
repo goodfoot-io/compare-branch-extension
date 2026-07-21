@@ -550,6 +550,54 @@ describe('claude-session shared utilities', () => {
       vi.mocked(rm).mockResolvedValue(undefined);
     }
 
+    describe('readBranchEntries', () => {
+      it('returns [] when the branches/ directory does not exist', async () => {
+        const { readBranchEntries } = await import('../src/lib/claude-session.js');
+        const { readdir } = await import('node:fs/promises');
+        vi.mocked(readdir).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+
+        await expect(readBranchEntries('/test/repo')).resolves.toEqual([]);
+      });
+
+      it("parses populated branch entry files, keyed by the file contents' name field", async () => {
+        const { readBranchEntries } = await import('../src/lib/claude-session.js');
+        await configureBranchesFile({
+          'cards/card-123/1': {
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z'
+          },
+          'cards/card-456/2': {
+            parentBranch: 'develop',
+            addedAt: '2025-01-02T00:00:00Z'
+          }
+        });
+
+        const entries = await readBranchEntries('/test/repo');
+
+        expect(entries).toEqual([
+          [
+            'cards/card-123/1',
+            {
+              name: 'cards/card-123/1',
+              worktree: '/test/workspace/.worktrees/cards/card-123/1',
+              parentBranch: 'main',
+              addedAt: '2025-01-01T00:00:00Z'
+            }
+          ],
+          ['cards/card-456/2', { name: 'cards/card-456/2', parentBranch: 'develop', addedAt: '2025-01-02T00:00:00Z' }]
+        ]);
+      });
+
+      it('propagates non-ENOENT read failures', async () => {
+        const { readBranchEntries } = await import('../src/lib/claude-session.js');
+        const { readdir } = await import('node:fs/promises');
+        vi.mocked(readdir).mockRejectedValue(new Error('EACCES: permission denied'));
+
+        await expect(readBranchEntries('/test/repo')).rejects.toThrow('EACCES');
+      });
+    });
+
     it('removes fully merged branches (worktree, ref, and branch record)', async () => {
       const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
       const { execFile } = await import('node:child_process');
@@ -1099,6 +1147,59 @@ describe('claude-session shared utilities', () => {
 
       child.emit('close', null);
       await promise;
+    });
+
+    it('logs candidate branches before spawning the branch-cleanup watcher (interactive mode)', async () => {
+      const { spawn } = await import('node:child_process');
+      const { readdir, readFile } = await import('node:fs/promises');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      process.env['EXTENSION_PATH'] = '/test/extension';
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
+
+      vi.mocked(readdir).mockImplementation(((dirPath: unknown) => {
+        if (String(dirPath).endsWith('branches')) {
+          return Promise.resolve([`${encodeURIComponent('cards/card-123/1')}.json`]);
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      }) as unknown as typeof readdir);
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({
+          name: 'cards/card-123/1',
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          parentBranch: 'main',
+          addedAt: '2025-01-01T00:00:00Z'
+        })
+      );
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const logSpy = vi.spyOn(context.logger, 'info');
+
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: false
+      });
+      await flushMicrotasks();
+
+      child.emit('close', 0);
+      await promise;
+
+      expect(logSpy).toHaveBeenCalledWith('Branch-cleanup watcher spawn attempt', {
+        cardId: 'card-123',
+        sessionId: 'session-123',
+        candidateBranches: ['cards/card-123/1']
+      });
+
+      const spawnAttemptIndex = logSpy.mock.calls.findIndex(
+        (call) => call[0] === 'Branch-cleanup watcher spawn attempt'
+      );
+      const actionCompletedIndex = logSpy.mock.calls.findIndex((call) => call[0] === 'Launch action completed');
+      expect(spawnAttemptIndex).toBeGreaterThan(actionCompletedIndex);
     });
 
     describe('cross-platform CLI spawn', () => {

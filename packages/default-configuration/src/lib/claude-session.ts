@@ -477,6 +477,48 @@ export interface CleanupOptions {
 }
 
 /**
+ * A single parsed entry from the card repository's `branches/` directory.
+ */
+export interface BranchEntry {
+  /** Absolute path to the worktree backing this branch, if one was created. */
+  worktree?: string;
+  /** The branch this entry was created from; cleanup checks merge status against it. */
+  parentBranch: string;
+  /** ISO timestamp recording when the entry was created. */
+  addedAt: string;
+}
+
+/**
+ * Reads and parses the per-branch entry files from a card repository's
+ * `branches/` directory.
+ *
+ * The authoritative branch name lives in each file's `name` field, never the
+ * filename. A missing `branches/` directory (nothing tracked yet) is treated
+ * as no candidates, not an error; other read/parse failures propagate.
+ *
+ * @param cardRepoPath - Absolute path to the card's git repository.
+ * @returns Parsed `[branchName, entry]` pairs, or `[]` if `branches/` does not exist.
+ */
+export async function readBranchEntries(cardRepoPath: string): Promise<Array<[string, BranchEntry]>> {
+  const branchesDir = path.join(cardRepoPath, BRANCHES_DIR);
+  try {
+    const files = (await fs.readdir(branchesDir)).filter((f) => f.endsWith('.json'));
+    const parsed: Array<[string, BranchEntry]> = [];
+    for (const file of files) {
+      const content = await fs.readFile(path.join(branchesDir, file), 'utf-8');
+      const record = JSON.parse(content) as { name: string } & BranchEntry;
+      parsed.push([record.name, record]);
+    }
+    return parsed;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+}
+
+/**
  * Removes branches that are fully merged into their parent branch.
  *
  * For each merged branch the worktree directory is removed, the local branch
@@ -505,25 +547,10 @@ export async function cleanupMergedBranches(
 ): Promise<void> {
   let t0 = performance.now();
 
-  // Read per-branch entry files from the card repository's branches/ directory.
-  // The authoritative branch name lives in each file's `name` field, never the filename.
-  const branchesDir = path.join(cardRepoPath, BRANCHES_DIR);
-  let entries: Array<[string, { worktree?: string; parentBranch: string; addedAt: string }]>;
-  try {
-    const files = (await fs.readdir(branchesDir)).filter((f) => f.endsWith('.json'));
-    const parsed: Array<[string, { worktree?: string; parentBranch: string; addedAt: string }]> = [];
-    for (const file of files) {
-      const content = await fs.readFile(path.join(branchesDir, file), 'utf-8');
-      const record = JSON.parse(content) as { name: string; worktree?: string; parentBranch: string; addedAt: string };
-      parsed.push([record.name, record]);
-    }
-    entries = parsed;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      logger.debug(`No ${BRANCHES_DIR}/ found, nothing to clean up`);
-      return;
-    }
-    throw error;
+  const entries = await readBranchEntries(cardRepoPath);
+  if (entries.length === 0) {
+    logger.debug(`No ${BRANCHES_DIR}/ found, nothing to clean up`);
+    return;
   }
 
   // Compute existence for each branch via git
@@ -880,12 +907,30 @@ export async function spawnClaudeSession(
   // immediately — the watcher calls the same cleanupMergedBranches function.
   if (isInteractive) {
     try {
-      spawnBranchCleanupWatcher({
+      let candidates: Array<[string, BranchEntry]> = [];
+      try {
+        candidates = await readBranchEntries(input.cardRepoPath);
+      } catch (error) {
+        context.logger.warn('Failed to read branch entries before spawning watcher (non-fatal)', {
+          error: errorMessage(error),
+          sessionId
+        });
+      }
+      context.logger.info('Branch-cleanup watcher spawn attempt', {
         cardId: input.cardId,
-        repoRoot: input.repoRoot,
-        cardRepoPath: input.cardRepoPath,
-        sessionId
+        sessionId,
+        candidateBranches: candidates.map(([name]) => name)
       });
+
+      spawnBranchCleanupWatcher(
+        {
+          cardId: input.cardId,
+          repoRoot: input.repoRoot,
+          cardRepoPath: input.cardRepoPath,
+          sessionId
+        },
+        context.logger
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', { error: message, sessionId });

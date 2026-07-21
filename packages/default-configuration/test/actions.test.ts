@@ -748,12 +748,15 @@ describe('Default Actions', () => {
         await promise;
 
         const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
-        expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith({
-          cardId: 'card-123',
-          repoRoot: '/test/workspace',
-          cardRepoPath: '/test/repo',
-          sessionId: 'test-uuid-1234'
-        });
+        expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith(
+          {
+            cardId: 'card-123',
+            repoRoot: '/test/workspace',
+            cardRepoPath: '/test/repo',
+            sessionId: 'test-uuid-1234'
+          },
+          expect.anything()
+        );
       });
 
       it('cleans up fully-merged branches in background mode', async () => {

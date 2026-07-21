@@ -593,11 +593,14 @@ describe('launch action — codex branch', () => {
     await promise;
 
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
-    expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith({
-      cardId: 'card-123',
-      repoRoot: '/test/workspace',
-      cardRepoPath: '/test/repo'
-    });
+    expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith(
+      {
+        cardId: 'card-123',
+        repoRoot: '/test/workspace',
+        cardRepoPath: '/test/repo'
+      },
+      expect.anything()
+    );
 
     const execCalls = vi.mocked(execFile).mock.calls;
     const mergeBaseCall = execCalls.find((call) => (call[1] as string[])?.includes('merge-base'));

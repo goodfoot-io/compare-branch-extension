@@ -970,11 +970,14 @@ export async function spawnCodexSession(
   context.logger.info(`${input.actionName} action completed`, { exitCode });
 
   try {
-    spawnBranchCleanupWatcher({
-      cardId: input.cardId,
-      repoRoot: input.repoRoot,
-      cardRepoPath: input.cardRepoPath
-    });
+    spawnBranchCleanupWatcher(
+      {
+        cardId: input.cardId,
+        repoRoot: input.repoRoot,
+        cardRepoPath: input.cardRepoPath
+      },
+      context.logger
+    );
   } catch (error) {
     context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', {
       error: errorMessage(error)
