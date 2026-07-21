@@ -275,7 +275,7 @@ function resolveMainRepoRoot(): string | null {
  * @param config - Logger configuration.
  * @returns Resolved absolute log file path, or `null` when file output is disabled.
  */
-function resolveLogFilePath(config: LoggerConfig): string | null {
+export function resolveLogFilePath(config: LoggerConfig): string | null {
   if (config.logFilePath !== undefined) {
     return config.logFilePath;
   }

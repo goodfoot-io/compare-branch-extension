@@ -17,8 +17,26 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import type { ActionContext } from '@cards.management/sdk/config';
-import { Logger } from '@cards.management/sdk/config';
+import { Logger, resolveLogFilePath } from '@cards.management/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
+
+/**
+ * The subsystem name the parent's own singleton `Logger` is constructed with
+ * (see `executeCommand()` in the SDK's `runtime.ts`). Passed to
+ * {@link resolveLogFilePath} so the detached child resolves to the exact same
+ * log file the parent actually writes to, honoring any
+ * `CARDS_HOOKS_LOG_FILE`/`CARDS_LOG_DIR` override transparently rather than
+ * recomputing a possibly-divergent default.
+ */
+const HOOKS_LOGGER_SUBSYSTEM = 'cards-default-configuration-hooks';
+
+/**
+ * How long, in milliseconds, the parent waits after spawning the detached
+ * cleanup child for it to either emit `'exit'` on its own or be observed
+ * alive. This is a short grace window, not a wait for the child's real work
+ * to finish — see {@link spawnBranchCleanupWatcher}.
+ */
+const EXIT_GRACE_MS = 500;
 
 /**
  * Parameters required to run branch cleanup in a detached process.
@@ -39,23 +57,43 @@ export interface BranchCleanupParams {
  * after receiving serialized parameters via stdin.
  *
  * The spawned process is fully detached (`detached: true`, `child.unref()`)
- * and survives parent exit. Stdout and stderr are discarded; errors and
- * lifecycle events are written via the supplied `logger`. The child is also
- * handed a `CARDS_HOOKS_LOG_FILE` env var pointing at the same log file so it
+ * and survives parent exit — this call does not wait for the child's actual
+ * cleanup work (network discovery, git operations, up to an hour of
+ * backoff), which continues fire-and-forget after this function returns.
+ * Stdout and stderr are discarded; errors and lifecycle events are written
+ * via the supplied `logger`. The child is also handed a
+ * `CARDS_HOOKS_LOG_FILE` env var pointing at the same log file the parent's
+ * own `logger` actually resolves to (via {@link resolveLogFilePath}), so it
  * can construct its own working `Logger` before it has parsed anything off
- * stdin.
+ * stdin, and so both processes' lifecycle events land in one file even under
+ * a `CARDS_HOOKS_LOG_FILE`/`CARDS_LOG_DIR` override.
+ *
+ * After wiring up stdin/unref, this awaits a short, bounded race between the
+ * child's own `'exit'` event and a grace-period timer
+ * ({@link EXIT_GRACE_MS}). This does not observe the child's eventual real
+ * exit (which can be up to an hour away) — it only narrows the blind spot to
+ * "child crashed or was killed within the grace window right after spawn,"
+ * catching failures that would otherwise go completely unlogged because the
+ * parent process was already gone by the time they happened.
  *
  * @param params - Parameters for the cleanup run.
  * @param logger - Logger used for spawn/exit lifecycle diagnostics.
  */
-export function spawnBranchCleanupWatcher(params: BranchCleanupParams, logger: ActionContext['logger']): void {
+export async function spawnBranchCleanupWatcher(
+  params: BranchCleanupParams,
+  logger: ActionContext['logger']
+): Promise<void> {
   // `fileURLToPath` (not `new URL(...).pathname`) so the path is a real OS path
   // on win32: `new URL(import.meta.url).pathname` yields `/C:/Users/…`, which is
   // not a spawnable script path. Mirrors wrapper.ts's spawnDetachedCleanup.
   const selfPath = fileURLToPath(import.meta.url);
   const nodeBin = process.execPath;
 
-  const logFilePath = path.join(params.repoRoot, '.cards', 'logs', 'cards-default-configuration-hooks.log');
+  // Resolve to the exact file the parent's own singleton Logger writes to
+  // (same subsystem, same env-driven resolution order), not a hardcoded
+  // recomputation that could diverge under a CARDS_HOOKS_LOG_FILE/CARDS_LOG_DIR
+  // override.
+  const logFilePath = resolveLogFilePath({ subsystem: HOOKS_LOGGER_SUBSYSTEM });
 
   let child: ChildProcess;
   try {
@@ -70,8 +108,10 @@ export function spawnBranchCleanupWatcher(params: BranchCleanupParams, logger: A
       windowsHide: true,
       // Give the detached child a working Logger target before it has even
       // parsed stdin — see resolveLogFilePath() in the SDK's Logger, which
-      // checks this env var before falling back to repo-root discovery.
-      env: { ...process.env, CARDS_HOOKS_LOG_FILE: logFilePath }
+      // checks this env var before falling back to repo-root discovery. Skip
+      // setting it entirely when file logging is disabled (null) rather than
+      // passing an empty/null value.
+      env: logFilePath === null ? process.env : { ...process.env, CARDS_HOOKS_LOG_FILE: logFilePath }
     });
   } catch (error) {
     // Fail-open: log and return; cleanup will not run this session
@@ -89,7 +129,10 @@ export function spawnBranchCleanupWatcher(params: BranchCleanupParams, logger: A
     sessionId: params.sessionId
   });
 
+  let exited = false;
+  let onExitedForGrace: (() => void) | undefined;
   child.on('exit', (code, signal) => {
+    exited = true;
     logger.info('Branch-cleanup watcher process exited', {
       pid: child.pid,
       code,
@@ -97,6 +140,7 @@ export function spawnBranchCleanupWatcher(params: BranchCleanupParams, logger: A
       cardId: params.cardId,
       sessionId: params.sessionId
     });
+    onExitedForGrace?.();
   });
 
   child.stdin!.on('error', (err) => {
@@ -112,6 +156,21 @@ export function spawnBranchCleanupWatcher(params: BranchCleanupParams, logger: A
   child.stdin!.end();
 
   child.unref();
+
+  // Bounded race: give the parent a brief window to observe a child that
+  // crashes or is killed immediately after spawn (the 'exit' handler above
+  // otherwise fires far too late to matter — the parent tears down via
+  // process.exit() before the detached child, which may retry for up to an
+  // hour, ever gets there). Not a wait for the child's real work to finish.
+  if (!exited) {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, EXIT_GRACE_MS);
+      onExitedForGrace = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
+  }
 }
 
 // ============================================================================
@@ -197,8 +256,12 @@ export async function runDetachedCleanup(stdin: NodeJS.ReadableStream = process.
   // Mirrors executeCommand()'s parent-process SIGHUP handler (runtime.ts) —
   // the detached child gets its own process group via `detached: true`, but
   // nothing guarantees it can't still receive SIGHUP (e.g. if it inherits a
-  // group before unref). This only logs receipt; it does not change exit
-  // behavior.
+  // group before unref). Registering any 'SIGHUP' listener removes Node's
+  // default terminate-on-SIGHUP disposition, so this is not just a log line:
+  // a SIGHUP received mid-cleanup now runs to completion instead of killing
+  // the process. That's intentional, mirroring the parent's own rationale
+  // for surviving terminal-close signals — a closed terminal should not cut
+  // off cleanup that is already in flight.
   process.on('SIGHUP', () => {
     logger.info('Branch-cleanup watcher received SIGHUP');
   });

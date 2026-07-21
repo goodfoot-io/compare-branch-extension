@@ -34,6 +34,15 @@ vi.mock('../src/lib/claude-session.js', () => ({
   errorMessage: (error: unknown) => (error instanceof Error ? error.message : String(error))
 }));
 
+// Wraps the real `resolveLogFilePath` in a spy (default behavior unchanged) so
+// individual tests can force its "file logging disabled" (`null`) return via
+// `mockReturnValueOnce` without disturbing the real `Logger` class, which
+// `runDetachedCleanup`'s tests below rely on for actual file output.
+vi.mock('@cards.management/sdk/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards.management/sdk/config')>();
+  return { ...actual, resolveLogFilePath: vi.fn(actual.resolveLogFilePath) };
+});
+
 /**
  * Builds a fake logger conforming to `ActionContext['logger']` with spy-able
  * methods, for tests that only need to assert calls (not real file output).
@@ -110,21 +119,94 @@ describe('spawnBranchCleanupWatcher', () => {
     sessionId: 'session-abc'
   };
 
-  it('passes CARDS_HOOKS_LOG_FILE (derived from repoRoot) to the detached child env', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    delete process.env['CARDS_LOG_DIR'];
+  });
+
+  it('derives CARDS_HOOKS_LOG_FILE via the same resolveLogFilePath the parent logger uses', async () => {
     const { spawn } = await import('node:child_process');
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+    const { resolveLogFilePath } = await import('@cards.management/sdk/config');
 
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
 
     const logger = createSpyLogger();
-    spawnBranchCleanupWatcher(baseParams, logger);
+    const promise = spawnBranchCleanupWatcher(baseParams, logger);
+    child.emit('exit', 0, null);
+    await promise;
 
     expect(spawn).toHaveBeenCalledTimes(1);
     const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string> };
+    // Asserting parity against the actual resolveLogFilePath() output (rather
+    // than a hardcoded path) is the regression guard: if the implementation
+    // ever reverts to recomputing its own path, this stops matching.
     expect(spawnOpts.env['CARDS_HOOKS_LOG_FILE']).toBe(
-      path.join('/test/workspace', '.cards', 'logs', 'cards-default-configuration-hooks.log')
+      resolveLogFilePath({ subsystem: 'cards-default-configuration-hooks' })
     );
+  });
+
+  it('honors a CARDS_LOG_DIR override, so parent and child agree on the same log file', async () => {
+    // Same harness caveat as above: CARDS_HOOKS_LOG_FILE (tier 2) outranks
+    // CARDS_LOG_DIR (tier 3) in resolveLogFilePath()'s precedence, and the
+    // vitest harness sets CARDS_HOOKS_LOG_FILE globally, so it must be
+    // cleared to actually exercise the CARDS_LOG_DIR tier.
+    const originalEnvValue = process.env['CARDS_HOOKS_LOG_FILE'];
+    delete process.env['CARDS_HOOKS_LOG_FILE'];
+    const tmpLogDir = await fs.mkdtemp(path.join(os.tmpdir(), 'branch-cleanup-log-dir-'));
+    process.env['CARDS_LOG_DIR'] = tmpLogDir;
+
+    try {
+      const { spawn } = await import('node:child_process');
+      const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const logger = createSpyLogger();
+      const promise = spawnBranchCleanupWatcher(baseParams, logger);
+      child.emit('exit', 0, null);
+      await promise;
+
+      const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string> };
+      expect(spawnOpts.env['CARDS_HOOKS_LOG_FILE']).toBe(path.join(tmpLogDir, 'cards-default-configuration-hooks.log'));
+    } finally {
+      if (originalEnvValue !== undefined) {
+        process.env['CARDS_HOOKS_LOG_FILE'] = originalEnvValue;
+      }
+    }
+  });
+
+  it('omits CARDS_HOOKS_LOG_FILE from the child env when resolveLogFilePath returns null', async () => {
+    // The vitest harness itself sets CARDS_HOOKS_LOG_FILE=/dev/null on
+    // process.env for every test in this suite (see vitest.config.ts), so it
+    // must be cleared here too — otherwise the child would inherit it from
+    // `...process.env` even though the (mocked) resolution says file logging
+    // is disabled, masking the behavior this test exists to check.
+    const originalEnvValue = process.env['CARDS_HOOKS_LOG_FILE'];
+    delete process.env['CARDS_HOOKS_LOG_FILE'];
+    try {
+      const { spawn } = await import('node:child_process');
+      const { resolveLogFilePath } = await import('@cards.management/sdk/config');
+      vi.mocked(resolveLogFilePath).mockReturnValueOnce(null);
+      const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const logger = createSpyLogger();
+      const promise = spawnBranchCleanupWatcher(baseParams, logger);
+      child.emit('exit', 0, null);
+      await promise;
+
+      const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string> };
+      expect(spawnOpts.env['CARDS_HOOKS_LOG_FILE']).toBeUndefined();
+    } finally {
+      if (originalEnvValue !== undefined) {
+        process.env['CARDS_HOOKS_LOG_FILE'] = originalEnvValue;
+      }
+    }
   });
 
   it('logs pid on successful spawn', async () => {
@@ -135,7 +217,9 @@ describe('spawnBranchCleanupWatcher', () => {
     vi.mocked(spawn).mockReturnValue(child);
 
     const logger = createSpyLogger();
-    spawnBranchCleanupWatcher(baseParams, logger);
+    const promise = spawnBranchCleanupWatcher(baseParams, logger);
+    child.emit('exit', 0, null);
+    await promise;
 
     expect(logger.info).toHaveBeenCalledWith(
       'Branch-cleanup watcher spawned',
@@ -152,7 +236,7 @@ describe('spawnBranchCleanupWatcher', () => {
     });
 
     const logger = createSpyLogger();
-    expect(() => spawnBranchCleanupWatcher(baseParams, logger)).not.toThrow();
+    await expect(spawnBranchCleanupWatcher(baseParams, logger)).resolves.toBeUndefined();
 
     expect(logger.error).toHaveBeenCalledWith(
       'Branch-cleanup watcher failed to spawn',
@@ -172,9 +256,10 @@ describe('spawnBranchCleanupWatcher', () => {
     vi.mocked(spawn).mockReturnValue(child);
 
     const logger = createSpyLogger();
-    spawnBranchCleanupWatcher(baseParams, logger);
+    const promise = spawnBranchCleanupWatcher(baseParams, logger);
 
     (child as unknown as { emit: (event: string, ...args: unknown[]) => void }).emit('exit', 0, null);
+    await promise;
 
     expect(logger.info).toHaveBeenCalledWith(
       'Branch-cleanup watcher process exited',
@@ -190,14 +275,59 @@ describe('spawnBranchCleanupWatcher', () => {
     vi.mocked(spawn).mockReturnValue(child);
 
     const logger = createSpyLogger();
-    spawnBranchCleanupWatcher(baseParams, logger);
+    const promise = spawnBranchCleanupWatcher(baseParams, logger);
 
     (child.stdin as unknown as { emit: (event: string, ...args: unknown[]) => void }).emit('error', new Error('EPIPE'));
+    child.emit('exit', 0, null);
+    await promise;
 
     expect(logger.warn).toHaveBeenCalledWith(
       'Branch-cleanup watcher stdin pipe error',
       expect.objectContaining({ error: 'EPIPE', cardId: 'card-123', sessionId: 'session-abc' })
     );
+  });
+
+  it('resolves via the child exit event without waiting for the grace-period timer', async () => {
+    vi.useFakeTimers();
+    const { spawn } = await import('node:child_process');
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const logger = createSpyLogger();
+    const promise = spawnBranchCleanupWatcher(baseParams, logger);
+    child.emit('exit', 0, null);
+
+    // The promise must resolve purely from the exit event — the fake timer is
+    // never advanced, so this would hang (and fail on the suite's timeout) if
+    // the race were implemented as "always wait out the grace period."
+    await expect(promise).resolves.toBeUndefined();
+  });
+
+  it('resolves via the grace-period timer when the child never exits', async () => {
+    vi.useFakeTimers();
+    const { spawn } = await import('node:child_process');
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const logger = createSpyLogger();
+    let resolved = false;
+    const promise = spawnBranchCleanupWatcher(baseParams, logger).then(() => {
+      resolved = true;
+    });
+
+    // EXIT_GRACE_MS is 500ms; confirm the race is still pending just short of
+    // it, then resolves once the grace period elapses.
+    await vi.advanceTimersByTimeAsync(499);
+    expect(resolved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(resolved).toBe(true);
+
+    await promise;
   });
 });
 

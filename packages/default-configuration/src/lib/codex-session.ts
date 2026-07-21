@@ -970,7 +970,7 @@ export async function spawnCodexSession(
   context.logger.info(`${input.actionName} action completed`, { exitCode });
 
   try {
-    spawnBranchCleanupWatcher(
+    await spawnBranchCleanupWatcher(
       {
         cardId: input.cardId,
         repoRoot: input.repoRoot,

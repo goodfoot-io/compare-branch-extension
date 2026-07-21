@@ -922,7 +922,7 @@ export async function spawnClaudeSession(
         candidateBranches: candidates.map(([name]) => name)
       });
 
-      spawnBranchCleanupWatcher(
+      await spawnBranchCleanupWatcher(
         {
           cardId: input.cardId,
           repoRoot: input.repoRoot,
