@@ -539,6 +539,11 @@ describe('claude-session shared utilities', () => {
 
       vi.mocked(readFile).mockImplementation((filePath: unknown) => {
         const p = String(filePath);
+        // A non-active, readable status lets the sweep proceed past the
+        // fail-closed status guard so these tests exercise the branch loop.
+        if (p.endsWith('CARD.meta.json')) {
+          return Promise.resolve(JSON.stringify({ status: 'needs_review' }));
+        }
         for (const [name, data] of Object.entries(branches)) {
           if (p.endsWith(`${encodeURIComponent(name)}.json`)) {
             return Promise.resolve(JSON.stringify({ name, ...data }, null, 2));
@@ -614,6 +619,24 @@ describe('claude-session shared utilities', () => {
       const outcomes = await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
 
       expect(outcomes).toEqual([{ cardId: 'card-123', branch: '(all)', action: 'skipped', reason: 'active' }]);
+      expect(vi.mocked(execFile)).not.toHaveBeenCalled();
+      expect(vi.mocked(readdir)).not.toHaveBeenCalled();
+    });
+
+    it('fails closed with zero git calls when the card status is unreadable (null)', async () => {
+      const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
+      const { execFile } = await import('node:child_process');
+      const { readFile, readdir } = await import('node:fs/promises');
+
+      // A missing/corrupt CARD.meta.json reads back as null status. The sweep
+      // must not touch the card — it cannot prove the card is inactive.
+      vi.mocked(readFile).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+
+      const outcomes = await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
+
+      expect(outcomes).toEqual([
+        { cardId: 'card-123', branch: '(all)', action: 'skipped', reason: 'status-unreadable' }
+      ]);
       expect(vi.mocked(execFile)).not.toHaveBeenCalled();
       expect(vi.mocked(readdir)).not.toHaveBeenCalled();
     });

@@ -225,6 +225,11 @@ async function configureBranchEntries(
 
   vi.mocked(readFile).mockImplementation((filePath: unknown) => {
     const p = String(filePath);
+    // A readable, non-active status lets cleanupMergedBranches proceed past the
+    // fail-closed status guard so these lifecycle tests exercise the branch loop.
+    if (p.endsWith('CARD.meta.json')) {
+      return Promise.resolve(JSON.stringify({ status: 'needs_review' }));
+    }
     for (const [name, data] of Object.entries(branches)) {
       if (p.endsWith(`${encodeURIComponent(name)}.json`)) {
         return Promise.resolve(JSON.stringify({ name, ...data }, null, 2));

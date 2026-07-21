@@ -44,6 +44,10 @@ beforeEach(async () => {
   vi.clearAllMocks();
   tempCardRepo = fsSyncNs.mkdtempSync(path.join(os.tmpdir(), 'self-ref-test-'));
 
+  // A readable, non-active status lets the sweep proceed past the fail-closed
+  // status guard so these tests exercise the per-branch loop.
+  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'CARD.meta.json'), JSON.stringify({ status: 'needs_review' }));
+
   // Enable discovery test mode so createCardsClient() returns a client without
   // a real cards-api.json file on disk.
   process.env['API_TEST_MODE'] = '1';
@@ -95,7 +99,7 @@ function writeBranchesJson(
 }
 
 describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
-  it('must throw when a branch has self-referential parentBranch', async () => {
+  it('records an error outcome for a self-referential parentBranch instead of throwing', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
     const { execFile } = await import('node:child_process');
 
@@ -122,12 +126,19 @@ describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
       return {} as ReturnType<typeof execFile>;
     });
 
-    await expect(cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger())).rejects.toThrow(
-      'self-referential parentBranch'
-    );
+    const outcomes = await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
+
+    // The corrupt branch is refused (error) but the call never throws — a single
+    // bad branch must not abort the sweep or discard sibling outcomes.
+    expect(outcomes).toEqual([
+      { cardId: 'card-123', branch: 'cards/main-25/1', action: 'error', reason: 'self-referential-parent' }
+    ]);
+    // merge-base is never attempted against the self-referential branch.
+    const mergeBaseCalled = vi.mocked(execFile).mock.calls.some((c) => (c[1] as string[])?.includes('merge-base'));
+    expect(mergeBaseCalled).toBe(false);
   });
 
-  it('must throw on corrupt branch even when valid siblings exist', async () => {
+  it('cleans a valid merged sibling while recording the corrupt branch as an error (both outcomes preserved)', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
     const { execFile } = await import('node:child_process');
 
@@ -153,18 +164,24 @@ describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
           // Both branches exist
           const branchName = cmdArgs[cmdArgs.length - 1];
           cb(null, { stdout: `  ${branchName}\n`, stderr: '' });
-        } else if (cmdArgs?.includes('merge-base') && cmdArgs?.includes('--is-ancestor')) {
-          // Valid branch: not merged into main
-          cb(new Error('exit code 1'));
         } else {
+          // Valid branch: merged into main (merge-base succeeds), plus all
+          // downstream removal steps succeed so it is fully cleaned.
           cb(null, { stdout: '', stderr: '' });
         }
       }
       return {} as ReturnType<typeof execFile>;
     });
 
-    await expect(cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger())).rejects.toThrow(
-      'self-referential parentBranch'
+    const outcomes = await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
+
+    expect(outcomes).toContainEqual(
+      expect.objectContaining({ branch: 'cards/card-123/1', action: 'cleaned', reason: 'merged' })
     );
+    expect(outcomes).toContainEqual(
+      expect.objectContaining({ branch: 'cards/card-456/1', action: 'error', reason: 'self-referential-parent' })
+    );
+    // The cleaned outcome is not lost behind the corrupt branch's error.
+    expect(outcomes.filter((o) => o.action === 'cleaned')).toHaveLength(1);
   });
 });

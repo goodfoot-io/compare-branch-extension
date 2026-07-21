@@ -42,6 +42,9 @@ beforeEach(async () => {
   vi.clearAllMocks();
   tempCardRepo = fsSyncNs.mkdtempSync(path.join(os.tmpdir(), 'cleanup-order-test-'));
 
+  // A readable, non-active status lets the sweep past the fail-closed status guard.
+  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'CARD.meta.json'), JSON.stringify({ status: 'needs_review' }));
+
   // Enable discovery test mode so createCardsClient() returns a client without
   // a real cards-api.json file on disk.
   process.env['API_TEST_MODE'] = '1';

@@ -551,7 +551,17 @@ export interface BranchCleanupOutcome {
  * Before doing anything else, the sweep checks the card's own status: an
  * `active` card must never have its worktree or branch reclaimed out from
  * under it, so the sweep is skipped entirely (no `branches/` read, no git
- * calls) when the card is active.
+ * calls) when the card is active. The same fail-closed skip applies when the
+ * status is unreadable (missing/corrupt/mid-write `CARD.meta.json`, or a
+ * non-string status) — reported with reason `status-unreadable` — since we
+ * cannot prove the card is safe to touch.
+ *
+ * A single branch's failure never aborts the sweep: per-branch faults (a
+ * self-referential `parentBranch`, or any git/read error mid-branch) are
+ * contained, recorded as an `error` outcome for that branch, and the sweep
+ * continues to the next branch, always returning every accumulated outcome.
+ * Only an unrecoverable setup failure before any branch mutation (e.g. an
+ * unusable `cardRepoPath` / `branches/` directory) propagates as a throw.
  *
  * @param input - Action input containing cardId and workspace paths.
  * @param cardRepoPath - Absolute path to the card's git repository.
@@ -572,6 +582,13 @@ export async function cleanupMergedBranches(
     logger.info('Skipping branch cleanup — card is active', { cardId: input.cardId });
     return [{ cardId: input.cardId, branch: '(all)', action: 'skipped', reason: 'active' }];
   }
+  // Fail closed: a missing, corrupt, or mid-write CARD.meta.json (or a non-string
+  // status) reads back as null. We cannot prove the card is inactive, so we must
+  // not reclaim its worktree/branch — treat unreadable status exactly like active.
+  if (cardStatus === null) {
+    logger.warn('Skipping branch cleanup — card status unreadable', { cardId: input.cardId });
+    return [{ cardId: input.cardId, branch: '(all)', action: 'skipped', reason: 'status-unreadable' }];
+  }
 
   const outcomes: BranchCleanupOutcome[] = [];
   let t0 = performance.now();
@@ -590,184 +607,205 @@ export async function cleanupMergedBranches(
   });
 
   for (const [branchName, branchData] of entries) {
-    // Check if branch exists in git
-    let branchExists = false;
+    // A single branch's failure must never abort the whole per-card sweep or
+    // discard outcomes already accumulated for earlier branches (a workspace-wide
+    // Clean Up Worktrees sweep would otherwise hide real, irreversible deletions
+    // behind one card's later error). Contain every per-branch fault here, record
+    // it as an 'error' outcome, and move on to the next branch.
     try {
-      const result = await execFileAsync('git', ['branch', '--list', branchName], { cwd: input.repoRoot });
-      branchExists = result.stdout.trim().length > 0;
-    } catch (error) {
-      logger.debug('git branch --list failed, treating as non-existent', {
-        branch: branchName,
-        error: errorMessage(error)
-      });
-    }
+      // Check if branch exists in git
+      let branchExists = false;
+      try {
+        const result = await execFileAsync('git', ['branch', '--list', branchName], { cwd: input.repoRoot });
+        branchExists = result.stdout.trim().length > 0;
+      } catch (error) {
+        logger.debug('git branch --list failed, treating as non-existent', {
+          branch: branchName,
+          error: errorMessage(error)
+        });
+      }
 
-    if (!branchExists) {
-      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'branch-not-found' });
-      continue;
-    }
+      if (!branchExists) {
+        outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'branch-not-found' });
+        continue;
+      }
 
-    // Self-referential parentBranch is a corrupt state — `merge-base --is-ancestor X X`
-    // trivially succeeds, so cleanup would incorrectly remove unmerged work.
-    if (branchData.parentBranch === branchName) {
-      throw new Error(
-        `Branch "${branchName}" has self-referential parentBranch — refusing to run cleanup. ` +
-          'This is a data corruption bug: a branch cannot be its own parent.'
-      );
-    }
+      // Self-referential parentBranch is a corrupt state — `merge-base --is-ancestor X X`
+      // trivially succeeds, so cleanup would incorrectly remove unmerged work.
+      // Refuse to touch this branch, but keep sweeping the card's other branches.
+      if (branchData.parentBranch === branchName) {
+        logger.error('Branch has self-referential parentBranch — refusing to clean up', {
+          cardId: input.cardId,
+          branch: branchName
+        });
+        outcomes.push({
+          cardId: input.cardId,
+          branch: branchName,
+          action: 'error',
+          reason: 'self-referential-parent'
+        });
+        continue;
+      }
 
-    t0 = performance.now();
-    try {
-      // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
-      // Check against the branch's own parentBranch, not the workspace HEAD.
-      await execFileAsync('git', ['merge-base', '--is-ancestor', branchName, branchData.parentBranch], {
-        cwd: input.repoRoot
-      });
-    } catch {
-      // Expected for unmerged branches — skip cleanup
-      logger.debug('Branch not merged, skipping cleanup', {
+      t0 = performance.now();
+      try {
+        // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
+        // Check against the branch's own parentBranch, not the workspace HEAD.
+        await execFileAsync('git', ['merge-base', '--is-ancestor', branchName, branchData.parentBranch], {
+          cwd: input.repoRoot
+        });
+      } catch {
+        // Expected for unmerged branches — skip cleanup
+        logger.debug('Branch not merged, skipping cleanup', {
+          branch: branchName,
+          elapsedMs: Math.round(performance.now() - t0)
+        });
+        outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'not-merged' });
+        continue;
+      }
+      logger.debug('merge-base check completed (merged)', {
         branch: branchName,
         elapsedMs: Math.round(performance.now() - t0)
       });
-      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'not-merged' });
-      continue;
-    }
-    logger.debug('merge-base check completed (merged)', {
-      branch: branchName,
-      elapsedMs: Math.round(performance.now() - t0)
-    });
 
-    // Branch is merged — but the per-card sweep must never reclaim a worktree
-    // that another action on this card is still using. A sibling action's
-    // branch sitting at zero commits beyond its parent is trivially an ancestor
-    // of that parent, so "merged" alone is too weak a signal to act on. Gate on
-    // actual liveness: if a process is currently rooted in the worktree, the
-    // owning action is still running — skip the entire reclamation rather than
-    // SIGKILL the agent and delete its worktree out from under it.
-    if (branchData.worktree) {
-      let liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
-      if (liveProcesses.length > 0) {
-        const BACKOFF_START_MS = 1000;
-        const BACKOFF_MAX_MS = options?.backoffMaxMs ?? 3_600_000; // 1 hour
-        let retries = 0;
-        const backoffStart = performance.now();
-
-        while (liveProcesses.length > 0) {
-          const elapsed = performance.now() - backoffStart;
-          if (elapsed >= BACKOFF_MAX_MS) break;
-
-          const delay = Math.min(2 ** retries * BACKOFF_START_MS, BACKOFF_MAX_MS - elapsed);
-          logger.info('Worktree in use — retrying with exponential backoff', {
-            branch: branchName,
-            worktree: branchData.worktree,
-            pids: liveProcesses,
-            retry: retries + 1,
-            delayMs: Math.round(delay),
-            elapsedS: Math.round(elapsed / 1000)
-          });
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
-          retries++;
-        }
-
+      // Branch is merged — but the per-card sweep must never reclaim a worktree
+      // that another action on this card is still using. A sibling action's
+      // branch sitting at zero commits beyond its parent is trivially an ancestor
+      // of that parent, so "merged" alone is too weak a signal to act on. Gate on
+      // actual liveness: if a process is currently rooted in the worktree, the
+      // owning action is still running — skip the entire reclamation rather than
+      // SIGKILL the agent and delete its worktree out from under it.
+      if (branchData.worktree) {
+        let liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
         if (liveProcesses.length > 0) {
-          logger.warn('Worktree still in use after backoff retries — skipping cleanup', {
+          const BACKOFF_START_MS = 1000;
+          const BACKOFF_MAX_MS = options?.backoffMaxMs ?? 3_600_000; // 1 hour
+          let retries = 0;
+          const backoffStart = performance.now();
+
+          while (liveProcesses.length > 0) {
+            const elapsed = performance.now() - backoffStart;
+            if (elapsed >= BACKOFF_MAX_MS) break;
+
+            const delay = Math.min(2 ** retries * BACKOFF_START_MS, BACKOFF_MAX_MS - elapsed);
+            logger.info('Worktree in use — retrying with exponential backoff', {
+              branch: branchName,
+              worktree: branchData.worktree,
+              pids: liveProcesses,
+              retry: retries + 1,
+              delayMs: Math.round(delay),
+              elapsedS: Math.round(elapsed / 1000)
+            });
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            liveProcesses = await findProcessesInDirectory(branchData.worktree, logger);
+            retries++;
+          }
+
+          if (liveProcesses.length > 0) {
+            logger.warn('Worktree still in use after backoff retries — skipping cleanup', {
+              branch: branchName,
+              worktree: branchData.worktree,
+              pids: liveProcesses,
+              retries,
+              elapsedS: Math.round((performance.now() - backoffStart) / 1000)
+            });
+            outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'in-use' });
+            continue;
+          }
+
+          logger.info('Worktree liveness gate passed after backoff', {
             branch: branchName,
             worktree: branchData.worktree,
-            pids: liveProcesses,
             retries,
             elapsedS: Math.round((performance.now() - backoffStart) / 1000)
           });
-          outcomes.push({ cardId: input.cardId, branch: branchName, action: 'skipped', reason: 'in-use' });
-          continue;
         }
 
-        logger.info('Worktree liveness gate passed after backoff', {
+        t0 = performance.now();
+        await tryCleanupStep(
+          () => killProcessesInDirectory(branchData.worktree!, logger),
+          'Failed to kill processes in worktree',
+          branchName,
+          logger
+        );
+        await tryCleanupStep(
+          () => execFileAsync('git', ['worktree', 'remove', '--force', branchData.worktree!], { cwd: input.repoRoot }),
+          'Failed to remove worktree',
+          branchName,
+          logger
+        );
+        logger.debug('Worktree removal completed', {
           branch: branchName,
-          worktree: branchData.worktree,
-          retries,
-          elapsedS: Math.round((performance.now() - backoffStart) / 1000)
+          elapsedMs: Math.round(performance.now() - t0)
         });
       }
 
       t0 = performance.now();
-      await tryCleanupStep(
-        () => killProcessesInDirectory(branchData.worktree!, logger),
-        'Failed to kill processes in worktree',
-        branchName,
-        logger
-      );
-      await tryCleanupStep(
-        () => execFileAsync('git', ['worktree', 'remove', '--force', branchData.worktree!], { cwd: input.repoRoot }),
-        'Failed to remove worktree',
-        branchName,
-        logger
-      );
-      logger.debug('Worktree removal completed', {
+      let branchDeleted = false;
+      try {
+        await execFileAsync('git', ['branch', '-d', branchName], { cwd: input.repoRoot });
+        branchDeleted = true;
+      } catch (error) {
+        logger.warn('Failed to delete branch', { branch: branchName, error: errorMessage(error) });
+      }
+      logger.debug('Branch deletion completed', {
         branch: branchName,
+        branchDeleted,
         elapsedMs: Math.round(performance.now() - t0)
       });
-    }
 
-    t0 = performance.now();
-    let branchDeleted = false;
-    try {
-      await execFileAsync('git', ['branch', '-d', branchName], { cwd: input.repoRoot });
-      branchDeleted = true;
+      if (branchDeleted) {
+        // Remove the branch's per-entry file from branches/ and commit
+        t0 = performance.now();
+        await tryCleanupStep(
+          async () => {
+            const entryRel = path.join(BRANCHES_DIR, `${encodeURIComponent(branchName)}.json`);
+            await fs.rm(path.join(cardRepoPath, entryRel), { force: true });
+
+            const gitEnv: Record<string, string> = {};
+            if (sessionId) {
+              gitEnv['CARDS_SESSION_ID'] = sessionId;
+            }
+            await execFileAsync('git', ['rm', '--quiet', '--ignore-unmatch', '--', entryRel], {
+              cwd: cardRepoPath,
+              env: { ...process.env, ...gitEnv }
+            });
+            // Re-count remaining entry files for the commit message.
+            let branchCount = 0;
+            try {
+              branchCount = (await fs.readdir(path.join(cardRepoPath, BRANCHES_DIR))).filter((f) =>
+                f.endsWith('.json')
+              ).length;
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            }
+            await execFileAsync(
+              'git',
+              ['commit', '-m', `Removed branch "${branchName}" (now tracking ${branchCount}).`],
+              { cwd: cardRepoPath, env: { ...process.env, ...gitEnv } }
+            );
+          },
+          'Failed to remove branch from card repo',
+          branchName,
+          logger
+        );
+        logger.debug('Card repo branch removal completed', {
+          branch: branchName,
+          elapsedMs: Math.round(performance.now() - t0)
+        });
+
+        logger.info('Cleaned up merged branch', { branch: branchName });
+        outcomes.push({ cardId: input.cardId, branch: branchName, action: 'cleaned', reason: 'merged' });
+      } else {
+        logger.info('Skipped branch record removal — git branch still exists', { branch: branchName });
+        outcomes.push({ cardId: input.cardId, branch: branchName, action: 'error', reason: 'branch-delete-failed' });
+      }
     } catch (error) {
-      logger.warn('Failed to delete branch', { branch: branchName, error: errorMessage(error) });
-    }
-    logger.debug('Branch deletion completed', {
-      branch: branchName,
-      branchDeleted,
-      elapsedMs: Math.round(performance.now() - t0)
-    });
-
-    if (branchDeleted) {
-      // Remove the branch's per-entry file from branches/ and commit
-      t0 = performance.now();
-      await tryCleanupStep(
-        async () => {
-          const entryRel = path.join(BRANCHES_DIR, `${encodeURIComponent(branchName)}.json`);
-          await fs.rm(path.join(cardRepoPath, entryRel), { force: true });
-
-          const gitEnv: Record<string, string> = {};
-          if (sessionId) {
-            gitEnv['CARDS_SESSION_ID'] = sessionId;
-          }
-          await execFileAsync('git', ['rm', '--quiet', '--ignore-unmatch', '--', entryRel], {
-            cwd: cardRepoPath,
-            env: { ...process.env, ...gitEnv }
-          });
-          // Re-count remaining entry files for the commit message.
-          let branchCount = 0;
-          try {
-            branchCount = (await fs.readdir(path.join(cardRepoPath, BRANCHES_DIR))).filter((f) =>
-              f.endsWith('.json')
-            ).length;
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-          }
-          await execFileAsync(
-            'git',
-            ['commit', '-m', `Removed branch "${branchName}" (now tracking ${branchCount}).`],
-            { cwd: cardRepoPath, env: { ...process.env, ...gitEnv } }
-          );
-        },
-        'Failed to remove branch from card repo',
-        branchName,
-        logger
-      );
-      logger.debug('Card repo branch removal completed', {
-        branch: branchName,
-        elapsedMs: Math.round(performance.now() - t0)
+      logger.logError(error, 'Branch cleanup failed — recording error and continuing sweep', {
+        cardId: input.cardId,
+        branch: branchName
       });
-
-      logger.info('Cleaned up merged branch', { branch: branchName });
-      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'cleaned', reason: 'merged' });
-    } else {
-      logger.info('Skipped branch record removal — git branch still exists', { branch: branchName });
-      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'error', reason: 'branch-delete-failed' });
+      outcomes.push({ cardId: input.cardId, branch: branchName, action: 'error', reason: 'branch-error' });
     }
   }
 

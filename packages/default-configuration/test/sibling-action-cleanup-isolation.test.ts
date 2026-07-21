@@ -89,6 +89,8 @@ beforeEach(() => {
   // Card repo holding the per-branch records the cleanup function reads.
   git(cardRepo, ['init', '-b', 'main']);
   configUser(cardRepo);
+  // A readable, non-active status lets the sweep past the fail-closed status guard.
+  fsSyncNs.writeFileSync(path.join(cardRepo, 'CARD.meta.json'), JSON.stringify({ status: 'needs_review' }));
   const branchesDir = path.join(cardRepo, 'branches');
   fsSyncNs.mkdirSync(branchesDir, { recursive: true });
 

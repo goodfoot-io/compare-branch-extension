@@ -111,10 +111,16 @@ beforeEach(async () => {
     return Promise.reject(Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' }));
   }) as unknown as typeof readdir);
   vi.mocked(rm).mockResolvedValue(undefined);
-  // Other reads (e.g. marketplace registration) return ENOENT
-  vi.mocked(readFile).mockRejectedValue(
-    Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
-  );
+  // CARD.meta.json reads back a readable, non-active status so cleanupMergedBranches
+  // proceeds past the fail-closed status guard and hits the EACCES on branches/ —
+  // the setup failure this test asserts is non-fatal. Other reads (e.g. marketplace
+  // registration) return ENOENT.
+  vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+    if (String(filePath).endsWith('CARD.meta.json')) {
+      return Promise.resolve(JSON.stringify({ status: 'needs_review' }));
+    }
+    return Promise.reject(Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' }));
+  });
 
   const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards.management/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
