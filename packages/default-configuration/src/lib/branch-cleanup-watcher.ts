@@ -17,7 +17,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import type { ActionContext } from '@cards.management/sdk/config';
-import { Logger, resolveLogFilePath } from '@cards.management/sdk/config';
+import { type ILogger, Logger, resolveLogFilePath } from '@cards.management/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
 
 /**
@@ -67,6 +67,15 @@ export interface BranchCleanupParams {
  * can construct its own working `Logger` before it has parsed anything off
  * stdin, and so both processes' lifecycle events land in one file even under
  * a `CARDS_HOOKS_LOG_FILE`/`CARDS_LOG_DIR` override.
+ *
+ * Immediately after a successful `spawn()`, this also writes the
+ * cleanup-attempt marker (see {@link writeCleanupMarker}) from the parent —
+ * not the child. The parent is the only process guaranteed to run before a
+ * child that dies during its own Node/ESM module bootstrap (i.e. before it
+ * can log anything at all), so writing the marker here, and logging its path
+ * alongside the "spawned" log line, is what lets an external observer
+ * distinguish "cleanup attempt started but the child never even got far
+ * enough to log" from "cleanup never attempted."
  *
  * After wiring up stdin/unref, this awaits a short, bounded race between the
  * child's own `'exit'` event and a grace-period timer
@@ -123,12 +132,11 @@ export async function spawnBranchCleanupWatcher(
     return;
   }
 
-  logger.info('Branch-cleanup watcher spawned', {
-    pid: child.pid,
-    cardId: params.cardId,
-    sessionId: params.sessionId
-  });
-
+  // Registered synchronously, before any `await`, so a child that exits
+  // immediately (as simulated in tests, or in a real fast crash) can never
+  // fire 'exit' before this listener exists — inserting an `await` (e.g. for
+  // the marker write below) ahead of this registration would open exactly
+  // that race.
   let exited = false;
   let onExitedForGrace: (() => void) | undefined;
   child.on('exit', (code, signal) => {
@@ -157,20 +165,36 @@ export async function spawnBranchCleanupWatcher(
 
   child.unref();
 
+  // The grace-period race timer is constructed here — synchronously, still
+  // before any `await` — rather than after the marker write below, so its
+  // window starts counting from the moment the child was spawned, not from
+  // whenever the (async) marker write happens to settle.
+  //
   // Bounded race: give the parent a brief window to observe a child that
   // crashes or is killed immediately after spawn (the 'exit' handler above
   // otherwise fires far too late to matter — the parent tears down via
   // process.exit() before the detached child, which may retry for up to an
   // hour, ever gets there). Not a wait for the child's real work to finish.
-  if (!exited) {
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, EXIT_GRACE_MS);
-      onExitedForGrace = () => {
-        clearTimeout(timer);
-        resolve();
-      };
-    });
-  }
+  const graceRace = exited
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, EXIT_GRACE_MS);
+        onExitedForGrace = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+      });
+
+  const markerPath = await writeCleanupMarker(params.cardId, params.sessionId, logger);
+
+  logger.info('Branch-cleanup watcher spawned', {
+    pid: child.pid,
+    cardId: params.cardId,
+    sessionId: params.sessionId,
+    markerPath
+  });
+
+  await graceRace;
 }
 
 // ============================================================================
@@ -181,11 +205,34 @@ export async function spawnBranchCleanupWatcher(
 const STDIN_TIMEOUT_MS = 10_000;
 
 /**
+ * Computes the deterministic absolute path for a card/session's
+ * cleanup-attempt marker. Both the parent (which writes the marker in
+ * {@link writeCleanupMarker}) and the detached child (which removes it once
+ * cleanup settles) derive the same path from `cardId`/`sessionId` alone, so
+ * the path never needs to be passed to the child over stdin.
+ *
+ * @param cardId - The card ID for the session being cleaned up.
+ * @param sessionId - Optional session ID for correlation.
+ * @returns The absolute marker path.
+ */
+function cleanupMarkerPath(cardId: string, sessionId: string | undefined): string {
+  const markerDir = path.join(os.homedir(), '.cards', 'branch-cleanup-markers');
+  return path.join(markerDir, `${cardId}-${sessionId ?? 'unknown'}.json`);
+}
+
+/**
  * Writes a marker file recording that a cleanup attempt started for this
  * card/session, so an external observer can distinguish "cleanup never
  * started" from "cleanup started but the process was killed before it could
- * log completion." Degrades gracefully: a failure to create the marker is
- * logged and swallowed, matching this file's fail-open posture.
+ * log completion" — including the case where the detached child dies during
+ * its own Node/ESM module bootstrap, before it can log anything at all.
+ *
+ * Called from the parent ({@link spawnBranchCleanupWatcher}), immediately
+ * after a successful `spawn()`, rather than from the child — the parent is
+ * the only process guaranteed to run before that bootstrap-kill window.
+ * Degrades gracefully: a failure to create the marker is logged and
+ * swallowed, matching this file's fail-open posture, and does not block or
+ * fail the watcher spawn.
  *
  * @param cardId - The card ID for the session being cleaned up.
  * @param sessionId - Optional session ID for correlation.
@@ -195,12 +242,11 @@ const STDIN_TIMEOUT_MS = 10_000;
 async function writeCleanupMarker(
   cardId: string,
   sessionId: string | undefined,
-  logger: Logger
+  logger: ILogger
 ): Promise<string | undefined> {
-  const markerDir = path.join(os.homedir(), '.cards', 'branch-cleanup-markers');
-  const markerPath = path.join(markerDir, `${cardId}-${sessionId ?? 'unknown'}.json`);
+  const markerPath = cleanupMarkerPath(cardId, sessionId);
   try {
-    await fs.mkdir(markerDir, { recursive: true });
+    await fs.mkdir(path.dirname(markerPath), { recursive: true });
     await fs.writeFile(markerPath, JSON.stringify({ startedAt: new Date().toISOString() }));
     return markerPath;
   } catch (error) {
@@ -215,13 +261,17 @@ async function writeCleanupMarker(
 
 /**
  * Removes a cleanup-attempt marker written by {@link writeCleanupMarker}.
- * Failures are logged and swallowed — a marker that fails to delete is a
- * stale-but-harmless leftover, not a reason to fail the cleanup run.
+ * Called from the detached child, in its own `finally` block, once
+ * {@link cleanupMergedBranches} settles (success or failure) — the child
+ * recomputes the marker path via {@link cleanupMarkerPath} rather than
+ * receiving it from the parent. Failures are logged and swallowed — a marker
+ * that fails to delete is a stale-but-harmless leftover, not a reason to fail
+ * the cleanup run.
  *
  * @param markerPath - Absolute path to the marker file.
  * @param logger - Logger for diagnostic output.
  */
-async function removeCleanupMarker(markerPath: string, logger: Logger): Promise<void> {
+async function removeCleanupMarker(markerPath: string, logger: ILogger): Promise<void> {
   try {
     await fs.rm(markerPath, { force: true });
   } catch (error) {
@@ -311,14 +361,16 @@ export async function runDetachedCleanup(stdin: NodeJS.ReadableStream = process.
         const input = { cardId, repoRoot };
         logger.info('Branch-cleanup watcher started', { cardId, sessionId });
 
-        let markerPath: string | undefined;
+        // Recomputed rather than passed over stdin: the marker path is a
+        // deterministic function of cardId/sessionId, and the marker itself
+        // was already written by the parent in spawnBranchCleanupWatcher()
+        // before this child could have logged anything.
+        const markerPath = cleanupMarkerPath(cardId, sessionId);
         try {
           const client = await createCardsClient();
           if (!client) {
             throw new Error('Cards API discovery failed — cannot run branch cleanup');
           }
-
-          markerPath = await writeCleanupMarker(cardId, sessionId, logger);
 
           const startedAt = performance.now();
           await cleanupMergedBranches(input, cardRepoPath, logger, sessionId);
@@ -333,7 +385,7 @@ export async function runDetachedCleanup(stdin: NodeJS.ReadableStream = process.
           logger.error('Branch-cleanup watcher failed', { error: message, cardId, sessionId });
           resolve(1);
         } finally {
-          if (markerPath) await removeCleanupMarker(markerPath, logger);
+          await removeCleanupMarker(markerPath, logger);
           logger.close();
         }
       })();

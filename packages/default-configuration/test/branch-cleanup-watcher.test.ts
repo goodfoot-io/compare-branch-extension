@@ -43,6 +43,16 @@ vi.mock('@cards.management/sdk/config', async (importOriginal) => {
   return { ...actual, resolveLogFilePath: vi.fn(actual.resolveLogFilePath) };
 });
 
+// Wraps mkdir/writeFile in spies that forward to the real implementation by
+// default (the cleanup-marker tests below rely on genuine file I/O), so
+// individual fake-timer tests can override them to resolve instantly —
+// otherwise the marker write's real (if brief) disk latency races against
+// `vi.advanceTimersByTimeAsync`'s fixed-step advances and can starve them.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, mkdir: vi.fn(actual.mkdir), writeFile: vi.fn(actual.writeFile) };
+});
+
 /**
  * Builds a fake logger conforming to `ActionContext['logger']` with spy-able
  * methods, for tests that only need to assert calls (not real file output).
@@ -290,7 +300,13 @@ describe('spawnBranchCleanupWatcher', () => {
   it('resolves via the child exit event without waiting for the grace-period timer', async () => {
     vi.useFakeTimers();
     const { spawn } = await import('node:child_process');
+    const { mkdir, writeFile } = await import('node:fs/promises');
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+    // Marker write isn't under test here; make it resolve instantly so it
+    // can't race the fake-timer advances below.
+    vi.mocked(mkdir).mockResolvedValueOnce(undefined as unknown as string);
+    vi.mocked(writeFile).mockResolvedValueOnce(undefined);
 
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
@@ -308,7 +324,13 @@ describe('spawnBranchCleanupWatcher', () => {
   it('resolves via the grace-period timer when the child never exits', async () => {
     vi.useFakeTimers();
     const { spawn } = await import('node:child_process');
+    const { mkdir, writeFile } = await import('node:fs/promises');
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+    // Marker write isn't under test here; make it resolve instantly so it
+    // can't race the fake-timer advances below.
+    vi.mocked(mkdir).mockResolvedValueOnce(undefined as unknown as string);
+    vi.mocked(writeFile).mockResolvedValueOnce(undefined);
 
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
@@ -329,11 +351,93 @@ describe('spawnBranchCleanupWatcher', () => {
 
     await promise;
   });
+
+  describe('cleanup-attempt marker', () => {
+    // os.homedir() honors HOME on POSIX, so pointing it at a temp dir lets
+    // these tests exercise the real fs.mkdir/writeFile calls (no mocking of
+    // node:fs/promises, which would also break the real-Logger tests below
+    // that share this module) while keeping everything under a disposable
+    // directory.
+    let tmpHome: string;
+    let originalHome: string | undefined;
+
+    beforeEach(async () => {
+      originalHome = process.env['HOME'];
+      tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'branch-cleanup-marker-home-'));
+      process.env['HOME'] = tmpHome;
+    });
+
+    afterEach(() => {
+      if (originalHome !== undefined) {
+        process.env['HOME'] = originalHome;
+      } else {
+        delete process.env['HOME'];
+      }
+    });
+
+    function expectedMarkerPath(cardId: string, sessionId: string | undefined): string {
+      return path.join(tmpHome, '.cards', 'branch-cleanup-markers', `${cardId}-${sessionId ?? 'unknown'}.json`);
+    }
+
+    it('writes the cleanup-attempt marker on successful spawn and logs its path in the "spawned" log line', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const logger = createSpyLogger();
+      const promise = spawnBranchCleanupWatcher(baseParams, logger);
+      child.emit('exit', 0, null);
+      await promise;
+
+      const markerPath = expectedMarkerPath(baseParams.cardId, baseParams.sessionId);
+      const markerContent = JSON.parse(await fs.readFile(markerPath, 'utf-8')) as { startedAt: string };
+      expect(markerContent.startedAt).toEqual(expect.any(String));
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Branch-cleanup watcher spawned',
+        expect.objectContaining({ cardId: baseParams.cardId, sessionId: baseParams.sessionId, markerPath })
+      );
+    });
+
+    it('logs a warning and still spawns when the marker directory cannot be created', async () => {
+      // Force the marker write to fail by pre-creating a *file* (not a
+      // directory) at the path fs.mkdir needs to create as a directory.
+      const conflictingPath = path.join(tmpHome, '.cards');
+      await fs.mkdir(path.dirname(conflictingPath), { recursive: true });
+      await fs.writeFile(conflictingPath, 'not a directory');
+
+      const { spawn } = await import('node:child_process');
+      const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const logger = createSpyLogger();
+      const promise = spawnBranchCleanupWatcher(baseParams, logger);
+      child.emit('exit', 0, null);
+      await promise;
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Branch-cleanup watcher failed to write cleanup-attempt marker',
+        expect.objectContaining({ cardId: baseParams.cardId, sessionId: baseParams.sessionId })
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        'Branch-cleanup watcher spawned',
+        expect.objectContaining({ markerPath: undefined })
+      );
+      // Fail-open: the spawn itself still happened despite the marker failure.
+      expect(spawn).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 describe('runDetachedCleanup', () => {
   let logFilePath: string;
   let exitSpy: ReturnType<typeof vi.spyOn>;
+  let tmpHome: string;
+  let originalHome: string | undefined;
 
   beforeEach(async () => {
     logFilePath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'branch-cleanup-watcher-test-')), 'hooks.log');
@@ -343,13 +447,43 @@ describe('runDetachedCleanup', () => {
     // process survives; the function still resolves its promise with the
     // correct code before the exit call.
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+
+    // Same HOME-redirection trick as the marker tests above: the child
+    // recomputes the marker path via os.homedir(), so pointing HOME at a temp
+    // dir lets these tests plant/observe the real marker file on disk.
+    originalHome = process.env['HOME'];
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'branch-cleanup-marker-home-'));
+    process.env['HOME'] = tmpHome;
   });
 
   afterEach(() => {
     delete process.env['CARDS_HOOKS_LOG_FILE'];
     exitSpy.mockRestore();
     vi.useRealTimers();
+    if (originalHome !== undefined) {
+      process.env['HOME'] = originalHome;
+    } else {
+      delete process.env['HOME'];
+    }
   });
+
+  function markerPathFor(cardId: string, sessionId: string | undefined): string {
+    return path.join(tmpHome, '.cards', 'branch-cleanup-markers', `${cardId}-${sessionId ?? 'unknown'}.json`);
+  }
+
+  async function plantMarker(cardId: string, sessionId: string | undefined): Promise<string> {
+    const markerPath = markerPathFor(cardId, sessionId);
+    await fs.mkdir(path.dirname(markerPath), { recursive: true });
+    await fs.writeFile(markerPath, JSON.stringify({ startedAt: new Date().toISOString() }));
+    return markerPath;
+  }
+
+  async function markerExists(markerPath: string): Promise<boolean> {
+    return fs
+      .access(markerPath)
+      .then(() => true)
+      .catch(() => false);
+  }
 
   it('returns 0 and logs a full success trail, readable back from the log file', async () => {
     const { createCardsClient } = await import('@cards.management/sdk/client/discovery');
@@ -358,6 +492,10 @@ describe('runDetachedCleanup', () => {
 
     vi.mocked(createCardsClient).mockResolvedValue({} as never);
     vi.mocked(cleanupMergedBranches).mockResolvedValue(undefined);
+
+    // The parent normally writes this marker before the child even starts;
+    // planted here to simulate that, so removal can be observed.
+    const markerPath = await plantMarker('card-123', undefined);
 
     const stdin = new Readable({ read() {} });
     const resultPromise = runDetachedCleanup(stdin);
@@ -381,6 +519,11 @@ describe('runDetachedCleanup', () => {
         'Branch-cleanup watcher completed successfully'
       ])
     );
+
+    // The child removes the marker itself, in its finally block, once
+    // cleanup settles — it never received the path over stdin, it recomputed
+    // the same deterministic path.
+    expect(await markerExists(markerPath)).toBe(false);
   });
 
   it('logs a parse failure and returns 1 when stdin ends with invalid JSON', async () => {
@@ -428,6 +571,8 @@ describe('runDetachedCleanup', () => {
     vi.mocked(createCardsClient).mockResolvedValue({} as never);
     vi.mocked(cleanupMergedBranches).mockRejectedValue(new Error('git worktree remove failed'));
 
+    const markerPath = await plantMarker('card-123', 's1');
+
     const stdin = new Readable({ read() {} });
     const resultPromise = runDetachedCleanup(stdin);
     stdin.push(
@@ -443,5 +588,9 @@ describe('runDetachedCleanup', () => {
     expect(failure).toMatchObject({
       context: { error: 'git worktree remove failed', cardId: 'card-123', sessionId: 's1' }
     });
+
+    // The marker is removed even on failure — it's a "was an attempt made"
+    // signal, not a success flag.
+    expect(await markerExists(markerPath)).toBe(false);
   });
 });
