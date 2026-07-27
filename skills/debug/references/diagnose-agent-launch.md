@@ -132,7 +132,7 @@ Set by `cardsApiCommands.ts` lines 230-236. **Status: all current**.
 | `MARKETPLACE_PATH` | `{globalStorage}/marketplace` | Stable symlink to bundled marketplace |
 | `EXTENSION_PATH` | `{ext}/dist` | Extension install directory |
 | `CARDS_BIN_PATH` | `{ext}/dist/bin` | CLI tool directory |
-| `CODING_AGENT` | `claude-code-cli` | Agent identifier (current release: Claude only) |
+| `CODING_AGENT` | `codingAgentEnvValue` (resolved via `resolveEffectiveAgent`/gate, e.g. `claude-code-cli` or `codex-cli`) | Agent identifier |
 | `REPO_ROOT` | First workspace folder path | Main git repository root |
 | `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD` | `1` | Enable additional directory CLAUDE.md loading |
 
