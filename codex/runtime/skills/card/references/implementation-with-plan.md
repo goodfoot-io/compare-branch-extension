@@ -83,7 +83,7 @@ The unit of assignment is a group. Choose the group's shape and delegate.
 
 **Routing.** First match wins:
 
-- **Parallel** — independent files, or uniform steps across files. Concurrent agents over independent groups; one commit after the group returns.
+- **Parallel** — independent files, or uniform steps across files. Concurrent agents over independent groups; one commit after the group returns. Before dispatching, confirm the file sets assigned to each concurrent agent are disjoint — if any file appears in more than one agent's scope, route Coherent or Sequential instead; "independent" is a claim about the actual assigned paths, not a default.
 - **Sequential** — multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Each phase ends in a commit and an immediate return to `<verify-plan-state>` for the next phase.
 - **Coherent** — dependent and varied steps, single phase, single end-of-scope validation gate. One agent, one commit. When uncertain between Coherent and Sequential, choose Sequential.
 
