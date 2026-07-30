@@ -1,6 +1,6 @@
 {
   "name": "cards",
-  "version": "1.0.290",
+  "version": "1.0.291",
   "description": "Codex cards plugin for interacting with the Cards extension APIs",
   "author": {
     "name": "Goodfoot Media LLC"

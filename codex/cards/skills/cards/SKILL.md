@@ -12,6 +12,8 @@ Card Repository below.
 For controlling VS Code (opening files, running commands, sending notifications,
 managing panels, controlling the debugger, etc.), load `./references/extension-cli.md`.
 
+For launching individual cards to implement the work they describe, load `./references/launch-cards.md`.
+
 The user is notified when you create a card or add a comment.
 
 ## Card Type References
