@@ -302,7 +302,7 @@ async function isExistingDirectory(directoryPath: string): Promise<boolean> {
  * `hooks/*`), and is excluded from {@link computePluginContentHash} so it never
  * perturbs the digest it records.
  */
-const CODEX_PLUGIN_CONTENT_STAMP = '.cards-content-hash';
+export const CODEX_PLUGIN_CONTENT_STAMP = '.cards-content-hash';
 
 /**
  * Computes a stable content digest of a bundled plugin source directory: every
@@ -400,7 +400,7 @@ async function readSlotContentStamp(versionDir: string): Promise<string | null> 
  * @param version - Validated manifest version used as the cache segment.
  * @returns The load path `<marketplaceDir>/<plugin>/<version>`.
  */
-async function installPluginToCache(
+export async function installPluginToCache(
   pluginName: CodexPluginName,
   marketplaceDir: string,
   sourceDir: string,
