@@ -99,13 +99,38 @@ This populates the plugin store so `--print` sessions can discover the plugins.
 
 ### Staging Flow
 
-`populateCodexPluginCache()` in `public/packages/default-configuration/src/lib/codex-session.ts`:
+Two entry points write the Codex plugin cache, and **both stage through the same
+routine**, `installPluginToCache()` in
+`public/packages/default-configuration/src/lib/codex-session.ts`:
 
-1. Reads the bundled `{bundlePath}/.agents/plugins/marketplace.json` to discover plugins
-2. For each plugin, reads its `.codex-plugin/plugin.json` for the version
-3. Staging: creates a temp dir under `{marketplaceDir}/.plugin-install-XXXXXX`, copies source files with `fs.cp`, stamps the copy with a `.cards-content-hash` digest of the bundle, then renames it into `{marketplaceDir}/{pluginName}/{version}/`
-4. Content-addressed restage: the slot is keyed on `version`, but Codex reads `plugin.json` `version` only as a display label and selects a `Local` plugin by the highest-semver **directory name** — so a rebuilt bundle whose version was not bumped maps to the same slot. On each population the current bundle's digest is compared to the existing slot's `.cards-content-hash`: a match leaves the slot untouched (no write — the race-free common case), a mismatch (or a missing stamp, e.g. a pre-content-address slot) evicts the stale slot and renames the fresh copy in. This is the fix for same-version rebuilds silently running stale hooks.
+| Entry point | Caller | Triggered by |
+|---|---|---|
+| Setup wizard | `CodexInstaller.install()` (`packages/extension/src/agents/install/CodexInstaller.ts`) | **Cards: Configure Coding Agent**, and on activation when the installed extension changed |
+| Session launch | `populateCodexPluginCache()` | Every Cards-spawned Codex session, before spawn |
+
+Because there is one writer, both paths carry the same guarantees: atomic
+publish, a content stamp, manifest validation, and pruning of superseded
+versions. The wizard is not a separate staging mechanism — it differs only in
+*which* plugins it stages and *when* it runs.
+
+`installPluginToCache(pluginName, marketplaceDir, sourceDir, version)`:
+
+1. Computes a `.cards-content-hash` digest of the source bundle (SHA-256 folded over entries sorted by relative path)
+2. Content-addressed skip: reads the existing slot's stamp. A match leaves the slot untouched — no write at all, the race-free common case. A missing stamp is treated as stale (fail-closed), so a pre-content-address slot always restages.
+3. On a miss, creates a temp dir under `{marketplaceDir}/.plugin-install-XXXXXX`, copies source files with `fs.cp`, writes the stamp, and validates `.codex-plugin/plugin.json`
+4. Publishes by evicting any stale slot (to `.plugin-evict-XXXXXX`) and renaming the staged copy into `{marketplaceDir}/{pluginName}/{version}/`
 5. Prunes superseded versions via `pruneSupersededPluginVersions()` — keeps only the highest semver
+
+Step 2 is why the slot is content-addressed rather than version-addressed: Codex
+reads `plugin.json` `version` only as a display label and selects a `Local`
+plugin by the highest-semver **directory name**, so a rebuilt bundle whose
+version was not bumped maps to the same slot. Comparing digests is what stops a
+same-version rebuild from silently running stale hooks.
+
+`populateCodexPluginCache()` wraps this with discovery: it reads the bundled
+`{bundlePath}/.agents/plugins/marketplace.json` to enumerate plugins and reads
+each `.codex-plugin/plugin.json` for the version before calling
+`installPluginToCache()`.
 
 ### Plugins Staged for Launch
 
@@ -127,7 +152,12 @@ The `cards-sdk` plugin is NOT staged — it's only consumed at build time.
 Based on cache state:
 - **Claude cache has old versions**: Managed by Claude Code's own plugin system — 7-day orphan GC on unused versions.
 - **Codex cache has old versions**: `pruneSupersededPluginVersions()` deletes all but the highest semver at each cache population.
-- **Codex slot stale despite an extension rebuild** (same `version`, different bytes): fixed — the slot is content-addressed via `.cards-content-hash`, so a rebuilt bundle restages even when its declared `version` did not change. A slot from before this fix has no stamp and restages on the next launch. Manual remediation is no longer required; a relaunch is sufficient.
+- **Codex slot stale despite an extension rebuild** (same `version`, different bytes): the slot is content-addressed via `.cards-content-hash`, so a rebuilt bundle restages even when its declared `version` did not change. A slot from before this fix has no stamp and restages on the next launch. Manual remediation is not required — but staging only happens when the wizard runs or a Cards session is spawned, so a slot can sit stale in between. Plain `codex` sessions started from a terminal read whatever is on disk and do not trigger a restage.
+- **Detecting staleness without launching**: `probeCodexFreshness()` in `packages/extension/src/agents/codexFreshness.ts` reads the highest-semver slot per plugin, compares its `.cards-content-hash` against a digest of the shipped bundle, and returns `current` / `stale` / `absent`. An unstamped slot reports `stale` (fail-closed). The verdicts ride on the agent capability record as `codexFreshness` and surface as a warning icon in the Cards action picker. Manual equivalent:
+  ```bash
+  find ~/.codex/plugins/cache/local -name '.cards-content-hash' -exec sh -c 'echo "$1: $(cat "$1")"' _ {} \;
+  ```
+  Zero results means every slot predates content addressing and is treated as stale.
 - **Marketplace symlink unchanged**: Recreated on every extension activation — always points to the current version.
 - **Extension upgraded but settings reference old paths**: The marketplace symlink is stable — `MARKETPLACE_PATH` doesn't change. But installed plugin pointers in `installed_plugins.json` may point to a stale cache directory. Re-running the agent install flow refreshes them.
 
