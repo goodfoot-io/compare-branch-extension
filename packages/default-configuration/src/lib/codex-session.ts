@@ -319,7 +319,7 @@ export const CODEX_PLUGIN_CONTENT_STAMP = '.cards-content-hash';
  * @param sourceDir - Absolute path to the packaged plugin source directory.
  * @returns Lowercase hex SHA-256 digest of the directory's file contents.
  */
-async function computePluginContentHash(sourceDir: string): Promise<string> {
+export async function computePluginContentHash(sourceDir: string): Promise<string> {
   const files: string[] = [];
   const walk = async (dir: string): Promise<void> => {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -356,7 +356,7 @@ async function computePluginContentHash(sourceDir: string): Promise<string> {
  *   (an unstamped slot from a pre-content-address build always reads as `null`,
  *   which forces a restage — fail closed).
  */
-async function readSlotContentStamp(versionDir: string): Promise<string | null> {
+export async function readSlotContentStamp(versionDir: string): Promise<string | null> {
   try {
     return (await fs.readFile(path.join(versionDir, CODEX_PLUGIN_CONTENT_STAMP), 'utf-8')).trim();
   } catch (error) {
