@@ -30,6 +30,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards.management/sdk/config';
 import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards.management/sessions/card-repo';
 import { stopHook, stopOutput } from '@goodfoot/codex-hooks';
@@ -46,6 +47,16 @@ interface CardMeta {
 function readCardMeta(cardRepoPath: string): CardMeta {
   const raw = readFileSync(join(cardRepoPath, 'CARD.meta.json'), 'utf-8');
   return JSON.parse(raw) as CardMeta;
+}
+
+// Every build target compiles this hook to `<outBase>/hooks/bin/<name>.mjs`
+// (see agent-hooks/scripts/build.mjs) with skills shipped as a sibling of
+// `hooks/` at `<outBase>/skills/...`. Resolving from `import.meta.url` finds
+// the runbook wherever the plugin is installed; a repo-root-relative string
+// only resolves when the agent's cwd happens to be this monorepo's root,
+// which is not true for an installed (marketplace) plugin.
+function resolveMergeRunbookPath(): string {
+  return fileURLToPath(new URL('../../skills/card/references/merge.md', import.meta.url));
 }
 
 function getUnmergedCount(workspacePath: string, baseBranch: string, workspaceBranch: string): number {
@@ -142,7 +153,7 @@ export default stopHook({}, async (input, { logger }) => {
     reason: [
       `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`. The card does not have a \`blocked\` tag, and merge is either ungated or already approved.`,
       '',
-      'If validation and evaluation have passed and no scope remains, read `public/codex/runtime/skills/card/references/merge.md` and follow its `<instructions>` to merge.',
+      `If validation and evaluation have passed and no scope remains, read \`${resolveMergeRunbookPath()}\` and follow its \`<instructions>\` to merge.`,
       '',
       'Otherwise, load the `runtime:card` skill and follow its `<routing-instructions>` to determine the next action — but do not re-run validation or evaluation just because this nudge fired.'
     ].join('\n')

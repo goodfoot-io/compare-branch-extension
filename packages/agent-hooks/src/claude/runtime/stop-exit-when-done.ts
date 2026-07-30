@@ -2,8 +2,9 @@
  * Stop hook — exit-when-done nudge when the action was launched with EXIT_WHEN_DONE=true.
  *
  * Fires at most once per session. Returns `decision: 'block'` with a `reason`
- * pointing the agent at `public/claude/runtime/skills/card/references/shutdown.md`
- * when `actionInput.exitWhenDone` is `true`.
+ * pointing the agent at the installed `shutdown.md` (resolved relative to this
+ * compiled hook's own location — see {@link resolveShutdownRunbookPath}) when
+ * `actionInput.exitWhenDone` is `true`.
  *
  * Fail-open: every error path returns `null`.
  *
@@ -16,6 +17,7 @@
  * @see https://code.claude.com/docs/en/hooks#stop
  */
 
+import { fileURLToPath } from 'node:url';
 import { extractActionInput } from '@cards.management/sdk/config';
 import {
   hasSessionExitWhenDoneNudgeFired,
@@ -23,6 +25,17 @@ import {
 } from '@cards.management/sessions/card-repo';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { isSessionIdle } from '../../shared/session-idle.js';
+
+// Every build target compiles this hook to `<outBase>/hooks/bin/<name>.mjs`
+// (see agent-hooks/scripts/build.mjs) with skills shipped as a sibling of
+// `hooks/` at `<outBase>/skills/...`. Resolving from `import.meta.url` finds
+// the runbook wherever the plugin is installed; a repo-root-relative string
+// (e.g. `public/claude/runtime/skills/...`) only resolves when the agent's cwd
+// happens to be this monorepo's root, which is not true for an installed
+// (marketplace) plugin.
+function resolveShutdownRunbookPath(): string {
+  return fileURLToPath(new URL('../../skills/card/references/shutdown.md', import.meta.url));
+}
 
 export default stopHook({}, async (input, { logger }) => {
   let actionInput: ReturnType<typeof extractActionInput>;
@@ -71,7 +84,7 @@ export default stopHook({}, async (input, { logger }) => {
     reason: [
       'This action was launched with EXIT_WHEN_DONE=true, signalling that the session should exit once work is complete.',
       '',
-      'Read `public/claude/runtime/skills/card/references/shutdown.md` and follow its `<instructions>` to exit the session cleanly.'
+      `Read \`${resolveShutdownRunbookPath()}\` and follow its \`<instructions>\` to exit the session cleanly.`
     ].join('\n')
   });
 });
