@@ -37,7 +37,7 @@ Distill from the card what the situation looks like when the work is done and wh
 
 #### Research
 
-Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
+Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure. When the plan writes to or depends on another system's files or protocol, read that system's source at the deployed version: check for a native mechanism first; record the invariants it enforces.
 
 Follow the `<take-notes>` instructions from `$cards:notes` skill — write a note to the card repository for each architectural discovery made during research.
 
@@ -63,7 +63,7 @@ git commit -m "[single sentence summarizing the approach and key decisions]"
 
 ## 2. Investigate Testable Uncertainties
 
-Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source). Any assumption that affects a planned implementation step warrants investigation; spike it per the procedure below. Load-bearing assumptions are work items for this step, not questions to surface to the user as a choice — converting a spike into an (a)/(b) prompt is a protocol violation. Skip only when no load-bearing assumptions exist.
+Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source — including CARD.md claims about third-party behavior). Any assumption that affects a planned implementation step warrants investigation; spike it per the procedure below. Load-bearing assumptions are work items for this step, not questions to surface to the user as a choice — converting a spike into an (a)/(b) prompt is a protocol violation. Skip only when no load-bearing assumptions exist.
 
 For each testable uncertainty, load the `$runtime:spike` skill and follow its instructions. That skill owns spike classification (comparison vs. validation), subagent invocation, artifact layout, quality checks, and the commit flow.
 

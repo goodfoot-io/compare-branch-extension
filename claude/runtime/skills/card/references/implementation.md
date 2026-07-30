@@ -65,7 +65,7 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 <implementation-discipline>
 
-**Scope is the card's scope.** Implement only what the card specifies; do not introduce unrelated cleanup, refactoring, or abstractions. Discoveries in code the change does not interact with become new cards.
+**Scope is the card's scope.** Implement only what the card specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `cards:cards`) for discoveries in code the change does not interact with before finalizing.
 
 **Zero errors in affected packages.** Fix priority: pre-existing errors, then direct implementation, then test infrastructure, then environment.
 

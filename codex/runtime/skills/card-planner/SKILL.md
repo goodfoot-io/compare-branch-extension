@@ -47,7 +47,7 @@ Read `CARD.md` and the most recent comments in the card repository. Read any exi
 
 If `[PLAN_FILE]` already exists when you start — the orchestrator seeded it from a pre-existing un-approved plan — you are the **incumbent**. Your job is to defend and refine that plan through review, not to rewrite it from scratch. Round-1 is the inherited draft as-is (with any small corrections you already see); subsequent rounds revise in response to reviewer findings. You may still steal from peer plans and revise on real risks like any other planner — the incumbent role sets your starting point, not your ceiling.
 
-Distill commander's intent from the card — what the situation looks like when the work is done and what constraints must hold regardless of approach. Then research: read every consumer of each symbol, field, or boundary your plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
+Distill commander's intent from the card — what the situation looks like when the work is done and what constraints must hold regardless of approach. Then research: read every consumer of each symbol, field, or boundary your plan will touch.
 
 Write your plan to `[PLAN_FILE] = plans/[PLANNER_NAME].md` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
 

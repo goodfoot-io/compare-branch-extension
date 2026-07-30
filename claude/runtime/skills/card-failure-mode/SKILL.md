@@ -34,11 +34,12 @@ Then widen the net. Pull from every source that can reveal how this class of cha
 A question invites the diff to answer or the workspace to adjudicate; a checklist invites pattern-matching. Frame each as a specific question tied to a surface or failure angle. Draw on, but do not limit yourself to, these angles:
 
 - **Mechanism** — Which approaches in the diff could fail to accomplish what the card asks, and how would that failure present at runtime?
-- **Scope** — Which consumers, callers, or adjacent surfaces could the change plausibly reach that the implementation might miss? (Three or more changed files implies at least one missed consumer until verified.)
+- **Scope** — Which consumers, callers, or adjacent surfaces could the change plausibly reach that the implementation might miss?
 - **Contract** — Which interface, type, or schema changes does the diff make? What if a producer or consumer disagrees?
 - **Ordering** — Which steps depend on a particular ordering or runtime state? Which of those assumptions are fragile?
 - **Error and failure paths** — Where will things fail in production, and what does the implementation do about rollback, cleanup, timeouts, partial failure?
 - **Silent wrong results** — Where could the diff convert a visible failure into a silent wrong outcome (catch-and-continue, default fallbacks, optional chaining, retry exhaustion, mock/fake fallbacks outside tests)?
+- **Stale prose** — Which comments, docstrings, docs, or skill references describe a mechanism this diff changed, and are they still true?
 - **Claude-specific bias** — Which of these is this change especially exposed to: multi-file impact blindness, default-value bias, type-safety escape hatches (`as X`, forced casts, `any`), insecure defaults, copy-paste mutation, dead writes, async and ordering hazards?
 
 Hold the questions in your working context as your private lens; do not write them to a file and do not DM them.
