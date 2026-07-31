@@ -57,7 +57,7 @@ Based on the result:
 
 ## 3. Optional Escape Hatch — Orchestrator Judgment
 
-Before dispatching the evaluator, you may bail out if your reading of `plans/`, `commits/` directory, `CARD.md`, the diff against `implement/$CARD_ID/baseline`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
+Before dispatching the evaluator, you may bail out if your reading of `plans/`, `commits/` directory, `CARD.md`, the diff `implement/$CARD_ID/baseline..HEAD`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
 
 This skill cannot finalize the card on its own. The escape hatch may only re-route backward, never forward to merge:
 
@@ -68,7 +68,7 @@ If you choose not to bail out, continue to Step 4.
 
 ## 4. Dispatch failure-mode
 
-This pass dispatches a single failure-mode evaluator. Read the diff and the card before writing the prompt — the prompt must reflect this specific implementation, not generic instructions.
+This pass dispatches a single failure-mode evaluator. Read the diff and the card before writing the prompt — the prompt must reflect this specific implementation, not generic instructions. Record the HEAD SHA you dispatch against and inline it — Step 1.2 already made the tree clean there.
 
 ```xml
 <invoke name="Agent">
@@ -92,7 +92,7 @@ This is a re-validation pass — the implementation was committed in a prior ses
 [WORKSPACE_PATH]
 
 ## Baseline
-Changes are relative to git tag: `implement/[CARD_ID]/baseline`
+Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, DM `team-lead` a question naming the dirty paths, and yield.
 
 ## Validation
 Workspace validation passed before this dispatch. Focus on runtime behavior, semantic failures, completeness against the card's intent, and gaps the validation suite does not cover.
@@ -104,9 +104,9 @@ Workspace validation passed before this dispatch. Focus on runtime behavior, sem
 
 ## 5. Collect Verdict and Route
 
-Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM. An `idle_notification` before that verdict means the evaluator has stopped and will not resume on its own, whatever its last DM said — wake it with a DM inlining anything it was waiting on; if it idles again without a verdict, re-dispatch it.
+Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM. An `idle_notification` before that verdict means the evaluator has stopped and will not resume on its own, whatever its last DM said — wake it with a DM inlining anything it was waiting on; if it idles again without a verdict, re-dispatch it. An evaluator that yielded on a dirty tree is the exception — commit or revert the outstanding changes and wake it with the new HEAD SHA rather than re-dispatching.
 
-Once the evaluator has DM'd its `VERDICT:` it has gone idle and stopped on its own, so there is normally nothing to shut down. Only if it is still working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits):
+Once the evaluator has DM'd its `VERDICT:` it has gone idle — nothing to shut down. Only if it is still working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits):
 
 ```xml
 <invoke name="SendMessage">

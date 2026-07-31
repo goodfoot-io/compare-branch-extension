@@ -105,7 +105,7 @@ FINDING: [short label] round-K
 [Cause / failure mode / effect, plus severity / occurrence / detection tags, plus the user entry point and acceptance criterion it applies to.]
 ```
 
-The orchestrator routes findings into the developer wave. Continue your analysis after each finding — if the workspace changes under you, re-exercise the affected entry point when you need to. Do not restart.
+The orchestrator routes findings into the developer wave. Continue your analysis after each finding; do not restart. If the tree goes dirty under you, stop per your `## Baseline` block rather than re-exercising.
 
 ## 6. Handle Peer Critiques Relayed by the Orchestrator
 
@@ -142,7 +142,7 @@ When the orchestrator re-engages you for re-evaluation — by spawning you again
 
 ### 1. Review What Changed
 
-The orchestrator's re-evaluation context gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. Treat your prior findings (held in context, or inlined into the spawn message), together with the commits, as what to re-check — and decide which user entry points to re-exercise. The orchestrator's account orients you; the running implementation is the ground truth.
+The orchestrator's re-evaluation context gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. Treat your prior findings (held in context, or inlined into the spawn message), together with the commits, as what to re-check — and decide which user entry points to re-exercise. The orchestrator's account orients you; the implementation running at HEAD is ground truth.
 
 Tag findings you raise during this round with the new round number (e.g., `FINDING: <label> round-2`).
 

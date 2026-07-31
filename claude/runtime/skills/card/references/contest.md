@@ -15,7 +15,6 @@ Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-b
 </definitions>
 
 <placeholder-variables>
-[CARD_ID] — The card identifier
 [N_PLANNERS] — Number of parallel planners (2 for tier 3, 4 for tier 4)
 [WINNING_PLANNER] — The `planner-N` subagent the reviewer named in its `WINNER:` DM
 [WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` DM (e.g., `initial`, `phase-2`, `schema-first`)
@@ -108,7 +107,7 @@ The only things that legitimately reopen a closeable field: a planner choosing t
 
 **Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 4 — the reviewer's lone-survivor branch names the survivor without comparison.
 
-### Other Outcomes from Step 4
+### Other Outcomes from Step 3
 
 - **All planners blocked.** No viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Skip to Step 5: End the Contest with no winner, then return `BLOCKED` to the caller.
 - **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue monitoring. Do not intervene.

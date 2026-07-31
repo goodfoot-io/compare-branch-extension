@@ -8,24 +8,15 @@ Per-condition reference files for the `$runtime:card` skill. The router in `../S
 
 ## Routing Map
 
-| Condition | Reference |
-|-----------|-----------|
-| HAS_QUESTION | `question-response.md` |
-| IS_BLOCKED | `blocked.md` |
-| HAS_IMPLEMENTATION_FEEDBACK | `implementation-feedback.md` |
-| REVIEW_APPROVED | `merge.md` |
-| IS_STALE | `clarify-and-enrich.md` |
-| PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN | `plan-feedback.md` |
-| PLAN_REQUIRED AND NOT PLAN_APPROVED | `plan.md` |
-| NOT DOR_MET | `clarify-and-enrich.md` |
-| PLAN_REQUIRED AND PLAN_APPROVED | `implementation-with-plan.md` |
-| IS_TESTABLE_BUG | `bug.md` |
-| Otherwise | `plan.md` |
+The condition → reference table lives in `../SKILL.md` Step 2 — the router is the single source of truth. Each routed condition maps to `[condition-reference].md` in this directory.
 
 ## Shared Procedures
 
 - `planning.md` — Tier 2 self-plan procedure, also used by spawned `$runtime:card-planner` children in tier 3–4.
 - `contest.md` — Tier 3–4 planner-contest spawn tree, loaded by `plan.md`.
+- `implementation.md` — Tier 1 implementation, loaded by `plan.md`.
+- `implementation-evaluation.md` — post-implementation evaluator wave, loaded by both implementation references when evaluation is needed.
+- `bug-dirty-tree.md` — dirty-worktree triage, loaded by `bug.md` Step 1.1.
 
 ## Standalone Agent Skills (Not Consolidated)
 
@@ -36,4 +27,4 @@ These stay as distinct top-level skills for portability across agent systems —
 - `$runtime:card-plan-failure-mode` — spawned as the reviewer in the `contest.md` spawn tree.
 - `$runtime:card-failure-mode` — spawned as an evaluator in `implementation-evaluation.md`.
 - `$runtime:card-experience-evaluator` — spawned as the Deep-depth evaluator in `implementation-evaluation.md`.
-- `$runtime:card-pre-existing-condition` — spawned from `implementation-with-plan.md` when validation fails on a pre-existing condition.
+- `$runtime:card-pre-existing-condition` — spawned from both implementation references and `validate.md` when a validation failure looks pre-existing.

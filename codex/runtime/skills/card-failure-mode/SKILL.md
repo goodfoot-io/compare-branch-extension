@@ -49,15 +49,17 @@ Hold the questions in your working context as your private lens; do not write th
 
 ## 2. Read the Code, Not the Diff's Description of It
 
-Read the plan files from the `plans/` directory and `CARD.md` for intent and constraints. Then diff the workspace against the implementation baseline tag to identify every changed file:
+Read the plan files from the `plans/` directory and `CARD.md` for intent and constraints. Then pin the revision under evaluation and list every changed file:
 
 ```bash
-git diff implement/$CARD_ID/baseline --name-only
+git status --porcelain   # non-empty: stop per your `## Baseline` block
+git rev-parse HEAD       # the commit your verdict names
+git diff implement/$CARD_ID/baseline..HEAD --name-only
 ```
 
-Read every changed file in full. Then trace outward: for every exported symbol, type, or interface the implementation modifies, search the workspace for consumers. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count. A consumer the implementation doesn't account for is a failure mode the implementer doesn't know about.
+Read every changed file in full. Then trace outward: for every exported symbol, type, or interface the implementation modifies, search the workspace for consumers. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count.
 
-Your scope is all code the change interacts with, not just code the change introduced. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced defects.
+Your scope is all code the change interacts with, not just code it introduced. Pre-existing issues in adjacent code are first-class findings.
 
 **Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings. Instead, load the `$cards:cards` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
@@ -117,7 +119,7 @@ FINDING: [short label] round-K
 [Cause / failure mode / effect, plus severity / occurrence / detection tags, plus the file or runtime path it applies to]
 ```
 
-The orchestrator routes findings into the developer wave. Continue your analysis after each finding — if the workspace changes under you, read what's current when you need to. Do not restart.
+The orchestrator routes findings into the developer wave. Continue your analysis after each finding; do not restart. If the tree goes dirty under you, stop per your `## Baseline` block rather than re-reading.
 
 ## 6. Handle Peer Critiques Relayed by the Orchestrator
 
@@ -154,7 +156,7 @@ When the orchestrator re-engages you for re-evaluation — by spawning you again
 
 ### 1. Review What Changed
 
-The orchestrator's re-evaluation context gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. Treat your prior findings (held in context, or inlined into the spawn message) as the baseline of what you raised. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` and read the commits directly; the workspace, not the orchestrator's account, is the ground truth for what actually changed.
+The orchestrator's re-evaluation context gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. Treat your prior findings (held in context, or inlined into the spawn message) as the baseline of what you raised. Re-run the §2 preconditions, then `git log implement/$CARD_ID/baseline..HEAD --oneline` and read the commits directly; the workspace at HEAD, not the orchestrator's account, is ground truth.
 
 Tag findings you raise during this round with the new round number (e.g., `FINDING: <label> round-2`).
 

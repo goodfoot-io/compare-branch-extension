@@ -29,7 +29,7 @@ Based on the result:
 
 ## 3. Dispatch Evaluators
 
-Diff the workspace against the baseline to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
+Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
 
 | Depth | What runs |
 |-------|-----------|
@@ -38,9 +38,9 @@ Diff the workspace against the baseline to see the full scope of changes. Select
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
-The evaluators form an ad-hoc group purely by being named, and run in the background so you can collect their DMs while they work. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and stops on its own. Your Step 7 re-evaluation DM wakes it with its prior context, resuming at its skill's "When Resuming for a Fixed Implementation" section — so the group reconstitutes itself by name without you keeping it alive. Developers dispatched in Step 5 are **not** part of this group.
+The evaluators form an ad-hoc group purely by being named, and run in the background so you can collect their DMs while they work. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and stops on its own. Your Step 7 re-evaluation DM wakes it with its prior context, resuming at its skill's "When Resuming for a Fixed Implementation" section. Developers dispatched in Step 5 are **not** part of this group.
 
-Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
+Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card. Record the HEAD SHA you dispatch against and inline it in every prompt; the tree must be clean at dispatch.
 
 Based on depth:
 - **Standard**: Dispatch one `failure-mode` evaluator.
@@ -66,7 +66,7 @@ The orchestrator is `team-lead`. On Deep depth, your peer evaluator is `experien
 [WORKSPACE_PATH]
 
 ## Baseline
-Changes are relative to git tag: `implement/[CARD_ID]/baseline`
+Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, DM `team-lead` a question naming the dirty paths, and yield.
 
 ## Validation
 All validation has passed. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
@@ -98,7 +98,7 @@ The orchestrator is `team-lead`. Your peer evaluator is `failure-mode`.
 [WORKSPACE_PATH]
 
 ## Baseline
-Changes are relative to git tag: `implement/[CARD_ID]/baseline`
+Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never exercise the working tree — if `git status --porcelain` is non-empty, DM `team-lead` a question naming the dirty paths, and yield.
 
 ## Validation
 All validation has passed. Focus on what a user would experience as broken, wrong, or missing that the validation suite does not cover.
@@ -123,7 +123,11 @@ Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current 
 
 Never Finalize on a partial set — every dispatched evaluator must DM `VERDICT: APPROVED` for the current round first. An incomplete set while an evaluator is still running is expected; continue waiting.
 
-An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state. Idle **without** this round's verdict means the evaluator will never act again on its own — waiting on it is never correct. A DM stating intent ("verdict imminent," "holding for results") does not keep the agent alive; the idle notification that follows supersedes it. Wake the evaluator with a DM that inlines whatever it is waiting on — task-notifications for work it delegated may be delivered to you, not to it, so forward those results in the wake-up DM. If it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below).
+An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state. Idle **without** this round's verdict means the evaluator will never act again on its own — waiting on it is never correct. A DM stating intent ("verdict imminent") does not keep the agent alive. Wake the evaluator with a DM that inlines whatever it is waiting on — task-notifications for work it delegated may be delivered to you, not to it, so forward those results in the wake-up DM.
+
+An evaluator that yielded on a dirty tree is the exception. Commit or revert the outstanding changes, then wake it with the new HEAD SHA — never re-dispatch, which would re-open findings already accepted.
+
+Otherwise, if it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below).
 
 A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its dispatch prompt so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 7 re-evaluation loop covers it like any other evaluator.
 
@@ -223,7 +227,7 @@ git clean -fd
 
 The evaluators are still alive. DM a re-evaluation trigger to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
 
-The evaluator holds its own findings in context — it does not need a label→SHA dictionary to know what it raised. Give it the commit range and a plain account of what the wave changed and why, and flag anything the wave could *not* fix (that is information the evaluator cannot derive from the diff). The evaluator re-checks against the new HEAD on its own judgment.
+The evaluator holds its own findings in context. Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The evaluator re-checks against the new HEAD on its own judgment.
 
 ```xml
 <invoke name="SendMessage">
@@ -232,7 +236,7 @@ The evaluator holds its own findings in context — it does not need a label→S
   <parameter name="message">
 RE_EVALUATE
 ---
-The implementation has been updated to address the prior round's findings. Re-evaluate against the new HEAD.
+The implementation has been updated to address the prior round's findings. Re-evaluate against commit [HEAD_SHA]; the tree is clean at that commit.
 
 Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
 What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
@@ -249,7 +253,7 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 4. If you arrived here through any other path — including after applying fixes yourself — return to Step 4 and collect the remaining verdicts.
 
-Every evaluator that DM'd `VERDICT: APPROVED` for this round has already gone idle and stopped on its own, so there is normally nothing to tear down — proceed directly. Only if an evaluator is still actively working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits). On Standard depth there is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
+Every evaluator that DM'd `VERDICT: APPROVED` for this round has already gone idle — proceed directly. Only if an evaluator is still actively working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits). On Standard depth there is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
 
 ```xml
 <invoke name="SendMessage">

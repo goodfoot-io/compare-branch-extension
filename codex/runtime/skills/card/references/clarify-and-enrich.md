@@ -42,47 +42,24 @@ Trace code and data flow paths in the workspace to gather file paths, component 
 
 Evaluate whether the title and description are clear enough and enrich them with context discovered during exploration.
 
-#### For implementation cards
+**Clarify the title when** it is truncated, incomplete, or references the wrong component, file, or feature — plus, per type:
 
-A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
+- **Implementation cards** — a good title completes: *"To finish this card, I need to [TITLE]"*. Clarify when it describes a symptom rather than the work (e.g., "Page is slow" -> "Optimize database queries") or does not start with an action verb.
+- **Bug cards** — a good title describes behavior: *"[Component] fails when [action]"* or *"[Expected] but [actual]"*. Clarify when it describes implementation detail rather than observable behavior.
 
-**Clarify title when:**
-- Title is truncated, incomplete, or does not start with an action verb
-- Title describes symptom rather than the work (e.g., "Page is slow" -> "Optimize database queries")
-- Title references wrong component, file, or feature
-
-**Clarify description when:**
-- Description contains factual errors (wrong paths, incorrect component names)
-- Description lacks context needed to begin work
+**Clarify the description when** it contains factual errors (wrong paths, incorrect component names), lacks context needed to begin work, or (bug cards) omits error messages or stack traces that are available.
 
 **Enrich descriptions** with context discovered during exploration. Fragment-link every named file, function, and type per `<markdown-guidelines>`; use mermaid diagrams for multi-component interactions and data flows:
 - Relevant file paths and component names
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)
+- Bug cards: error messages, stack traces, and environment or configuration details (if relevant)
 
-#### For bug cards
-
-A good bug title describes behavior: *"[Component] fails when [action]"* or *"[Expected] but [actual]"*.
-
-**Clarify title when:**
-- Title is truncated or incomplete
-- Title describes implementation detail rather than observable behavior
-- Title references wrong component, file, or feature
-
-**Clarify description when:**
-- Description contains factual errors (wrong paths, incorrect component names)
-- Error messages or stack traces are missing but available
-
-**Enrich descriptions** with context discovered during exploration:
-- Correct file paths and component names
-- Related error messages or stack traces
-- Environment or configuration details (if relevant)
-
-#### Common principles
+#### Principles
 
 **Leave unchanged when:** Only minor phrasing or style preferences would change.
 
-**Clarification principles:**
+**When clarifying:**
 - Preserve all user-provided details, requirements, constraints, error messages, and reproduction steps
 - Maintain user intent — the clarified version must request the same outcome or describe the same bug
 - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
@@ -147,6 +124,6 @@ git commit -m "[single sentence summarizing which requirements are missing and w
 
 ## 4. Re-route After Enrichment
 
-Use the `$runtime:card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, routes IS_STALE and NOT DOR_MET are skipped — enrichment has already been attempted this session.
+Use the `$runtime:card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.
 
 </instructions>

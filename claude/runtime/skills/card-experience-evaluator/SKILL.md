@@ -126,7 +126,7 @@ Sender: experience-evaluator
 
 If `failure-mode` is among your peers (your dispatch prompt's `## Peers` section names it), also DM it with the same `summary` and `message` so it can critique the finding if it overlaps with a technical concern.
 
-The orchestrator routes findings into the developer wave. Continue your analysis after each DM — if the workspace changes under you, re-exercise the affected entry point when you need to. Do not restart.
+The orchestrator routes findings into the developer wave. Continue your analysis after each DM; do not restart. If the tree goes dirty under you, stop per your `## Baseline` block rather than re-exercising.
 
 ## 6. Handle Peer-Submitted Critiques
 
@@ -160,7 +160,7 @@ The trigger is `RE_EVALUATE` from `team-lead`. DM new findings per Step 5 during
 
 ### 1. Review What Changed
 
-The orchestrator's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. You hold your own prior findings in context — use them, together with the commits, to decide which user entry points to re-exercise. The orchestrator's account orients you; the running implementation is the ground truth.
+The orchestrator's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. You hold your prior findings in context — use them, with the commits, to decide which user entry points to re-exercise. The orchestrator's account orients you; the implementation running at HEAD is ground truth.
 
 Tag findings you raise during this round with the new round number (e.g., `FINDING: <label> round-2`).
 

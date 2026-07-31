@@ -29,7 +29,7 @@ Based on the result:
 
 ## 3. Select Evaluation Depth
 
-Diff the workspace against the baseline to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
+Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
 
 | Depth | What runs |
 |-------|-----------|
@@ -42,7 +42,7 @@ The evaluator children form an ephemeral spawn tree under you. There is no team 
 
 ## 4. Spawn Evaluators
 
-Read the diff and the card before writing the spawn messages. Each message must reflect the specific nature of this implementation and this card, and must tell the child which `$skill` to use.
+Read the diff and the card before writing the spawn messages. Each message must reflect the specific nature of this implementation and this card, and must tell the child which `$skill` to use. Record the HEAD SHA you spawn against and inline it in every message; the tree must be clean at spawn.
 
 Based on depth:
 - **Standard**: `spawn_agent` one `failure_mode` child.
@@ -60,7 +60,7 @@ Use the $runtime:card-failure-mode skill and follow it from the top. Draft the f
 [WORKSPACE_PATH]
 
 ## Baseline
-Changes are relative to git tag: `implement/[CARD_ID]/baseline`
+Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.
 
 ## Validation
 All validation has passed. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
@@ -80,7 +80,7 @@ Use the $runtime:card-experience-evaluator skill and follow it from the top. Dra
 [WORKSPACE_PATH]
 
 ## Baseline
-Changes are relative to git tag: `implement/[CARD_ID]/baseline`
+Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never exercise the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.
 
 ## Validation
 All validation has passed. Focus on what a user would experience as broken, wrong, or missing that the validation suite does not cover.
@@ -100,6 +100,8 @@ On Deep depth you mediate cross-evaluator critique: relay each evaluator's `FIND
 Continue until every spawned evaluator has reported a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
 Never Finalize on a partial set — every spawned evaluator must report `VERDICT: APPROVED` for the current round first. An evaluator that finished its task without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run.
+
+An evaluator that reported dirty paths instead of a verdict is the exception. Commit or revert the outstanding changes, then re-engage that lane with the new HEAD SHA — never spawn a fresh replacement, which would re-open findings already accepted.
 
 A fresh replacement is a new child with no prior context. Spawn it through Step 4, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its spawn message so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
 
@@ -191,10 +193,10 @@ git clean -fd
 
 Re-engage every evaluator lane against the revised implementation. If an evaluator is still live, `send_message` it the re-evaluation context by its task path; if its task already completed, `spawn_agent` a fresh child for that lane (per its skill's "When Resuming" path) and inline its prior findings plus the re-evaluation context into the spawn `message`. On Standard depth this is one lane (`failure_mode`); on Deep depth, re-engage both lanes.
 
-The evaluator holds its own findings in context (when live) or receives them inlined (when re-spawned) — it does not need a label→SHA dictionary to know what it raised. Give it the commit range and a plain account of what the wave changed and why, and flag anything the wave could *not* fix (that is information the evaluator cannot derive from the diff). The evaluator re-checks against the new HEAD on its own judgment. The message:
+The evaluator holds its own findings in context (when live) or receives them inlined (when re-spawned). Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The evaluator re-checks against the new HEAD on its own judgment. The message:
 
 ```
-The implementation has been updated to address the prior round's findings. Re-evaluate against the new HEAD.
+The implementation has been updated to address the prior round's findings. Re-evaluate against commit [HEAD_SHA]; the tree is clean at that commit.
 
 Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
 What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]

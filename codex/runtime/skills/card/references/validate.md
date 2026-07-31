@@ -52,7 +52,7 @@ Based on the result:
 
 ## 3. Optional Escape Hatch — Orchestrator Judgment
 
-Before dispatching the evaluator, you may bail out if your reading of `plans/`, the `commits/` directory, `CARD.md`, the diff against `implement/$CARD_ID/baseline`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
+Before dispatching the evaluator, you may bail out if your reading of `plans/`, the `commits/` directory, `CARD.md`, the diff `implement/$CARD_ID/baseline..HEAD`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
 
 This skill cannot finalize the card on its own. The escape hatch may only re-route backward, never forward to merge:
 
@@ -63,7 +63,7 @@ If you choose not to bail out, continue to Step 4.
 
 ## 4. Spawn failure-mode
 
-Read the diff and the card before writing the spawn message — it must reflect this specific implementation, not generic instructions. `spawn_agent` a single evaluator child (`task_name: failure_mode`) whose `message` tells it to use `$runtime:card-failure-mode`:
+Read the diff and the card before writing the spawn message — it must reflect this specific implementation, not generic instructions. Record the HEAD SHA you spawn against and inline it — Step 1.2 already made the tree clean there. `spawn_agent` a single evaluator child (`task_name: failure_mode`) whose `message` tells it to use `$runtime:card-failure-mode`:
 
 ```
 Use the $runtime:card-failure-mode skill and follow it from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Record each finding with a `FINDING:` marker and report `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` as your final message to me, the orchestrator that spawned you.
@@ -77,7 +77,7 @@ This is a re-validation pass — the implementation was committed in a prior ses
 [WORKSPACE_PATH]
 
 ## Baseline
-Changes are relative to git tag: `implement/[CARD_ID]/baseline`
+Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.
 
 ## Validation
 Workspace validation passed before this spawn. Focus on runtime behavior, semantic failures, completeness against the card's intent, and gaps the validation suite does not cover.
@@ -87,7 +87,7 @@ Workspace validation passed before this spawn. Focus on runtime behavior, semant
 
 ## 5. Collect Verdict and Route
 
-The evaluator child returns a structured final report to you when its task completes. Record each `FINDING:` (label and body) for the routing branches below, and read the `VERDICT:` line. The child auto-terminates once it has reported; there is no team to tear down.
+The evaluator child returns a structured final report to you when its task completes. Record each `FINDING:` (label and body) for the routing branches below, and read the `VERDICT:` line. The child auto-terminates once it has reported; there is no team to tear down. If it reported dirty paths instead of a verdict, commit or revert the outstanding changes and re-spawn that lane with the new HEAD SHA and its prior findings inlined.
 
 Route on the verdict:
 - **`VERDICT: APPROVED`**: Proceed to Step 6: Finalize.

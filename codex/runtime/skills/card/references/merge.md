@@ -19,16 +19,10 @@ git rebase --empty=drop $BASE_BRANCH
 ```
 
 Based on rebase result:
-- **Conflicts occur**: Run the command above to identify all conflicted files before resolving.
+- **Conflicts occur**: Identify all conflicted files before resolving, then stage each resolved file by name rather than using `git add -A`:
 
 ```bash
-git diff --name-only --diff-filter=U
-```
-
-Identify conflicted files first (see below) and stage each resolved file by name rather than using `git add -A`.
-
-```bash
-# Stage only the conflict-resolved files by name
+git diff --name-only --diff-filter=U   # list conflicted files
 git add <resolved-file-1> <resolved-file-2>
 git rebase --continue
 ```
@@ -72,8 +66,6 @@ Check for uncommitted changes with `git status --porcelain`:
 ```bash
 git stash push --include-untracked -m "card-merge: stash before ff-merge" && git merge --ff-only "$WORKSPACE_BRANCH" && git stash pop
 ```
-
-  The `&&` chain ensures the merge only runs if the stash succeeds, and the pop only runs if the merge succeeds — leaving the stash in place if the merge fails so it can be restored manually.
 
   - **Succeeds**: **STOP** — Merge complete. Do not update card status, write comments, or take further action.
   - **`git stash pop` reports conflicts**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comments/merge-failed.md` — stashed changes conflict with the merged branch; user must resolve the stash conflict manually. Commit both files and **STOP**.

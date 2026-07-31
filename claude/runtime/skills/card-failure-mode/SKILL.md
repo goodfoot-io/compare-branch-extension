@@ -58,19 +58,21 @@ Hold the questions in your working context as your private lens; do not write th
 
 ## 2. Read the Code, Not the Diff's Description of It
 
-Read the plan files from the `plans/` directory and `CARD.md` for intent and constraints. Then diff the workspace against the implementation baseline tag to identify every changed file:
+Read the plan files from the `plans/` directory and `CARD.md` for intent and constraints. Then pin the revision under evaluation and list every changed file:
 
 ```bash
-git diff implement/$CARD_ID/baseline --name-only
+git status --porcelain   # non-empty: stop per your `## Baseline` block
+git rev-parse HEAD       # the commit your verdict names
+git diff implement/$CARD_ID/baseline..HEAD --name-only
 ```
 
-Read every changed file in full. Then trace outward: for every exported symbol, type, or interface the implementation modifies, search the workspace for consumers. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count. A consumer the implementation doesn't account for is a failure mode the implementer doesn't know about.
+Read every changed file in full. Then trace outward: for every exported symbol, type, or interface the implementation modifies, search the workspace for consumers. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count.
 
-Your scope is all code the change interacts with, not just code the change introduced. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced defects.
+Your scope is all code the change interacts with, not just code it introduced. Pre-existing issues in adjacent code are first-class findings.
 
 **Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings. Instead, load the `cards:cards` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
-Run the code where possible — exercising runtime paths reveals failures that static analysis misses, especially against shared blind spots with the author.
+Run the code where possible — runtime paths reveal failures static analysis misses.
 
 ## 3. Evaluate the Implementation Against the Questions
 
@@ -138,7 +140,7 @@ Sender: failure-mode
 
 On Deep evaluation (when `experience-evaluator` is among your peers), also DM the peer evaluator with the same `summary` and `message` so they can critique the finding if it overlaps with a user-facing concern. Your dispatch prompt's `## Peers` section names the evaluators dispatched alongside you; if `experience-evaluator` is listed there, the evaluation is Deep.
 
-The orchestrator routes findings into the developer wave. Continue your analysis after each DM — if the workspace changes under you, read what's current when you need to. Do not restart.
+The orchestrator routes findings into the developer wave. Continue your analysis after each DM; do not restart. If the tree goes dirty under you, stop per your `## Baseline` block rather than re-reading.
 
 ## 6. Handle Peer-Submitted Critiques
 
@@ -172,7 +174,7 @@ The trigger is `RE_EVALUATE` from `team-lead`. DM new findings per Step 5 during
 
 ### 1. Review What Changed
 
-The orchestrator's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. You hold your own prior findings in context — you do not need a label→SHA dictionary to know what you raised. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` and read the commits directly; the workspace, not the orchestrator's account, is the ground truth for what actually changed.
+The orchestrator's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. You hold your prior findings in context — no label→SHA dictionary needed. Re-run the §2 preconditions, then `git log implement/$CARD_ID/baseline..HEAD --oneline` and read the commits directly; the workspace at HEAD, not the orchestrator's account, is ground truth.
 
 Tag findings you raise during this round with the new round number (e.g., `FINDING: <label> round-2`).
 
