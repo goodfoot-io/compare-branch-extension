@@ -1,19 +1,19 @@
 <instructions>
 
-This document describes the environment variable system in `@cards.management/sdk/config`.
+The environment variable system in `@cards.management/sdk/config`.
 
 ## Environment Variable Constants
 
-The `CARDS_ENV_VARS` object provides the canonical names for all environment variables.
+`CARDS_ENV_VARS` provides the canonical names for all environment variables. All are available to actions except `INITIAL_PROMPT` (cards-assistant only); `CODING_AGENT`, `INITIAL_PROMPT`, and `SWITCH_TO_INTERACTIVE_DATA_PATH` are optional.
 
 ```typescript
 import { CARDS_ENV_VARS } from '@cards.management/sdk/config';
 
-// All environment variable names
 CARDS_ENV_VARS.CARD_ID                       // 'CARD_ID'
 CARDS_ENV_VARS.ACTION_NAME                   // 'ACTION_NAME'
 CARDS_ENV_VARS.ENVIRONMENT                   // 'ENVIRONMENT'
 CARDS_ENV_VARS.EXECUTION_MODE                // 'EXECUTION_MODE'
+CARDS_ENV_VARS.EXIT_WHEN_DONE                // 'EXIT_WHEN_DONE'
 CARDS_ENV_VARS.CODING_AGENT                  // 'CODING_AGENT'
 CARDS_ENV_VARS.VSCODE_NODE                   // 'VSCODE_NODE'
 CARDS_ENV_VARS.NODE                          // 'NODE'
@@ -28,73 +28,28 @@ CARDS_ENV_VARS.PARENT_BRANCH                 // 'PARENT_BRANCH'
 CARDS_ENV_VARS.WORKSPACE_BRANCH              // 'WORKSPACE_BRANCH'
 CARDS_ENV_VARS.EXTENSION_PATH                // 'EXTENSION_PATH'
 CARDS_ENV_VARS.MARKETPLACE_PATH              // 'MARKETPLACE_PATH'
+CARDS_ENV_VARS.INITIAL_PROMPT                // 'INITIAL_PROMPT'
+CARDS_ENV_VARS.CARDS_BIN_PATH                // 'CARDS_BIN_PATH'
 CARDS_ENV_VARS.HOOKS_LOG_FILE                // 'CARDS_HOOKS_LOG_FILE'
 ```
 
-> `CARDS_ENV_VARS` also defines wrapper-internal keys consumed by the runtime rather than handlers (`ACTION_COMMAND`, `CARDS_SESSION_ID`, `CARDS_TRANSCRIPT_PATH`). Note that `HOOKS_LOG_FILE` maps to the env var name `'CARDS_HOOKS_LOG_FILE'`.
-
-## Variable Availability
-
-| Variable | Actions |
-|----------|---------|
-| `CARD_ID` | Yes |
-| `ACTION_NAME` | Yes |
-| `ENVIRONMENT` | Yes |
-| `EXECUTION_MODE` | Yes |
-| `CODING_AGENT` | Yes (optional) |
-| `VSCODE_NODE` | Yes |
-| `NODE` | Yes |
-| `SOCKET_PATH` | Yes |
-| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes (optional) |
-| `CONFIG_PATH` | Yes |
-| `WORKSPACE_PATH` | Yes |
-| `REPO_ROOT` | Yes |
-| `CARD_REPO_PATH` | Yes |
-| `BASE_BRANCH` | Yes |
-| `PARENT_BRANCH` | Yes |
-| `WORKSPACE_BRANCH` | Yes |
-| `EXTENSION_PATH` | Yes |
-| `MARKETPLACE_PATH` | Yes |
+> `HOOKS_LOG_FILE` maps to the env var name `'CARDS_HOOKS_LOG_FILE'`. `CARDS_BIN_PATH` (the extension's `<extensionPath>/dist/bin`) is set on the action env but has no getter and is read by SDK internals. `CARDS_ENV_VARS` also defines wrapper-internal keys consumed by the runtime rather than handlers (`ACTION_COMMAND`, `CARDS_SESSION_ID`, `CARDS_TRANSCRIPT_PATH`).
+>
+> `CARDS_LOG_DIR` is honored by the Logger but is deliberately not a `CARDS_ENV_VARS` member — see [logging.md](logging.md).
 
 ## Individual Getters
 
-Each environment variable has a dedicated getter function with validation. The
-individual getters live in the `@cards.management/sdk/config/env` subpath. The package root
-(`@cards.management/sdk/config`) re-exports only the commonly used ones (`CARDS_ENV_VARS`,
-`extractActionInput`, `extractCardsAssistantInput`, `getBaseBranch`,
-`getCardRepoPath`, `getExecutionMode`, `getWorkspaceBranch`, `getWorkspacePath`,
-`readSwitchToInteractiveData`), so import the full getter set from
-`@cards.management/sdk/config/env`.
-
-### Common Variables (All Handlers)
+Each variable has a dedicated getter with validation. The getters live in the `@cards.management/sdk/config/env` subpath; the package root re-exports only `CARDS_ENV_VARS`, `extractActionInput`, `extractCardsAssistantInput`, `getBaseBranch`, `getCardRepoPath`, `getExecutionMode`, `getWorkspaceBranch`, `getWorkspacePath`, and `readSwitchToInteractiveData`. Import the full getter set from `@cards.management/sdk/config/env`.
 
 ```typescript
 import {
   getCardId,
-  getEnvironment
-} from '@cards.management/sdk/config/env';
-
-// All throw Error if missing or empty
-const cardId = getCardId();
-const environment = getEnvironment();
-```
-
-### Common Variables (All Handlers) — continued
-
-```typescript
-import { getVscodeNodePath } from '@cards.management/sdk/config/env';
-
-// Path to VS Code's bundled Node.js interpreter
-// Used in settings.json command paths ($VSCODE_NODE ./bin/handler.mjs)
-const nodePath = getVscodeNodePath();       // e.g., '/usr/share/code/node'
-```
-
-### Action-Specific Variables
-
-```typescript
-import {
+  getEnvironment,
+  getVscodeNodePath,
   getActionName,
   getExecutionMode,
+  getExitWhenDone,
+  getInitialPrompt,
   getCodingAgent,
   getSocketPath,
   getSwitchToInteractiveDataPath,
@@ -109,16 +64,13 @@ import {
   getMarketplacePath
 } from '@cards.management/sdk/config/env';
 
-// Throws if missing, returns the action button display name
-const actionName = getActionName();          // e.g., 'Launch Claude'
-
-// Throws if missing, returns 'interactive' | 'background'
-const mode = getExecutionMode();
-
-// Returns string | undefined (does not throw)
-const codingAgent = getCodingAgent();
-
-// Additional action-specific variables (throw Error if missing)
+// Throw Error if missing or empty
+const cardId = getCardId();
+const environment = getEnvironment();
+const actionName = getActionName();                        // e.g., 'Launch Claude'
+const mode = getExecutionMode();                           // 'interactive' | 'background'
+const exitWhenDone = getExitWhenDone();                    // boolean; throws unless 'true' | 'false'
+const nodePath = getVscodeNodePath();                      // VS Code's bundled Node, e.g. '/usr/share/code/node'
 const socketPath = getSocketPath();                        // e.g., '/tmp/socket-123'
 const configPath = getConfigPath();                        // Settings configuration directory
 const repoRoot = getRepoRoot();                            // Main git repository root
@@ -132,11 +84,14 @@ const workspaceBranch = getWorkspaceBranch();              // Card's implementat
 // getWorkspacePath is for hooks running inside the Claude CLI, not action handlers
 const workspacePath = getWorkspacePath();                  // Active workspace / worktree path
 
-// getSwitchToInteractiveDataPath returns string | undefined (does not throw)
-const switchToInteractiveDataPath = getSwitchToInteractiveDataPath(); // Path to switch data
-// readSwitchToInteractiveData reads + JSON-parses that file (undefined when unset)
-const switchData = readSwitchToInteractiveData();
+// Return undefined instead of throwing
+const codingAgent = getCodingAgent();
+const initialPrompt = getInitialPrompt();                  // cards-assistant only; absent = cold start
+const switchDataPath = getSwitchToInteractiveDataPath();
+const switchData = readSwitchToInteractiveData();          // Reads + JSON-parses that file
 ```
+
+`getVscodeNodePath()` supplies the interpreter for `settings.json` command paths (`$VSCODE_NODE ./bin/handler.mjs`).
 
 > For CLI contexts where `EXTENSION_PATH` is not injected (e.g. terminal tools),
 > use the async `resolveExtensionPath()` (also from `@cards.management/sdk/config/env`),
@@ -145,112 +100,29 @@ const switchData = readSwitchToInteractiveData();
 
 ## Typed Input Extraction
 
-For convenience, extract complete typed input objects.
-
-### Action Input
-
-```typescript
-import { extractActionInput } from '@cards.management/sdk/config';
-
-// Returns ActionInput with all action variables
-const input = extractActionInput();
-// {
-//   cardId: string,
-//   actionName: string,
-//   environment: string,
-//   executionMode: 'interactive' | 'background',
-//   codingAgent?: string,
-//   switchToInteractiveData?: unknown,
-//   repoRoot: string,
-//   cardRepoPath: string,
-//   configPath: string,
-//   extensionPath: string,
-//   marketplacePath: string
-// }
-```
-
-### Cards Assistant Input
-
-```typescript
-import { extractCardsAssistantInput } from '@cards.management/sdk/config';
-
-// Returns CardsAssistantInput — workspace-scoped, no card context
-const input = extractCardsAssistantInput();
-// {
-//   marketplacePath: string,
-//   extensionPath: string,
-//   codingAgent?: string,
-//   repoRoot: string
-// }
-```
+`extractActionInput()` and `extractCardsAssistantInput()` (both re-exported from the package root) return complete typed input objects. See [input-types.md](input-types.md) for their field lists.
 
 ## Error Handling
 
-Getters throw descriptive errors when variables are missing:
-
-```typescript
-try {
-  const cardId = getCardId();
-} catch (error) {
-  // Error: "Missing required environment variable: CARD_ID"
-}
-
-try {
-  const mode = getExecutionMode();
-} catch (error) {
-  // Error: "Invalid EXECUTION_MODE: expected 'interactive' or 'background', got 'foo'"
-}
+Getters throw descriptive errors:
 
 ```
-
-## API Access
-
-To make API calls, use the Cards client discovery function:
-
-```typescript
-import { createCardsClient } from '@cards.management/sdk/client/discovery';
-
-async (input, { logger }) => {
-  // Create a Cards API client via discovery
-  const client = await createCardsClient();
-
-  if (!client) {
-    logger.warn('Cards API not available');
-    return;
-  }
-
-  // Use the client to make authenticated API calls
-  const card = await client.getCard(input.cardId);
-  logger.info('Fetched card data', { cardId: input.cardId });
-}
+Missing required environment variable: CARD_ID
+Invalid EXECUTION_MODE: expected 'interactive' or 'background', got "foo"
 ```
 
 ## Action Exit Codes
 
-Actions can exit with specific codes to signal different outcomes:
-
 ```typescript
 import { EXIT_CODES } from '@cards.management/sdk/config';
-
-export default defineAction(
-  { actionName: 'My Action' },
-  async (input, context) => {
-    // Normal completion (default exit code 0)
-
-    // Signal switch to interactive mode
-    process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);  // exit code 42
-  }
-);
 ```
 
 | Exit Code | Name | Meaning |
 |-----------|------|---------|
-| 0 | (normal) | Action completed successfully |
-| 42 | `SWITCH_TO_INTERACTIVE` | User switched from background to interactive mode; action will be rerun with interactive context |
-| Non-zero | (error) | Action failed with error |
+| 0 | `SUCCESS` | Action completed successfully |
+| 1 | `ERROR` | Action failed with an error |
+| 42 | `SWITCH_TO_INTERACTIVE` | Runtime is relaunching the action in interactive mode |
 
-When an action exits with `SWITCH_TO_INTERACTIVE` (42), the runtime will:
-1. Store any pending data in the path specified by `SWITCH_TO_INTERACTIVE_DATA_PATH`
-2. Rerun the action in interactive mode with `switchToInteractiveData` populated in `ActionInput`
+The runtime exits 42 itself as part of the `onSwitchToInteractive` flow — see [input-types.md](input-types.md). Handlers do not exit 42 directly.
 
 </instructions>

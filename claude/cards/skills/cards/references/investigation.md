@@ -1,14 +1,14 @@
 
 <how-to-write-an-investigation-request>
 
-Make the intent and outcomes explicit: what needs to be learned, why it matters, and how to know when complete. Focus on evidence gathering and decision readiness, not solutions. CARD.md describes the unknown and why it matters — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `cards:notes` skill).
+Make the intent and outcomes explicit: what needs to be learned, why it matters, and how to know when complete. Focus on evidence gathering and decision readiness, not solutions. CARD.md describes the unknown and why it matters.
 
 ## Document Structure
 
 | Section | Purpose | Question Answered |
 |---------|---------|-------------------|
 | Commander's Intent (no header in CARD.md) | Opening paragraph(s) — the decision the investigation unblocks | "What do we need to decide, and when have we earned the right to decide it?" |
-| Background | Context that frames the investigation | "What is the current situation?" |
+| Background (no header in CARD.md) | Context that frames the investigation | "What is the current situation?" |
 | Key Questions / Hypotheses | The unknowns to resolve | "What do we need to validate or falsify?" |
 | Scope & Constraints | Boundaries for the investigation | "What is in/out, and what limits apply?" |
 | Approach & Evidence Sources | How evidence will be gathered | "Where will answers come from?" |
@@ -18,8 +18,8 @@ Make the intent and outcomes explicit: what needs to be learned, why it matters,
 
 ## Section Notes
 
-- **Commander's Intent** (no heading in CARD.md — the card opens with this paragraph). The destination is the downstream decision that becomes possible; the null result is an acceptable form of arrival. Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
-- **Background** (omit header in output): Only context required to understand why the investigation is needed now. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
+- **Commander's Intent**. The destination is the downstream decision that becomes possible; the null result is an acceptable form of arrival.
+- **Background**: Only context required to understand why the investigation is needed now. Fragment-link code references per `<markdown-guidelines>`.
 - **Key Questions / Hypotheses**: Phrase questions so they can be answered with data.
 - **Scope & Constraints**: Narrow enough to complete, broad enough to answer the key questions.
 - **Approach & Evidence Sources**: Favor evidence that is repeatable and verifiable.

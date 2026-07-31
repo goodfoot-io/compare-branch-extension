@@ -1,7 +1,7 @@
 
 <how-to-write-a-documentation-request>
 
-Capture intent, audience, and outcomes without prescribing the solution. Leave room for the planner or implementer to choose format and placement. CARD.md describes the documentation gap and audience — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `cards:notes` skill).
+Capture intent, audience, and outcomes without prescribing the solution. Leave room for the planner or implementer to choose format and placement. CARD.md describes the documentation gap and audience.
 
 ## Request Structure
 
@@ -18,13 +18,13 @@ Capture intent, audience, and outcomes without prescribing the solution. Leave r
 
 ## Writing Principles
 
-- **Open with Commander's Intent** (no heading in CARD.md — the card opens with this paragraph after the title). The destination is a changed reader behavior, not an artifact that exists; acceptance is an observable indicator the doc works (support-question drop, onboarding-time metric, link usage). Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
+- **Open with Commander's Intent**. The destination is a changed reader behavior, not an artifact that exists; acceptance is an observable indicator the doc works (support-question drop, onboarding-time metric, link usage).
 - **Anchor in user need**: Who is the audience, what job are they doing, what is the current pain.
 - **Classify doc type**: Tutorial, how-to, reference, explanation (Diataxis), runbook/playbook, knowledge-base article, or examples.
 - **Outcomes over implementation**: State what the reader should be able to do, not the exact file or format.
 - **Source of truth**: Where authoritative information lives, accuracy boundaries, update cadence.
   - Use versions/dates, not "new" or "currently."
-  - Fragment-link every named file, function, and type per `<markdown-guidelines>`.
+  - Fragment-link code references per `<markdown-guidelines>`.
 - **Scannable**: Front-load essentials (audience, task, outcome), short sections, direct language.
 - **Visual when structural**: Use mermaid diagrams for system interactions, decision trees, or data flows — prose for everything else.
 

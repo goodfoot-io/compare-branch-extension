@@ -1,6 +1,6 @@
 <how-to-write-an-operations-request>
 
-Capture the operational goal, evidence, and verification while minimizing risk. Emphasize outcomes, constraints, and safety over implementation details. CARD.md describes the operational situation and urgency — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `cards:notes` skill).
+Capture the operational goal, evidence, and verification while minimizing risk. Emphasize outcomes, constraints, and safety over implementation details. CARD.md describes the operational situation and urgency.
 
 ## Request Structure
 
@@ -19,9 +19,9 @@ Capture the operational goal, evidence, and verification while minimizing risk. 
 
 ## Writing Principles
 
-- **Open with Commander's Intent** (no heading in CARD.md — the card opens with this paragraph after the title). The destination is observed system behavior after the change, not "run the script"; acceptance is a dashboard, metric, or query a reviewer can check. Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
+- **Open with Commander's Intent**. The destination is observed system behavior after the change, not "run the script"; acceptance is a dashboard, metric, or query a reviewer can check.
 - **Objective and urgency**: What needs to be true after the work, what impact is at risk (SLA/SLO, error budget), how urgent and why.
-- **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost). Fragment-link every named file, function, and type per `<markdown-guidelines>`.
+- **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost). Fragment-link code references per `<markdown-guidelines>`.
 - **Measurable outcomes**: Success targets, verification steps (dashboard checks, canary signals), must-have vs nice-to-have.
 - **Change classification**: Standard/normal/emergency (ITSM/ITIL), environments affected, change windows, approvals.
 - **Risk and reversibility**: Blast radius, failure modes, rollback/backout expectations, preconditions (access, feature flags, backups).

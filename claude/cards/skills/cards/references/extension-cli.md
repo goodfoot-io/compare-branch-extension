@@ -6,6 +6,8 @@
 
 **`--workspace <path>`** — Target VS Code workspace. Defaults to `git rev-parse --show-toplevel` from the current directory. Required when cwd is not inside a git repository or when targeting a different workspace.
 
+`--workspace` selects which window's adapter receives the call; it does not further scope what the call does inside that window.
+
 ## Error Cases (all subcommands)
 
 - **401 Unauthenticated** — The request was not authenticated. Ensure the extension is running and the CLI token is valid.
@@ -24,10 +26,6 @@ cards-extension workspace list
 ```
 
 Returns a JSON array of objects with exactly two fields per workspace: `path` (absolute filesystem path) and `name` (display name).
-
-```
-cards-extension workspace list | jq '.[] | {path, name}'
-```
 
 ---
 
@@ -92,7 +90,7 @@ stdout receives the command's return value serialized as JSON (the bare `result`
 
 Non-JSON-serializable values are coerced (`functions` → `[Function]`, `symbol` → `[Symbol]`, `bigint` → string, `NaN`/`Infinity` → `null`, `undefined` in arrays → `null`); when coercion occurs a `Warning: lossyCoercion` line is written to stderr.
 
-Note: `<commandId>` runs in the active VS Code window; `--workspace` selects which window's adapter receives the call but does not further scope command execution.
+Note: `<commandId>` runs in the active VS Code window.
 
 Examples:
 ```
@@ -115,7 +113,7 @@ cards-extension issue [--workspace <path>] <<'EOF'
 EOF
 ```
 
-Both `title` and `body` are required strings. The command opens the issue in the active VS Code window; `--workspace` selects which window's adapter receives the call but does not further scope where the issue is filed.
+Both `title` and `body` are required strings. The issue opens in the active VS Code window; `--workspace` does not determine where it is filed.
 
 Returns `null` (the command opens a UI form rather than returning a structured result).
 
@@ -160,7 +158,7 @@ cards-extension panel show <panelName> [--workspace <path>]
 
 `<panelName>` must be one of: `problems`, `terminal`, `debug`, `output`.
 
-Panels are window-scoped in VS Code; `--workspace` selects which window's adapter receives the call but every panel toggles in that window globally.
+Panels are window-scoped: the panel toggles globally within that window.
 
 Example: `cards-extension panel show problems`
 

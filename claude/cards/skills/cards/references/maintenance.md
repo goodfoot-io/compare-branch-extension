@@ -1,6 +1,6 @@
 <how-to-write-a-maintenance-request>
 
-Explain **why the work matters** and **what success looks like** without prescribing implementation. Make the debt visible, bound the scope, and protect critical behavior. CARD.md describes the debt and its cost — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `cards:notes` skill).
+Explain **why the work matters** and **what success looks like** without prescribing implementation. Make the debt visible, bound the scope, and protect critical behavior. CARD.md describes the debt and its cost.
 
 ## Document Structure
 
@@ -16,7 +16,7 @@ Explain **why the work matters** and **what success looks like** without prescri
 
 ## Section Notes
 
-- **Commander's Intent** (no heading in CARD.md — the card opens with this paragraph). The destination must be describable without reference to the current mechanism; "table X removed" is a scope item, not an acceptance signal. Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
+- **Commander's Intent**. The destination must be describable without reference to the current mechanism; "table X removed" is a scope item, not an acceptance signal.
 - **Motivation & Impact**: Anchor in measurable impact — operational risk, developer time, reliability, cost, deprecations.
   - Include evidence: incidents, metrics, toil.
   - Call out "interest" (ongoing cost) and "principal" (cleanup work).
@@ -34,9 +34,7 @@ Explain **why the work matters** and **what success looks like** without prescri
 
 ## Key Principles
 
-- **Intent over implementation**: State why and outcomes, not exact steps
-- **Evidence over assertion**: Metrics, incidents, code references, diagrams for complex dependency or data flow relationships — not opinions. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
-- **Scope control**: Firm boundaries prevent refactor growth
+- **Evidence over assertion**: Metrics, incidents, code references, diagrams for complex dependency or data flow relationships — not opinions. Fragment-link code references per `<markdown-guidelines>`.
 - **Risk awareness**: Make dependencies and rollback paths explicit early
 
 </how-to-write-a-maintenance-request>
