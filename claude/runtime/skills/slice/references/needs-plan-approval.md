@@ -25,7 +25,7 @@ Write a comment explaining the handoff and what the user should do next:
 ```bash
 cd "$CARD_REPO_PATH"
 cat <<'EOF' > comments/needs-plan-approval.md
-[PLAN_STATE=missing: explain that this card requires a plan (gates.planRequired=true) but none is written. Ask the user to run the Launch action so runtime:card can route through card-plan, or to clear gates.planRequired if slicing without a plan is appropriate.]
+[PLAN_STATE=missing: explain that this card requires a plan (gates.planRequired=true) but none is written. Ask the user to run the Launch action so runtime:card can route the card into planning, or to clear gates.planRequired if slicing without a plan is appropriate.]
 
 [PLAN_STATE=unapproved: name the files in plans/ and explain that gates.planApproved is false. Ask the user to review the plan and approve it, after which the next Slice session will proceed to implementation.]
 EOF

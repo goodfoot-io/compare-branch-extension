@@ -1,6 +1,6 @@
 # Planning Procedure
 
-Shared procedure for creating an implementation plan from a card. Loaded by the `card-plan` orchestrator in tier 2 self-planning and referenced by `card-planner` in tiers 3–4.
+Shared procedure for creating an implementation plan from a card. Loaded by `./plan.md` for tier 2 self-planning and by the `runtime:card-planner` subagent in tiers 3–4.
 
 <placeholder-variables>
 [PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plans/initial.md` for self-planning, `plans/[AGENT_NAME].md` for a contest planner subagent)
