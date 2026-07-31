@@ -1,23 +1,6 @@
 # Diagnosing Agent Launch Failures
 
-Scope: the full spawn chain — VS Code command → ProcessLauncher → handler .mjs → agent CLI → plugin hooks. Covers the Cards Assistant (`cards.startCardsAssistant`) and per-card action launches. Agent-retrieval keywords: ENOENT, spawn failed, terminal flashes, handler not found, cards-assistant.mjs, VSCODE_NODE, CODING_AGENT, cross-spawn, ProcessLauncher, getNodePath, resolveCodingAgent.
-
-Source of truth: this file owns the launch env vars and gate chain. Log paths → `find-logs.md`. Plugin enablement → `inspect-settings.md`. Plugin cache → `inspect-plugin-cache.md`.
-
-Completeness: covers all launch-time failure modes in the Cards extension as of version 1.0.x. Excludes post-launch hook failures (see `diagnose-hooks.md`) and server startup failures (see `diagnose-server-health.md`).
-
-Cross-refs: `inspect-settings.md` (plugin enablement, marketplace registration), `inspect-plugin-cache.md` (plugin discovery), `diagnose-hooks.md` (what happens after CLI starts), `find-logs.md` (handler and agent logs), `diagnose-server-health.md` (server prerequisite).
-
-Parent: `../SKILL.md`
-
-## Evidence to Collect
-
-Before diagnosing:
-- VS Code Output → Cards channel (last 200 lines)
-- `cat ~/.cards/EXTENSION_PATH` (extension install directory)
-- `ls -la "$(cat ~/.cards/EXTENSION_PATH)/dist/config/bin/"` (handler binaries)
-- `which claude; which codex` (agent CLIs on PATH)
-- `env | grep -E 'MARKETPLACE_PATH|EXTENSION_PATH|CODING_AGENT|REPO_ROOT|CARDS_BIN_PATH'` (launch env vars)
+Scope: the spawn chain for the Cards Assistant and per-card action launches — VS Code command through agent CLI.
 
 ## Quick Diagnostics
 
@@ -69,9 +52,7 @@ VS Code command (cards.startCardsAssistant or cards.executeAction)
 
 **Cause**: Cards API server hasn't started or crashed. **Probability**: medium — server startup is atomic (all-or-nothing).
 
-**Recovery**: Reload the VS Code window to trigger server recovery. Load `diagnose-server-health.md` for detailed diagnostics.
-
-**Risk**: **safe**. **Escalate if**: server won't start after 3 reloads.
+**Recovery**: Reload the VS Code window to trigger server recovery — **safe**. Load `diagnose-server-health.md` for detailed diagnostics. **Escalate if**: server won't start after 3 reloads.
 
 ### No Cards Assistant Configured
 
@@ -79,9 +60,7 @@ VS Code command (cards.startCardsAssistant or cards.executeAction)
 
 **Cause**: `settings.json` missing `cardsAssistant.command`. The `cards-sdk build` step may have been skipped or the config doesn't export a `cardsAssistant` handler.
 
-**Recovery**: Rebuild the configuration: `cards-sdk build -c settings.config.ts -o dist`. Verify `dist/settings.json` contains `"cardsAssistant": {"command": "..."}`.
-
-**Risk**: **safe**.
+**Recovery**: Rebuild the configuration: `cards-sdk build -c settings.config.ts -o dist` — **safe**. Verify `dist/settings.json` contains `"cardsAssistant": {"command": "..."}`.
 
 ### Interpreter Resolution Fails
 
@@ -99,9 +78,7 @@ VS Code command (cards.startCardsAssistant or cards.executeAction)
 
 **Cause**: The `cards-sdk build` step didn't run, or the compiled handler was deleted from `dist/config/bin/`.
 
-**Recovery**: Rebuild: `cards-sdk build -c settings.config.ts -o dist`. Verify the handler exists: `ls -la <ext>/dist/config/bin/cards-assistant.*.mjs`.
-
-**Risk**: **safe**.
+**Recovery**: Rebuild: `cards-sdk build -c settings.config.ts -o dist` — **safe**. Verify the handler exists: `ls -la <ext>/dist/config/bin/cards-assistant.*.mjs`.
 
 ### Agent CLI Not Found (ENOENT)
 
@@ -117,15 +94,15 @@ VS Code command (cards.startCardsAssistant or cards.executeAction)
 
 **Evidence**: Claude starts but plugins aren't loaded. The `--settings` argument was corrupted by cmd.exe.
 
-**Cause**: A `shell: true` spawn on win32 concatenates argv unquoted, mangling JSON with `{`/`}`/`"` characters. This was a historical regression — the current code uses `spawnAgentCli` (cross-spawn) which escapes each argument for cmd.exe.
+**Cause**: A `shell: true` spawn on win32 concatenates argv unquoted, mangling JSON with `{`/`}`/`"` characters. `spawnAgentCli` (cross-spawn) escapes each argument for cmd.exe.
 
-**Recovery**: Verify the code uses `spawnAgentCli`, not `spawn(..., { shell: true })`. The handler at `cards-assistant.ts` line 135 does this correctly.
+**Recovery**: Verify the code uses `spawnAgentCli`, not `spawn(..., { shell: true })` — **safe**. The handler at `cards-assistant.ts` line 135 does this correctly.
 
-**Risk**: **safe** (fixed in current code). **Looks like, but isn't**: Plugin cache corruption can look like missing plugins. Load `inspect-plugin-cache.md`.
+**Looks like, but isn't**: Plugin cache corruption can look like missing plugins. Load `inspect-plugin-cache.md`.
 
 ## Launch Environment Variables
 
-Set by `cardsApiCommands.ts` lines 230-236. **Status: all current**.
+Set by `cardsApiCommands.ts` lines 230-236.
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
@@ -138,9 +115,7 @@ Set by `cardsApiCommands.ts` lines 230-236. **Status: all current**.
 
 ## Escalation
 
-File via `cards-extension issue`. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template and evidence collection) before filing.
-
-Escalate if any of these are true after all recovery steps:
+File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Handler binary is present but won't execute**: Include `ls -la "$(cat ~/.cards/EXTENSION_PATH 2>/dev/null)/dist/config/bin/"` and `cat ~/.cards/VSCODE_NODE`.
 - **Agent CLI is on PATH but ENOENT persists**: Include `which claude codex` output and the handler log tail at `${WORKSPACE}/.cards/logs/cards-default-configuration-hooks.log`.
 - **Terminal opens but no agent output appears**: Include `ps aux | grep claude` and `tail -50 ${WORKSPACE}/.cards/logs/claude-code-cards-runtime-hooks.log`.

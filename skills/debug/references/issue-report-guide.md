@@ -1,39 +1,27 @@
 # Issue Report Structure
 
-Scope: structure for filing a well-formed bug report about the Cards extension via `cards-extension issue`. Adapted from `cards:cards`'s bug-report structure with the same sections, targeting an issue body string instead of a CARD.md file.
-
-Source of truth: this file owns the issue body template. The escalation sections in every troubleshoot reference file delegate to this template.
-
-Completeness: covers every section a `cards-extension issue` body should contain. Excludes card creation workflows (see `cards:cards` skill).
-
-Cross-refs: `interview-issue-report.md` (gathering signal before filing), `inspect-cli-tools.md` (`cards-extension` CLI reference), `find-logs.md` (log evidence collection).
-
-Parent: `../SKILL.md`
+Scope: the issue body template and section structure for filing a Cards extension bug via `cards-extension issue`.
 
 ## Report Sections
 
 | Section | Content |
 |---------|---------|
-| Commander's Intent | Opening paragraph — the system after the defect is gone. Becomes the `title` field as a one-line summary |
+| Commander's Intent | Opening paragraph — the fixed-state world, not "the bug is fixed". Becomes the `title` field as a one-line summary |
 | What happened | Narrative description of the failure |
-| Steps to reproduce | Numbered sequence of actions |
+| Steps to reproduce | Numbered and specific, noting prerequisites and consistency (reproducible vs. intermittent) |
 | Expected behavior | What should have happened |
-| Actual behavior | What happened instead (include error messages, copy-paste exact) |
-| Investigation | What you explored, what you found, which observation channels you checked |
-| Hypothesis (optional) | Theory about the cause, framed as speculation ("This suggests...") |
-| Environment | Automatically populated by `generateCardUrl()`: extension version, VS Code version, platform, node version. Supplement with reproduction-specific environment below |
+| Actual behavior | What happened instead, with error messages copy-pasted exact |
+| Investigation | What you explored and found, and which channels (logs, APIs, UIs, monitoring) you checked with what each showed. Discrepancies between channels are often the most diagnostic information |
+| Hypothesis (optional) | Theory about the cause, framed as exploration — "This suggests...", not "The bug is caused by..." |
+| Environment | Auto-populated by `generateCardUrl()`: extension version, VS Code version, platform, node version. Supplement with reproduction-specific environment |
 | Relevant logs | Tail of the most relevant log file(s) — include the log name and why it was selected |
 
-## Writing Principles
+## Writing Rules
 
-- **Open with Commander's Intent**. The destination is the fixed-state world, not "the bug is fixed." This becomes the `title` field.
-- **Document observable facts**: Exact error messages (copy-paste), file paths, line numbers, git state. Fragment-link every named file, function, and type.
-- **Reproduction steps**: Numbered, specific, noting prerequisites and consistency (reproducible vs intermittent).
-- **Separate observation from speculation**: Frame hypotheses as exploration — "This suggests..." not "The bug is caused by..."
-- **Multiple observation channels**: Document which channels (logs, APIs, UIs, monitoring) you checked and what each showed. Discrepancies between channels are often the most diagnostic information.
-- **Observable vs non-observable state**: Name what you cannot see as well as what you can.
-- **Error state vs crash**: Check actual system health independently of error reports.
-- **Missing observability**: Note what visibility would have made investigation easier as concrete gaps.
+- **Document observable facts**: exact error messages, file paths, line numbers, git state. Fragment-link every named file, function, and type.
+- **Name what you cannot see** as well as what you can.
+- **Check system health independently of error reports** — an error state is not the same as a crash.
+- **Note missing observability** as concrete gaps: what visibility would have made this investigation easier.
 
 ## Template
 
@@ -48,11 +36,10 @@ EOF
 
 ### Template Notes
 
-- Replace `<log-name>` with the actual log filename (e.g., `claude-code-cards-api-hooks`, `claude-code-cards-runtime-hooks`, `cards-default-configuration-hooks`). The log file inventory is in `find-logs.md`.
-- The Environment section auto-captures HOME, CARDS_HOME, WORKSPACE, and discovery file state. `generateCardUrl()` adds extension version, VS Code version, platform, and node version automatically — do not duplicate those in the body.
+- Replace `<log-name>` with the actual log filename (e.g., `claude-code-cards-api-hooks`, `claude-code-cards-runtime-hooks`, `cards-default-configuration-hooks`). Inventory in `find-logs.md`.
+- Do not restate extension version, VS Code version, platform, or node version in the body — `generateCardUrl()` adds them.
 - The body is a single JSON string. Multi-line content uses `\n` escaping within the heredoc — the shell expands `$(...)` before passing to `cards-extension issue`.
-- Unknown JSON fields are rejected. Only `title` and `body` are accepted.
-- Missing or empty `title`/`body` exit with code 1 and an error message to stderr.
+- Only `title` and `body` are accepted; unknown fields are rejected, and missing or empty values exit 1 with an error to stderr.
 
 ## Out of Scope
 

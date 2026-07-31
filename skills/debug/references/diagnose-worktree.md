@@ -1,24 +1,6 @@
 # Diagnosing Worktree Issues
 
-Scope: worktree creation, binding, outfit, and cleanup. Covers both Cards-managed worktrees and git worktree state for card-bound sessions. Agent-retrieval keywords: worktree bind, CARD_ID, bind lock, PARENT_BRANCH, SESSION_ID, core.hooksPath, create-worktree, remove-worktree, worktree collision, already bound, stale bind lock.
-
-Source of truth: this file owns the per-worktree `.cards/` file schema and the bind-lock mechanism. CLI tool locations → `inspect-cli-tools.md`. Session binding → `find-session-state.md`.
-
-Completeness: covers all worktree lifecycle states (creation, binding, outfit, cleanup) in the Cards extension as of version 1.0.x. Excludes CLI implementation details (see `inspect-cli-tools.md`).
-
-Cross-refs: `inspect-cli-tools.md` (`create-worktree` / `remove-worktree` CLIs), `find-session-state.md` (session binding), `platform-reference.md` (path normalization on Windows).
-
-Parent: `../SKILL.md`
-
-## Evidence to Collect
-
-Before diagnosing:
-- `git worktree list` output
-- `cat .cards/CARD_ID` (if in a worktree)
-- `cat .cards/PARENT_BRANCH` (if in a worktree)
-- `echo $CARDS_SESSION_ID` (session identity env var, set by SessionStart hook)
-- `ls ~/.cards/bind-locks/` (bind lock files)
-- `ls ~/.cards/worktrees/` (Cards-managed worktrees)
+Scope: worktree creation, binding, outfit, and cleanup for Cards-managed worktrees and card-bound sessions.
 
 ## Quick Diagnostics
 
@@ -42,11 +24,11 @@ ls ~/.cards/bind-locks/ 2>/dev/null
 
 ## Per-Worktree `.cards/` Files
 
-| File | Written by | Read by | Contents | Status |
-|------|-----------|---------|----------|--------|
-| `CARD_ID` | `writeCardBoundFile()` in `worktree.ts:963` | `cards bind`, `remove-worktree`, watchers | Card ID string | current |
-| `PARENT_BRANCH` | `outfitWorktreeForCard()` in `worktreeForCard.ts` | `create-worktree`, branch registration | Branch name | current |
-| `CARD_ORIGINAL_HOOK_PATH` | `provisionSharedHooksDirStatic()` in `worktreeForCard.ts:926` | Restoration on unbind | Original `core.hooksPath` value | current |
+| File | Written by | Read by | Contents |
+|------|-----------|---------|----------|
+| `CARD_ID` | `writeCardBoundFile()` in `worktree.ts:963` | `cards bind`, `remove-worktree`, watchers | Card ID string |
+| `PARENT_BRANCH` | `outfitWorktreeForCard()` in `worktreeForCard.ts` | `create-worktree`, branch registration | Branch name |
+| `CARD_ORIGINAL_HOOK_PATH` | `provisionSharedHooksDirStatic()` in `worktreeForCard.ts:926` | Restoration on unbind | Original `core.hooksPath` value |
 
 Session identity is tracked as the `CARDS_SESSION_ID` environment variable (persisted by the SessionStart hook via `persistSessionEnv()`), not as a `.cards/` file. Active sessions are monitored through `~/.cards/adhoc-active/{cardId}/{sessionId}.ref` files.
 
@@ -76,8 +58,9 @@ Ranked by probability:
 
 **Cause**: The ref (branch/tag/SHA) already has a worktree at `~/.cards/worktrees/{repoId}/{ref}/`.
 
-**Recovery**: Use `git worktree list` to inspect existing worktrees. Remove with `remove-worktree <path>` if stale.
-**Risk**: **safe**. **Looks like, but isn't**: A git worktree managed outside Cards (manual `git worktree add`) can exist at the same ref but different path — `git worktree list` shows all.
+**Recovery**: Use `git worktree list` to inspect existing worktrees. Remove with `remove-worktree <path>` if stale — **safe**.
+
+**Looks like, but isn't**: A git worktree managed outside Cards (manual `git worktree add`) can exist at the same ref but different path — `git worktree list` shows all.
 
 **Post-fix verification**: `create-worktree` succeeds. `git worktree list` shows the new entry.
 
@@ -107,8 +90,7 @@ Ranked by probability:
 
 **Cause**: `core.hooksPath` wasn't set during outfit, or the shared hooks directory wasn't provisioned.
 
-**Recovery**: Rerun `cards <id> bind` to re-outfit the worktree. Check `.cards/CARD_ORIGINAL_HOOK_PATH` for the previous value.
-**Risk**: **safe**.
+**Recovery**: Rerun `cards <id> bind` to re-outfit the worktree — **safe**. Check `.cards/CARD_ORIGINAL_HOOK_PATH` for the previous value.
 
 ### Worktree Path on Windows — LOW probability
 
@@ -116,8 +98,7 @@ Ranked by probability:
 
 **Cause**: Git emits forward-slash paths even on Windows. All consumers normalize via `path.resolve()`.
 
-**Recovery**: No action needed — the code handles this. If a path comparison fails, run both sides through `path.resolve()`.
-**Risk**: **safe**.
+**Recovery**: No action needed — the code handles this. If a path comparison fails, run both sides through `path.resolve()`. **Risk**: **safe**.
 
 ### `create-worktree` Fails (No Card ID, Server Unreachable) — LOW probability
 
@@ -125,14 +106,11 @@ Ranked by probability:
 
 **Cause**: When `--card-id` is given, the CLI must reach the server for branch registration. Without `--card-id`, the CLI is fully offline.
 
-**Recovery**: Verify the server is running (load `diagnose-server-health.md`). Or create the worktree without `--card-id` and bind separately.
-**Risk**: **safe**.
+**Recovery**: Verify the server is running (load `diagnose-server-health.md`), or create the worktree without `--card-id` and bind separately. **Risk**: **safe**.
 
 ## Escalation
 
-File via `cards-extension issue`. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template and evidence collection) before filing.
-
-Escalate if:
+File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Bind lock persists after confirming no bind operation is running**: Include `ls -la ~/.cards/bind-locks/` and `git worktree list`.
 - **Worktree creation consistently fails with no collision**: Include `create-worktree` stderr output and the worktree directory listing.
 - **Hooks refuse to run after multiple re-outfit attempts**: Include `git config core.hooksPath` and `cat .cards/CARD_ORIGINAL_HOOK_PATH`.

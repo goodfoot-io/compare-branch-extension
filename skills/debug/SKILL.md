@@ -13,7 +13,7 @@ git rev-parse --show-toplevel — Resolve workspace root
 
 <instructions>
 
-You are in the debug skill for the Cards Assistant. This skill covers diagnostics, log discovery, settings inspection, server health, known failure states, and platform differences for the Cards extension and its Claude Code / Codex plugins. It operates only from the installed extension, bundled references and CLIs, runtime state, and logs; do not assume source files or source-analysis tools exist. Start with §1 to collect the environment fingerprint — the reference files assume `WORKSPACE` and the Cards config directory are known.
+You are in the debug skill for the Cards Assistant. It operates only from the installed extension, bundled references and CLIs, runtime state, and logs; do not assume source files or source-analysis tools exist. Start with §1 — the reference files assume `WORKSPACE` and the Cards config directory are known.
 
 ## 1. Orient — Collect Installation Fingerprint
 
@@ -47,67 +47,37 @@ command -v cards >/dev/null && echo "cards=available" || echo "cards=unavailable
 command -v cards-extension >/dev/null && echo "cards-extension=available" || echo "cards-extension=unavailable"
 ```
 
-The cards config directory resolves as: `$CARDS_HOME` → `$XDG_DATA_HOME/.cards` → `$XDG_CONFIG_HOME/.cards` → `~/.cards`. This is the root for discovery, databases, sessions, and worktrees.
+`CARDS_CONFIG_DIR` is the root for discovery, databases, sessions, and worktrees. `WORKSPACE` is referenced by diagnostic commands throughout the reference files.
 
-The `WORKSPACE` variable is referenced by diagnostic commands throughout the reference files. Use the bundled references, installed CLIs, extension output channel, persisted logs, discovery/config files, and observable API responses. Do not search for source files or treat their absence as a diagnostic failure.
+If the UI exposes only a coarse message, collect the corresponding logs before choosing a remedy.
 
-An installed extension can identify, diagnose, locally remediate, verify, and package a report only when the following evidence is available:
+## 2. Route by Symptom
 
-- the exact error code/message, operation, timestamp, and nested cause or diagnostic;
-- extension version/build channel, editor/platform version, configured environment, and workspace;
-- Cards output-channel or persisted logs and relevant request/flow/session identifiers;
-- sanitized discovery, settings, filesystem, Git, and API state required by the matching reference;
-- an authorized actor for issuer-, account-, billing-, deployment-, or administrator-owned remedies.
+Load only the file(s) whose symptom matches.
 
-If the UI exposes only a coarse message, collect the corresponding logs before choosing a remedy. If the required evidence or authority is unavailable, stop at a redacted report; do not infer a cause or bypass a fail-closed check.
+| Symptom | Load | What it covers |
+|---------|------|----------------|
+| Known error code or exact failure message; logs reveal a typed failure | `references/diagnose-known-failure-states.md` | Error families across internal packages, public packages, and the extension. Identify the owning family, preserve fail-closed boundaries, apply only supported remediation, verify durable state, report at the stated threshold |
+| License activation, browser registration, refresh, or integrity failure | `references/diagnose-known-failure-states.md` | Distinguishes parsing, signing-environment, signature, expiry, revocation, device binding, polling, refresh, storage, and clock states |
+| Agent won't start, terminal flashes and closes, ENOENT, handler crashes | `references/diagnose-agent-launch.md` | Full spawn chain: VS Code command → handler .mjs → agent CLI → plugin hooks, with guard checks, env vars, per-platform spawn behavior |
+| Server not responding, "Server not running", ECONNREFUSED, SQLITE_CORRUPT | `references/diagnose-server-health.md` | Server liveness, discovery file validation, database corruption recovery, safe-vs-risky action markers |
+| Hook not firing, SessionStart announcement missing, trust interstitial | `references/diagnose-hooks.md` | Hook registration and execution for Claude + Codex plugins, trust hashes, failure modes |
+| Card won't bind, worktree already in use, bind lock held | `references/diagnose-worktree.md` | Worktree creation, binding, outfit, shared hooks provisioning, stale lock cleanup |
+| Can't find logs, need to see what happened, no log output | `references/find-logs.md` | Every log file produced by the extension + plugins, organized by subsystem, with JSON Lines query recipes |
+| Transcript missing, session not streamed, commit attribution broken | `references/find-session-state.md` | Session identity, transcript streaming, commit attribution, route-nudge markers, flush sentinels |
+| Card stuck in active state, daemon crashed, cleanup not happening | `references/find-session-state.md` | Ad-hoc session monitoring — the reconciliation sweep that settles stranded cards when the adhoc-cleanup daemon crashes |
+| Settings not taking effect, agent behavior wrong, plugin not enabled | `references/inspect-settings.md` | Settings tiers across Claude Code, Codex, and Cards; merge behavior; what the extension writes |
+| Plugin not loading, "unknown plugin", stale cached version | `references/inspect-plugin-cache.md` | Plugin cache staging for Claude and Codex, marketplace registration, version management |
+| CLI command fails, "command not found", interpreter broken | `references/inspect-cli-tools.md` | CLI inventory with auth, workspace discovery, shell shim patterns, platform-specific behavior |
+| Path differences across machines or OS | `references/platform-reference.md` | Cross-platform path tables, IPC mechanisms, Node interpreter selection, shell variable syntax |
+| Understanding server internals, writing automation, verifying schema | `references/cards-api-server.md` | Discovery file schema, database settings, liveness states, recovery constants |
+| Filing a bug report about the Cards extension | `references/interview-issue-report.md`, then `references/issue-report-guide.md` | Interview process to gather signal before filing; then report sections, writing principles, and body template. File via `cards-extension issue` |
+| Symptom unclear, spans multiple layers | `references/diagnose-agent-launch.md` + `references/find-logs.md` | Full spawn chain end-to-end, plus evidence collection at every layer. Add `references/diagnose-server-health.md` if server health is involved |
 
-## 2. Reference File Inventory
+## 3. Route by Subsystem
 
-Each file below is loaded on demand. Load the one matching the symptom first.
+When the subsystem is known but the symptom is not:
 
-| File | Genre | Covers | When to load |
-|------|-------|--------|-------------|
-| `references/diagnose-agent-launch.md` | Troubleshooting | Full spawn chain: VS Code command → handler .mjs → agent CLI → plugin hooks | Agent won't start, terminal flashes and closes, ENOENT, handler crashes |
-| `references/diagnose-server-health.md` | Troubleshooting | Server liveness, discovery file problems, database corruption | Server not responding, "Server not running", ECONNREFUSED, SQLITE_CORRUPT |
-| `references/diagnose-hooks.md` | Troubleshooting | Hook registration, execution, and logging for Claude + Codex | Hook not firing, SessionStart announcement missing, trust interstitial |
-| `references/diagnose-worktree.md` | Troubleshooting | Worktree creation, binding, outfit, cleanup | Card won't bind, worktree already in use, bind lock held |
-| `references/diagnose-known-failure-states.md` | Troubleshooting | Known operational error families across internal packages, public packages, and the extension; safe remedies, verification, and escalation | Exact error code/message is known, license or registration failed, or logs reveal a typed failure |
-| `references/find-logs.md` | Reference | Every log file produced by Cards extension + plugins, organized by subsystem | Can't find logs, need to see what happened, no log output |
-| `references/find-session-state.md` | Reference | Session IDs, transcripts, commit attribution, route-nudge markers, flush sentinels, ad-hoc session monitoring, reconciliation sweep, daemon PID tracking | Transcript missing, session not streamed, commit attribution broken, card stuck in active state, daemon crashed |
-| `references/inspect-settings.md` | Reference | Settings files across Claude Code, Codex, and Cards — tiers, merge behavior | Settings not taking effect, agent behavior wrong, plugin not enabled |
-| `references/inspect-plugin-cache.md` | Reference | Plugin cache staging, version management, marketplace registration | Plugin not loading, "unknown plugin", stale cached version |
-| `references/inspect-cli-tools.md` | Reference | CLI locations, shell shims, workspace discovery, authentication | CLI command fails, "command not found", interpreter broken |
-| `references/cards-api-server.md` | Reference | Discovery file schema, database settings, liveness states, recovery constants | Understanding server internals, writing automation, verifying schema |
-| `references/issue-report-guide.md` | How-to | Structure for filing a well-formed bug report via `cards-extension issue` — report sections, writing principles, template | Filing a bug report about the Cards extension, composing an issue body |
-| `references/interview-issue-report.md` | How-to | Interview process to gather signal for a bug report before filing | Before filing an issue, user reports a bug but details are unclear, need to gather evidence |
-| `references/platform-reference.md` | Reference | Path differences, IPC, Node interpreter selection for Linux/macOS/Windows | Path differences across machines or OS, cross-platform debugging |
-
-## 3. Route by Symptom
-
-Each entry names the file to load and a preview of what the reader will find there.
-
-Based on symptom:
-- **Known error code or exact failure message**: Load `references/diagnose-known-failure-states.md` first — identify the owning failure family, preserve fail-closed boundaries, apply only supported remediation, verify durable state, and report at the stated threshold.
-- **License activation, browser registration, refresh, or integrity failure**: Load `references/diagnose-known-failure-states.md` — it distinguishes parsing, signing-environment, signature, expiry, revocation, device binding, polling, refresh, storage, and clock states.
-- **Agent won't start, terminal flashes and closes**: Load `references/diagnose-agent-launch.md` — the full spawn chain from VS Code command through handler execution and CLI launch, with guard checks, env vars, and per-platform spawn behavior.
-- **Server not responding, "Server not running" errors**: Load `references/diagnose-server-health.md` — server liveness diagnostics, discovery file validation, database corruption recovery, safe-vs-risky action markers.
-- **Hook not firing, SessionStart announcement missing**: Load `references/diagnose-hooks.md` — hook registration and execution for both Claude and Codex plugins, trust hashes, and failure modes.
-- **Can't find logs, need to see what happened**: Load `references/find-logs.md` — the complete log file inventory organized by subsystem, with JSON Lines query recipes.
-- **Card won't bind, worktree already in use**: Load `references/diagnose-worktree.md` — worktree creation, binding, outfit, shared hooks provisioning, and stale lock cleanup.
-- **Plugin not loading, "unknown plugin" errors**: Load `references/inspect-plugin-cache.md` — plugin cache staging for Claude and Codex, marketplace registration, version management.
-- **Settings not taking effect, agent behavior wrong**: Load `references/inspect-settings.md` — settings file tiers for Claude, Codex, and Cards, merge behavior, and what the extension writes.
-- **Transcript missing, session not streamed**: Load `references/find-session-state.md` — session identity, transcript streaming, commit attribution, flush sentinels, ad-hoc session monitoring.
-- **Card stuck in active state, daemon crashed, cleanup not happening**: Load `references/find-session-state.md` — the ad-hoc session monitoring section covers the reconciliation sweep that settles stranded cards when the adhoc-cleanup daemon crashes.
-- **CLI command fails, "command not found"**: Load `references/inspect-cli-tools.md` — CLI inventory with auth, workspace discovery, shell shim patterns, and platform-specific behavior.
-- **Path differences across machines or OS**: Load `references/platform-reference.md` — cross-platform path tables, IPC mechanisms, Node interpreter selection, shell variable syntax.
-- **Need to file a bug report about the Cards extension**: Load `references/interview-issue-report.md` (interview process — gather signal before filing) and `references/issue-report-guide.md` (report structure and template). File via `cards-extension issue` with the body template.
-- **Symptom unclear, spans multiple layers**: Load `references/diagnose-agent-launch.md` (covers the full spawn chain end-to-end) and `references/find-logs.md` (covers evidence collection at every layer). If the symptom involves server health, also load `references/diagnose-server-health.md`.
-
-## 4. Route by Subsystem
-
-When the reader knows the subsystem but not the symptom:
-
-Based on subsystem:
 - **Registration and licensing**: `references/diagnose-known-failure-states.md` (validation, browser claim, refresh, and local integrity) + `references/find-logs.md` (safe diagnostic evidence)
 - **Known package error**: `references/diagnose-known-failure-states.md` (ownership, remediation, verification, and escalation) plus the subsystem-specific reference below when one exists
 - **Claude Code hooks**: `references/diagnose-hooks.md` (hook execution) + `references/inspect-settings.md` (hook enablement in settings) + `references/inspect-plugin-cache.md` (hook binaries in cache)
@@ -117,8 +87,8 @@ Based on subsystem:
 - **Plugin cache**: `references/inspect-plugin-cache.md` (staging) + `references/inspect-settings.md` (registration) + `references/diagnose-agent-launch.md` (consumed at spawn)
 - **Server**: `references/diagnose-server-health.md` (troubleshooting) + `references/cards-api-server.md` (schema reference)
 
-## 5. If a Hub Doesn't Cover It
+## 4. If a Hub Doesn't Cover It
 
-Do not attempt source tracing. For an unlisted state, answer the identification, classification, evidence, remediation authority, verification, and escalation questions in `references/diagnose-known-failure-states.md`; do not infer that retrying is safe. Collect the exact message, nested stack/cause, extension version, environment, operation, reproduction, and safe runtime evidence, then file a bug report. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template). The template includes log collection, environment fingerprint, and discovery file state — all auto-captured from §1 evidence.
+For an unlisted state, work it through `references/diagnose-known-failure-states.md`; do not infer that retrying is safe. Then file a bug report: load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template).
 
 </instructions>

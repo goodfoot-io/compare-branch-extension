@@ -1,19 +1,8 @@
 # Diagnosing Server Health Issues
 
-Scope: server not responding, "Server not running" errors, discovery file problems, database corruption. Agent-retrieval keywords: server health, cards-api.json, discovery file, ENOENT, ECONNREFUSED, SQLITE_CORRUPT, SQLITE_BUSY, port not responding, PID dead, stale discovery, recovery poll.
+Scope: server not responding, "Server not running" errors, discovery file problems, database corruption.
 
-Cross-refs: `cards-api-server.md` (discovery file schema, database settings, liveness states), `diagnose-agent-launch.md` (server prerequisite for agent commands), `find-logs.md` (server startup errors in VS Code output).
-
-Parent: `../SKILL.md`
-
-## Evidence to Collect
-
-Before diagnosing, gather:
-- VS Code Output → Cards channel content (last 100 lines)
-- `~/.cards/cards-api.json` file contents (run `cat ~/.cards/cards-api.json | jq .`)
-- PID from discovery file (`jq -r '.pid' ~/.cards/cards-api.json`)
-- `ps aux | grep <pid>` output (if PID present)
-- `~/.cards/cards.db` file size and modification time
+Also gather: the VS Code Output → Cards channel (last 100 lines), and `~/.cards/cards.db` size and mtime.
 
 ## Quick Diagnostics
 
@@ -98,10 +87,14 @@ Based on discovery file + PID + TCP probe + health check result. Schema details 
 
 ## Escalation
 
-File via `cards-extension issue`. Load `references/interview-issue-report.md` (interview process) and `references/issue-report-guide.md` (report template and evidence collection) before filing.
-
-Escalate if any of these are true:
+File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Server won't start after 3 window reloads**: Include the last 100 lines of the Cards output channel and `find ~/.vscode-server/data/logs -name 'Cards.log' -exec tail -50 {} \;`.
 - **Database corruption recurs after rebuild**: Include `ls -la ~/.cards/cards.db*` and the server startup log showing the corruption error.
 - **Port conflict persists across reloads**: Include `lsof -i :<port>` output and the discovery file contents.
 - **Discovery file oscillates (created/deleted rapidly)**: Include `tail -100 ${WORKSPACE}/.cards/logs/claude-code-cards-api-hooks.log` and `ls -la ~/.cards/cards-api.json*`.
+
+## Out of Scope
+
+- Discovery file schema, database settings, liveness states → `cards-api-server.md`
+- Server as a prerequisite for agent commands → `diagnose-agent-launch.md`
+- Server startup errors in VS Code output → `find-logs.md`

@@ -78,7 +78,7 @@ This pass dispatches a single failure-mode evaluator. Read the diff and the card
 <parameter name="name">failure-mode</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (the orchestrator), and DM `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` to `team-lead` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode` and a `---` delimiter.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (the orchestrator), and DM `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` to `team-lead` when analysis is complete. Every DM follows your skill's `<dm-envelope>`.
 
 ## Peers
 You are the only evaluator on this pass. The orchestrator is `team-lead`.

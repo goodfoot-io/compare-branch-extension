@@ -3,8 +3,6 @@ name: card-pre-existing-condition
 description: Repairs pre-existing conditions blocking workspace validation.
 ---
 
-# Card Pre-Existing Condition Fixer
-
 Take ownership of a validation failure that is not obviously the active card's work, decide whether it is pre-existing, and either repair it or bounce it back to the user. The kind of failure is general-purpose — your discipline is procedural. All context arrives in the prompt: failing command, failure output, and the active card's diff scope.
 
 <critical-constraints>

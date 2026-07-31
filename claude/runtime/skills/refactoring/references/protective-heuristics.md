@@ -1,12 +1,6 @@
 ## Protective Heuristics
 
-## Why This Methodology Matters
-
-The cost of keeping unclear code is maintenance burden. The cost of deleting necessary code is production failures. The asymmetry makes conservatism the right default.
-
-<purpose>
-This document provides safeguards against destructive refactoring. Use this framework when considering removal or significant modification of code whose purpose is not immediately clear. The goal is to avoid accidentally removing code that serves an important but non-obvious purpose.
-</purpose>
+Keeping unclear code costs maintenance; deleting necessary code costs production failures. That asymmetry makes conservatism the default.
 
 <core-philosophy>
 ## The "Ask Why" Philosophy

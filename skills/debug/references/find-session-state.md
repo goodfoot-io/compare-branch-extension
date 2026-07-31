@@ -1,14 +1,6 @@
 # Finding Session State
 
-Scope: session IDs, transcripts, commit attribution, route-nudge markers, head SHA tracking, flush sentinels — everything written during a card session. Agent-retrieval keywords: CARDS_SESSION_ID, CARDS_TRANSCRIPT_PATH, transcript watcher, adhoc-active, adhoc-sessions, unbound candidates, flush sentinel, commit attribution, route-nudge, exit-when-done, head SHA.
-
-Source of truth: this file owns the session state directory layout (`card-repo-commits/`, `adhoc-active/`, `adhoc-sessions/`) and the transcript streaming pipeline. Hooks that write session state → `diagnose-hooks.md`. Worktree binding → `diagnose-worktree.md`.
-
-Completeness: every session-scoped file written by the Cards extension hooks and daemons as of version 1.0.x. Excludes agent internal session data (managed by Claude Code / Codex).
-
-Cross-refs: `diagnose-hooks.md` (which hooks write session state), `diagnose-worktree.md` (session binding to worktree), `diagnose-agent-launch.md` (session lifecycle).
-
-Parent: `../SKILL.md`
+Scope: everything written during a card session — session IDs, transcripts, commit attribution, nudge markers, flush sentinels.
 
 ## Quick Diagnostics
 
@@ -52,13 +44,13 @@ Persisted by the SessionStart hook. Points to the Claude Code or Codex transcrip
 
 **Source**: `public/packages/claude-code-sessions/src/card-repo.ts`::`getCardRepoCommitsDir()`.
 
-| File | Purpose | Writer | Reader | Status |
-|------|---------|--------|--------|--------|
-| `{sessionId}.csv` | Commit SHA attribution records | `appendCommitToSession()` (PostToolUse hook, post-commit hook) | `getSessionCommits()` | current |
-| `{sessionId}.csv.lock` | Lock for concurrent CSV writes | Session infrastructure | Session infrastructure | current |
-| `{sessionId}.head` | HEAD SHA captured at session start | `writeSessionHeadSha()` (SessionStart hook) | Git diff baseline computation | current |
-| `{sessionId}.route-nudge` | Once-per-session route-nudge gate (empty marker, mode 0o600) | `markSessionRouteNudgeFired()` (StopRouteNudge hook) | `hasSessionRouteNudgeFired()` (prevents duplicate nudges) | current |
-| `{sessionId}.exit-when-done-nudge` | Exit-when-done nudge marker | Exit-when-done logic | Cleanup logic | current |
+| File | Purpose | Writer | Reader |
+|------|---------|--------|--------|
+| `{sessionId}.csv` | Commit SHA attribution records | `appendCommitToSession()` (PostToolUse hook, post-commit hook) | `getSessionCommits()` |
+| `{sessionId}.csv.lock` | Lock for concurrent CSV writes | Session infrastructure | Session infrastructure |
+| `{sessionId}.head` | HEAD SHA captured at session start | `writeSessionHeadSha()` (SessionStart hook) | Git diff baseline computation |
+| `{sessionId}.route-nudge` | Once-per-session route-nudge gate (empty marker, mode 0o600) | `markSessionRouteNudgeFired()` (StopRouteNudge hook) | `hasSessionRouteNudgeFired()` (prevents duplicate nudges) |
+| `{sessionId}.exit-when-done-nudge` | Exit-when-done nudge marker | Exit-when-done logic | Cleanup logic |
 
 ## Ad-Hoc Session Monitoring
 
@@ -66,19 +58,19 @@ Persisted by the SessionStart hook. Points to the Claude Code or Codex transcrip
 
 **Path**: `~/.cards/adhoc-active/{cardId}/{sessionId}.ref`
 
-**Contents**: `{pid}\n{startTimeEpochMs}` — two lines, PID and start time. **Status**: current.
+**Contents**: `{pid}\n{startTimeEpochMs}` — two lines, PID and start time.
 
 **Written by**: `writeRef()` in `public/packages/sdk/src/bin/adhoc-refs.ts`.
 
 **Read by**: `liveRefsRemain()` (checks if monitored processes are still alive), `reconcileStrandedActiveCards()` (finds orphaned active cards).
 
-**Purpose**: The `adhoc-cleanup` daemon spawns when a session starts, records the agent PID, and monitors it. On PID death, it transitions the card to `needs_review`. The `.ref` file is a durable marker — it persists even if the daemon crashes (OOM, SIGKILL, reboot), enabling the reconciliation sweep below to settle the card.
+**Purpose**: The `adhoc-cleanup` daemon spawns when a session starts, records the agent PID, and monitors it. On PID death, it transitions the card to `needs_review`. The `.ref` file survives a daemon crash (OOM, SIGKILL, reboot), so a `.ref` whose PID is dead means the daemon died before settling the card — the sweep below picks it up.
 
 ### Reconciliation Sweep
 
 **Source**: `public/packages/sdk/src/bin/adhoc-refs.ts`::`reconcileStrandedActiveCards()`.
 
-The reconciliation sweep is the backup mechanism for when the `adhoc-cleanup` daemon itself crashes before completing a card transition. It is called at the start of **every** Claude and Codex session (wired in via `SessionStart` hook at `public/packages/agent-hooks/src/claude/runtime/session-start.ts` and its Codex counterpart).
+Backstop for a crashed `adhoc-cleanup` daemon. Runs at the start of **every** Claude and Codex session, via the `SessionStart` hook at `public/packages/agent-hooks/src/claude/runtime/session-start.ts` and its Codex counterpart.
 
 **Mechanism step by step**:
 1. Scans all directories under `~/.cards/adhoc-active/{cardId}/`.
@@ -88,21 +80,21 @@ The reconciliation sweep is the backup mechanism for when the `adhoc-cleanup` da
 5. **If a live action wrapper IS present**: The sweep defers — retaining the dead refs so a later sweep can settle once the action clears.
 6. **If no action wrapper is present**: The sweep settles the card — transitions it from `active` to `needs_review` via `transitionCardStatus()` (filesystem fallback in `public/packages/sdk/src/bin/process-utils.ts`), and deletes the dead `.ref` files.
 
-**Narrow gap**: If the daemon crashes between the `active` API write and the `writeRef` call, the card becomes `active` with no `.ref` file — invisible to the sweep. This is accepted because the two writes happen in rapid succession and the ordering (API first, then ref) prevents the inverse problem (a ref claiming to monitor a card that was never marked `active`).
+**Narrow gap**: A daemon crash between the `active` API write and the `writeRef` call leaves the card `active` with no `.ref` file — invisible to the sweep, so it will not settle on its own.
 
 ### Session Locks
 
 **Path**: `~/.cards/adhoc-sessions/{sessionId}.lock`
 
-Empty lock file for de-duplication — prevents two ad-hoc attribution spawns for the same session. **Status**: current.
+Empty lock file for de-duplication — prevents two ad-hoc attribution spawns for the same session.
 
-**Source**: `public/packages/sdk/src/worktreeForCard.ts` (line ~322).
+**Source**: `public/packages/sdk/src/worktreeForCard.ts` (line 351).
 
 ### Unbound Candidates
 
 **Path**: `~/.cards/adhoc-sessions/{sessionId}/unbound-candidates/{sha256(worktreePath)}.json`
 
-**Contents**: `{ worktreeDir, sessionId, transcriptPath }`. **Status**: current.
+**Contents**: `{ worktreeDir, sessionId, transcriptPath }`.
 
 **Written by**: `addUnboundCandidate()` during EnterWorktree hook.
 
@@ -118,17 +110,17 @@ Empty lock file for de-duplication — prevents two ad-hoc attribution spawns fo
 
 **Path**: `{cardRepoPath}/streams/claude-code-session/{sessionId}.jsonl`
 
-Synced transcript lines written by the detached, manifest-driven `stream-sync-watcher` daemon. It uses `fs.watch` (recursive) on the manifest's `watchRoot`, tails new lines, and writes to the card repo. **Status**: current.
+Synced transcript lines written by the detached, manifest-driven `stream-sync-watcher` daemon. It uses `fs.watch` (recursive) on the manifest's `watchRoot`, tails new lines, and writes to the card repo.
 
 **Path**: `{cardRepoPath}/streams/claude-code-session/{sessionId}-{subagentId}.jsonl`
 
-Subagent transcripts uploaded by the SubagentStop hook. **Status**: current.
+Subagent transcripts uploaded by the SubagentStop hook.
 
 ### Flush Sentinel
 
 **Path**: `{cardRepoPath}/streams/claude-code-session/{sessionId}.flush`
 
-Empty marker file. Written by the SessionEnd hook to signal `stream-sync-watcher` that the session ended gracefully. The watcher detects the sentinel via its `fs.watch`, flushes remaining lines, commits, and exits. **Status**: current.
+Empty marker file. Written by the SessionEnd hook to signal `stream-sync-watcher` that the session ended gracefully. The watcher detects the sentinel via its `fs.watch`, flushes remaining lines, commits, and exits.
 
 ### Sidecar Metadata
 
@@ -151,8 +143,6 @@ Written once, on first successful sync of a matched source, and never rewritten 
 }
 ```
 
-**Status**: current.
-
 ### Auto-Gitignore
 
 `stream-sync-watcher` appends `streams/**/*.flush` to `{cardRepoPath}/.gitignore` if not already present — flush sentinels should never be committed.
@@ -161,7 +151,7 @@ Written once, on first successful sync of a matched source, and never rewritten 
 
 **Path**: `~/.cards/sessions/{sanitizedCardId}/stderr.log`
 
-Plain text stderr capture from session processes. Sanitized card ID: characters unsafe for filesystem paths are replaced. **Status**: current.
+Plain text stderr capture from session processes. Sanitized card ID: characters unsafe for filesystem paths are replaced.
 
 **Source**: `packages/extension/src/utils/paths.ts`::`getSessionStderrLogPath()`.
 

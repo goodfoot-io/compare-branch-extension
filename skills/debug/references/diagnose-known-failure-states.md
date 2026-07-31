@@ -1,29 +1,23 @@
 # Diagnose known failure states
 
-Scope: self-contained troubleshooting runbook for explicit operational failures defined by Cards packages. Use it when the user supplies an error code/message, or after logs reveal one. It supports a normal extension installation without source files. Diagnose before fixing; preserve validation, authorization, containment, revocation, and integrity boundaries.
+Scope: troubleshooting runbook for the explicit operational failures defined by Cards packages. Diagnose before fixing.
 
 ## Installation-only capability boundary
 
-The installed extension, bundled CLIs, runtime files, logs, and this reference are sufficient to:
+The installed extension, bundled CLIs, runtime files, logs, and this reference are sufficient to work the whole procedure below: map a code to its family, run read-only checks, apply the supported local remedies, verify, and produce a redacted escalation bundle.
 
-- map a known code/message to its owning failure family;
-- run read-only checks against configuration, discovery, Git, filesystem, process, and API state;
-- perform the supported local remedies listed below;
-- verify the observable result; and
-- produce a redacted escalation bundle.
-
-Source code and source-analysis tools are not required or assumed. An unlisted/internal failure is reported from runtime evidence rather than reverse-engineered from unavailable implementation files.
+Source code and source-analysis tools are not required or assumed. Report an unlisted or internal failure from runtime evidence rather than reverse-engineering it.
 
 Some resolutions require information or authority the installation cannot supply:
 
 | Required information or authority | Why it is needed |
 | --- | --- |
-| Exact nested diagnostic/log entry | Several user-facing messages intentionally collapse multiple underlying causes. |
-| Extension version, build channel, configured environment, and safe signing key ID | Distinguishes incompatible builds/environments from malformed or invalid licenses. |
-| Request, flow, card, session, or correlation identifier plus timestamp | Correlates local symptoms with server or issuer records without sharing secrets. |
-| Authoritative account, billing, entitlement, revocation, deployment, or issuance state | Only the owning service or administrator can confirm or change it. |
-| Repository/worktree ownership and uncommitted-state confirmation | Required before any cleanup that could remove user work. |
-| A named authorized actor or support destination | Issuer-, administrator-, release-, and service-owned remedies cannot be performed locally. |
+| Exact nested diagnostic/log entry | User-facing messages intentionally collapse multiple underlying causes — the surface message is not enough |
+| Extension version, build channel, configured environment, and safe signing key ID | Distinguishes an incompatible build or environment from an invalid license |
+| Request, flow, card, session, or correlation identifier plus timestamp | Correlates local symptoms with server records without sharing secrets |
+| Authoritative account, billing, entitlement, revocation, deployment, or issuance state | Only the owning service or administrator can confirm or change it |
+| Repository/worktree ownership and uncommitted-state confirmation | Required before any cleanup that could remove user work |
+| A named authorized actor or support destination | Issuer-, administrator-, release-, and service-owned remedies cannot be performed locally |
 
 When any required item is unavailable, the correct result is a report that names the missing evidence or authority. Do not guess.
 

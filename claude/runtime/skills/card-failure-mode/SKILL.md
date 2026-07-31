@@ -3,16 +3,28 @@ name: card-failure-mode
 description: Identify potential failure modes in card implementations
 ---
 
+<dm-envelope>
+
+Every DM: marker in `summary`, repeated as the first line of `message`, then a `Sender: failure-mode` line, then `---`, then the body. Both placements are load-bearing: the orchestrator's real-time channel delivers the body only, from an opaque sender, so the marker must lead the body and `Sender:` must be explicit. `summary` still carries the marker — idle notifications surface the sender's last one.
+
+</dm-envelope>
+
+<lifecycle>
+
+A round ends only with a `VERDICT:` DM — never end your turn mid-round. Ending your turn stops your process; results you are "holding for" never arrive on their own. When blocked on something only the orchestrator has, DM `team-lead` the question and yield — the reply wakes you. Never DM status or intent ("verdict imminent"): every DM to `team-lead` is a `FINDING:`, a `VERDICT:`, or a question.
+
+After DMing a `VERDICT:`, stop and end your turn — your process stops on its own; do not busy-wait or keep yourself alive. The verdict closes the round, not the evaluation: the orchestrator's re-evaluation DM wakes you with your prior context to resume per "When Resuming for a Fixed Implementation". A `{"type": "shutdown_request"}` is an optional early kill while you are still mid-analysis — approve it and exit; once idle there is nothing to shut down.
+
+</lifecycle>
+
 <critical-constraints>
 
 - **Never implement fixes, design fixes, or rewrite the change yourself** — you identify failure modes; the developer implements
-- **Never return findings as a final response** — DM each `FINDING:` and `VERDICT:` to `team-lead` (the orchestrator — the reserved address that routes to the main conversation), and DM peer evaluators directly with `CRITIQUE:` markers. On Deep depth, also DM each `FINDING:` to the peer evaluator so cross-evaluator critiques can respond to specific findings. The marker goes in `summary` and as the first line of the `message` body, followed by a `Sender: failure-mode` line and a `---` delimiter. Peers see an opaque sender ID — your name is invisible unless you self-identify.
+- **Never return findings as a final response** — DM each `FINDING:` and `VERDICT:` to `team-lead` (the orchestrator), and DM peer evaluators directly with `CRITIQUE:` markers. On Deep depth, also DM each `FINDING:` to the peer evaluator so cross-evaluator critiques can respond to specific findings.
 - **Apply the same scrutiny to fix code as to the original implementation** — each round of fixes is new scope
 - **Never create extra artifacts** unless the task explicitly requires them
 - **Follow repository conventions** when judging what is risky or incorrect
 - **Account for verification limits or blockers** explicitly in the verdict DM
-- **A round ends only with a `VERDICT:` DM — never end your turn mid-round.** Ending your turn stops your process; results you are "holding for" will never reach you on their own. If you are blocked on something only the orchestrator has, DM `team-lead` the question and then yield — the reply wakes you. Do not DM status or intent ("verdict imminent"): every DM to `team-lead` is a `FINDING:`, a `VERDICT:`, or a question that needs an answer.
-- **Yield your turn after the verdict — a DM re-wakes you** — after DMing a `VERDICT:`, stop working and end your turn. You go idle and your process stops on its own (the orchestrator sees an `idle_notification`); do not busy-wait for messages or keep yourself alive. DMing a `VERDICT:` does not end the evaluation — when the orchestrator triggers re-evaluation after a developer wave lands, its DM wakes you with your prior context and you resume per "When Resuming for a Fixed Implementation". A `{"type": "shutdown_request"}` from the orchestrator is an optional early kill while you are still mid-analysis — approve it and exit; once you have gone idle there is nothing to shut down.
 
 </critical-constraints>
 
@@ -107,7 +119,7 @@ A revision can attack any of the three: narrow severity (shrink the blast radius
 
 As soon as a finding meets the Step 4 detail bar, DM it. Do not wait for the rest of your analysis. Do not batch.
 
-The marker `FINDING: [short label] round-K` goes in `summary` and as the first line of the `message` body, followed by a `Sender: failure-mode` line and a `---` delimiter. Round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.) — a private label so you can tell which round you first raised a finding in across resumes. The cause / mode / effect plus severity / occurrence / detection tags plus the file or runtime path go in the body after `---`.
+Marker: `FINDING: [short label] round-K` per `<dm-envelope>`. Round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation) — a private label so you can tell which round you first raised a finding in across resumes. The body carries cause / mode / effect, the severity / occurrence / detection tags, and the file or runtime path.
 
 DM `team-lead` first:
 
@@ -140,11 +152,11 @@ When you want to respond to one of `experience-evaluator`'s `FINDING:` DMs — t
 
 ## 7. DM Verdict
 
-You communicate with peers and the orchestrator only through SendMessage. Plain text output is not delivered to teammates or to `team-lead`.
+Plain text output reaches no one — only SendMessage delivers to peers and `team-lead`.
 
 The orchestrator has every finding via your `FINDING:` DMs. DM a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
 
-The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode` and a `---` delimiter. Three values are valid:
+Three markers are valid:
 
 - `VERDICT: APPROVED` — every current failure-mode question is answered against the implementation and you have no blocking findings.
 - `VERDICT: CHANGES_REQUESTED` — at least one finding requires implementation changes.
@@ -152,22 +164,11 @@ The marker goes in `summary` and as the first line of the `message` body, follow
 
 The orchestrator routes fixes based on your verdict — it does not override it.
 
-```xml
-<invoke name="SendMessage">
-  <parameter name="to">team-lead</parameter>
-  <parameter name="summary">VERDICT: APPROVED</parameter>
-  <parameter name="message">
-VERDICT: APPROVED
-Sender: failure-mode
----
-[Summary of key findings — approach-level concerns first, then line-level. Any final thoughts not yet DM'd as a FINDING. For BLOCKED, name the external constraint.]
-  </parameter>
-</invoke>
-```
+DM the chosen marker to `team-lead` per `<dm-envelope>`. Body: key findings with approach-level concerns first, then line-level; any final thoughts not yet DM'd as a `FINDING:`; for BLOCKED, the external constraint.
 
 ## When Resuming for a Fixed Implementation
 
-When `team-lead` DMs you a re-evaluation trigger (`RE_EVALUATE` in summary and body), this is a continuation of your analysis — you retain full context from every prior round. DM new findings per Step 5: DM Findings during each resume round.
+The trigger is `RE_EVALUATE` from `team-lead`. DM new findings per Step 5 during each resume round.
 
 ### 1. Review What Changed
 
@@ -195,6 +196,6 @@ Where possible, execute the code paths the fix touches. Runtime behavior is the 
 
 Use the SendMessage format from Step 7: DM Verdict. Lead with unresolved prior concerns, then new findings the fix code introduced, then approach-level risks that survive the revision. Note resolved findings as closed — do not repeat them.
 
-The marker is `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` in `summary` and as the first line of the `message` body. Use `APPROVED` only when every current question has been answered, every prior concern has been resolved at the cause, and the fix code introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
+Marker: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every current question has been answered, every prior concern has been resolved at the cause, and the fix code introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
 
 </instructions>

@@ -38,11 +38,9 @@ Diff the workspace against the baseline to see the full scope of changes. Select
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
-The evaluators form an ad-hoc group purely by being named. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and its process stops on its own. It re-wakes — with its prior context — when your Step 7 re-evaluation DM arrives, so the group reconstitutes itself across rounds by name without you keeping it alive. Developers dispatched in Step 5 are **not** part of this group.
+The evaluators form an ad-hoc group purely by being named, and run in the background so you can collect their DMs while they work. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and stops on its own. Your Step 7 re-evaluation DM wakes it with its prior context, resuming at its skill's "When Resuming for a Fixed Implementation" section — so the group reconstitutes itself by name without you keeping it alive. Developers dispatched in Step 5 are **not** part of this group.
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
-
-Evaluators run in the background so you can collect inbound DMs from them while they work. After each round an evaluator DMs its `VERDICT:`, goes idle, and stops; re-evaluation in later rounds is triggered by a per-evaluator DM (Step 7: Trigger Re-Evaluation) that wakes the stopped evaluator, so each evaluator's "When Resuming for a Fixed Implementation" section in its skill resumes against the updated workspace.
 
 Based on depth:
 - **Standard**: Dispatch one `failure-mode` evaluator.
@@ -56,7 +54,7 @@ Based on depth:
 <parameter name="name">failure-mode</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. Every DM follows your skill's `<dm-envelope>`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
 The orchestrator is `team-lead` (the orchestrator). On Deep depth, your peer evaluator is `experience-evaluator`. Track the live set from the `BLOCKED` DMs you receive.
@@ -88,7 +86,7 @@ For **Deep**, add the second dispatch in the same message:
 <parameter name="name">experience-evaluator</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: experience-evaluator`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. Every DM follows your skill's `<dm-envelope>`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
 The orchestrator is `team-lead`. Your peer evaluator is `failure-mode`. Track the live set from the `BLOCKED` DMs you receive.

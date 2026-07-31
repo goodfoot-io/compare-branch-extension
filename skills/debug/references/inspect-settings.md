@@ -1,14 +1,6 @@
 # Inspecting Settings Files
 
-Scope: all settings files across Claude Code, Codex, and Cards — their tiers (user / project / local), merge behavior, and how the Cards extension reads and writes them. Agent-retrieval keywords: settings.json, settings.local.json, config.toml, cards.config.toml, enabledPlugins, extraKnownMarketplaces, known_marketplaces.json, marketplace.json, profile config.
-
-Source of truth: this file owns the settings file tier structure, the keys the Cards extension writes to each, and the inline `--settings` JSON format. Plugin cache → `inspect-plugin-cache.md`. Hook enablement → `diagnose-hooks.md`.
-
-Completeness: every settings file the Cards extension reads or writes across all three systems (Claude, Codex, Cards) as of version 1.0.x. Excludes agent CLI internal settings not touched by Cards.
-
-Cross-refs: `diagnose-hooks.md` (hook enablement in settings), `diagnose-agent-launch.md` (inline `--settings` JSON vs. file settings), `inspect-plugin-cache.md` (marketplace registration).
-
-Parent: `../SKILL.md`
+Scope: settings files across Claude Code, Codex, and Cards — tiers, merge behavior, the keys Cards writes, and the inline `--settings` JSON.
 
 ## Quick Diagnostics
 
@@ -36,20 +28,20 @@ cat ~/.agents/plugins/marketplace.json 2>/dev/null | jq '.plugins'
 
 ## Claude Code Settings Tiers
 
-| Tier | Path | Managed by | Git | Status |
-|------|------|-----------|-----|--------|
-| **User** | `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`) | `CodexInstaller` writes here on user-scope install | No | current |
-| **Project** | `{repoRoot}/.claude/settings.json` | `ClaudeSettingsService`, `ClaudeInstaller` | Yes (committed) | current |
-| **Local** | `{repoRoot}/.claude/settings.local.json` | `ClaudeSettingsService`, `ClaudeInstaller` | No (gitignored) | current |
+| Tier | Path | Managed by | Git |
+|------|------|-----------|-----|
+| **User** | `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`) | `CodexInstaller` writes here on user-scope install | No |
+| **Project** | `{repoRoot}/.claude/settings.json` | `ClaudeSettingsService`, `ClaudeInstaller` | Yes (committed) |
+| **Local** | `{repoRoot}/.claude/settings.local.json` | `ClaudeSettingsService`, `ClaudeInstaller` | No (gitignored) |
 
 **Resolution**: `$CLAUDE_CONFIG_DIR` → `os.homedir()/.claude`.
 
 **Format**: JSON with comment preservation (`comment-json` library). The Cards extension reads with `comment-json` and writes atomically via temp file + rename to avoid comment loss.
 
 **Keys written by Cards** (`ClaudeSettingsService.installPlugin()` at `packages/extension/src/services/ClaudeSettingsService.ts`):
-- `enabledPlugins["cards@cards.management"] = true` — status: current
-- `extraKnownMarketplaces["cards.management"] = { source: { source: "directory", path: <marketplacePath> } }` — status: current
-- `env.CARDS_CLAUDE_CODE_HOOKS_LOG_FILE = "<workspace>/.cards/logs/claude-code-cards-api-hooks.log"` — status: current
+- `enabledPlugins["cards@cards.management"] = true`
+- `extraKnownMarketplaces["cards.management"] = { source: { source: "directory", path: <marketplacePath> } }`
+- `env.CARDS_CLAUDE_CODE_HOOKS_LOG_FILE = "<workspace>/.cards/logs/claude-code-cards-api-hooks.log"`
 
 **Keys removed on uninstall** (`removePluginConfig()`): same three keys, removed by identity.
 
@@ -57,11 +49,11 @@ cat ~/.agents/plugins/marketplace.json 2>/dev/null | jq '.plugins'
 
 ### User Config
 
-| Path | Format | Purpose | Status |
-|------|--------|---------|--------|
-| `~/.codex/config.toml` | TOML | User-level Codex config — `features.plugins = true`, plugin enables | current |
-| `~/.codex/cards.config.toml` | TOML | Cards launch profile — plugin enables + trusted hook hashes | current |
-| `~/.codex/cards-assistant.config.toml` | TOML | Cards Assistant profile | current |
+| Path | Format | Purpose |
+|------|--------|---------|
+| `~/.codex/config.toml` | TOML | User-level Codex config — `features.plugins = true`, plugin enables |
+| `~/.codex/cards.config.toml` | TOML | Cards launch profile — plugin enables + trusted hook hashes |
+| `~/.codex/cards-assistant.config.toml` | TOML | Cards Assistant profile |
 
 **Resolution**: `$CODEX_HOME` → `os.homedir()/.codex`.
 
@@ -84,11 +76,11 @@ trusted_hash = "sha256:<hex>"
 
 ### Marketplace Registration
 
-| Path | Purpose | Status |
-|------|---------|--------|
-| `~/.agents/plugins/marketplace.json` | User-level Codex plugin registry | current |
-| `{repoRoot}/.agents/plugins/marketplace.json` | Project-level Codex plugin registry | current |
-| `{ext}/public/codex/.agents/plugins/marketplace.json` | Bundled registry (committed at build time) | current |
+| Path | Purpose |
+|------|---------|
+| `~/.agents/plugins/marketplace.json` | User-level Codex plugin registry |
+| `{repoRoot}/.agents/plugins/marketplace.json` | Project-level Codex plugin registry |
+| `{ext}/public/codex/.agents/plugins/marketplace.json` | Bundled registry (committed at build time) |
 
 ### Install Detection
 
@@ -96,11 +88,11 @@ trusted_hash = "sha256:<hex>"
 
 ## Cards Settings
 
-| Tier | Path | Purpose | Status |
-|------|------|---------|--------|
-| **User** | `~/.cards/settings.json` | User-level action/environment config | current |
-| **Project** | `{repoRoot}/.cards/settings.json` | Project-level action/environment config | current |
-| **Default** | `{ext}/dist/config/settings.json` | Bundled fallback (generated by `cards-sdk build`) | current |
+| Tier | Path | Purpose |
+|------|------|---------|
+| **User** | `~/.cards/settings.json` | User-level action/environment config |
+| **Project** | `{repoRoot}/.cards/settings.json` | Project-level action/environment config |
+| **Default** | `{ext}/dist/config/settings.json` | Bundled fallback (generated by `cards-sdk build`) |
 
 **Merged by**: `SettingsLoader.load()` in `packages/cards/server/src/runtime/SettingsLoader.ts`.
 
@@ -110,13 +102,9 @@ trusted_hash = "sha256:<hex>"
 
 For Claude Code sessions, the handler passes settings inline rather than relying on file tiers:
 
-**Cards Assistant** (`cards-assistant.ts`):
 ```json
 {
-  "enabledPlugins": {
-    "cards@cards.management": true,
-    "cards-assistant@cards.management": true
-  },
+  "enabledPlugins": { "<per-mode, see below>": true },
   "extraKnownMarketplaces": {
     "cards.management": {
       "source": { "source": "directory", "path": "<marketplacePath>" }
@@ -125,21 +113,14 @@ For Claude Code sessions, the handler passes settings inline rather than relying
 }
 ```
 
-**Action launches** (`claude-session.ts`):
-```json
-{
-  "enabledPlugins": {
-    "runtime@cards.management": true
-  },
-  "extraKnownMarketplaces": {
-    "cards.management": {
-      "source": { "source": "directory", "path": "<marketplacePath>" }
-    }
-  }
-}
-```
+`extraKnownMarketplaces` is identical in both modes; only `enabledPlugins` differs:
 
-Passed as `--settings '<json>'` — single-quoted on POSIX, double-quoted on Windows through cross-spawn escaping. **Status: current**.
+| Mode | Handler | `enabledPlugins` keys |
+|------|---------|----------------------|
+| Cards Assistant | `cards-assistant.ts` | `cards@cards.management`, `cards-assistant@cards.management` |
+| Action launch | `claude-session.ts` | `runtime@cards.management` |
+
+Passed as `--settings '<json>'` — single-quoted on POSIX, double-quoted on Windows through cross-spawn escaping.
 
 ## Out of Scope
 

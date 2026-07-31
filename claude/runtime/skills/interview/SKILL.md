@@ -4,13 +4,7 @@ description: Route interview cards to the appropriate skill.
 ---
 
 <routing-constraints>
-The routing phase evaluates and selects — it does NOT interview the user or modify card content. After routing, the matched references are loaded and their instructions take over.
-
-| Routing phase | Loaded references handle |
-|------------------------|--------------------------------|
-| Evaluating routing conditions | Conducting the interview |
-| Selecting the appropriate type | Gathering requirements |
-| Loading the matched references | Producing the card |
+Route only — evaluate, select, and load. The loaded reference does the work.
 
 **Never update card status directly** — hooks handle status transitions automatically.
 </routing-constraints>

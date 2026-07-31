@@ -1,14 +1,6 @@
 # Inspecting CLI Tools
 
-Scope: CLI tool locations, shell shims, workspace discovery, and authentication for all Cards CLIs. Agent-retrieval keywords: cards CLI, cards-extension, create-worktree, remove-worktree, cards-sdk, cards-dev, VSCODE_NODE, EXTENSION_PATH, ELECTRON_RUN_AS_NODE, shell shim, .cmd, workspace discovery, Bearer token.
-
-Source of truth: this file owns the CLI inventory, shell shim patterns, workspace discovery mechanism, and authentication flow. Server discovery → `cards-api-server.md`. Worktree CLIs → `diagnose-worktree.md`.
-
-Completeness: every CLI tool shipped in `{ext}/dist/bin/` as of version 1.0.x. Excludes `cards-sdk` build internals (see SDK reference docs).
-
-Cross-refs: `cards-api-server.md` (discovery file for auth), `diagnose-worktree.md` (`create-worktree` / `remove-worktree`), `inspect-settings.md` (settings.json consumes CLI-built command strings).
-
-Parent: `../SKILL.md`
+Scope: CLI tool locations, shell shims, workspace discovery, and authentication for all Cards CLIs.
 
 ## Quick Diagnostics
 
@@ -29,7 +21,7 @@ cat ~/.cards/VSCODE_NODE 2>/dev/null || echo "VSCODE_NODE not written"
 
 ## CLI Inventory
 
-All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows batch shim), and `{name}.mjs` (ESM bundle). **Status: all current**.
+All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows batch shim), and `{name}.mjs` (ESM bundle).
 
 ### `cards`
 
@@ -107,11 +99,11 @@ Routes through `POST /execute-command` with `{command: "cards.reportIssue", args
 
 ### Daemons
 
-| Daemon | Spawned by | Purpose | Status |
-|--------|-----------|---------|--------|
-| `stream-sync-watcher` | SessionStart/EnterWorktree hooks | Monitors agent PID, syncs manifest-described transcript files → card repo stream files | current |
-| `adhoc-cleanup` | EnterWorktree hook | Monitors agent PID, transitions card to `needs_review` on session end | current |
-| Branch cleanup watcher | ActionDispatcher (detached) | Cleans up branches after interactive sessions | current |
+| Daemon | Spawned by | Purpose |
+|--------|-----------|---------|
+| `stream-sync-watcher` | SessionStart/EnterWorktree hooks | Monitors agent PID, syncs manifest-described transcript files → card repo stream files |
+| `adhoc-cleanup` | EnterWorktree hook | Monitors agent PID, transitions card to `needs_review` on session end |
+| Branch cleanup watcher | ActionDispatcher (detached) | Cleans up branches after interactive sessions |
 
 ## Shell Shim Pattern
 
@@ -138,7 +130,7 @@ set "ELECTRON_RUN_AS_NODE=1"
 exit /b %ERRORLEVEL%
 ```
 
-**Key detail**: `$NODE` is double-quoted because the macOS interpreter path contains spaces (`/Applications/Visual Studio Code.app/.../Code Helper (Plugin)`). `ELECTRON_RUN_AS_NODE=1` is required because the bundled "Node" binary is Electron on POSIX.
+`$NODE` is double-quoted and `ELECTRON_RUN_AS_NODE=1` is set for the reasons in `platform-reference.md`. On Windows `$HOME` is typically unset, so the `.cmd` shim reads `%USERPROFILE%` instead.
 
 ## Workspace Discovery
 
@@ -160,10 +152,7 @@ All CLIs authenticate via Bearer token from the API discovery file.
 
 ## Platform-Specific Behavior
 
-- **Win32 detached spawns**: Resolve `node.exe` directly (not through `.cmd` shim) via `resolveDetachedNodeInterpreter()` to prevent console window popups. `windowsHide: true` on all child processes.
-- **Exit strategy**: `requestProcessExit()` sets `process.exitCode` + 5s unref'd backstop.
-- **Worktree paths**: Git emits forward-slash paths even on Windows. `path.resolve()` normalizes.
-- **`$HOME` on Windows**: POSIX shell shims read `$HOME/.cards/VSCODE_NODE`. On Windows, `$HOME` is typically not set — the `.cmd` shim reads `%USERPROFILE%` instead.
+**Win32 detached spawns**: Resolve `node.exe` directly (not through `.cmd` shim) via `resolveDetachedNodeInterpreter()` to prevent console window popups. `windowsHide: true` on all child processes.
 
 ## Out of Scope
 
@@ -171,3 +160,4 @@ All CLIs authenticate via Bearer token from the API discovery file.
 - Worktree lifecycle → `diagnose-worktree.md`
 - Settings build pipeline (`cards-sdk build` internals) → SDK reference docs
 - Agent CLI installation → agent-specific documentation
+- Interpreter quoting, path normalization, shell syntax → `platform-reference.md`

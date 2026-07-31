@@ -1,9 +1,5 @@
 ## Complexity Assessment Framework
 
-<purpose>
-This document provides a systematic approach to distinguishing essential complexity from accidental complexity. Use this framework when you encounter sophisticated code and must determine whether to simplify or preserve it.
-</purpose>
-
 <core-distinction>
 ## Essential vs. Accidental Complexity
 

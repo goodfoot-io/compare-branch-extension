@@ -71,13 +71,6 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 **No mocks.** Test with real implementations. Use dependency injection so code stays testable, and create thin adapter interfaces with real test implementations for external services — never mock libraries or framework internals.
 
-```typescript
-function createHandler(db: Database, logger: Logger) { ... }
-
-const db = createTestDatabase();
-const handler = createHandler(db, testLogger);
-```
-
 **Iterate, then escalate.** On validation failure, fix and re-run. When repeated attempts produce no new information, stop and route via `<final-validation-gate>` rather than thrashing.
 
 **Follow repository conventions** and existing patterns. Do not create extra artifacts unless the scope or loaded skills require them.

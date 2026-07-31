@@ -4,14 +4,7 @@ description: Evaluate card state and load the appropriate reference for a slicin
 ---
 
 <routing-constraints>
-The routing phase evaluates and selects — it does NOT slice, implement, or modify card content. After routing, the matched reference is loaded and its instructions take over.
-
-| Routing phase | Loaded reference handles |
-|------------------------|--------------------------------|
-| Evaluating routing conditions | Slice dispatch and iteration |
-| Selecting the appropriate reference | Gate-mismatch reporting |
-| Loading the matched reference | Merging and clarification |
-
+Route only — evaluate, select, and load. The loaded reference does the work.
 </routing-constraints>
 
 <quiet>

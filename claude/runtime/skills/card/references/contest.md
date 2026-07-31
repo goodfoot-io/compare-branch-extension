@@ -8,7 +8,7 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 
 **Live planner.** A planner that has not DM'd `PLAN: BLOCKED for:planner-N` and has not been ruled `VERDICT: BLOCKED for:planner-N` by the reviewer. The set of live planners shrinks over the contest as planners self-quit or are disqualified.
 
-**Most recent DM.** When multiple DMs of the same shape exist for the same subject (e.g., several `VERDICT:` DMs for `planner-1 round-1`), "most recent" means the latest one in your inbound history. A later DM for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM that arrives after a `VERDICT: APPROVED for:planner-N round-K` revokes the earlier approval.
+**Supersession.** A later DM for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner-N round-K` arriving after a `VERDICT: APPROVED` for that same round revokes the approval.
 
 **Idle notification.** The agent's process has stopped; it runs again only when an inbound message wakes it. Idle with nothing owed (approved and not revising; verdict delivered) is settled. Idle while owing a response, with nothing queued to wake it, is a stall — its last stated intent did not survive the idle. DM it what it needs to continue.
 
@@ -96,13 +96,13 @@ BLOCKED is terminal — entered by self-DM'd `PLAN: BLOCKED` or by the
 reviewer's `VERDICT: BLOCKED for:planner-N` ruling.
 ```
 
-`APPROVED` is sticky-but-revocable: a question raised later by a peer's plan can drop an approved planner back into the revision loop. A planner that holds approval and is not revising has nothing more to send — that is what "done" looks like.
+The ⇄ is revocation: a question raised later by a peer's plan can drop an approved planner back into the revision loop.
 
 ### Closure — Judgment, Not a Handshake
 
-Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. A planner that revises after approval does not announce it — it just revises and later DMs a new `PLAN: READY round-K+1`. So "approved and silent" is indistinguishable from "approved and quietly revising," and you do not need to tell them apart: closing is safe even if a planner was mid-revision, because its next `PLAN: READY` reopens the field before any winner is finalized (Step 4). When several DMs share the same subject, the latest supersedes earlier ones — that is how revocation works.
+Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. Planners do not announce post-approval revisions, so closing is safe even mid-revision — the next `PLAN: READY` reopens the field before any winner is finalized (Step 4).
 
-You can see every open revision from your own inbound history; you do not need planners to certify the peer field back to you. A planner that holds approval and has gone quiet is done. An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.
+An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.
 
 The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it DMs a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.
 

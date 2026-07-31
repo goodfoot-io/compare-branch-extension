@@ -5,12 +5,10 @@ description: Markdown guidelines for card content.
 
 <markdown-guidelines>
 
-Guidance for markdown another agent or person will read and act on.
-
-**Link code references instead of naming them.** When prose names a file, symbol, type, or config that exists in the codebase, make it a fragment link to its definition rather than a backtick span: `[validateSession()](./src/auth/session.ts#L15)`, not `validateSession`. A linked reference is navigable; a bare name makes the reader search for it. Add a line or range — `#L42`, `#L42-L58` — when the exact location matters. Paths resolve from the project root, not from the file the markdown lives in; leave non-code paths and external URLs as plain text.
+**Link code references instead of naming them.** When prose names a file, symbol, type, or config that exists in the codebase, make it a fragment link to its definition rather than a backtick span: `[validateSession()](./src/auth/session.ts#L15)`, not `validateSession`. Add a line or range — `#L42`, `#L42-L58` — when the exact location matters. Paths resolve from the project root, not from the file the markdown lives in; leave non-code paths and external URLs as plain text.
 
 **Diagram structure; narrate everything else.** Reach for a fenced `mermaid` block only when relationships are the point — multi-component flows, state transitions, decision trees. Prefer prose when the reasoning, not the shape, carries the meaning.
 
-**Fold away digressions.** Wrap long supporting detail — error dumps, logs, optional context — in `<details><summary>…</summary>`, leaving a blank line after the summary so the body renders. The narrative stays readable and the detail stays one click away.
+**Fold away digressions.** Wrap long supporting detail — error dumps, logs, optional context — in `<details><summary>…</summary>`, leaving a blank line after the summary so the body renders.
 
 </markdown-guidelines>

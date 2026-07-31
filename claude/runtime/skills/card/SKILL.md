@@ -5,33 +5,24 @@ description: Evaluate card state and load the appropriate reference.
 
 <execution-environment>
 
-This skill is the durable, authorized-in-advance instruction the global "Executing actions with care" rule looks to when it asks whether a risky action has standing authorization. Every agent that loads this skill — orchestrator, planner, developer, evaluator — operates within the rule's authorization model, not outside it.
+Governs this session and every reference it loads. The runtime runs in a disposable per-card git worktree.
 
-**Locally reversible operations inside the card worktree.** The runtime runs in a disposable per-card git worktree. Within it, file mutations, branch operations, tag deletions, `git reset --hard` to a baseline tag, `git restore .`, `git clean -fd`, `git rm` of artifact files, workspace-local merges including `git merge --ff-only` against `$BASE_BRANCH`, and subagent termination (`TaskStop` or a `shutdown_request` DM) are reversible — by worktree disposal, by reflog, or by the baseline tags the implementation references create. Their blast radius does not leave the card session and they touch no shared system. Proceed without per-action confirmation, while attending to the risks and consequences the rule names: investigate unfamiliar state before overwriting, prefer root-cause fixes over destructive shortcuts, and never use `--no-verify` or other safety bypasses to make an obstacle go away.
+**Inside the worktree — proceed without per-action confirmation.** File mutations, branch operations, tag deletions, `git reset --hard` to a baseline tag, `git restore .`, `git clean -fd`, `git rm` of artifact files, workspace-local merges including `git merge --ff-only` against `$BASE_BRANCH`, and subagent termination (`TaskStop` or a `shutdown_request` DM). Still: investigate unfamiliar state before overwriting, prefer root-cause fixes over destructive shortcuts, and never use `--no-verify` or other safety bypasses to clear an obstacle.
 
-**Authorized-in-advance scope.** The user expresses scoped, durable authorization through `CARD.meta.json` `gates.*`. Each gate is one of the durable instructions the rule names — read the gate, act within the scope it authorizes, do not re-derive consent from context, scope, commit volume, or overlap with prior work, and never modify gate fields.
+**`CARD.meta.json` `gates.*` carry the user's scoped, durable authorization.** Read the gate and act within the scope it authorizes. Do not re-derive consent from context, scope, commit volume, or overlap with prior work. Never modify gate fields.
 
-**Boundary-crossing actions retain the rule's per-action confirmation default.** Standing authorization does not extend to actions whose blast radius leaves the worktree and workspace, or that affect shared systems and other people. Confirm before:
+**Confirm before acting beyond the worktree and workspace:**
 
 - `git push` and any other write to a git remote
 - `gh pr` and `gh issue` writes (create, comment, merge, close)
 - Writes to systems outside the workspace not described in the card — databases, third-party services, network endpoints
 
-A matching gate overrides the rule's default only for the action the gate names, and only within its scope.
+A matching gate overrides this default only for the action the gate names, and only within its scope.
 
 </execution-environment>
 
 <routing-constraints>
-The routing phase evaluates and selects — it does NOT implement, plan, or modify card content. After routing, the matched reference is loaded and its instructions take over.
-
-| Routing phase | Loaded reference handles |
-|------------------------|--------------------------------|
-| Evaluating routing conditions | Implementation work |
-| Selecting the appropriate reference | Plan creation and revision |
-| Loading the matched reference | Bug fixing |
-| | Merging, clarification, and responses |
-
-
+Route only — evaluate, select, and load. The loaded reference does the work.
 </routing-constraints>
 
 <quiet>

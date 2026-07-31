@@ -1,14 +1,6 @@
 # Inspecting Plugin Caches
 
-Scope: how Cards plugins reach the Claude Code and Codex plugin caches, version management, stale cache cleanup. Agent-retrieval keywords: plugin cache, marketplace symlink, populateCodexPluginCache, updateMarketplaceRegistration, installed_plugins.json, known_marketplaces.json, .codex-plugin, plugin staging, version pruning.
-
-Source of truth: this file owns the plugin inventory, cache directory structures, and the cache staging flows for both Claude and Codex. Plugin enablement → `inspect-settings.md`. Hook binaries in cache → `diagnose-hooks.md`.
-
-Completeness: every plugin shipped by the Cards extension and every cache directory it creates as of version 1.0.x. Excludes agent CLI internal cache management (Claude Code auto-update, 7-day orphan GC).
-
-Cross-refs: `inspect-settings.md` (plugin enablement), `diagnose-hooks.md` (hook binaries in cache), `diagnose-agent-launch.md` (how plugin cache is used at spawn time).
-
-Parent: `../SKILL.md`
+Scope: how Cards plugins reach the Claude Code and Codex plugin caches — inventory, directory structure, staging, version management, stale cleanup.
 
 ## Quick Diagnostics
 
@@ -33,44 +25,42 @@ The Cards extension ships four Claude Code plugins and four Codex plugins:
 
 ```
 {ext}/dist/marketplace/claude/
-  cards/                 → Plugin "cards@cards.management"       Status: current
-  cards-assistant/       → Plugin "cards-assistant@cards.management"  Status: current
-  cards-sdk/             → Plugin "cards-sdk@cards.management"       Status: current
-  runtime/               → Plugin "runtime@cards.management"         Status: current
+  cards/                 → Plugin "cards@cards.management"
+  cards-assistant/       → Plugin "cards-assistant@cards.management"
+  cards-sdk/             → Plugin "cards-sdk@cards.management"
+  runtime/               → Plugin "runtime@cards.management"
 
 {ext}/dist/codex/
-  cards/                 → Codex plugin "cards"                  Status: current
-  cards-assistant/       → Codex plugin "cards-assistant"         Status: current
-  cards-sdk/             → Codex plugin "cards-sdk"               Status: current
-  runtime/               → Codex plugin "runtime"                 Status: current
+  cards/                 → Codex plugin "cards"
+  cards-assistant/       → Codex plugin "cards-assistant"
+  cards-sdk/             → Codex plugin "cards-sdk"
+  runtime/               → Codex plugin "runtime"
 ```
 
 Each contains a `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json` with `name` and `version`.
 
 ## Marketplace Symlink
 
-**Path**: `{globalStorage}/marketplace` → `{ext}/dist/marketplace`. **Status**: current.
+**Path**: `{globalStorage}/marketplace` → `{ext}/dist/marketplace`.
 
 **Created by**: `ensureMarketplaceSymlink()` in `packages/extension/src/services/marketplaceSymlink.ts`. On POSIX: native symlink. On Windows: directory junction. Removed and recreated on every extension activation so upgrades point to the latest version.
 
-**Why stable**: VS Code installs each extension version to a versioned directory (e.g. `~/.vscode/extensions/publisher.extension-1.2.3/`). A symlink in `globalStorage` survives upgrades — agent settings reference a path that doesn't change.
+VS Code installs each extension version to a versioned directory, but this `globalStorage` symlink survives upgrades — so the path agent settings reference never changes. The `MARKETPLACE_PATH` env var injected into agent processes holds it.
 
 A `codex` symlink follows the same pattern: `{globalStorage}/codex` → `{ext}/dist/codex`.
 
-The `MARKETPLACE_PATH` env var injected into agent processes holds the stable symlink path.
-
 ## Claude Code Plugin Cache
 
-**Path**: `{claudeConfigDir}/plugins/cache/cards.management/{plugin}/{version}/`. **Status**: current.
+**Path**: `{claudeConfigDir}/plugins/cache/cards.management/{plugin}/{version}/`.
 
 **Resolution**: `resolveClaudeConfigDir()` in `public/packages/sdk/src/marketplace.ts` — honors `$CLAUDE_CONFIG_DIR`, then `$XDG_DATA_HOME/claude` → `$XDG_CONFIG_HOME/claude` → `~/.config/claude` → `~/.claude`. This is a disk-probe resolver (requires the `plugins/` subdirectory to exist for fallthrough).
 
 ### Registration Files
 
-| Path | Purpose | Schema | Status |
-|------|---------|--------|--------|
-| `known_marketplaces.json` | Marketplace registry | `{ "<name>": { "source": { "source": "directory", "path": "<dir>" }, "installLocation": "<dir>" } }` | current |
-| `installed_plugins.json` | Active plugin version pointers | `{ "<name>": { "version": "<ver>", "installPath": "<path>", "installedAt": "<ISO>" } }` | current |
+| Path | Purpose | Schema |
+|------|---------|--------|
+| `known_marketplaces.json` | Marketplace registry | `{ "<name>": { "source": { "source": "directory", "path": "<dir>" }, "installLocation": "<dir>" } }` |
+| `installed_plugins.json` | Active plugin version pointers | `{ "<name>": { "version": "<ver>", "installPath": "<path>", "installedAt": "<ISO>" } }` |
 
 **Source**: `public/packages/sdk/src/marketplace.ts`::`updateMarketplaceRegistration()`.
 
@@ -95,23 +85,16 @@ This populates the plugin store so `--print` sessions can discover the plugins.
 
 ## Codex Plugin Cache
 
-**Path**: `{codexHome}/plugins/cache/local/{pluginName}/{version}/`. **Status**: current.
+**Path**: `{codexHome}/plugins/cache/local/{pluginName}/{version}/`.
 
 ### Staging Flow
 
-Two entry points write the Codex plugin cache, and **both stage through the same
-routine**, `installPluginToCache()` in
-`public/packages/default-configuration/src/lib/codex-session.ts`:
+Two entry points write the Codex plugin cache; both stage through the same routine, `installPluginToCache()` in `public/packages/default-configuration/src/lib/codex-session.ts`, so both carry the same guarantees. They differ only in *which* plugins they stage and *when*:
 
 | Entry point | Caller | Triggered by |
 |---|---|---|
 | Setup wizard | `CodexInstaller.install()` (`packages/extension/src/agents/install/CodexInstaller.ts`) | **Cards: Configure Coding Agent**, and on activation when the installed extension changed |
 | Session launch | `populateCodexPluginCache()` | Every Cards-spawned Codex session, before spawn |
-
-Because there is one writer, both paths carry the same guarantees: atomic
-publish, a content stamp, manifest validation, and pruning of superseded
-versions. The wizard is not a separate staging mechanism — it differs only in
-*which* plugins it stages and *when* it runs.
 
 `installPluginToCache(pluginName, marketplaceDir, sourceDir, version)`:
 
@@ -121,31 +104,24 @@ versions. The wizard is not a separate staging mechanism — it differs only in
 4. Publishes by evicting any stale slot (to `.plugin-evict-XXXXXX`) and renaming the staged copy into `{marketplaceDir}/{pluginName}/{version}/`
 5. Prunes superseded versions via `pruneSupersededPluginVersions()` — keeps only the highest semver
 
-Step 2 is why the slot is content-addressed rather than version-addressed: Codex
-reads `plugin.json` `version` only as a display label and selects a `Local`
-plugin by the highest-semver **directory name**, so a rebuilt bundle whose
-version was not bumped maps to the same slot. Comparing digests is what stops a
-same-version rebuild from silently running stale hooks.
+Codex reads `plugin.json` `version` only as a display label and selects a `Local` plugin by the highest-semver **directory name** — so a rebuilt bundle whose version was not bumped maps to the same slot, and step 2's digest comparison is what still restages it.
 
-`populateCodexPluginCache()` wraps this with discovery: it reads the bundled
-`{bundlePath}/.agents/plugins/marketplace.json` to enumerate plugins and reads
-each `.codex-plugin/plugin.json` for the version before calling
-`installPluginToCache()`.
+`populateCodexPluginCache()` wraps this with discovery: it reads the bundled `{bundlePath}/.agents/plugins/marketplace.json` to enumerate plugins and reads each `.codex-plugin/plugin.json` for the version before calling `installPluginToCache()`.
 
 ### Plugins Staged for Launch
 
-`CODEX_LAUNCH_PLUGIN_NAMES`: `['cards', 'runtime']`. `CODEX_ASSISTANT_PLUGIN_NAMES`: `['cards', 'cards-assistant']`. **Status**: current.
+`CODEX_LAUNCH_PLUGIN_NAMES`: `['cards', 'runtime']`. `CODEX_ASSISTANT_PLUGIN_NAMES`: `['cards', 'cards-assistant']`.
 
 The `cards-sdk` plugin is NOT staged — it's only consumed at build time.
 
 ## Which Plugins Are Used When
 
-| Mode | Plugin names | Purpose | Status |
-|------|-------------|---------|--------|
-| **Action launch** (Claude) | `runtime@cards.management` | Runtime hooks (session management, transcript streaming, commit attribution) | current |
-| **Action launch** (Codex) | `cards`, `runtime` | Same, Codex equivalents | current |
-| **Cards Assistant** (Claude) | `cards@cards.management`, `cards-assistant@cards.management` | Card management + interview bootstrapping | current |
-| **Cards Assistant** (Codex) | `cards`, `cards-assistant` | Same, Codex equivalents | current |
+| Mode | Plugin names | Purpose |
+|------|-------------|---------|
+| **Action launch** (Claude) | `runtime@cards.management` | Runtime hooks (session management, transcript streaming, commit attribution) |
+| **Action launch** (Codex) | `cards`, `runtime` | Same, Codex equivalents |
+| **Cards Assistant** (Claude) | `cards@cards.management`, `cards-assistant@cards.management` | Card management + interview bootstrapping |
+| **Cards Assistant** (Codex) | `cards`, `cards-assistant` | Same, Codex equivalents |
 
 ## Staleness & Cleanup
 
