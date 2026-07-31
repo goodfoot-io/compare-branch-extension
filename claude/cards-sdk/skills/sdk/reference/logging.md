@@ -99,14 +99,6 @@ unsubscribe();
 
 ## Error Logging
 
-`logError(error, message, context?)` captures `name`, `message`, `stack`, and the full ES2022 `cause` chain recursively. Non-Error throws normalize to `{ name: 'UnknownError', message: String(error) }`.
-
-```typescript
-try {
-  await fetch(url);
-} catch (error) {
-  logger.logError(error, 'Failed to fetch', { url });
-}
-```
+`logError(error, message, context?)` captures `name`, `message`, `stack`, and the full ES2022 `cause` chain recursively. Non-Error throws normalize to `{ name: 'UnknownError', message: String(error) }`. Usage: the `try/catch` in Basic Usage above.
 
 </instructions>

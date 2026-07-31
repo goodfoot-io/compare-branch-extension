@@ -131,7 +131,7 @@ In `compact` mode the host backfills only the trailing 50 lines, so `lines.lengt
 
 | Function | Description |
 |----------|-------------|
-| `subscribe(filename)` | Request the host to send updates for a file not yet in the store |
+| `subscribe(filename, tail?)` | Request host updates for a file not yet in the store; `tail` limits the response to the last N lines (`meta.lineCount` still reflects the full stream) |
 | `close()` | Ask the host to close this renderer |
 | `openFile(path, line?)` | Ask the host to open a file in the editor |
 | `showDiff(sha, filePath?)` | Ask the host to show a diff view |

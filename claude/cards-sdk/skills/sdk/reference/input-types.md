@@ -12,6 +12,7 @@ interface ActionInput {
   actionName: string;                     // Action button display name (e.g., "Launch Claude")
   environment: string;                    // Environment name (e.g., "default")
   executionMode: 'interactive' | 'background';  // UI interaction model
+  exitWhenDone: boolean;                  // When true, the runtime exits once the agent process completes
   codingAgent?: string;                   // Configured AI coding assistant
   switchToInteractiveData?: unknown;      // Data from user switching to interactive mode
   repoRoot: string;                       // Main git repository root (NOT a worktree)
@@ -37,20 +38,6 @@ interface ActionContext {
 
 Register `onCancel` to run cleanup on the socket cancel command. Without it, the runtime sends SIGTERM instead.
 
-```typescript
-async (input: ActionInput, context: ActionContext) => {
-  const { logger, onCancel } = context;
-
-  logger.info(`Processing card ${input.cardId}`, { cwd: context.cwd });
-
-  onCancel(() => {
-    logger.info('User cancelled the action');
-  });
-
-  const configFile = path.join(input.repoRoot, 'config.json');
-}
-```
-
 ## CardsAssistantInput
 
 ```typescript
@@ -59,6 +46,7 @@ interface CardsAssistantInput {
   extensionPath: string;    // VS Code extension installation directory
   codingAgent?: string;     // Configured AI coding assistant
   repoRoot: string;         // Main git repository root (NOT a worktree)
+  initialPrompt?: string;   // Seed prompt; absent = cold start
 }
 ```
 
