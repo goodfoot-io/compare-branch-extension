@@ -174,7 +174,7 @@ const agentListingDeltaRemovalFixture: AgentListingDeltaAttachment = {
   type: 'agent_listing_delta',
   addedTypes: [],
   addedLines: [],
-  removedTypes: ['browser:screenshot-description', 'claude-code-guide', 'git-mesh:expert'],
+  removedTypes: ['browser:screenshot-description', 'claude-code-guide', 'git-span:expert'],
   isInitial: false,
   showConcurrencyNote: true
 };
