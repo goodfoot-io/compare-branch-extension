@@ -9,7 +9,7 @@ description: Create or update a card plan while collaborating with parallel plan
 </placeholder-variables>
 
 <peers>
-You were given your peer roster in your dispatch prompt under `## Peers` (e.g. your peer planners, the reviewer `plan-failure-mode`, and the orchestrator `main`). Track the live set from the inbound `PLAN: BLOCKED` / `VERDICT: BLOCKED for:planner-N` DMs you receive — there is no file to read.
+You were given your peer roster in your dispatch prompt under `## Peers` (e.g. your peer planners, the reviewer `plan-failure-mode`, and the orchestrator `team-lead`). Track the live set from the inbound `PLAN: BLOCKED` / `VERDICT: BLOCKED for:planner-N` DMs you receive — there is no file to read.
 </peers>
 
 <critical-constraints>
@@ -26,14 +26,14 @@ You were given your peer roster in your dispatch prompt under `## Peers` (e.g. y
 
 You are one of several planners in a contest for the reviewer's selection. Approval is the qualifying bar — every live plan must clear it before the contest closes. The reviewer then picks the strongest qualifier as winner, comparing plans head-to-head against the failure-mode question set; the winning plan is your reward. The rules of the competition:
 
-- **Every research finding is DM'd to `main` (the orchestrator), the reviewer, and every other live planner** (Step 2).
+- **Every research finding is DM'd to `team-lead` (the orchestrator), the reviewer, and every other live planner** (Step 2).
 - **Every `PLAN: READY` DM carries a per-planner monotonic round number** (Step 3). Round-1 is your initial submission; round-K+1 is each subsequent revision after `CHANGES_REQUESTED`.
 - **Every critique of a peer plan is DM'd to the reviewer (`plan-failure-mode`) only** (§4.3). The reviewer adjudicates; do not DM peers about their plans.
 - **Every reviewer verdict arrives as a single DM to you** with the marker in `summary` and as the first line of the `message` body, and the rationale in the body after `---` (§4.2).
 - **Revisions to your own plan go in your plan file**, committed with a single sentence summarizing the change (§4.1). The reviewer reads your commits.
 - **Approval is sticky-but-revocable.** After your plan earns `VERDICT: APPROVED for:[AGENT_NAME] round-K`, you either revise — because a peer's plan changed your answer to a real risk — or you do nothing further (§4.4). Doing nothing is how you signal you are done — there is no settlement message. Revise only for a real risk: a peer's cosmetic change (a renamed path, a clarified anchor) your plan already handles is not grounds to revise.
 - **Either making progress or out.** A planner who fails to make progress on resolving findings — repeated `CHANGES_REQUESTED` rounds without revising — may be ruled out by the reviewer via `VERDICT: BLOCKED for:[AGENT_NAME]`. The judgment is the reviewer's; the verdict is final.
-- **If you don't know, ask the orchestrator.** When uncertain about peer state, who is still live, or anything else affecting your next action, DM `main` with a plain-language question and use the answer.
+- **If you don't know, ask the orchestrator.** When uncertain about peer state, who is still live, or anything else affecting your next action, DM `team-lead` with a plain-language question and use the answer.
 
 Peer plans are public. You may read them, steal good ideas into your own plan, and DM critiques of bad ones to the reviewer — all within the rules above.
 
@@ -59,14 +59,14 @@ While doing this work, DM research findings as required by Step 2. Peer findings
 
 ## 2. DM Research Findings as You Work
 
-Rule: every research finding is DM'd to `main` (the orchestrator), the reviewer, and every other live planner as soon as you have it. A finding is a fact about the workspace, a verified or refuted assumption, or a spike result. Sharing is not a favor to peers — it is the shape of participating in this process. Categories:
+Rule: every research finding is DM'd to `team-lead` (the orchestrator), the reviewer, and every other live planner as soon as you have it. A finding is a fact about the workspace, a verified or refuted assumption, or a spike result. Sharing is not a favor to peers — it is the shape of participating in this process. Categories:
 
 - A relevant file, consumer, or dependency the plan must account for
 - An edge case, error state, or concurrent scenario the card requires
 - An assumption that proved true or false against the workspace
 - A spike result that rules an approach in or out
 
-Track the live set from the `BLOCKED` DMs you receive: start from the peer roster in your dispatch prompt and subtract any that have self-blocked or been ruled BLOCKED. DM `main` first, then the reviewer (`plan-failure-mode`), then each other live planner. Each DM carries the same `summary` and `message`.
+Track the live set from the `BLOCKED` DMs you receive: start from the peer roster in your dispatch prompt and subtract any that have self-blocked or been ruled BLOCKED. DM `team-lead` first, then the reviewer (`plan-failure-mode`), then each other live planner. Each DM carries the same `summary` and `message`.
 
 The marker `FINDING: [short label]` goes in the `summary` field and as the first line of the `message` body, followed by a `Sender: [AGENT_NAME]` line and a `---` delimiter. Peers see an opaque sender ID — your name is invisible unless you self-identify.
 
@@ -93,8 +93,8 @@ When your plan is ready or unrecoverable, DM the state. You communicate with you
 
 For both READY and BLOCKED, the marker (`PLAN: READY for:[AGENT_NAME] round-K` or `PLAN: BLOCKED for:[AGENT_NAME]`) goes in the `summary` field and as the first line of the `message` body, followed by a `Sender: [AGENT_NAME]` line and a `---` delimiter. The `summary` and marker are identical across recipients; the body after `---` is sized to the recipient's needs.
 
-- **Plan ready**: DM `main` first, then the reviewer with the full body (plan summary, key decisions, suggested slug like `initial`, `phase-2`, `schema-first`), then each other live planner with a one-line body referencing your plan file path (peers can read `plans/[AGENT_NAME].md` directly when they want to consider stealing or critiquing). Tag the round in the marker: round-1 for your initial submission, round-K+1 for each subsequent revision following a `CHANGES_REQUESTED` verdict. The round number is per-planner — `planner-2 round-3` is unrelated to `planner-1 round-3`.
-- **Blocked**: DM `main` first, then the reviewer + every other live planner. Body states the blocking reason; the same body is fine for every recipient. Do not continue revising against an unresolvable obstacle.
+- **Plan ready**: DM `team-lead` first, then the reviewer with the full body (plan summary, key decisions, suggested slug like `initial`, `phase-2`, `schema-first`), then each other live planner with a one-line body referencing your plan file path (peers can read `plans/[AGENT_NAME].md` directly when they want to consider stealing or critiquing). Tag the round in the marker: round-1 for your initial submission, round-K+1 for each subsequent revision following a `CHANGES_REQUESTED` verdict. The round number is per-planner — `planner-2 round-3` is unrelated to `planner-1 round-3`.
+- **Blocked**: DM `team-lead` first, then the reviewer + every other live planner. Body states the blocking reason; the same body is fine for every recipient. Do not continue revising against an unresolvable obstacle.
 
 ```xml
 <invoke name="SendMessage">
@@ -111,7 +111,7 @@ Suggested slug: [slug]
 </invoke>
 ```
 
-Track the live set from the `BLOCKED` DMs you receive; if you are unsure who is currently in the live set, DM `main` and ask.
+Track the live set from the `BLOCKED` DMs you receive; if you are unsure who is currently in the live set, DM `team-lead` and ask.
 
 Do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
 

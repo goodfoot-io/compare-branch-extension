@@ -48,7 +48,7 @@ Read the card from the card repository. Create a plan at `plans/[AGENT_NAME].md`
 Follow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and contest-end handling.
 
 ## Peers
-Your peer planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]` (excluding yourself). The reviewer is `plan-failure-mode`. The orchestrator is `main`. Track the live set from the `BLOCKED` DMs you receive — there is no roster file to read.
+Your peer planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]` (excluding yourself). The reviewer is `plan-failure-mode`. The orchestrator is `team-lead`. Track the live set from the `BLOCKED` DMs you receive — there is no roster file to read.
 </parameter>
 </invoke>
 ```
@@ -70,7 +70,7 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and contest-end handling.
 
 ## Peers
-The planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `main`. Track the live set from the `PLAN: BLOCKED` / `VERDICT: BLOCKED for:planner-N` DMs you receive — there is no roster file to read.
+The planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `team-lead`. Track the live set from the `PLAN: BLOCKED` / `VERDICT: BLOCKED for:planner-N` DMs you receive — there is no roster file to read.
 
 ## Card Repository
 [CARD_REPO_PATH]

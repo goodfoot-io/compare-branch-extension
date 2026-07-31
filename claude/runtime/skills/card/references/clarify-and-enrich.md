@@ -147,7 +147,7 @@ git commit -m "[single sentence summarizing which requirements are missing and w
 
 ## 4. Re-route After Enrichment
 
-Load the `runtime:card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, routes IS_STALE and NOT DOR_MET are skipped — enrichment has already been attempted this session.
+Load the `runtime:card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.
 
 ```xml
 <invoke name="Skill">

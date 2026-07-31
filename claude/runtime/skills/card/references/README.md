@@ -14,18 +14,24 @@ Per-condition reference files for the `runtime:card` skill. The router in `../SK
 | IS_BLOCKED | `blocked.md` |
 | HAS_IMPLEMENTATION_FEEDBACK | `implementation-feedback.md` |
 | REVIEW_APPROVED | `merge.md` |
-| IS_STALE | `clarify-and-enrich.md` |
 | PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN | `plan-feedback.md` |
 | PLAN_REQUIRED AND NOT PLAN_APPROVED | `plan.md` |
 | NOT DOR_MET | `clarify-and-enrich.md` |
 | PLAN_REQUIRED AND PLAN_APPROVED | `implementation-with-plan.md` |
 | IS_TESTABLE_BUG | `bug.md` |
+| HAS_WORK | `validate.md` |
 | Otherwise | `plan.md` |
 
 ## Shared Procedures
 
 - `planning.md` — Tier 2 self-plan procedure, also loaded by the `runtime:card-planner` subagent in tier 3–4.
 - `contest.md` — Tier 3–4 planner-contest dispatch, loaded by `plan.md`.
+- `implementation.md` / `implementation-evaluation.md` — Tier 1 implementation and the post-implementation evaluator wave, loaded by `plan.md` and by both implementation references.
+- `bug-dirty-tree.md` — dirty-worktree triage, loaded by `bug.md` Step 1.1.
+
+## Not Router-Reachable
+
+- `shutdown.md` — shutdown handshake runbook. Loaded by the exit-when-done Stop hook via a hard-coded path, never by the router; renaming it breaks that reference.
 
 ## Standalone Agent Skills (Not Consolidated)
 

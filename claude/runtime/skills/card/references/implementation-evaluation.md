@@ -25,7 +25,7 @@ Run validation per the plan's validation commands.
 
 Based on the result:
 - **All validations pass**: Proceed to Step 3: Dispatch Evaluators.
-- **Failure**: Treat each failure's output as an initial finding, then proceed to Step 6: Dispatch Developer Wave (developers are not part of the evaluation group in any case). After Step 7: Validate and Commit, return to Step 2: Pre-Evaluation Validation.
+- **Failure**: Treat each failure's output as an initial finding, then proceed to Step 5: Dispatch Developer Wave (developers are not part of the evaluation group in any case). After Step 6: Validate and Commit, return to Step 2: Pre-Evaluation Validation.
 
 ## 3. Dispatch Evaluators
 
@@ -38,11 +38,11 @@ Diff the workspace against the baseline to see the full scope of changes. Select
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
-The evaluators form an ad-hoc group purely by being named. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and its process stops on its own. It re-wakes — with its prior context — when your Step 8 re-evaluation DM arrives, so the group reconstitutes itself across rounds by name without you keeping it alive. Developers dispatched in Step 6 are **not** part of this group.
+The evaluators form an ad-hoc group purely by being named. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and its process stops on its own. It re-wakes — with its prior context — when your Step 7 re-evaluation DM arrives, so the group reconstitutes itself across rounds by name without you keeping it alive. Developers dispatched in Step 5 are **not** part of this group.
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
 
-Evaluators run in the background so you can collect inbound DMs from them while they work. After each round an evaluator DMs its `VERDICT:`, goes idle, and stops; re-evaluation in later rounds is triggered by a per-evaluator DM (Step 8: Trigger Re-Evaluation) that wakes the stopped evaluator, so each evaluator's "When Resuming for a Fixed Implementation" section in its skill resumes against the updated workspace.
+Evaluators run in the background so you can collect inbound DMs from them while they work. After each round an evaluator DMs its `VERDICT:`, goes idle, and stops; re-evaluation in later rounds is triggered by a per-evaluator DM (Step 7: Trigger Re-Evaluation) that wakes the stopped evaluator, so each evaluator's "When Resuming for a Fixed Implementation" section in its skill resumes against the updated workspace.
 
 Based on depth:
 - **Standard**: Dispatch one `failure-mode` evaluator.
@@ -56,10 +56,10 @@ Based on depth:
 <parameter name="name">failure-mode</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `main` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `main` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: failure-mode`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
-The orchestrator is `main` (the orchestrator). On Deep depth, your peer evaluator is `experience-evaluator`. Track the live set from the `BLOCKED` DMs you receive.
+The orchestrator is `team-lead` (the orchestrator). On Deep depth, your peer evaluator is `experience-evaluator`. Track the live set from the `BLOCKED` DMs you receive.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -88,10 +88,10 @@ For **Deep**, add the second dispatch in the same message:
 <parameter name="name">experience-evaluator</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `main` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `main` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: experience-evaluator`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. The marker goes in `summary` and as the first line of the `message` body, followed by `Sender: experience-evaluator`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
-The orchestrator is `main`. Your peer evaluator is `failure-mode`. Track the live set from the `BLOCKED` DMs you receive.
+The orchestrator is `team-lead`. Your peer evaluator is `failure-mode`. Track the live set from the `BLOCKED` DMs you receive.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -110,11 +110,11 @@ All validation has passed. Focus on what a user would experience as broken, wron
 </invoke>
 ```
 
-## 5. Collect Verdicts and Route
+## 4. Collect Verdicts and Route
 
 Monitor inbound DMs from each evaluator. Each evaluator emits two kinds of DM addressed to you:
 
-- **`FINDING:` DM**: Record the finding (short label and body) so you can route it into a developer wave in Step 6 and, after fixes land, brief the evaluators on what changed. Keep what you need to do those two things — not a cross-referenced ledger.
+- **`FINDING:` DM**: Record the finding (short label and body) so you can route it into a developer wave in Step 5 and, after fixes land, brief the evaluators on what changed. Keep what you need to do those two things — not a cross-referenced ledger.
 - **`VERDICT:` DM**: Record the verdict for this round.
 
 Cross-evaluator critiques are exchanged as DMs between the evaluators (`CRITIQUE: <label>` from `failure-mode` to `experience-evaluator` and vice versa) and do not reach you. On Deep depth, evaluators also DM each other their `FINDING:` markers directly so they can critique each other's findings; you receive your own copy from each evaluator.
@@ -127,16 +127,16 @@ Never Finalize on a partial set — every dispatched evaluator must DM `VERDICT:
 
 An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state. Idle **without** this round's verdict means the evaluator will never act again on its own — waiting on it is never correct. A DM stating intent ("verdict imminent," "holding for results") does not keep the agent alive; the idle notification that follows supersedes it. Wake the evaluator with a DM that inlines whatever it is waiting on — task-notifications for work it delegated may be delivered to you, not to it, so forward those results in the wake-up DM. If it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below).
 
-A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its dispatch prompt so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
+A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its dispatch prompt so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 7 re-evaluation loop covers it like any other evaluator.
 
-A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
+A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 5.
 
 Based on the aggregated verdicts:
-- **All APPROVED** (every dispatched evaluator has DM'd `VERDICT: APPROVED`): Proceed to Step 9: Finalize. This is the only path to Finalize. Do not accept fewer than the full evaluator set.
-- **Any CHANGES_REQUESTED** (at least one evaluator has DM'd `VERDICT: CHANGES_REQUESTED`, regardless of other evaluators' verdicts): Proceed to Step 6: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.
-- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, then **STOP**. An evaluator that has DM'd its verdict has already gone idle and stopped; if a peer evaluator is still working and you want to stop it early, DM it a `shutdown_request` per Step 9.
+- **All APPROVED** (every dispatched evaluator has DM'd `VERDICT: APPROVED`): Proceed to Step 8: Finalize. This is the only path to Finalize. Do not accept fewer than the full evaluator set.
+- **Any CHANGES_REQUESTED** (at least one evaluator has DM'd `VERDICT: CHANGES_REQUESTED`, regardless of other evaluators' verdicts): Proceed to Step 5: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.
+- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, then **STOP**. An evaluator that has DM'd its verdict has already gone idle and stopped; if a peer evaluator is still working and you want to stop it early, DM it a `shutdown_request` per Step 8.
 
-## 6. Dispatch Developer Wave
+## 5. Dispatch Developer Wave
 
 Group the findings by coherence, using the same routing principle as `./implementation-with-plan.md`'s `<dispatch>`:
 - **Independent files OR uniform fixes**: Parallel — concurrent developers, one commit after the group returns. Before dispatching, confirm each developer's "File Ownership" set is disjoint from every other developer's in the same group — if any file overlaps, route Coherent or Sequential instead.
@@ -191,18 +191,18 @@ This work owns: [absolute paths the findings touch — do not modify files outsi
 </invoke>
 ```
 
-## 7. Validate and Commit
+## 6. Validate and Commit
 
 Wait for every developer in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
 
-Developers do not commit — record the group's pre-dispatch HEAD SHA before delegating in Step 6, and on return compare it to current HEAD. If HEAD moved, a developer committed despite the constraint: `git reset --soft <pre-dispatch-SHA>` before validating, so the group's work folds into the single commit this step produces rather than leaving a stray commit ahead of it.
+Developers do not commit — record the group's pre-dispatch HEAD SHA before delegating in Step 5, and on return compare it to current HEAD. If HEAD moved, a developer committed despite the constraint: `git reset --soft <pre-dispatch-SHA>` before validating, so the group's work folds into the single commit this step produces rather than leaving a stray commit ahead of it.
 
 Lint and typecheck per the project's CLAUDE.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
 
 Based on the combined result:
-- **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.
+- **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 7: Trigger Re-Evaluation.
 - **Developer-introduced error** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above. These are mechanical corrections to errors the developer wave introduced — not resolutions of evaluator findings. If the fix addresses an evaluator finding, discard and re-dispatch per the next bullet.
-- **Error requires implementation changes**: Discard the group's uncommitted work and re-dispatch per Step 6: Dispatch Developer Wave with regrouped findings (split a too-large group into smaller ones if a single developer's work failed to cohere; combine related findings if separate developers produced conflicting changes).
+- **Error requires implementation changes**: Discard the group's uncommitted work and re-dispatch per Step 5: Dispatch Developer Wave with regrouped findings (split a too-large group into smaller ones if a single developer's work failed to cohere; combine related findings if separate developers produced conflicting changes).
 
 Commit on success — you own every commit; developers do not commit:
 
@@ -221,7 +221,7 @@ git restore .
 git clean -fd
 ```
 
-## 8. Trigger Re-Evaluation
+## 7. Trigger Re-Evaluation
 
 The evaluators are still alive. DM a re-evaluation trigger to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
 
@@ -245,11 +245,11 @@ Not fixed: [any finding the wave could not address, and why — omit if none]
 
 For Deep, send the same message to `experience-evaluator` in the same dispatch.
 
-Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed Implementation" section) and DMs a fresh verdict for this round. Return to Step 5: Collect Verdicts and Route. The loop continues until every evaluator DMs `APPROVED`, or a BLOCKED branch fires.
+Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed Implementation" section) and DMs a fresh verdict for this round. Return to Step 4: Collect Verdicts and Route. The loop continues until every evaluator DMs `APPROVED`, or a BLOCKED branch fires.
 
-## 9. Finalize
+## 8. Finalize
 
-Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path — including after applying fixes yourself — return to Step 5 and collect the remaining verdicts.
+Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 4. If you arrived here through any other path — including after applying fixes yourself — return to Step 4 and collect the remaining verdicts.
 
 Every evaluator that DM'd `VERDICT: APPROVED` for this round has already gone idle and stopped on its own, so there is normally nothing to tear down — proceed directly. Only if an evaluator is still actively working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits). On Standard depth there is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
 

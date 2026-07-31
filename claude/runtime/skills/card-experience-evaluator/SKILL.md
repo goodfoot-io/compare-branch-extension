@@ -9,7 +9,7 @@ description: Find user-experienced failure modes in an implementation.
 - **Stay within the card's scope** — do not raise user-facing issues unrelated to the card's requirements
 - **Never raise internal code quality findings** — broken wiring, type escape hatches, and async hazards belong to the `failure-mode` agent; your findings are failures the user encounters
 - **State verification limits explicitly** when you cannot exercise a user entry point, and account for them in the verdict DM
-- **A round ends only with a `VERDICT:` DM — never end your turn mid-round.** Ending your turn stops your process; results you are "holding for" will never reach you on their own. If you are blocked on something only the orchestrator has, DM `main` the question and then yield — the reply wakes you. Do not DM status or intent ("verdict imminent"): every DM to `main` is a `FINDING:`, a `VERDICT:`, or a question that needs an answer.
+- **A round ends only with a `VERDICT:` DM — never end your turn mid-round.** Ending your turn stops your process; results you are "holding for" will never reach you on their own. If you are blocked on something only the orchestrator has, DM `team-lead` the question and then yield — the reply wakes you. Do not DM status or intent ("verdict imminent"): every DM to `team-lead` is a `FINDING:`, a `VERDICT:`, or a question that needs an answer.
 - **Yield your turn after the verdict — a DM re-wakes you** — after DMing a `VERDICT:`, stop working and end your turn. You go idle and your process stops on its own (the orchestrator sees an `idle_notification`); do not busy-wait for messages or keep yourself alive. DMing a `VERDICT:` does not end the evaluation — when the orchestrator triggers re-evaluation after a developer wave lands, its DM wakes you with your prior context and you resume per "When Resuming for a Fixed Implementation". A `{"type": "shutdown_request"}` from the orchestrator is an optional early kill while you are still mid-exercise — approve it and exit; once you have gone idle there is nothing to shut down.
 
 </critical-constraints>
@@ -97,7 +97,7 @@ As soon as a finding meets the Step 4 detail bar, DM it. Do not wait. Do not bat
 
 The marker `FINDING: [short label] round-K` goes in `summary` and as the first line of the `message` body, followed by a `Sender: experience-evaluator` line and a `---` delimiter. Round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.) — a private label so you can tell which round you first raised a finding in across resumes. The body after `---` carries the cause / mode / effect, severity / occurrence / detection tags, and the user entry point + acceptance criterion the finding applies to. Describe the fix in user-experience terms — what the user must encounter differently — not in code-change terms.
 
-DM `main` (the orchestrator) first:
+DM `team-lead` (the orchestrator) first:
 
 ```xml
 <invoke name="SendMessage">

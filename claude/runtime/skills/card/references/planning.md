@@ -26,7 +26,7 @@ Read all plan files from the `plans/` directory. Compare the plans against the c
 Determine whether prior plans have been implemented by checking for workspace commits on the current branch that correspond to plan tasks.
 
 - **Prior plan(s) implemented and new work requested** (follow-on): Go to Step 1.2 to create a new plan file. Treat prior plans and their implementation as established context — do not revise completed plans.
-- **Plan is current and no new information**: If operating as a subagent (tier 3–4), return to the parent `card-planner` skill's Step 3 (Broadcast Plan State); if operating inline (tier 2), return to the caller's next step. This procedure has no Step 3 of its own.
+- **Plan is current and no new information**: If operating as a subagent (tier 3–4), return to the parent `card-planner` skill's Step 3 (DM Plan State); if operating inline (tier 2), return to the caller's next step. This procedure has no Step 3 of its own.
 - **New information requires plan revision**: Incorporate changes into `[PLAN_FILE]`, commit, then go to Step 2.
 
 ### 1.2 Create Plan
