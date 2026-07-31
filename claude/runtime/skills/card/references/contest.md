@@ -2,7 +2,7 @@
 
 Tier 3 and tier 4 orchestration: dispatch multiple sonnet planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.
 
-Approval is the *qualifying bar*, not the finish line. A previously-approved plan can lose its approval if a question raised by a peer's plan retroactively surfaces a hole — `APPROVED` is sticky-but-revocable. There is no settlement handshake: a planner that holds approval and is not revising is done. You decide closure by looking at the contest's state, not by collecting confirmations.
+Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-but-revocable (see `<definitions>` and Closure below).
 
 <definitions>
 
@@ -70,7 +70,7 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and contest-end handling.
 
 ## Peers
-The planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `team-lead`. Track the live set from the `PLAN: BLOCKED` / `VERDICT: BLOCKED for:planner-N` DMs you receive — there is no roster file to read.
+The planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `team-lead`. Track the live set from the `PLAN: BLOCKED` DMs you receive and your own `VERDICT: BLOCKED` rulings — there is no roster file to read.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -83,7 +83,7 @@ The planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orche
 
 ## 3. Monitor the Contest
 
-Process inbound DMs from planners and the reviewer. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each DM arrives. The state-line marker on each inbound DM tells you what changed. Teammates who are uncertain about state will DM you with plain-language questions; answer from your in-memory state, or ask the relevant teammate yourself if you need to verify.
+Process inbound DMs from planners and the reviewer. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each DM arrives. The state-line marker on each inbound DM tells you what changed.
 
 Each planner moves along the state machine:
 

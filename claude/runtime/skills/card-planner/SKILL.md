@@ -9,7 +9,7 @@ description: Create or update a card plan while collaborating with parallel plan
 </placeholder-variables>
 
 <peers>
-Your peer roster is in your dispatch prompt under `## Peers` — peer planners, the reviewer `plan-failure-mode`, the orchestrator `team-lead`. The live set is that roster minus every planner whose `PLAN: BLOCKED` or `VERDICT: BLOCKED for:planner-N` DM you have received. There is no roster file; if unsure who is live, DM `team-lead` and ask.
+Your peer roster is in your dispatch prompt under `## Peers` — peer planners, the reviewer `plan-failure-mode`, the orchestrator `team-lead`. The live set is that roster minus every planner whose `PLAN: BLOCKED` or `VERDICT: BLOCKED for:planner-N` DM you have received. There is no roster file.
 </peers>
 
 <dm-envelope>
@@ -32,7 +32,7 @@ Every DM: marker in `summary`, repeated as the first line of `message`, then a `
 FINDING: [short label]
 Sender: [AGENT_NAME]
 ---
-[What you found, where (file:line or symbol), and why it matters for any plan addressing this card]
+[Body per the table above]
   </parameter>
 </invoke>
 ```
@@ -76,7 +76,7 @@ If `[PLAN_FILE]` already exists when you start — the orchestrator seeded it fr
 
 Distill commander's intent from the card — what the situation looks like when the work is done and what constraints must hold regardless of approach. Then research: read every consumer of each symbol, field, or boundary your plan will touch.
 
-Write your plan to `[PLAN_FILE] = plans/[AGENT_NAME].md` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
+Write your plan to `[PLAN_FILE]` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
 
 When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), follow the `<tdd-bootstrap>` instructions and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
 
@@ -102,8 +102,6 @@ Watch incoming messages while you work. Treat peer `FINDING:` DMs as workspace t
 When your plan is ready or unrecoverable, DM `PLAN: READY for:[AGENT_NAME] round-K` or `PLAN: BLOCKED for:[AGENT_NAME]` per `<dm-envelope>`.
 
 Once blocked, do not continue revising against an unresolvable obstacle.
-
-Do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
 
 ## 4. Handle Incoming Messages
 
