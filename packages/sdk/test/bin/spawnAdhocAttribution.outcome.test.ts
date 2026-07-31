@@ -1,7 +1,7 @@
 /**
  * Reproduction tests for the spawnAdhocAttribution outcome contract.
  *
- * Callers (e.g. `card <id> bind`) must be able to distinguish a successful
+ * Callers (e.g. `cards <id> bind`) must be able to distinguish a successful
  * activation from a skipped one. A non-activatable card status is the only
  * skip; a held session de-dupe lock de-dupes only the transcript-watcher and
  * still activates the card.

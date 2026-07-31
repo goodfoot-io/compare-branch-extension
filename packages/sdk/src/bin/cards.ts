@@ -43,7 +43,7 @@ import { compiledHookScriptPaths } from '../git-hooks.js';
 const execFileAsync = promisify(execFile);
 
 /**
- * Resolves the toplevel directory of the linked git worktree `card create` is
+ * Resolves the toplevel directory of the linked git worktree `cards create` is
  * running inside, or `null` when cwd is the main worktree or not a git repo.
  *
  * A linked worktree has a git-dir distinct from its common dir
@@ -103,8 +103,8 @@ Get:
   returned, including repositoryPath for filesystem access.
 
   Examples:
-    card feat-42
-    card main-0001
+    cards feat-42
+    cards main-0001
 
 Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string).
@@ -117,7 +117,7 @@ Create:
   caller already provided are omitted.
 
   Examples:
-    card create <<'EOF'
+    cards create <<'EOF'
     { "title": "Fix auth", "tags": ["bug"] }
     EOF
 
@@ -132,9 +132,9 @@ List:
     --offset <n>             Pagination offset
 
   Examples:
-    card list
-    card list --status active
-    card list --limit 10
+    cards list
+    cards list --status active
+    cards list --limit 10
 
 Search:
   Searches cards using a unified query syntax. Supports free text, #tag filters,
@@ -148,10 +148,10 @@ Search:
     --offset <n>             Pagination offset
 
   Examples:
-    card search "login bug"
-    card search "#auth @main-5 login" --status active
-    card search "#planning" --limit 20
-    card search "@main-42"
+    cards search "login bug"
+    cards search "#auth @main-5 login" --status active
+    cards search "#planning" --limit 20
+    cards search "@main-42"
 
 Action:
   Executes an action on a card via the server relay. The action ID is
@@ -166,9 +166,9 @@ Action:
                              completes, instead of leaving the session open.
 
   Examples:
-    card <card-id> action launch
-    card <card-id> action launch --background
-    card <card-id> action launch --background --exit-when-done
+    cards <card-id> action launch
+    cards <card-id> action launch --background
+    cards <card-id> action launch --background --exit-when-done
 
 Watch:
   Waits for the next unattributed commit on a card's repository. If
@@ -184,9 +184,9 @@ Watch:
   the session precondition is not met.
 
   Examples:
-    card <card-id> watch
-    card <card-id> watch "src/auth/**"
-    card <card-id> watch "src/**" "tests/**"
+    cards <card-id> watch
+    cards <card-id> watch "src/auth/**"
+    cards <card-id> watch "src/**" "tests/**"
 
 Bind:
   Attaches an existing card to the current worktree. Installs git hooks,
@@ -205,8 +205,8 @@ Bind:
     --parent-branch <ref>  Explicit parent branch (overrides git config and reflog detection)
 
   Examples:
-    card main-42 bind
-    card main-42 bind --parent-branch main
+    cards main-42 bind
+    cards main-42 bind --parent-branch main
 
 Exit codes:
   0  Success
@@ -435,7 +435,7 @@ export async function createCard(args: string[]): Promise<void> {
           ]);
           if (wsCommonDir !== wtCommonDir) {
             console.error(
-              `card create: worktree ${bindTarget.worktreeDir} belongs to a different workspace than card ${createdId} — not binding.`
+              `cards create: worktree ${bindTarget.worktreeDir} belongs to a different workspace than card ${createdId} — not binding.`
             );
             shouldBind = false;
           }
@@ -444,7 +444,7 @@ export async function createCard(args: string[]): Promise<void> {
           // normal bind. The pre-existing behavior is to bind, so don't
           // regress when git is unavailable. Log so the failure is observable.
           console.error(
-            'card create: failed to compare workspace and worktree repositories, proceeding with bind:',
+            'cards create: failed to compare workspace and worktree repositories, proceeding with bind:',
             err
           );
         }
@@ -457,7 +457,7 @@ export async function createCard(args: string[]): Promise<void> {
 }
 
 /**
- * Outcome of resolving the bind target for the current `card create`.
+ * Outcome of resolving the bind target for the current `cards create`.
  *
  * - `none` — not inside or pointed at an eligible unbound worktree (cwd is the
  *   main worktree, an already-bound worktree, or no unbound candidate matched
@@ -489,7 +489,7 @@ type BindTarget =
     };
 
 /**
- * Resolves the worktree `card create` should bind, applying the fail-closed
+ * Resolves the worktree `cards create` should bind, applying the fail-closed
  * gate WITHOUT creating a card. Two legs, cwd-primary then candidate-set
  * fallback:
  *
@@ -524,7 +524,7 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
 
     const parent = await resolveCardsParentBranch(cwdWorktree, parentBranchFlag);
     if (parent.kind === 'refuse') {
-      return { kind: 'refuse', reason: `card create: ${parent.reason}` };
+      return { kind: 'refuse', reason: `cards create: ${parent.reason}` };
     }
 
     // Resolve session identity via the shared resolvers. resolveSessionId()
@@ -538,8 +538,8 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
       return {
         kind: 'refuse',
         reason:
-          'card create: refusing to bind worktree — no session id could be resolved. ' +
-          'Re-enter the worktree via the EnterWorktree tool, then run `card create` again.'
+          'cards create: refusing to bind worktree — no session id could be resolved. ' +
+          'Re-enter the worktree via the EnterWorktree tool, then run `cards create` again.'
       };
     }
     const transcriptPath = await resolveTranscriptPath(sessionId, cwdWorktree);
@@ -573,21 +573,21 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
     return {
       kind: 'refuse',
       reason:
-        `card create: refusing to bind — ${candidates.length} unbound worktrees are registered for this session:\n` +
+        `cards create: refusing to bind — ${candidates.length} unbound worktrees are registered for this session:\n` +
         `${list}\n` +
-        'Run `card create` from inside the specific worktree you want to bind so the target is unambiguous.'
+        'Run `cards create` from inside the specific worktree you want to bind so the target is unambiguous.'
     };
   }
 
   const candidate = candidates[0]!;
   const parent = await resolveCardsParentBranch(candidate.worktreeDir, parentBranchFlag);
   if (parent.kind === 'refuse') {
-    return { kind: 'refuse', reason: `card create: ${parent.reason}` };
+    return { kind: 'refuse', reason: `cards create: ${parent.reason}` };
   }
 
   // Loud stderr notice: the binder is not inside the worktree it is binding, so
   // make the target explicit rather than binding silently.
-  console.error(`card create: binding the single unbound worktree for this session: ${candidate.worktreeDir}`);
+  console.error(`cards create: binding the single unbound worktree for this session: ${candidate.worktreeDir}`);
 
   const transcriptPath = await resolveTranscriptPath(sessionId, candidate.worktreeDir);
   const runtime = await resolveRuntime();
@@ -610,7 +610,7 @@ async function resolveBindTarget(parentBranchFlag?: string): Promise<BindTarget>
  * Delegates the full disk → API → attribution lifecycle to
  * {@link outfitWorktreeForCard}, the single orchestrator both creation-time and
  * bind-time paths funnel through (so they cannot drift). On success the worktree
- * is removed from the per-session unbound-candidate set so a later `card create`
+ * is removed from the per-session unbound-candidate set so a later `cards create`
  * in the same session does not see it again.
  *
  * An outfit failure is reported to stderr but never propagates: the create
@@ -653,14 +653,14 @@ async function outfitCreatedWorktree(
     // for genuinely un-monitorable cases while making the cause visible.
     if (outcome && (outcome.activated === false || outcome.attribution === 'skipped')) {
       console.error(
-        `card create: worktree bound but card ${cardId} not activated (${outcome.reason ?? 'unknown reason'}).`
+        `cards create: worktree bound but card ${cardId} not activated (${outcome.reason ?? 'unknown reason'}).`
       );
     }
 
     // Bind succeeded — drop the candidate so it is not re-offered this session.
     await removeUnboundCandidate(sessionId, worktreeDir);
   } catch (error) {
-    console.error('card create: failed to bind worktree to card:', error instanceof Error ? error.message : error);
+    console.error('cards create: failed to bind worktree to card:', error instanceof Error ? error.message : error);
   }
 }
 
@@ -1164,7 +1164,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   const worktreeDir = await resolveLinkedWorktreeDir();
   if (!worktreeDir) {
     console.error(
-      'card bind: not in a linked worktree. Run this command from inside a worktree created with `git worktree add`.'
+      'cards bind: not in a linked worktree. Run this command from inside a worktree created with `git worktree add`.'
     );
     process.exit(1);
   }
@@ -1174,7 +1174,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   if (existsSync(cardIdFile)) {
     const existingId = readFileSync(cardIdFile, 'utf-8').trim();
     console.error(
-      `card bind: this worktree is already bound to card ${existingId}. ` +
+      `cards bind: this worktree is already bound to card ${existingId}. ` +
         `To bind a different card, remove this worktree and create a new one.`
     );
     process.exit(1);
@@ -1199,13 +1199,13 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     cardRepoPath = card.repositoryPath;
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NOT_FOUND') {
-      console.error(`card bind: card "${cardId}" not found.`);
+      console.error(`cards bind: card "${cardId}" not found.`);
     } else if (error instanceof NetworkError) {
       console.error(
-        `card bind: card service unavailable — check that the extension/daemon is running. (${error.message})`
+        `cards bind: card service unavailable — check that the extension/daemon is running. (${error.message})`
       );
     } else {
-      console.error(`card bind: unable to fetch card "${cardId}".`, error);
+      console.error(`cards bind: unable to fetch card "${cardId}".`, error);
     }
     process.exitCode = 1;
     return;
@@ -1214,7 +1214,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   // Gate 4: parent branch must be determinable.
   const parent = await resolveCardsParentBranch(worktreeDir, parentBranchFlag);
   if (parent.kind === 'refuse') {
-    console.error(`card bind: ${parent.reason}`);
+    console.error(`cards bind: ${parent.reason}`);
     process.exitCode = 1;
     return;
   }
@@ -1223,8 +1223,8 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   const sessionId = await resolveSessionId();
   if (sessionId === null) {
     console.error(
-      'card bind: refusing to bind worktree — no session id could be resolved. ' +
-        'Re-enter the worktree via the EnterWorktree tool, then run `card <id> bind` again.'
+      'cards bind: refusing to bind worktree — no session id could be resolved. ' +
+        'Re-enter the worktree via the EnterWorktree tool, then run `cards <id> bind` again.'
     );
     process.exitCode = 1;
     return;
@@ -1233,7 +1233,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   const transcriptPath = await resolveTranscriptPath(sessionId, worktreeDir);
   if (!transcriptPath) {
     console.error(
-      'card bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.'
+      'cards bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.'
     );
   }
 
@@ -1257,7 +1257,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   // masquerade as a plain success — surface the partial state on stderr and
   // exit non-zero so scripted callers can detect it.
   if (outcome && (outcome.activated === false || outcome.attribution === 'skipped')) {
-    console.error(`card bind: branch registered but card not activated (${outcome.reason ?? 'unknown reason'}).`);
+    console.error(`cards bind: branch registered but card not activated (${outcome.reason ?? 'unknown reason'}).`);
     // Post-connection (the client + `outfitWorktreeForCard` opened sockets) —
     // set the code and return so the top-level `requestProcessExit` drains the
     // loop instead of a synchronous `process.exit` racing libuv (0xC0000409).
@@ -1265,7 +1265,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     return;
   }
 
-  // Drop the candidate record so a later `card create` in the same session
+  // Drop the candidate record so a later `cards create` in the same session
   // does not re-offer this worktree.
   await removeUnboundCandidate(sessionId, worktreeDir);
 
@@ -1350,7 +1350,7 @@ if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
     .then(() => {
       // One-shot commands must not rely on the event loop draining naturally:
       // the `CardsClient`'s HTTP (fetch/undici) keep-alive socket can keep the
-      // loop alive on Windows long after the result printed — `card list` was
+      // loop alive on Windows long after the result printed — `cards list` was
       // observed hanging for tens of minutes. `requestProcessExit` sets the exit
       // code and lets the loop drain, with an unref'd backstop that force-exits
       // if a handle lingers — bounding teardown without the synchronous

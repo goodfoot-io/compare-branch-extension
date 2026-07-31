@@ -48,7 +48,7 @@ Examples:
   cards-extension workspace list
   cards-extension editor info --workspace /path/to/workspace
   cards-extension editor open src/auth.ts --line 42
-  cards-extension editor select src/index.ts --start 10:0 --end 15:20
+  cards-extension editor select src/index.ts --start 10:1 --end 15:20
   cards-extension execute-command editor.action.formatDocument
   cards-extension issue <<'EOF'
   {"title": "Login fails on Ubuntu", "body": "When I click login nothing happens."}

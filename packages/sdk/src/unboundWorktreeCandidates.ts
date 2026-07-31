@@ -26,7 +26,7 @@ import { resolveGlobalCardsConfigDir } from './cards-config.js';
  * A single entry in the unbound-candidate set.
  *
  * Written by the WorktreeCreate hook (unbound path) or the EnterWorktree hook
- * (hand-made worktree). Consumed by `card create` bind-time resolution.
+ * (hand-made worktree). Consumed by `cards create` bind-time resolution.
  */
 export interface UnboundWorktreeCandidate {
   /** Absolute path to the unbound worktree root. */

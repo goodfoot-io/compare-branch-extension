@@ -2,10 +2,10 @@
  * Git `branch.<name>.cardsParent` config writer and bind-time resolver.
  *
  * At worktree-creation time, {@link writeCardsParentConfig} records the branch
- * that was current when the worktree was created so that `card create` can
+ * that was current when the worktree was created so that `cards create` can
  * retrieve it later even after a process boundary.
  *
- * At bind time (when `card create` runs), {@link resolveCardsParentBranch}
+ * At bind time (when `cards create` runs), {@link resolveCardsParentBranch}
  * walks a prioritized resolution chain and returns either the resolved branch
  * name or a `{ kind: 'refuse' }` result that aborts creation before any card
  * is minted.
@@ -52,7 +52,7 @@ export interface CardsParentResolved {
 /**
  * A refusal result returned when no valid parent branch can be determined.
  *
- * Callers must abort `card create` before calling `createCard` when they
+ * Callers must abort `cards create` before calling `createCard` when they
  * receive this — no orphan card should be minted.
  */
 export interface CardsParentRefused {
@@ -88,7 +88,7 @@ export async function writeCardsParentConfig(
 }
 
 /**
- * Resolves the parent branch for a bind-time `card create` invocation.
+ * Resolves the parent branch for a bind-time `cards create` invocation.
  *
  * Resolution chain (first non-empty valid result wins):
  * 1. `git config branch.<checkedOutBranch>.cardsParent`

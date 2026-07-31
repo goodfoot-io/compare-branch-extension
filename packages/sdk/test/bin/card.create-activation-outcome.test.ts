@@ -1,5 +1,5 @@
 /**
- * Reproduction for: `card create` run from inside a live-session unbound
+ * Reproduction for: `cards create` run from inside a live-session unbound
  * worktree binds the worktree (branch registered, `.cards/CARD_ID` written) but
  * leaves the card in `todo` — activation was silently skipped inside
  * outfitWorktreeForCard — AND the skip produces NO operator-visible diagnostic.

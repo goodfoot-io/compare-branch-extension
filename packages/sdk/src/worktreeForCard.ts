@@ -62,7 +62,7 @@ const BIND_LOCK_TIMEOUT_MS = 5_000;
  * Resolves the cross-process advisory lock path for binding a given worktree.
  *
  * The worktree's absolute path is hashed (sha-256, hex) into a single safe
- * filename under `<globalCardsConfigDir>/bind-locks/`, so two `card create`
+ * filename under `<globalCardsConfigDir>/bind-locks/`, so two `cards create`
  * invocations targeting the same worktree contend on the same lock file
  * regardless of process. Hashing avoids path-separator and length issues from
  * embedding the directory verbatim in a filename.
@@ -125,7 +125,7 @@ export interface OutfitWorktreeForCardOptions {
   compiledScriptPaths: Record<string, string>;
   /**
    * Agent PID to monitor for cleanup teardown. When provided by the caller
-   * (e.g. the `card create` CLI passing its own `process.pid`), this PID is
+   * (e.g. the `cards create` CLI passing its own `process.pid`), this PID is
    * forwarded to {@link spawnAdhocAttribution} instead of resolving one via
    * {@link findAgentPid}. When omitted the orchestrator resolves the PID by
    * walking the process tree — correct for re-attach paths where the ambient
@@ -193,7 +193,7 @@ export interface OutfitAttributionOutcome {
  * @param worktreeDir - Absolute path to the (already-created) worktree root.
  * @param options - Card id, parent branch, session, transcript, and compiled hook paths.
  * @returns An {@link OutfitAttributionOutcome} describing whether attribution
- *   was spawned or skipped (and why), so callers like `card <id> bind` can
+ *   was spawned or skipped (and why), so callers like `cards <id> bind` can
  *   fail closed when the branch was registered but the card was not activated.
  */
 export async function outfitWorktreeForCard(

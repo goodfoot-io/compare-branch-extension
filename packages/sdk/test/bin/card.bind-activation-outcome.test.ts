@@ -1,5 +1,5 @@
 /**
- * Reproduction for: `card <id> bind` reports plain success (exit 0 +
+ * Reproduction for: `cards <id> bind` reports plain success (exit 0 +
  * card-repo-log on stdout) even when session activation was silently skipped
  * inside outfitWorktreeForCard (de-dupe lock held by another card, card not
  * activatable, attribution preflight failed).

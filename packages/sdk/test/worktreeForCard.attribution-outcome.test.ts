@@ -3,7 +3,7 @@
  * outfitWorktreeForCard.
  *
  * Hypothesis under test: `outfitWorktreeForCard()` resolves `void`, so callers
- * (e.g. `card <id> bind`) cannot distinguish "attribution spawned" from the
+ * (e.g. `cards <id> bind`) cannot distinguish "attribution spawned" from the
  * warn-and-return skip paths (no transcript, unresolvable card repo path,
  * unresolvable agent PID) — bind reports success even when activation was
  * silently skipped. The contract asserted here is that the orchestrator

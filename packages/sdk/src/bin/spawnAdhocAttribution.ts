@@ -3,7 +3,7 @@
  *
  * Consolidates the activatable-status guard, O_EXCL de-dupe lock acquisition,
  * and both detached spawns (stream-sync-watcher + adhoc-cleanup) into a single
- * function called by `card create` (first-bind) and the EnterWorktree hook
+ * function called by `cards create` (first-bind) and the EnterWorktree hook
  * (re-attach). Keeping both call sites on the same code path prevents the
  * guards from drifting apart.
  *
@@ -112,7 +112,7 @@ export type SpawnAdhocAttributionOutcome = { activated: true } | { activated: fa
  * @param logger - Structured logger for warn and error output.
  * @returns Structured outcome: `{ activated: true }` when the spawns were
  *   attempted, or `{ activated: false, reason }` when a guard skipped
- *   activation — so callers (e.g. `card <id> bind`) can fail closed instead of
+ *   activation — so callers (e.g. `cards <id> bind`) can fail closed instead of
  *   reporting success on a silently skipped activation.
  */
 export async function spawnAdhocAttribution(

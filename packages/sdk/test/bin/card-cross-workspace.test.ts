@@ -1,7 +1,7 @@
 /**
  * Reproduction test for cross-workspace bind bug.
  *
- * When `card create --workspace-path <repoB>` runs inside a linked worktree of
+ * When `cards create --workspace-path <repoB>` runs inside a linked worktree of
  * repoA, `createCard()` connects to the correct workspace (repoB via the
  * `--workspace-path` flag) but `resolveBindTarget()` discovers the cwd linked
  * worktree (repoA) and returns `kind: 'bind'` with repoA's worktree path. The
@@ -99,7 +99,7 @@ describe('card create cross-workspace bind (reproduction)', () => {
   let reposBase: string;
   /** repoA main repository — a distinct repository from repoB. */
   let repoA: string;
-  /** repoA's linked worktree — `card create` runs from here. */
+  /** repoA's linked worktree — `cards create` runs from here. */
   let repoALinked: string;
   /** repoB main repository — a different workspace. */
   let repoB: string;

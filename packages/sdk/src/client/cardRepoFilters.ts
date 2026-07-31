@@ -87,7 +87,7 @@ export function getUnattributedCommits(allCommits: string[], sessionCommits: str
  * The header carries the short SHA, the full author identity (name + email in
  * git's canonical `Name <email>` form, falling back to name only when the email
  * is empty), and the subject; the commit body — when present — follows as an
- * indented block, and each changed file gets one status line. `card watch` is
+ * indented block, and each changed file gets one status line. `cards watch` is
  * the sole consumer, and a caller deciding how to attribute a commit needs the
  * author email and the body, not just the subject.
  *

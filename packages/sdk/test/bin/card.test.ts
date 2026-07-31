@@ -1614,8 +1614,8 @@ describe('card binary', () => {
         await expect(bindCard('main-001')).resolves.toBeUndefined();
         expect(process.exitCode).toBe(1);
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
-        // The gate 4 message begins with 'card bind:' and contains the refusal reason.
-        expect(diagnostic).toMatch(/card bind:/);
+        // The gate 4 message begins with 'cards bind:' and contains the refusal reason.
+        expect(diagnostic).toMatch(/cards bind:/);
         expect(exitSpy).not.toHaveBeenCalled();
         expect(outfitWorktreeForCard).not.toHaveBeenCalled();
       } finally {
