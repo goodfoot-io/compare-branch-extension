@@ -27,11 +27,11 @@ Plus one shared reference:
 Writing guides and `commanders-intent.md` are symlinked from `$cards:cards` references — edit those files there; the symlinks ensure both skills see the same content.
 
 ```
-interview/references/bug-report.md        -> ../../../../cards/skills/api/references/bug-report.md
-interview/references/enhancement.md       -> ../../../../cards/skills/api/references/enhancement.md
-interview/references/investigation.md     -> ../../../../cards/skills/api/references/investigation.md
-interview/references/documentation.md     -> ../../../../cards/skills/api/references/documentation.md
-interview/references/maintenance.md       -> ../../../../cards/skills/api/references/maintenance.md
-interview/references/operations.md        -> ../../../../cards/skills/api/references/operations.md
-interview/references/commanders-intent.md -> ../../../../cards/skills/api/references/commanders-intent.md
+interview/references/bug-report.md        -> ../../../../cards/skills/cards/references/bug-report.md
+interview/references/enhancement.md       -> ../../../../cards/skills/cards/references/enhancement.md
+interview/references/investigation.md     -> ../../../../cards/skills/cards/references/investigation.md
+interview/references/documentation.md     -> ../../../../cards/skills/cards/references/documentation.md
+interview/references/maintenance.md       -> ../../../../cards/skills/cards/references/maintenance.md
+interview/references/operations.md        -> ../../../../cards/skills/cards/references/operations.md
+interview/references/commanders-intent.md -> ../../../../cards/skills/cards/references/commanders-intent.md
 ```

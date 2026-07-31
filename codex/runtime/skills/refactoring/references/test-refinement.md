@@ -1,9 +1,5 @@
 ## Test Refinement
 
-<purpose>
-This document provides guidance for refactoring test code during pre-validation cleanup. Tests are first-class code that requires the same attention to clarity and maintainability as production code. Use this framework when evaluating and improving test quality.
-</purpose>
-
 <core-principle>
 ## Behaviour Over Implementation
 
@@ -39,8 +35,10 @@ Tests are redundant when they:
 
 **Questions to assess:**
 - Do two tests always fail together for the same root cause? One may be redundant.
-- Does the test document a distinct requirement or edge case from the plan? Keep it.
-- Does removing the test reduce confidence in the system? Keep it. If not, consider removal.
+- Does the test document a distinct requirement or edge case from the plan? Keep it (this is also the tie-breaker when uncertain).
+- Does removing the test reduce confidence in the system? Keep it. If not, consider removal or consolidation.
+
+Regardless of consolidation, at least one test must cover each explicit plan requirement.
 
 **Consolidation techniques:**
 - Use parameterised tests (`test.each`) for multiple inputs with same logic
@@ -67,14 +65,3 @@ After refactoring production code, verify test alignment:
 - [ ] **New edge cases**: If refactoring revealed edge cases, are tests added?
 - [ ] **Obsolete assertions**: Are there assertions that no longer make sense after refactoring?
 </alignment-checklist>
-
-<decision-rule>
-## When in Doubt
-
-When uncertain whether to consolidate, simplify, or preserve a test, ask: "Does this test document a distinct requirement from the plan?"
-
-Based on the answer:
-- **Yes, documents distinct requirement**: Preserve the test, but consider simplifying the implementation
-- **No, does not document distinct requirement**: Consider removing or consolidating with a related test
-- **Always applicable**: Ensure at least one test covers each explicit plan requirement
-</decision-rule>

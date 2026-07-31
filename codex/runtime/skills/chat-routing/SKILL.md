@@ -4,14 +4,7 @@ description: Route conversational intent to the appropriate skill.
 ---
 
 <routing-constraints>
-The routing phase evaluates and selects — it does NOT implement, interview, or modify card content. After routing, the matched skill is loaded and its instructions take over.
-
-| Routing phase | Loaded skill handles |
-|------------------------|--------------------------------|
-| Evaluating routing conditions | Conducting the interview |
-| Selecting the appropriate skill | Development and planning |
-| Loading the matched skill | Answering questions and making focused changes |
-
+Route only — evaluate, select, and load. The loaded reference does the work.
 </routing-constraints>
 
 <quiet>

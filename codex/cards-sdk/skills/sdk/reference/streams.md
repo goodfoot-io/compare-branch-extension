@@ -1,7 +1,5 @@
 <instructions>
 
-This document describes stream renderer development with `@cards.management/sdk/config` and `@cards.management/sdk/stream-store`.
-
 ## Overview
 
 A stream renderer is a static HTML file served inside an iframe by the Cards Extension host. When a card's stream is displayed, the host:
@@ -10,7 +8,7 @@ A stream renderer is a static HTML file served inside an iframe by the Cards Ext
 2. Loads the renderer's `index.html` in the iframe.
 3. Sends `postMessage` events as new lines arrive.
 
-The `@cards.management/sdk/stream-store` package provides a Zustand store pre-initialized from `window.__STREAM_INIT__` and action functions for communicating back to the host.
+`@cards.management/sdk/stream-store` provides a Zustand store pre-initialized from `window.__STREAM_INIT__` plus action functions for communicating back to the host.
 
 ## File Structure
 
@@ -35,26 +33,16 @@ my-config/
 
 ## Registering a Stream Renderer
 
-Register the renderer in `settings.config.ts` using `wwwRoot`:
+Register the renderer in the environment's `streams` map in `settings.config.ts`:
 
 ```typescript
-import { defineConfig } from '@cards.management/sdk/config';
-
-export default defineConfig({
-  environments: {
-    default: {
-      version: 1,
-      actions: [ /* ... */ ],
-      streams: {
-        'my-stream': {          // Stream type key
-          version: 1,
-          wwwRoot: './src/streams/my-stream/www',  // Copied to dist at build time
-          maxLineLength: 1_048_576
-        }
-      }
-    }
+streams: {
+  'my-stream': {          // Stream type key
+    version: 1,
+    wwwRoot: './src/streams/my-stream/www',  // Copied to dist at build time
+    maxLineLength: 1_048_576
   }
-});
+}
 ```
 
 ### StreamConfigDefinition Fields
@@ -69,15 +57,7 @@ export default defineConfig({
 
 ## The stream-store SDK
 
-Import from `@cards.management/sdk/stream-store` inside the renderer's `<script type="module">`:
-
-```html
-<script type="module">
-  import { streamStore, subscribe, close, openFile, showDiff } from '@cards.management/sdk/stream-store';
-</script>
-```
-
-> The host rewrites `@cards.management/sdk/stream-store` to an injected module path before the iframe loads — no bundler or build step is required in the renderer.
+Import `@cards.management/sdk/stream-store` inside the renderer's `<script type="module">`. The host rewrites that specifier to an injected module path before the iframe loads — no bundler or build step is required in the renderer.
 
 ### streamStore
 
@@ -101,69 +81,64 @@ interface StreamFile {
   filename: string;
   meta: StreamMeta;
   lines: string[];         // Accumulated raw lines
+  /** Absolute 1-based line number of `lines[0]`. Meaningless while `lines` is empty. */
+  headLineNumber: number;
   isSubscribed: boolean;
   isLoading: boolean;
   error: string | null;
 }
 
 interface StreamMeta {
-  /** Number of lines appended so far. */
-  lineCount: number;
-  /** true while the stream is live (not yet committed to git); false once committed. */
-  isActive: boolean;
-  /** Opaque session identifier for grouping related streams. */
-  sessionId?: string;
+  /** Sidecar schema version. Currently always 1. */
+  version: 1;
+  /** Source-relative path identifying the stream, forward slashes, may be multi-segment
+   *  (e.g. `<sessionId>/subagents/foo.jsonl`). Replaces the old flat `filename` field. */
+  relPath: string;
+  /** Stream type key mapping to a StreamConfigDefinition in the environment config. */
+  streamType: string;
+  /** Runtime that produced the stream, e.g. 'claude-code' | 'codex'. */
+  runtime: string;
+  /** Session identifier grouping a main stream with its subagents. */
+  sessionId: string;
+  role: 'main' | 'subagent' | 'auxiliary';
+  /** Set for subagent/auxiliary streams; absent for role 'main'. */
+  agentId?: string;
   /** Human-readable title for UI display. */
   title?: string;
+  /** Absolute path of the source file this stream was synced from. */
+  sourcePath: string;
+  /** ISO 8601 timestamp when transcript-sync first began syncing this stream. */
+  startedAt: string;
+  /** First ~40 chars of the first line's message content. Populated lazily; absent
+   *  for orchestrators and until the first line arrives. */
+  taskContent?: string;
+  /** Slug derived from the first matching JSONL line. Populated lazily. */
+  slug?: string;
+  /** Number of lines in the full stream. */
+  lineCount: number;
+  /** ISO 8601 creation timestamp, derived from git history. */
+  createdAt: string;
+  /** true while the stream is live (not yet committed to git); false once committed. */
+  isActive: boolean;
 }
 ```
 
-Read state synchronously:
+Read state synchronously with `streamStore.getState()`; re-render via `streamStore.subscribe(callback)`.
 
-```javascript
-const state = streamStore.getState();
-const file = state.files.get(state.primary);
-```
-
-Subscribe to changes:
-
-```javascript
-streamStore.subscribe((newState) => {
-  const file = newState.files.get(newState.primary);
-  if (file) render(file.lines);
-});
-```
+In `compact` mode the host backfills only the trailing 50 lines, so `lines.length` is less than `meta.lineCount`. Use `lineCount` for stream length and `headLineNumber` to place `lines[0]`; never infer absolute line numbers from array position.
 
 ### Action Functions
 
 | Function | Description |
 |----------|-------------|
-| `subscribe(filename)` | Request the host to send updates for a file not yet in the store |
+| `subscribe(filename, tail?)` | Request host updates for a file not yet in the store; `tail` limits the response to the last N lines (`meta.lineCount` still reflects the full stream) |
 | `close()` | Ask the host to close this renderer |
 | `openFile(path, line?)` | Ask the host to open a file in the editor |
 | `showDiff(sha, filePath?)` | Ask the host to show a diff view |
 
 ### Initialization Pattern
 
-The primary file is pre-loaded in `window.__STREAM_INIT__`. Use `subscribe()` only when requesting additional files:
-
-```javascript
-const state = streamStore.getState();
-const primary = state.files.get(state.primary);
-
-if (primary) {
-  // Primary file data is already available
-  render(primary.lines);
-} else {
-  // Rare: primary not in init data — request it
-  subscribe(state.primary);
-}
-
-streamStore.subscribe((newState) => {
-  const file = newState.files.get(newState.primary);
-  if (file) render(file.lines);
-});
-```
+The primary file is pre-loaded in `window.__STREAM_INIT__`. Call `subscribe()` only when requesting additional files, or in the rare case the primary is absent from the init data.
 
 ## Minimal Renderer Template
 
@@ -201,7 +176,7 @@ streamStore.subscribe((newState) => {
     if (primary) {
       render(primary.lines);
     } else {
-      subscribe(state.primary);
+      subscribe(state.primary);  // Rare: primary not in init data
     }
 
     streamStore.subscribe((newState) => {

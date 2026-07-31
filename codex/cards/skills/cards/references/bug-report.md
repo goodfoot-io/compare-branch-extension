@@ -1,7 +1,7 @@
 
 <how-to-write-a-bug-report>
 
-Capture what happened with enough precision that someone else can reproduce it. Separate observation from speculation. CARD.md describes the defect and its impact — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `$cards:notes` skill).
+Capture what happened with enough precision that someone else can reproduce it. CARD.md describes the defect and its impact.
 
 ## Report Structure
 
@@ -17,8 +17,8 @@ Capture what happened with enough precision that someone else can reproduce it. 
 
 ## Writing Principles
 
-- **Open with Commander's Intent** (no heading in CARD.md). The destination is the fixed-state world, not "the bug is fixed"; every downstream section serves the intent, and anything that does not moves to `notes/` or the intent is wrong.
-- **Document observable facts**: Exact error messages (copy-paste), file paths, line numbers, git state, environment details. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
+- **Open with Commander's Intent**. The destination is the fixed-state world, not "the bug is fixed".
+- **Document observable facts**: Exact error messages (copy-paste), file paths, line numbers, git state, environment details. Fragment-link code references per `<markdown-guidelines>`.
 - **Reproduction steps**: Numbered, specific, noting prerequisites and consistency (reproducible vs intermittent).
 - **Separate observation from speculation**: Frame hypotheses as exploration — "This suggests..." not "The bug is caused by..."
 - **Multiple observation channels**: Document which channels (logs, APIs, UIs, monitoring) you checked and what each showed.

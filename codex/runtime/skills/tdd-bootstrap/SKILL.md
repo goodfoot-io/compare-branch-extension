@@ -7,7 +7,7 @@ description: Three-phase bootstrap for new behavior — define the contract, wri
 
 Bootstrap new behavior in three phases when the contract is worth validating ahead of implementation. Each phase produces an artifact the next consumes.
 
-Terminology: **types** means the contract or schema that declares the new surface; **lint** means convention validation (style, formatting, idiomatic use); **tests** means acceptance checks that exercise the contract. The phases apply in any environment that has all three, whether the target is code, a schema, a config artifact, or another domain with an analogous validation stack.
+The phases apply in any environment with types, lint, and tests — whether the target is code, a schema, a config artifact, or another domain with an analogous validation stack.
 
 ## When to Apply
 

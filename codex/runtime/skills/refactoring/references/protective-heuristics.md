@@ -1,12 +1,6 @@
 ## Protective Heuristics
 
-## Why This Methodology Matters
-
-The cost of keeping unclear code is maintenance burden. The cost of deleting necessary code is production failures. The asymmetry makes conservatism the right default.
-
-<purpose>
-This document provides safeguards against destructive refactoring. Use this framework when considering removal or significant modification of code whose purpose is not immediately clear. The goal is to avoid accidentally removing code that serves an important but non-obvious purpose.
-</purpose>
+Keeping unclear code costs maintenance; deleting necessary code costs production failures. That asymmetry makes conservatism the default.
 
 <core-philosophy>
 ## The "Ask Why" Philosophy
@@ -20,17 +14,19 @@ Before labelling unfamiliar code as unnecessary, reconstruct the author's reason
 Only after understanding intent should you determine whether code is truly unnecessary.
 </core-philosophy>
 
-<pause-signals>
-## Red Flags: When to Pause Before Removing
+<removal-criteria>
+## Removal Criteria
 
-Stop and investigate further if ANY of the following apply:
+Remove code only when ALL of the following hold:
 
-1. **You do not fully understand the code** — if you cannot explain what it does and why it might be needed, do not remove it
-2. **The plan mentions related behaviour** — if the plan document references the behaviour this code might support, preserve it
-3. **The implementation log references it** — if the log explains why this code exists, respect that context
-4. **Tests depend on this behaviour** — if tests exercise this code path, the behaviour is expected somewhere
-5. **The code handles edge cases** — code that appears redundant may handle edge cases not obvious from the happy path (e.g., `NaN`/`Infinity` checks, null handling, race conditions)
-</pause-signals>
+1. **Full understanding** — you can explain what the code does and articulate why it is not needed. Beware code that appears redundant but handles non-obvious edge cases (`NaN`/`Infinity` checks, null handling, race conditions).
+2. **Plan confirmation** — the plan document does not require or reference this behaviour
+3. **Log does not justify** — the implementation log does not explain its purpose
+4. **No test coverage** — no tests exercise or depend on this code path
+5. **No downstream dependencies** — removal does not break other parts of the system
+
+If any criterion fails, do NOT remove. When the purpose is unclear, investigate first (search references, review git history, trace call paths, check error handling); if still unclear after investigation, leave the code in place and flag it for review with a TODO comment.
+</removal-criteria>
 
 <cross-reference-checklist>
 ## Cross-Reference Checklist Before Removal
@@ -57,27 +53,3 @@ Before removing any code, verify against these sources:
 - [ ] **Similar Code**: Is similar code used elsewhere in the codebase?
 - [ ] **Defensive Patterns**: Is this a project-wide defensive coding pattern?
 </cross-reference-checklist>
-
-<safe-removal-criteria>
-## Safe Removal Criteria
-
-Code is safe to remove when ALL of the following apply:
-
-1. **Plan confirmation**: The plan document does not require this behaviour
-2. **No test coverage**: No tests exercise or depend on this code path
-3. **Log does not justify**: The implementation log does not explain its purpose
-4. **Full understanding**: You understand what the code does and can articulate why it is not needed
-5. **No downstream dependencies**: Removing this code does not break other parts of the system
-</safe-removal-criteria>
-
-<summary>
-## Summary Decision Tree
-
-Based on whether the code's purpose is clear:
-
-- **Purpose is NOT clear**: Investigate further (search references, review git history, trace call paths, check error handling)
-  - **Still unclear after investigation**: Do NOT remove, flag for review with a TODO comment
-- **Purpose is clear**: Apply safe removal criteria
-  - **All criteria met**: Safe to remove
-  - **Any criterion not met**: Do NOT remove
-</summary>

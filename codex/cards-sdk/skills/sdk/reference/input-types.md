@@ -1,10 +1,8 @@
 <instructions>
 
-This document describes the typed input structures available in `@cards.management/sdk/config`.
+Typed input and context structures in `@cards.management/sdk/config`.
 
-## Action Input Types
-
-### ActionInput
+## ActionInput
 
 Input payload for action handlers. Extracted from environment variables by the runtime.
 
@@ -14,6 +12,7 @@ interface ActionInput {
   actionName: string;                     // Action button display name (e.g., "Launch Claude")
   environment: string;                    // Environment name (e.g., "default")
   executionMode: 'interactive' | 'background';  // UI interaction model
+  exitWhenDone: boolean;                  // When true, the runtime exits once the agent process completes
   codingAgent?: string;                   // Configured AI coding assistant
   switchToInteractiveData?: unknown;      // Data from user switching to interactive mode
   repoRoot: string;                       // Main git repository root (NOT a worktree)
@@ -24,103 +23,22 @@ interface ActionInput {
 }
 ```
 
-**Usage Example:**
-
-```typescript
-async (input: ActionInput, context) => {
-  const { logger, onCancel, onSwitchToInteractive } = context;
-
-  // Access card context
-  logger.info(`Processing card ${input.cardId}`);
-  logger.info(`Action: ${input.actionName}`);
-  logger.info(`Environment: ${input.environment}`);
-
-  // Handle cancellation
-  onCancel(() => {
-    logger.info('Action cancelled');
-  });
-
-  // Handle switch to interactive mode
-  if (input.switchToInteractiveData) {
-    logger.info('User switched to interactive', { data: input.switchToInteractiveData });
-  }
-
-  // Check execution mode for UI decisions
-  if (input.executionMode === 'interactive') {
-    // Show progress indicators
-  }
-
-  // Use repo root for git operations
-  const configFile = path.join(input.repoRoot, 'config.json');
-}
-```
-
-## Context Types
-
-### ActionContext
+## ActionContext
 
 Runtime context injected for **action** handlers.
 
 ```typescript
 interface ActionContext {
-  logger: ILogger;  // Logger for structured, context-aware logging
-  cwd: string;      // Current working directory for the action
-  onCancel(callback: () => void | Promise<void>): void;  // Register cancellation handler
-  onSwitchToInteractive(callback: () => unknown | Promise<unknown>): void;  // Register switch handler
+  logger: ILogger;  // Structured, context-aware logging
+  cwd: string;      // Working directory, set from the card's project directory
+  onCancel(callback: () => void | Promise<void>): void;
+  onSwitchToInteractive(callback: () => unknown | Promise<unknown>): void;
 }
 ```
 
-**Usage Example:**
+Register `onCancel` to run cleanup on the socket cancel command. Without it, the runtime sends SIGTERM instead.
 
-```typescript
-async (input: ActionInput, context: ActionContext) => {
-  const { logger, onCancel, onSwitchToInteractive } = context;
-
-  logger.info('Action started', { cwd: context.cwd });
-
-  // Register cancellation handler
-  onCancel(() => {
-    logger.info('User cancelled the action');
-    // Cleanup code here
-  });
-
-  // Register handler for user switching to interactive mode
-  onSwitchToInteractive(() => {
-    logger.info('Switching to interactive mode');
-    return { sessionId: 'abc123' };  // Data passed to relaunched handler
-  });
-
-  // Use cwd for file operations
-  const configPath = path.join(context.cwd, 'config.json');
-  if (await fs.exists(configPath)) {
-    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-  }
-}
-```
-
-### Typed Input Extraction
-
-Extract complete typed input objects:
-
-```typescript
-import { extractActionInput, extractCardsAssistantInput } from '@cards.management/sdk/config';
-
-// For action handlers
-const actionInput = extractActionInput();
-// Returns ActionInput with all fields
-
-// For the cards assistant handler
-const assistantInput = extractCardsAssistantInput();
-// Returns CardsAssistantInput
-```
-
-## Cards Assistant Types
-
-The cards assistant is a single, workspace-scoped handler created with `defineCardsAssistant`. It runs outside the per-card action pipeline, so it has no card context (no `cardId`, worktree, or socket).
-
-### CardsAssistantInput
-
-Input payload for the cards-assistant handler.
+## CardsAssistantInput
 
 ```typescript
 interface CardsAssistantInput {
@@ -128,102 +46,56 @@ interface CardsAssistantInput {
   extensionPath: string;    // VS Code extension installation directory
   codingAgent?: string;     // Configured AI coding assistant
   repoRoot: string;         // Main git repository root (NOT a worktree)
+  initialPrompt?: string;   // Seed prompt; absent = cold start
 }
 ```
 
-### CardsAssistantContext
+## CardsAssistantContext
 
-Runtime context injected for the **cards-assistant** handler. Simpler than `ActionContext`: no socket, so no `onCancel` or `onSwitchToInteractive`.
+No socket, so no `onCancel` or `onSwitchToInteractive`.
 
 ```typescript
 interface CardsAssistantContext {
-  logger: ILogger;  // Logger for structured, context-aware logging
-  cwd: string;      // Current working directory for the cards assistant
+  logger: ILogger;
+  cwd: string;
 }
 ```
 
-**Usage Example:**
+## Typed Input Extraction
 
 ```typescript
-import { defineCardsAssistant } from '@cards.management/sdk/config';
+import { extractActionInput, extractCardsAssistantInput } from '@cards.management/sdk/config';
 
-export default defineCardsAssistant(
-  {},
-  async (input: CardsAssistantInput, context: CardsAssistantContext) => {
-    const { logger, cwd } = context;
-    logger.info('Cards assistant started', { cwd, marketplacePath: input.marketplacePath });
-  }
-);
+const actionInput = extractActionInput();            // ActionInput
+const assistantInput = extractCardsAssistantInput(); // CardsAssistantInput
 ```
 
 ## Switch to Interactive Flow
 
-Actions can signal a need to switch from background to interactive mode. This allows long-running background tasks to transition to interactive user control when needed.
+`onSwitchToInteractive` registers a callback taking **no arguments** and returning serializable data. When the user requests interactive mode, the runtime invokes it, sends the returned data to the dispatcher over the socket, and exits with code 42. Do not call `process.exit` yourself — that skips the socket send and the data never reaches the host. With no callback registered, the command is a no-op.
 
-### Registering the Switch Callback
-
-Register a callback with `onSwitchToInteractive()`. The callback takes **no arguments** and returns serializable data. The runtime handles everything else automatically: it sends the data via socket, then exits with code 42.
+The action is then rerun in interactive mode with that data in `input.switchToInteractiveData`:
 
 ```typescript
 export default defineAction(
   { actionName: 'Long Task' },
-  async (input, context) => {
-    const { logger, onSwitchToInteractive } = context;
+  async (input: ActionInput, { logger, onSwitchToInteractive }) => {
+    if (input.switchToInteractiveData) {
+      const state = input.switchToInteractiveData as { phase: string; previousProgress: unknown };
+      logger.info(`Resuming from phase: ${state.phase}`);
+      return;
+    }
 
-    // Perform initial background work
-    logger.info('Starting background phase');
-
-    // Register callback — runtime calls this when user requests interactive mode
-    onSwitchToInteractive(() => {
-      logger.info('Switching to interactive mode');
-
-      // Return data to pass to the relaunched handler
-      // The runtime sends this via socket and exits with code 42 automatically
-      return {
-        phase: 'interactive',
-        previousProgress: { completed: 100 }
-      };
-    });
+    onSwitchToInteractive(() => ({
+      phase: 'interactive',
+      previousProgress: { completed: 100 }
+    }));
 
     // Continue background work...
   }
 );
 ```
 
-### Resuming with Interactive Data
-
-When the action is rerun in interactive mode, the data returned by the callback is available via `input.switchToInteractiveData`:
-
-```typescript
-export default defineAction(
-  { actionName: 'Long Task' },
-  async (input: ActionInput, context) => {
-    const { logger } = context;
-
-    // Check if we're resuming from a background phase
-    if (input.switchToInteractiveData) {
-      logger.info('Resuming in interactive mode', {
-        previousData: input.switchToInteractiveData
-      });
-
-      // Resume from saved state
-      const state = input.switchToInteractiveData as { phase: string; previousProgress: unknown };
-      logger.info(`Continuing from phase: ${state.phase}`);
-    } else {
-      logger.info('Starting fresh in interactive mode');
-    }
-  }
-);
-```
-
-### Key Differences in Interactive Mode
-
-| Aspect | Background Mode | Interactive Mode |
-|--------|-----------------|------------------|
-| User can see output | No | Yes |
-| Can wait for user input | No | Yes |
-| Timeout | Shorter (background ops) | Longer (user interactions) |
-| Cancellation | Silent | Visible in UI |
-| Data persistence | Callback return value sent via socket | Via `input.switchToInteractiveData` |
+Background mode cannot display output to the user or wait for user input; branch on `input.executionMode` before doing either.
 
 </instructions>
