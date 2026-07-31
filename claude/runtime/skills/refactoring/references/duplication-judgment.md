@@ -34,16 +34,8 @@ Tolerate duplicated code when ANY of the following apply:
 <decision-process>
 ## Decision Process
 
-When you encounter duplicated code:
+Test duplicated code against `<consolidation-criteria>` and `<tolerance-criteria>` above:
 
-### Step 1: Identify the duplication type
-- **Textual duplication**: Code looks similar character-by-character
-- **Structural duplication**: Code follows the same pattern but with different details
-- **Semantic duplication**: Code does the same thing in different ways
-
-### Step 2: Test against `<consolidation-criteria>` and `<tolerance-criteria>` above
-
-### Step 3: Apply the decision rule
 - **All consolidation criteria met AND no tolerance criteria apply**: Consolidate
 - **Any tolerance criterion applies**: Tolerate (but add a comment if the similarity is striking)
 - **Uncertain**: Tolerate — premature abstraction is harder to undo than delayed consolidation
