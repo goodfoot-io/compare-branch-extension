@@ -49,7 +49,7 @@ Run the workspace's typecheck, lint, and tests. If a plan file in `plans/` decla
 
 Based on the result:
 - **All validations pass**: Proceed to Step 3.
-- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): Dispatch `runtime:card:pre-existing-condition` per the dispatch shape used by `./implementation-with-plan.md` Step 3. Do not investigate the failure inline.
+- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): Dispatch `runtime:card:pre-existing-condition` per the dispatch shape in `./implementation-with-plan.md`'s `<final-validation-gate>`. Do not investigate the failure inline.
   - On COMPLETED: re-run the validation command. If it passes, proceed to Step 3.
   - On NOT_PRE_EXISTING: the agent verified the failure is in scope of the active card's work. Proceed to Step 3 — the orchestrator escape hatch should fire on this evidence.
   - On NEEDS_REVISION or BLOCKED: add `blocked` to `tags` in `CARD.meta.json`, write the agent's report and exact failure output to `comments/validation-failed.md`, commit, **STOP**.
@@ -61,7 +61,7 @@ Before dispatching the evaluator, you may bail out if your reading of `plans/`, 
 
 This skill cannot finalize the card on its own. The escape hatch may only re-route backward, never forward to merge:
 
-- **Plan file exists in `plans/`**: Read `./implementation-with-plan.md` and follow its instructions. Its Step 2.1 detects partial-implementation and resumes the work.
+- **Plan file exists in `plans/`**: Read `./implementation-with-plan.md` and follow its instructions. Its `<verify-plan-state>` procedure detects partial implementation and resumes the work.
 - **No plan file**: Read `./plan.md` and follow its instructions.
 
 If you choose not to bail out, continue to Step 4.
@@ -119,7 +119,7 @@ Once the evaluator has DM'd its `VERDICT:` it has gone idle and stopped on its o
 Route on the verdict:
 - **`VERDICT: APPROVED`**: Proceed to Step 6: Finalize.
 - **`VERDICT: CHANGES_REQUESTED`**: Route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plans/` in the card repository:
-  - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.
+  - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its `<dispatch>` routing sees the same scope the evaluator named.
   - **No plan file**: Read `./plan.md` and follow its instructions. The findings inform the next planning pass.
 - **`VERDICT: BLOCKED`**: Add `blocked` to `tags` in `CARD.meta.json`, write the evaluator's rationale to `comments/validation-failed.md`, commit both, **STOP**.
 

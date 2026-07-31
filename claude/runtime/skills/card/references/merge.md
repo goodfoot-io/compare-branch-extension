@@ -19,16 +19,10 @@ git rebase --empty=drop $BASE_BRANCH
 ```
 
 Based on rebase result:
-- **Conflicts occur**: Run the command above to identify all conflicted files before resolving.
+- **Conflicts occur**: Identify all conflicted files before resolving, then stage each resolved file by name rather than using `git add -A`:
 
 ```bash
-git diff --name-only --diff-filter=U
-```
-
-Identify conflicted files first (see below) and stage each resolved file by name rather than using `git add -A`.
-
-```bash
-# Stage only the conflict-resolved files by name
+git diff --name-only --diff-filter=U   # list conflicted files
 git add <resolved-file-1> <resolved-file-2>
 git rebase --continue
 ```

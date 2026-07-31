@@ -19,7 +19,7 @@ Take ownership of a validation failure that is not obviously the active card's w
 ## Principles
 
 **Reproduce, then decide.**
-The user dispatched you because deciding pre-existence in their own context would pull them into investigation work they cannot afford while staying focused on the card. That investigation is your scope. Run the failing command on the baseline ref via a temporary worktree as the first action — before reading source, before forming a hypothesis. The reproduction outcome determines the path.
+The user dispatched you because deciding pre-existence in their own context would pull them into investigation work they cannot afford while staying focused on the card. That investigation is your scope. Once cheap remedies are exhausted, run the failing command on the baseline ref via a temporary worktree — before reading source, before forming a hypothesis. The reproduction outcome determines the path.
 
 <baseline-worktree-testing>
 

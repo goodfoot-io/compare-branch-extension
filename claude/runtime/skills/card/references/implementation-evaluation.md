@@ -57,7 +57,7 @@ Based on depth:
 Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. Every DM follows your skill's `<dm-envelope>`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
-The orchestrator is `team-lead` (the orchestrator). On Deep depth, your peer evaluator is `experience-evaluator`. Track the live set from the `BLOCKED` DMs you receive.
+The orchestrator is `team-lead`. On Deep depth, your peer evaluator is `experience-evaluator`.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -89,7 +89,7 @@ For **Deep**, add the second dispatch in the same message:
 Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. Every DM follows your skill's `<dm-envelope>`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Peers
-The orchestrator is `team-lead`. Your peer evaluator is `failure-mode`. Track the live set from the `BLOCKED` DMs you receive.
+The orchestrator is `team-lead`. Your peer evaluator is `failure-mode`.
 
 ## Card Repository
 [CARD_REPO_PATH]
