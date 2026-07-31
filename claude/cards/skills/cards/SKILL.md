@@ -50,7 +50,7 @@ Run the interview when creating a card interactively with a user: gather enough 
 cards <card-id>
 ```
 
-The response includes:
+Also included:
 - `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
 - `parentBranch` — the workspace branch the card was created from; present when the card was created in a workspace with a resolvable branch.
 

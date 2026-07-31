@@ -36,11 +36,11 @@ Interview the user conversationally. The commander's intent is built through the
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see.
 - Force falsifiability: reject questions with no possible answer that would change behavior.
 
-As research subagents return and as the conversation settles pieces of the destination, hold findings, the evidence-source inventory, and rejected framings in conversation state, shaped against the section structure in `./investigation.md`. The null result is an acceptable form of arrival.
+As research subagents return and as the conversation settles pieces of the destination, hold findings, the evidence-source inventory, and rejected framings in conversation state, shaped against the section structure in `./investigation.md`. The null result is an acceptable form of arrival. Prior investigations constrain scope — do not re-ask what they already answered.
 
 ## 3. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `cards:cards` skill. Compose CARD.md against `./investigation.md`. Include evidence-source inventory, prior-art references, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards:cards` skill. Compose CARD.md against `./investigation.md`. Include evidence-source inventory, prior-art references, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
 
 ## 4. Constraints
 

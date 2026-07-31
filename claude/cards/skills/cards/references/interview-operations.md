@@ -32,7 +32,7 @@ Interview the user conversationally. The commander's intent is built through the
   - Attach short one-line "good"/"bad" scenarios to each option when the pick has non-obvious downstream consequences (e.g., new-step failure posture — "block vs. warn" can halt unrelated pipelines the user hasn't traced, or let real failures drift unnoticed). Skip them when the trade-off is implicit in the question itself (e.g., log-retention window).
   - Topic axes: target pipeline, trigger scope, new-step failure posture, secrets scope, caching impact.
   - Stay in chat for the reason the change is needed, verification steps, and rollback narrative.
-- Target urgency, blast radius, reversibility, approvals, and verification — never facts recoverable by research.
+- Target urgency, blast radius, reversibility, approvals, verification, and who must be informed — a change is a communication event, not only a technical one. Never ask for facts recoverable by research.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see.
 - Force a rollback and verification plan — the rollback may be "escalate", but it must exist. An operation without both is not ready to plan.
 
@@ -40,7 +40,7 @@ As research subagents return and as the conversation settles pieces of the desti
 
 ## 3. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `cards:cards` skill. Compose CARD.md against `./operations.md`. Include related incidents, rejected approaches, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards:cards` skill. Compose CARD.md against `./operations.md`. Include related incidents, rejected approaches, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
 
 ## 4. Constraints
 

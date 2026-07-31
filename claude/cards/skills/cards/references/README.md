@@ -7,9 +7,13 @@ Single source of truth for card-type guidance. Two files per card type:
 Plus one shared reference used by every card type:
 - `commanders-intent.md` — first-principles guide for the opening paragraph(s) of `CARD.md`. Every writing guide and interview guide references it; do not duplicate its guidance elsewhere.
 
+Two non-type references loaded on demand from the skill body:
+- `extension-cli.md` — `cards-extension` CLI for controlling the VS Code extension host.
+- `launch-cards.md` — serial batch-launch procedure for a set of cards.
+
 ## Consumers
 
-1. **Card creation** (`cards:cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `card create` time.
+1. **Card creation** (`cards:cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `cards create` time.
 2. **Post-creation interview** (`runtime:interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`.
 
 ## Symlinks

@@ -11,7 +11,7 @@ Capture intent, audience, and outcomes without prescribing the solution. Leave r
 | Commander's Intent (no header in CARD.md) | Opening paragraph(s) — what the reader can do after reading |
 | Problem | What is missing or confusing today and who it affects |
 | Desired Outcome | What the reader should be able to do or understand |
-| Scope | In-scope topics and explicit exclusions |
+| Scope | In-scope topics, explicit exclusions, and any existing docs superseded or retired |
 | Sources | Systems, people, or artifacts that define the truth |
 | Constraints | Versioning, compliance, tooling, or placement requirements |
 | Success Criteria (Optional) | Observable signals that the docs work |
@@ -43,7 +43,7 @@ If the request is for a runbook or operational guide, include:
 
 ## Examples and Knowledge-Base Guidance
 
-For examples: representative inputs/outputs/edge cases, environment requirements, common mistakes to prevent.
+For examples: verified, representative inputs/outputs/edge cases, environment requirements, common mistakes to prevent.
 
 For knowledge-base articles: symptoms and diagnosis checklist, environment factors, resolution steps with confirmation, related cards/tags for findability.
 
