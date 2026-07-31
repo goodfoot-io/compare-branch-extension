@@ -112,5 +112,6 @@ Before debugging issues, verify:
 
 - **[reference/input-types.md](reference/input-types.md)**: ActionInput, CardsAssistantInput, and context types
 - **[reference/environment.md](reference/environment.md)**: CARDS_ENV_VARS, getters, and exit codes
+- **[reference/api-client.md](reference/api-client.md)**: Cards API access — `createCardsClient` and the `CardsClient` methods
 - **[reference/logging.md](reference/logging.md)**: Logger API and configuration
 - **[reference/streams.md](reference/streams.md)**: Stream renderers — `www/` layout, `wwwRoot` and stream config fields, the stream-store SDK, and the renderer template

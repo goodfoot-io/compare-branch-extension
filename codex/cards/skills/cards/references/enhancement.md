@@ -25,6 +25,8 @@ Bridge understanding between what exists, what should exist, and why the gap mat
 - **Desired Functionality**: Write requirements as outcomes, not tasks.
   - Use mermaid diagrams for multi-step flows or state transitions.
   - Be specific about boundaries and out-of-scope items.
+  - Name what the new behavior commits to as contract — every new capability is a new compatibility surface.
+  - Include the observability the behavior ships with — a requirement, not a follow-up.
   - State the "why" alongside the "what."
   - Distinguish must-have from nice-to-have.
 

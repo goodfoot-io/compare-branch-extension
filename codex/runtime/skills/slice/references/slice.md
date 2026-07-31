@@ -157,7 +157,7 @@ git reset --hard "slice/$CARD_ID/baseline"
 git clean -fd
 ```
 
-Write a comment to the card repository naming which trigger fired and what the slicing session learned, then ask the user to run the Launch action so `$runtime:card` can route the card through `card-plan`. **STOP** — do not re-dispatch slices.
+Write a comment to the card repository naming which trigger fired and what the slicing session learned, then ask the user to run the Launch action so `$runtime:card` can route the card into planning. **STOP** — do not re-dispatch slices.
 
 </when-to-return-to-planning>
 
