@@ -25,17 +25,17 @@ jq 'select(.hookType == "SessionStart")' \
 
 | Plugin | Hook events |
 |--------|-------------|
-| `cards` | SessionStart, SessionEnd, UserPromptSubmit, EnterWorktree, WorktreeCreate, WorktreeRemove, SubagentStart |
+| `cards` | SessionStart, UserPromptSubmit, SubagentStart, WorktreeCreate, WorktreeRemove, PostToolUse (matchers: `Skill`, `EnterWorktree`) |
 | `cards-assistant` | SessionStart |
-| `runtime` | SessionStart, SessionEnd, Stop, SubagentStart, SubagentStop, PostToolUse, PreToolUse (and compact/clear variants) |
+| `runtime` | SessionStart (+ `compact` matcher), SessionEnd, Stop, SubagentStart, SubagentStop, PostToolUse |
 
 ### Codex (`public/codex/`)
 
 | Plugin | Hook events |
 |--------|-------------|
-| `cards` | (no hooks — provides skills/agents only) |
+| `cards` | UserPromptSubmit, PostToolUse (matcher: `Skill`) |
 | `cards-assistant` | SessionStart |
-| `runtime` | SessionStart, SubagentStart, Stop, SubagentStop |
+| `runtime` | SessionStart (+ `compact` matcher), SubagentStart, Stop, SubagentStop |
 
 ## Hook Command Format
 

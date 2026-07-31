@@ -11,13 +11,11 @@ Spawn `Explore` subagents in parallel with `run_in_background: true` before enga
 - Error/log instrumentation already in place
 - Adjacent failure modes the same code could exhibit
 
-Do not block on research. Proceed to Step 2: Load Writing Skills while subagents run.
+Do not block on research. Proceed to the interview while subagents run.
 
-## 2. Load Writing Skills
+## 2. Interview and Accumulate Findings
 
-Load `./issue-report-guide.md` — it defines the issue body structure this interview drives toward. Do NOT load the `cards:cards` variants; those target card creation.
-
-## 3. Interview and Accumulate Findings
+`./issue-report-guide.md` (loaded alongside this file) defines the issue body structure this interview drives toward. Do NOT load the `cards:cards` variants; those target card creation.
 
 Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
 
@@ -52,7 +50,7 @@ git worktree list 2>/dev/null
 cat .cards/CARD_ID 2>/dev/null || echo 'not card-bound'
 ```
 
-## 4. File the Issue
+## 3. File the Issue
 
 When the destination is clear, compose the one-line title (Commander's Intent as a summary of what the conversation has settled) and check it with the user inline. Then file using the template in `./issue-report-guide.md`.
 
@@ -65,7 +63,7 @@ cards-extension issue <<'EOF'
 EOF
 ```
 
-## 5. Constraints
+## 4. Constraints
 
 - No fixes. No code, no remediation, no test stubs.
 - Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
@@ -74,7 +72,7 @@ EOF
 - Ask only for the expected observable behavior, never for the resolution. Do not ask the user where the fix should live, which component to change, or which mechanism resolves the defect — the reporter supplies the symptom; choosing the fix is a later step.
 - Report failing tests or broken builds you encounter during research in the issue body; do not remediate.
 
-## 6. Finalize
+## 5. Finalize
 
 After `cards-extension issue` succeeds, the issue opens in the default browser. Report to the user that the issue was filed with the title you used.
 

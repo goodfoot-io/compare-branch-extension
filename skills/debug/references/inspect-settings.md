@@ -30,7 +30,7 @@ cat ~/.agents/plugins/marketplace.json 2>/dev/null | jq '.plugins'
 
 | Tier | Path | Managed by | Git |
 |------|------|-----------|-----|
-| **User** | `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`) | `CodexInstaller` writes here on user-scope install | No |
+| **User** | `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`) | `ClaudeInstaller` writes here on user-scope install | No |
 | **Project** | `{repoRoot}/.claude/settings.json` | `ClaudeSettingsService`, `ClaudeInstaller` | Yes (committed) |
 | **Local** | `{repoRoot}/.claude/settings.local.json` | `ClaudeSettingsService`, `ClaudeInstaller` | No (gitignored) |
 

@@ -45,7 +45,7 @@ All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows
 
 **API routes**: `/api/notifications`, `/editor`, `/editor/open`, `/editor/select`, `/workspaces`, `/execute-command`, `/debug/start`, `/debug/stop`, `/debug/state`, `/panel/show`.
 
-### `issue`
+### `cards-extension issue`
 
 Opens a pre-filled card in the `cards.management` repository from the default browser. Reads a JSON object from stdin with required `title` and `body` fields (both non-empty strings). The body is supplemented with system information (extension version, VS Code version, platform, node version) by `generateCardUrl()` — file paths are redacted from the URL.
 

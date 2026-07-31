@@ -28,15 +28,13 @@ find ~/.cards/adhoc-sessions -name "*.json" -path "*/unbound-candidates/*" -type
 
 ### CARDS_SESSION_ID
 
-Persisted by the SessionStart hook via `persistEnvVar()`. Available to all Bash tool shell descendants, post-commit hooks, and the transcript watcher.
+Persisted by the SessionStart hook via `persistSessionEnv()`. Available to all Bash tool shell descendants, post-commit hooks, and the transcript watcher.
 
-**Source**: `public/packages/agent-hooks/src/shared/session-env.ts`::`persistEnvVar('CARDS_SESSION_ID', ...)`.
+**Source**: `public/packages/agent-hooks/src/shared/session-env.ts`::`persistSessionEnv()`.
 
 ### CARDS_TRANSCRIPT_PATH
 
-Persisted by the SessionStart hook. Points to the Claude Code or Codex transcript JSONL file for the current session. Read by the transcript watcher spawn and by unbound candidate records.
-
-**Source**: `public/packages/agent-hooks/src/shared/session-env.ts`::`persistEnvVar('CARDS_TRANSCRIPT_PATH', ...)`.
+Persisted by the same `persistSessionEnv()` call. Points to the Claude Code or Codex transcript JSONL file for the current session. Read by the transcript watcher spawn and by unbound candidate records.
 
 ## Per-Session Commit Attribution
 

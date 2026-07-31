@@ -30,7 +30,7 @@ Resolution: `$CARDS_HOME` → `$XDG_DATA_HOME/.cards` → `$XDG_CONFIG_HOME/.car
 
 ### Claude Code Config
 
-Resolution: `$CLAUDE_CONFIG_DIR` → `~/.claude`.
+Resolution: `$CLAUDE_CONFIG_DIR` → XDG probe chain → `~/.claude` (full chain in `inspect-plugin-cache.md`).
 
 | Platform | Default |
 |----------|---------|

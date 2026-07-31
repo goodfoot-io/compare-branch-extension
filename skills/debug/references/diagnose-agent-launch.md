@@ -96,13 +96,13 @@ VS Code command (cards.startCardsAssistant or cards.executeAction)
 
 **Cause**: A `shell: true` spawn on win32 concatenates argv unquoted, mangling JSON with `{`/`}`/`"` characters. `spawnAgentCli` (cross-spawn) escapes each argument for cmd.exe.
 
-**Recovery**: Verify the code uses `spawnAgentCli`, not `spawn(..., { shell: true })` — **safe**. The handler at `cards-assistant.ts` line 135 does this correctly.
+**Recovery**: Verify the code uses `spawnAgentCli`, not `spawn(..., { shell: true })` — **safe**. `cards-assistant.ts` routes both the claude and codex spawns through `spawnAgentCli`.
 
 **Looks like, but isn't**: Plugin cache corruption can look like missing plugins. Load `inspect-plugin-cache.md`.
 
 ## Launch Environment Variables
 
-Set by `cardsApiCommands.ts` lines 230-236.
+Set by `cardsApiCommands.ts` (~line 257).
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
@@ -112,6 +112,7 @@ Set by `cardsApiCommands.ts` lines 230-236.
 | `CODING_AGENT` | `codingAgentEnvValue` (resolved via `resolveEffectiveAgent`/gate, e.g. `claude-code-cli` or `codex-cli`) | Agent identifier |
 | `REPO_ROOT` | First workspace folder path | Main git repository root |
 | `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD` | `1` | Enable additional directory CLAUDE.md loading |
+| `INITIAL_PROMPT` | Command's `prompt` arg (set only when provided) | Seeds the assistant session |
 
 ## Escalation
 

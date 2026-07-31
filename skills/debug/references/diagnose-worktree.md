@@ -15,7 +15,7 @@ git rev-parse --git-common-dir 2>/dev/null
 
 # Check if worktree is card-bound
 cat .cards/CARD_ID 2>/dev/null || echo "not card-bound"
-cat .cards/PARENT_BRANCH 2>/dev/null || echo "no parent branch recorded"
+git config "branch.$(git branch --show-current).cardsParent" 2>/dev/null || echo "no parent branch recorded"
 echo "CARDS_SESSION_ID=${CARDS_SESSION_ID:-not set}"
 
 # Check for bind locks (stale locks block binding)
@@ -26,9 +26,10 @@ ls ~/.cards/bind-locks/ 2>/dev/null
 
 | File | Written by | Read by | Contents |
 |------|-----------|---------|----------|
-| `CARD_ID` | `writeCardBoundFile()` in `worktree.ts:963` | `cards bind`, `remove-worktree`, watchers | Card ID string |
-| `PARENT_BRANCH` | `outfitWorktreeForCard()` in `worktreeForCard.ts` | `create-worktree`, branch registration | Branch name |
-| `CARD_ORIGINAL_HOOK_PATH` | `provisionSharedHooksDirStatic()` in `worktreeForCard.ts:926` | Restoration on unbind | Original `core.hooksPath` value |
+| `CARD_ID` | `writeCardBoundFile()` in `worktree.ts` | `cards bind`, `remove-worktree`, watchers | Card ID string |
+| `CARD_ORIGINAL_HOOK_PATH` | `outfitWorktreeForCard()` (guarded snapshot — never overwritten on re-run) | Restoration on unbind | Original `core.hooksPath` value |
+
+The parent branch is not a `.cards/` file: `outfitWorktreeForCard()` records it as durable git config `branch.<name>.cardsParent` via `writeCardsParentConfig()`.
 
 Session identity is tracked as the `CARDS_SESSION_ID` environment variable (persisted by the SessionStart hook via `persistSessionEnv()`), not as a `.cards/` file. Active sessions are monitored through `~/.cards/adhoc-active/{cardId}/{sessionId}.ref` files.
 
@@ -36,7 +37,7 @@ Session identity is tracked as the `CARDS_SESSION_ID` environment variable (pers
 
 **Path**: `~/.cards/bind-locks/{sha256(worktreeDir)}.lock`
 
-Cross-process advisory lock preventing two processes from binding the same worktree. The lock file is empty — its existence is the signal. Created by `outfitWorktreeForCard()` at bind time, cleaned up on unbind or cleanup.
+Cross-process advisory lock preventing two processes from binding the same worktree. The lock file is empty — its existence is the signal. `outfitWorktreeForCard()` acquires it around the bind's API phase and releases it in a `finally` block when the bind completes.
 
 **Source**: `public/packages/sdk/src/worktreeForCard.ts`::`resolveBindLockPath()`.
 
@@ -44,9 +45,7 @@ Cross-process advisory lock preventing two processes from binding the same workt
 
 **Path**: `~/.cards/workspace-hooks/`
 
-A dispatcher directory containing hook scripts compiled from the marketplace. Provisioned per-worktree by `provisionSharedHooksDirStatic()` which symlinks individual entries from the compiled hooks directory. The git `core.hooksPath` in the worktree is set to this directory so Cards hook behavior applies only within that worktree.
-
-**Source**: `public/packages/sdk/src/worktreeForCard.ts`::`sharedHooksDir`.
+A global dispatcher directory shared by all worktrees. `provisionSharedHooksDir()` (in `worktree.ts`) writes one bash dispatcher script per client-side git hook type plus a copy of each compiled Cards `.mjs` — atomic writes, content-addressed skip. Outfit then sets the worktree's `core.hooksPath` (a `--worktree` config write) to this directory so Cards hook behavior applies only within that worktree.
 
 ## Failure Modes
 
