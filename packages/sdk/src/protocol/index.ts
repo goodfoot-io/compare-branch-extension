@@ -45,6 +45,7 @@ export type {
   CancelCommand,
   Card,
   CardCommit,
+  CardCommitDiffUnavailable,
   CardCommitEvent,
   CardCommitFile,
   CardCreatedEvent,

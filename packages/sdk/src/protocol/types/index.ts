@@ -103,7 +103,7 @@ export type {
   WorkspaceCommitEvent
 } from './events.js';
 // --- Filesystem Types ---
-export type { CardCommit, CardCommitFile, CardSnapshot } from './fs.js';
+export type { CardCommit, CardCommitDiffUnavailable, CardCommitFile, CardSnapshot } from './fs.js';
 // --- Filesystem Callback Types ---
 export type {
   AsyncFileExistsCallback,

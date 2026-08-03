@@ -23,6 +23,31 @@ export interface CardCommitFile {
 }
 
 /**
+ * Explains why a commit's diff could not be read.
+ *
+ * A card repository can hold an object git cannot inflate — a storage-layer bit
+ * flip, a truncated write, a deleted object. The commit that references such an
+ * object still has readable metadata (subject, author, date all live in the
+ * commit object itself), so the walk surfaces the commit with this marker in
+ * place of its file list rather than dropping the commit or failing the whole
+ * response.
+ */
+export interface CardCommitDiffUnavailable {
+  /** Human-readable summary of what went wrong, suitable for direct display. */
+  message: string;
+  /** Trimmed git stderr from the failed diff, for operators reading detail. */
+  detail: string;
+  /**
+   * Absolute path of the card repository holding the unreadable object. Names
+   * the repository to repair — the failing git command runs in a card
+   * repository, not the workspace repository an operator would check first.
+   */
+  repositoryPath: string;
+  /** Shell command an operator can run to diagnose the damage. */
+  repairCommand: string;
+}
+
+/**
  * A single git commit from a card repository's history.
  *
  * Field names mirror simple-git's `DefaultLogFields` to make server-side
@@ -51,6 +76,14 @@ export interface CardCommit {
     /** Per-file change records. */
     files: CardCommitFile[];
   };
+  /**
+   * Absent on every commit whose diff was read successfully — its absence is
+   * the assertion that `diff` is complete. Present only on a commit whose diff
+   * git refused to produce, in which case `diff` is `{ changed: 0, files: [] }`
+   * because no file list exists, not because nothing changed. Consumers that
+   * render a file list must check this field to tell those two cases apart.
+   */
+  diffUnavailable?: CardCommitDiffUnavailable;
 }
 
 /**
