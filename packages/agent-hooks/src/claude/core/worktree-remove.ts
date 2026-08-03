@@ -19,6 +19,7 @@ import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import { removeWorktree, WorktreeScopeError } from '@cards.management/sdk/worktree';
 import { BranchUnregisterError, removeWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import { worktreeRemoveHook, worktreeRemoveOutput } from '@goodfoot/claude-code-hooks';
+import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 /**
  * Reads the `.cards/CARD_ID` marker from a worktree, returning the trimmed card
@@ -38,6 +39,10 @@ async function readWorktreeCardId(worktreePath: string): Promise<string | undefi
 }
 
 export default worktreeRemoveHook({}, async (input, { logger }) => {
+  // Point hook file logging at <mainRepoRoot>/.cards/logs/claude-code-cards-api-hooks.log,
+  // computed from the payload cwd. No-op under an explicit CLAUDE_CODE_HOOKS_LOG_FILE.
+  applyDefaultLogFile(input.cwd);
+
   const start = Date.now();
 
   logger.info('WorktreeRemove', {

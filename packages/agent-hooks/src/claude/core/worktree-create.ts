@@ -26,6 +26,7 @@ import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-cand
 import { createWorktree, type EarlyWorktreeResult } from '@cards.management/sdk/worktree';
 import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
+import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -104,6 +105,10 @@ async function resolveParentBranch(cwd: string): Promise<string> {
 }
 
 export default worktreeCreateHook({}, async (input, { logger }) => {
+  // Point hook file logging at <mainRepoRoot>/.cards/logs/claude-code-cards-api-hooks.log,
+  // computed from the payload cwd. No-op under an explicit CLAUDE_CODE_HOOKS_LOG_FILE.
+  applyDefaultLogFile(input.cwd);
+
   const start = Date.now();
 
   // Resolve the pre-bind card association from the same two sources, in the same

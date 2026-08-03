@@ -12,12 +12,10 @@
 // at the workspace root — no TS-runner tooling.
 
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(fileURLToPath(import.meta.url), '..', '..');
 
 // The hook CLI JS entry points, resolved through each package's `exports` map
@@ -61,7 +59,10 @@ const targets = [
     output: '../../claude/cards/hooks/hooks.json',
     clean: ['hooks'],
     loaders: [],
-    logEnvVar: 'CARDS_CLAUDE_CODE_HOOKS_LOG_FILE'
+    // No stamped log env var: the bundle installs its own computed default via
+    // src/shared/default-log-file.ts, and the operator override is the upstream
+    // name (CLAUDE_CODE_HOOKS_LOG_FILE) the logger singleton reads by default.
+    logEnvVar: null
   },
   {
     name: 'claude-assistant',

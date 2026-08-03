@@ -19,6 +19,7 @@
 
 import { markSessionSkillLoaded } from '@cards.management/sessions/card-repo';
 import { postToolUseHook } from '@goodfoot/claude-code-hooks';
+import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 // ---------------------------------------------------------------------------
 // Type guard
@@ -47,6 +48,10 @@ function isSkillToolInput(value: unknown): value is { skill: string } {
 // ---------------------------------------------------------------------------
 
 export default postToolUseHook({ matcher: 'Skill' }, async (input, { logger }) => {
+  // Point hook file logging at <mainRepoRoot>/.cards/logs/claude-code-cards-api-hooks.log,
+  // computed from the payload cwd. No-op under an explicit CLAUDE_CODE_HOOKS_LOG_FILE.
+  applyDefaultLogFile(input.cwd);
+
   try {
     if (!isSkillToolInput(input.tool_input)) return null;
 

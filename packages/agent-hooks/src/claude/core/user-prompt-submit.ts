@@ -48,6 +48,7 @@ import { join } from 'node:path';
 import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
 import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/claude-code-hooks';
+import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 // ---------------------------------------------------------------------------
 // Card ID detection helpers
@@ -248,6 +249,10 @@ function buildNudgeContext(cardIds: string[], hasCreationIntent: boolean): strin
 // ---------------------------------------------------------------------------
 
 export default userPromptSubmitHook({}, async (input, { logger }) => {
+  // Point hook file logging at <mainRepoRoot>/.cards/logs/claude-code-cards-api-hooks.log,
+  // computed from the payload cwd. No-op under an explicit CLAUDE_CODE_HOOKS_LOG_FILE.
+  applyDefaultLogFile(input.cwd);
+
   try {
     // Short-circuit when the skill has already been loaded this session.
     if (hasSessionSkillLoaded(input.session_id, 'cards:cards')) return null;

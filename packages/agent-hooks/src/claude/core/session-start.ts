@@ -10,9 +10,14 @@
  */
 
 import { sessionStartHook } from '@goodfoot/claude-code-hooks';
+import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 import { persistSessionEnv } from '../../shared/session-env.js';
 
 export default sessionStartHook({}, (input, { logger, persistEnvVar }) => {
+  // Point hook file logging at <mainRepoRoot>/.cards/logs/claude-code-cards-api-hooks.log,
+  // computed from the payload cwd. No-op under an explicit CLAUDE_CODE_HOOKS_LOG_FILE.
+  applyDefaultLogFile(input.cwd);
+
   // Persist session identity vars so CARDS_SESSION_ID and CARDS_TRANSCRIPT_PATH
   // are available in every plain-interactive session, not just action subprocesses.
   persistSessionEnv(input.session_id, input.transcript_path, persistEnvVar);

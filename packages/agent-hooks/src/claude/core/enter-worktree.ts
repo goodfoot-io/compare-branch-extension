@@ -41,10 +41,15 @@ import { spawnAdhocAttribution } from '@cards.management/sdk/bin/spawn-adhoc-att
 import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 import { resolveBindableWorktreeDir } from '../../shared/bindable-worktree.js';
+import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 export { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
 
 export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { logger }) => {
+  // Point hook file logging at <mainRepoRoot>/.cards/logs/claude-code-cards-api-hooks.log,
+  // computed from the payload cwd. No-op under an explicit CLAUDE_CODE_HOOKS_LOG_FILE.
+  applyDefaultLogFile(input.cwd);
+
   // ─── BOUND PATH ───────────────────────────────────────────────────────────
   //
   // Resolve card identity: CARD_ID env wins, then disk walk via

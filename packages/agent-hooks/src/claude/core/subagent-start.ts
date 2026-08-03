@@ -31,8 +31,13 @@
 import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
 import { subagentStartHook, subagentStartOutput } from '@goodfoot/claude-code-hooks';
 import { resolveBindableWorktreeDir } from '../../shared/bindable-worktree.js';
+import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 export default subagentStartHook({}, async (input) => {
+  // Point hook file logging at <mainRepoRoot>/.cards/logs/claude-code-cards-api-hooks.log,
+  // computed from the payload cwd. No-op under an explicit CLAUDE_CODE_HOOKS_LOG_FILE.
+  applyDefaultLogFile(input.cwd);
+
   // Is the subagent's cwd a bindable linked worktree (linked, no CARD_ID)? This
   // catches worktree-isolated subagents the EnterWorktree nudge never sees. The
   // main repository and already-bound worktrees are never bind targets.
