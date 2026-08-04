@@ -139,8 +139,14 @@ Based on symptom, ranked by probability:
 
 - `[cards-hooks] could not resolve a log anchor: git rev-parse <reason>; hook logging is off` — a broken environment (`git` missing, or timed out after the 3 s budget). Note the asymmetry: git exiting 128, meaning "not a repository", is routine and stays **silent**, so a session outside a checkout produces no file and no message. Absence of this line does not mean the anchor resolved.
 - `[cards-hooks] error: <message> (no hook log file resolved)` — an error the hook raised before any handler installed a real path, typically while parsing its payload. At that point the invocation cannot know which session it belongs to, so the record goes to the operator instead of into an arbitrary checkout. A healthy invocation writes nothing here, and the mirror stops as soon as a real path is installed.
+- `[cards-hooks] could not read <settings file>: <reason>; ignoring it when resolving the hook log anchor` — a settings file exists but is not parseable. Comments and trailing commas are fine (these files are JSONC), so this means genuinely broken syntax. The anchor falls back to the remaining layers, which is why a repo with a broken `settings.json` but a valid `settings.local.json` still logs normally.
 
-**Recovery**: For Claude: re-run §1 of `SKILL.md` and read `HOOKS_LOG_ANCHOR`; look there first. If it is `unset`, confirm the plugin is enabled in one of the settings files (see `inspect-settings.md`) and that `git rev-parse --path-format=absolute --git-common-dir` prints a path ending in `/.git` from the session's working directory. Setting `CLAUDE_CODE_HOOKS_LOG_FILE` to an explicit path always wins over the computed default. For Codex: set `CODEX_HOOKS_LOG_FILE` manually. **Risk**: **safe**.
+**Recovery**: For Claude, re-run §1 of `SKILL.md`, read `HOOKS_LOG_ANCHOR`, and take the branch that matches — the two states have different causes and only one of them is a fault:
+
+- **`unset`** — no anchor resolved, so the bundle wrote nothing anywhere. Confirm the plugin is enabled in one of the settings files (see `inspect-settings.md`) and that `git rev-parse --path-format=absolute --git-common-dir` prints a path ending in `/.git` from the session's working directory.
+- **Set, but `$HOOKS_LOG_ANCHOR/.cards/logs/` holds no log** — the path is *recorded, not created*. `setLogFile()` only stores it; the logger `mkdir`s and opens the file on its first actual write, so a session that has logged nothing yet has no file and is not broken. Decide which it is before changing anything: if the SessionStart announcement appears, hooks are running and you are looking at an empty session rather than a logging failure — go back to the failure modes above and diagnose hook execution. If it does not appear, this is not a log-path problem at all.
+
+In both branches, an empty `CLAUDE_CODE_HOOKS_LOG_FILE` means logging is deliberately off; setting it to an explicit path always wins over the computed default. For Codex: set `CODEX_HOOKS_LOG_FILE` manually. **Risk**: **safe**.
 
 ### Codex Trust Interstitial (LOW probability)
 
