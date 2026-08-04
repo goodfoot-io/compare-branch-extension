@@ -48,7 +48,22 @@ if [ -n "$EXTENSION_PATH" ] && [ -f "$EXTENSION_PATH/package.json" ]; then
 fi
 command -v cards >/dev/null && echo "cards=available" || echo "cards=unavailable"
 command -v cards-extension >/dev/null && echo "cards-extension=available" || echo "cards-extension=unavailable"
-# Claude API hook log anchor: the Cards plugin's install scope decides it.
+# Claude API hook log destination. An operator override outranks the computed
+# default entirely, so resolve it first — and follow the indirection, since
+# CLAUDE_CODE_HOOKS_LOG_ENV_VAR renames the variable the logger reads.
+HOOKS_LOG_ENV_VAR=${CLAUDE_CODE_HOOKS_LOG_ENV_VAR:-CLAUDE_CODE_HOOKS_LOG_FILE}
+if HOOKS_LOG_OVERRIDE=$(printenv "$HOOKS_LOG_ENV_VAR"); then
+  HOOKS_LOG_OVERRIDE_SET=yes
+  if [ -n "$HOOKS_LOG_OVERRIDE" ]; then
+    echo "HOOKS_LOG_OVERRIDE=$HOOKS_LOG_ENV_VAR -> $HOOKS_LOG_OVERRIDE"
+  else
+    echo "HOOKS_LOG_OVERRIDE=$HOOKS_LOG_ENV_VAR -> empty (file logging deliberately off)"
+  fi
+else
+  HOOKS_LOG_OVERRIDE_SET=
+  echo "HOOKS_LOG_OVERRIDE=none"
+fi
+# Computed default anchor: the Cards plugin's install scope decides it.
 HOOKS_LOG_ANCHOR=
 for f in "$WORKSPACE/.claude/settings.local.json" "$WORKSPACE/.claude/settings.json" \
          "$MAIN_REPO_ROOT/.claude/settings.local.json" "$MAIN_REPO_ROOT/.claude/settings.json"; do
@@ -58,14 +73,16 @@ done
 [ -z "$HOOKS_LOG_ANCHOR" ] \
   && jq -e '.enabledPlugins["cards@cards.management"] == true' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" >/dev/null 2>&1 \
   && HOOKS_LOG_ANCHOR=$HOME
-echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}"
+echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}${HOOKS_LOG_OVERRIDE_SET:+ (computed default — NOT in use, override set)}"
 ```
 
 `CARDS_CONFIG_DIR` is the root for discovery, databases, sessions, and worktrees. `WORKSPACE`, `MAIN_REPO_ROOT`, and `HOOKS_LOG_ANCHOR` are referenced by diagnostic commands throughout the reference files; `find-logs.md` names which one each log uses.
 
 `MAIN_REPO_ROOT` is where a repo-scoped `.cards/logs/` tree hangs off. It differs from `WORKSPACE` whenever the session runs in a linked worktree: `--git-common-dir` collapses a worktree back to the repository that owns it, `--show-toplevel` does not. Anchoring a log path on `WORKSPACE` from a worktree targets a path the bundle never wrote — usually nothing at all, which reads as "hooks are dead" when they are fine, and occasionally a stale copy that is worse (see `find-logs.md`). The basename guard mirrors the hook bundle's own — a common dir not named `.git` (bare repo, submodule, separate-git-dir) leaves `MAIN_REPO_ROOT` unset, matching the bundle's fail-closed resolution in `public/packages/agent-hooks/src/shared/default-log-file.ts`.
 
-`HOOKS_LOG_ANCHOR` is where the **Claude API hook log** specifically lands, and it is not always `MAIN_REPO_ROOT`. The bundle anchors on the repository only when that repository carries the install (`claude-local` / `claude-project`); a user-scope install fires in every repository the user opens, so it anchors on `$HOME` instead and leaves unrelated repositories untouched. `unset` means no Cards install is recorded anywhere — the bundle then writes no file at all, which is the expected state, not a fault.
+`HOOKS_LOG_ANCHOR` is where the **Claude API hook log** lands, and it is not always `MAIN_REPO_ROOT`. The bundle anchors on the repository only when that repository carries the install (`claude-local` / `claude-project`); a user-scope install fires in every repository the user opens, so it anchors on `$HOME` instead and leaves unrelated repositories untouched. `unset` means no Cards install is recorded anywhere — the bundle then writes no file at all, which is the expected state, not a fault.
+
+**Read `HOOKS_LOG_OVERRIDE` before `HOOKS_LOG_ANCHOR`.** The two are not alternatives to weigh; the override decides on its own and the anchor is then irrelevant. When a value is present the bundle skips the computed default entirely, so `HOOKS_LOG_ANCHOR` still prints a plausible directory that nothing is writing to — which is why the line marks it *NOT in use* rather than leaving you to notice. An **empty** value is not a missing one: it means logging is deliberately off, and the anchor is equally moot. Only `HOOKS_LOG_OVERRIDE=none` makes `HOOKS_LOG_ANCHOR` the answer. The name is followed rather than assumed because `CLAUDE_CODE_HOOKS_LOG_ENV_VAR` can point the logger at a different variable, and testing `CLAUDE_CODE_HOOKS_LOG_FILE` under that indirection reports "no override" while one is in force.
 
 If the UI exposes only a coarse message, collect the corresponding logs before choosing a remedy.
 
