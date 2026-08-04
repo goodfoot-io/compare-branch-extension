@@ -36,7 +36,7 @@ EOF
 
 ### Template Notes
 
-- The anchor variable must be set in the shell running the heredoc — §1 of `SKILL.md` sets all three. `${HOOKS_LOG_ANCHOR}` is correct for `claude-code-cards-api-hooks`; use `${MAIN_REPO_ROOT}` for `cards-default-configuration-hooks`. Do not substitute `$(git rev-parse --show-toplevel)` for either — from a linked worktree it resolves to the worktree, and a log path built on it names a file that was never written. `claude-code-cards-runtime-hooks` follows neither variable; find its path with the Quick Discovery block in `find-logs.md` and paste it literally.
+- The anchor variable must be set in the shell running the heredoc — §1 of `SKILL.md` sets all three. `${HOOKS_LOG_ANCHOR}` is correct for `claude-code-cards-api-hooks`; use `${MAIN_REPO_ROOT}` for `cards-default-configuration-hooks`. Do not substitute `$(git rev-parse --show-toplevel)` for either — from a linked worktree it resolves to the worktree, and a log path built on it names something the bundle never wrote. `claude-code-cards-runtime-hooks` follows neither variable; find its path with the Quick Discovery block in `find-logs.md` and paste it literally.
 - Replace `<log-name>` with the actual log filename (e.g., `claude-code-cards-api-hooks`, `claude-code-cards-runtime-hooks`, `cards-default-configuration-hooks`). Inventory in `find-logs.md`.
 - Do not restate extension version, VS Code version, platform, or node version in the body — `generateCardUrl()` adds them.
 - The body is a single JSON string. Multi-line content uses `\n` escaping within the heredoc — the shell expands `$(...)` before passing to `cards-extension issue`.

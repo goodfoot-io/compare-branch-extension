@@ -43,6 +43,7 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 | **Set by** | Nothing — the compiled bundle computes the path itself at handler entry, from the install scope recorded in the Claude settings chain plus the hook payload's `cwd`. Nothing is written into `settings.json` or the launch env. |
 | **Source** | `public/packages/agent-hooks/src/shared/default-log-file.ts`::`resolveDefaultApiHooksLogPath()` |
 | **No file?** | The path resolves fail-closed: no recorded Cards install, a bare repo, a non-repo `cwd`, or a missing `git` yields no path and therefore no file, rather than a guessed location. |
+| **Wrong file?** | A copy of this log inside a *linked worktree* is dead, not current — a few old worktrees inherited one at creation time, and its entries stop months ago while the anchor's log runs to now. Read the anchor's; a worktree copy will date a breakage that did not happen. |
 | **JSON schema** | `{timestamp, level, hookType, message, input?, context?, error?}` |
 
 ### Claude Runtime Hooks
