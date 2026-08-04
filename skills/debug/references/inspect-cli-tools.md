@@ -43,7 +43,7 @@ All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows
 
 **Auth**: Bearer token from `~/.cards/cards-api.json`.
 
-**API routes**: `/api/notifications`, `/editor`, `/editor/open`, `/editor/select`, `/workspaces`, `/execute-command`, `/debug/start`, `/debug/stop`, `/debug/state`, `/panel/show`.
+**API routes**: `/api/notifications`, `/editor`, `/editor/open`, `/editor/select`, `/workspaces`, `/repository`, `/execute-command`, `/debug/start`, `/debug/stop`, `/debug/state`, `/panel/show`.
 
 ### `cards-extension issue`
 
