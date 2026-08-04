@@ -91,7 +91,7 @@ File via `cards-extension issue` — load `interview-issue-report.md`, then `iss
 - **Server won't start after 3 window reloads**: Include the last 100 lines of the Cards output channel and `find ~/.vscode-server/data/logs -name 'Cards.log' -exec tail -50 {} \;`.
 - **Database corruption recurs after rebuild**: Include `ls -la ~/.cards/cards.db*` and the server startup log showing the corruption error.
 - **Port conflict persists across reloads**: Include `lsof -i :<port>` output and the discovery file contents.
-- **Discovery file oscillates (created/deleted rapidly)**: Include `tail -100 ${WORKSPACE}/.cards/logs/claude-code-cards-api-hooks.log` and `ls -la ~/.cards/cards-api.json*`.
+- **Discovery file oscillates (created/deleted rapidly)**: Include `tail -100 ${HOOKS_LOG_ANCHOR}/.cards/logs/claude-code-cards-api-hooks.log` and `ls -la ~/.cards/cards-api.json*`.
 
 ## Out of Scope
 

@@ -14,9 +14,12 @@ find ~/.claude/plugins/cache/cards.management -name "hooks.json" -type f 2>/dev/
 # Check Codex plugin hooks registration
 find ~/.codex/plugins/cache/local -name "hooks.json" -type f 2>/dev/null | head -5
 
+# $HOOKS_LOG_ANCHOR is set by §1 of SKILL.md: the main repo root for a per-repo
+# install, $HOME for a user-scope one.
+
 # Verify SessionStart hook fired
 jq 'select(.hookType == "SessionStart")' \
-  "$(git rev-parse --show-toplevel 2>/dev/null)/.cards/logs/claude-code-cards-api-hooks.log" 2>/dev/null | head -3
+  "$HOOKS_LOG_ANCHOR/.cards/logs/claude-code-cards-api-hooks.log" 2>/dev/null | head -3
 ```
 
 ## Hook Plugins Shipped with Cards
@@ -128,11 +131,11 @@ Based on symptom, ranked by probability:
 
 ### No Log Output (MEDIUM probability)
 
-**Evidence**: Hook seems to work (announcement appears, session state is written) but no log file exists.
+**Evidence**: Hook seems to work (announcement appears, session state is written) but no log file exists **at the path you looked in**.
 
-**Cause**: For Claude Cards hooks, the bundle computes its own path and fails closed when it cannot: `resolveDefaultApiHooksLogPath()` runs `git rev-parse --git-common-dir` in the hook payload's `cwd`, and a bare repo, a `cwd` outside any repository, a non-`.git` common dir (submodule, separate-git-dir), or a missing `git` binary all yield no path — so no file is written rather than one in a guessed location. For Codex hooks, `CODEX_HOOKS_LOG_FILE` is not set by Cards — the Logger falls back to no file output.
+**Cause**: For Claude Cards hooks, check the anchor before the file. A user-scope install logs to `$HOME/.cards/logs/`, not the repository — looking under the repo finds nothing while the hooks are fine. Beyond that the bundle fails closed and writes nothing at all when: no Claude settings file records the install; `git rev-parse --git-common-dir` in the payload `cwd` yields no `/.git` path (bare repo, non-repo `cwd`, submodule, separate-git-dir, missing `git`); or the operator set `CLAUDE_CODE_HOOKS_LOG_FILE` (or the name `CLAUDE_CODE_HOOKS_LOG_ENV_VAR` redirects to) to an empty value, which means "off". For Codex hooks, `CODEX_HOOKS_LOG_FILE` is not set by Cards — the Logger falls back to no file output.
 
-**Recovery**: For Claude: run `git rev-parse --path-format=absolute --git-common-dir` from the session's working directory and confirm it prints a path ending in `/.git`. If it does not, either launch from inside the repository or set `CLAUDE_CODE_HOOKS_LOG_FILE` to an explicit path — an operator override always wins over the computed default. For Codex: set `CODEX_HOOKS_LOG_FILE` manually. **Risk**: **safe**.
+**Recovery**: For Claude: re-run §1 of `SKILL.md` and read `HOOKS_LOG_ANCHOR`; look there first. If it is `unset`, confirm the plugin is enabled in one of the settings files (see `inspect-settings.md`) and that `git rev-parse --path-format=absolute --git-common-dir` prints a path ending in `/.git` from the session's working directory. Setting `CLAUDE_CODE_HOOKS_LOG_FILE` to an explicit path always wins over the computed default. For Codex: set `CODEX_HOOKS_LOG_FILE` manually. **Risk**: **safe**.
 
 ### Codex Trust Interstitial (LOW probability)
 
@@ -157,7 +160,7 @@ Based on symptom, ranked by probability:
 File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Hook binary exists and is executable but agent still can't find it**: Include `find ~/.claude/plugins/cache ~/.codex/plugins/cache -name 'hooks.json' -type f` and the relevant `hooks.json` content.
 - **Trust interstitial appears on every launch despite unchanged binary**: Include `cat ~/.codex/cards.config.toml` (the profile config with trusted hashes) and `sha256sum` of the staged hook `.mjs` file.
-- **Hook log shows repeated crash entries with same error**: Include `tail -100 ${WORKSPACE}/.cards/logs/claude-code-cards-api-hooks.log | jq 'select(.level == "error")'`.
+- **Hook log shows repeated crash entries with same error**: Include `tail -100 ${HOOKS_LOG_ANCHOR}/.cards/logs/claude-code-cards-api-hooks.log | jq 'select(.level == "error")'`.
 - **No hooks fire for any plugin**: Include the agent settings file showing plugin enablement and the hook log showing zero SessionStart entries.
 
 ## Out of Scope

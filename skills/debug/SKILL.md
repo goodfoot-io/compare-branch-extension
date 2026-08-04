@@ -8,7 +8,7 @@ cards — Card operations CLI (get, create, list, search, bind, watch, action)
 cards-extension — VS Code extension control CLI (editor, notify, issue, workspace, debug, panel)
 curl — HTTP health checks against the Cards API server
 jq — Parse JSON discovery files and JSON Lines logs
-git rev-parse --show-toplevel — Resolve workspace root
+git rev-parse — Resolve workspace root (`--show-toplevel`) and main repo root (`--git-common-dir`)
 </tools>
 
 <instructions>
@@ -28,6 +28,9 @@ echo "CLAUDE_CONFIG_DIR=${CLAUDE_CONFIG_DIR:-unset}"
 echo "CODEX_HOME=${CODEX_HOME:-unset}"
 WORKSPACE=$(git rev-parse --show-toplevel 2>/dev/null)
 echo "WORKSPACE=${WORKSPACE:-unset}"
+COMMON_DIR=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+[ "$(basename "${COMMON_DIR:-}")" = ".git" ] && MAIN_REPO_ROOT=$(dirname "$COMMON_DIR")
+echo "MAIN_REPO_ROOT=${MAIN_REPO_ROOT:-unset}"
 if [ -n "${CARDS_HOME:-}" ]; then
   CARDS_CONFIG_DIR="$CARDS_HOME"
 elif [ -n "${XDG_DATA_HOME:-}" ]; then
@@ -45,9 +48,24 @@ if [ -n "$EXTENSION_PATH" ] && [ -f "$EXTENSION_PATH/package.json" ]; then
 fi
 command -v cards >/dev/null && echo "cards=available" || echo "cards=unavailable"
 command -v cards-extension >/dev/null && echo "cards-extension=available" || echo "cards-extension=unavailable"
+# Claude API hook log anchor: the Cards plugin's install scope decides it.
+HOOKS_LOG_ANCHOR=
+for f in "$WORKSPACE/.claude/settings.local.json" "$WORKSPACE/.claude/settings.json" \
+         "$MAIN_REPO_ROOT/.claude/settings.local.json" "$MAIN_REPO_ROOT/.claude/settings.json"; do
+  jq -e '.enabledPlugins["cards@cards.management"] == true' "$f" >/dev/null 2>&1 \
+    && HOOKS_LOG_ANCHOR=$MAIN_REPO_ROOT && break
+done
+[ -z "$HOOKS_LOG_ANCHOR" ] \
+  && jq -e '.enabledPlugins["cards@cards.management"] == true' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" >/dev/null 2>&1 \
+  && HOOKS_LOG_ANCHOR=$HOME
+echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}"
 ```
 
-`CARDS_CONFIG_DIR` is the root for discovery, databases, sessions, and worktrees. `WORKSPACE` is referenced by diagnostic commands throughout the reference files.
+`CARDS_CONFIG_DIR` is the root for discovery, databases, sessions, and worktrees. `WORKSPACE`, `MAIN_REPO_ROOT`, and `HOOKS_LOG_ANCHOR` are referenced by diagnostic commands throughout the reference files; `find-logs.md` names which one each log uses.
+
+`MAIN_REPO_ROOT` is where a repo-scoped `.cards/logs/` tree hangs off. It differs from `WORKSPACE` whenever the session runs in a linked worktree: `--git-common-dir` collapses a worktree back to the repository that owns it, `--show-toplevel` does not. Anchoring a log path on `WORKSPACE` from a worktree targets a file that was never written, which reads as "hooks are dead" when they are fine. The basename guard mirrors the hook bundle's own — a common dir not named `.git` (bare repo, submodule, separate-git-dir) leaves `MAIN_REPO_ROOT` unset, matching the bundle's fail-closed resolution in `public/packages/agent-hooks/src/shared/default-log-file.ts`.
+
+`HOOKS_LOG_ANCHOR` is where the **Claude API hook log** specifically lands, and it is not always `MAIN_REPO_ROOT`. The bundle anchors on the repository only when that repository carries the install (`claude-local` / `claude-project`); a user-scope install fires in every repository the user opens, so it anchors on `$HOME` instead and leaves unrelated repositories untouched. `unset` means no Cards install is recorded anywhere — the bundle then writes no file at all, which is the expected state, not a fault.
 
 If the UI exposes only a coarse message, collect the corresponding logs before choosing a remedy.
 
