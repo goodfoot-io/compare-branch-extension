@@ -27,5 +27,5 @@ export interface BuildTarget {
 /** The VSCODE_NODE executable wrapper stamped into every hooks.json command. */
 export declare const EXECUTABLE: string;
 
-/** The five build targets in build order. */
+/** The six build targets in build order. */
 export declare const targets: BuildTarget[];

@@ -46,7 +46,7 @@ const EXECUTABLE = 'ELECTRON_RUN_AS_NODE=1 "$(cat $HOME/.cards/VSCODE_NODE 2>/de
 const TEXT_LOADERS = ['--loader', '.md=text', '--loader', '.txt=text'];
 
 /**
- * The five build targets. `cli` pins the correct SDK CLI per agent; `clean`
+ * The six build targets. `cli` pins the correct SDK CLI per agent; `clean`
  * lists the output subdirectories to remove before compiling (relative to the
  * target's output base); `logEnvVar` is the Claude-only `--log-env-var` name.
  */
