@@ -65,6 +65,11 @@ let projectWorktree: string;
 let plainWorktree: string;
 let disabledRepo: string;
 let malformedRepo: string;
+let commentedRepo: string;
+let trailingCommaRepo: string;
+let noMarketplaceRepo: string;
+let gitMarketplaceRepo: string;
+let urlInStringRepo: string;
 let nonRepoDir: string;
 let fakeHome: string;
 let userConfigDir: string;
@@ -130,6 +135,38 @@ function writeCardsSettings(settingsFile: string, overrides: Record<string, unkn
 }
 
 /**
+ * Writes a settings file verbatim, without round-tripping it through
+ * `JSON.stringify` — the point of these fixtures is the exact bytes on disk.
+ *
+ * @param settingsFile - Absolute path to the settings file to write.
+ * @param contents - Raw file contents.
+ */
+function writeJsoncSettings(settingsFile: string, contents: string): void {
+  mkdirSync(path.dirname(settingsFile), { recursive: true });
+  writeFileSync(settingsFile, contents);
+}
+
+/**
+ * Captures everything the module writes to stderr while `body` runs.
+ *
+ * @param body - Code to run with stderr captured.
+ * @returns The captured stderr text.
+ */
+function captureStderr(body: () => void): string {
+  let captured = '';
+  const write = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+    captured += String(chunk);
+    return true;
+  });
+  try {
+    body();
+  } finally {
+    write.mockRestore();
+  }
+  return captured;
+}
+
+/**
  * Points the process at a fake home with no user-scope Cards install, so a test
  * that expects a repo anchor cannot pass by accident.
  */
@@ -175,6 +212,64 @@ beforeAll(() => {
   malformedRepo = makeRepo('malformed');
   mkdirSync(path.join(malformedRepo, '.claude'), { recursive: true });
   writeFileSync(path.join(malformedRepo, '.claude', 'settings.json'), '{ not json ');
+
+  // JSONC: the extension reads and writes these files through `comment-json`
+  // specifically so hand-written comments survive, so a settings file carrying
+  // one is a shape the product itself produces — not user error.
+  commentedRepo = makeRepo('jsonc-comment');
+  writeJsoncSettings(
+    path.join(commentedRepo, '.claude', 'settings.json'),
+    `{
+  // Cards plugin, injected by the VS Code extension
+  "enabledPlugins": { "cards@cards.management": true },
+  /* the marketplace the extension registered */
+  "extraKnownMarketplaces": {
+    "cards.management": { "source": { "source": "directory", "path": "/opt/cards" } }
+  }
+}`
+  );
+
+  trailingCommaRepo = makeRepo('jsonc-trailing-comma');
+  writeJsoncSettings(
+    path.join(trailingCommaRepo, '.claude', 'settings.json'),
+    `{
+  "enabledPlugins": { "cards@cards.management": true, },
+  "extraKnownMarketplaces": {
+    "cards.management": { "source": { "source": "directory", "path": "/opt/cards" } },
+  },
+}`
+  );
+
+  // Adjacent cases that used to fail the same silent way: a plugin enabled with
+  // no marketplace entry, and a git-sourced marketplace carrying `url`.
+  noMarketplaceRepo = makeRepo('no-marketplace');
+  writeJsoncSettings(
+    path.join(noMarketplaceRepo, '.claude', 'settings.json'),
+    '{ "enabledPlugins": { "cards@cards.management": true } }'
+  );
+
+  gitMarketplaceRepo = makeRepo('git-marketplace');
+  writeJsoncSettings(
+    path.join(gitMarketplaceRepo, '.claude', 'settings.json'),
+    `{
+  "enabledPlugins": { "cards@cards.management": true },
+  "extraKnownMarketplaces": {
+    "cards.management": { "source": { "source": "git", "url": "https://example.com/cards.git" } }
+  }
+}`
+  );
+
+  // A value containing `//` — the comment scanner must not touch it.
+  urlInStringRepo = makeRepo('url-in-string');
+  writeJsoncSettings(
+    path.join(urlInStringRepo, '.claude', 'settings.json'),
+    `{
+  "enabledPlugins": { "cards@cards.management": true },
+  "extraKnownMarketplaces": {
+    "cards.management": { "source": { "source": "directory", "path": "https://example.com/a//b" } }
+  }
+}`
+  );
 
   nonRepoDir = path.join(scratchDir, 'no-repo');
   mkdirSync(nonRepoDir, { recursive: true });
@@ -277,7 +372,9 @@ describe('resolveDefaultApiHooksLogPath — no recorded install', () => {
   });
 
   it('returns null when a settings file cannot be parsed', () => {
-    expect(resolveDefaultApiHooksLogPath(malformedRepo)).toBeNull();
+    expect(captureStderr(() => expect(resolveDefaultApiHooksLogPath(malformedRepo)).toBeNull())).toContain(
+      'could not read'
+    );
   });
 
   it('returns null outside any repository, rather than throwing', () => {
@@ -290,6 +387,50 @@ describe('resolveDefaultApiHooksLogPath — no recorded install', () => {
 
   it('returns null for a process cwd outside any repository', () => {
     expect(resolveDefaultApiHooksLogPath('/')).toBeNull();
+  });
+});
+
+describe('resolveDefaultApiHooksLogPath — JSONC settings files', () => {
+  // The extension reads and writes these files through `comment-json` so that
+  // hand-written comments survive plugin injection. A reader that cannot cope
+  // with a comment silently disables logging for a file the product produced.
+
+  it('reads an install through a line comment', () => {
+    expect(resolveDefaultApiHooksLogPath(commentedRepo)).toBe(cardsApiHooksLogPath(commentedRepo));
+  });
+
+  it('reads an install through a trailing comma', () => {
+    expect(resolveDefaultApiHooksLogPath(trailingCommaRepo)).toBe(cardsApiHooksLogPath(trailingCommaRepo));
+  });
+
+  it('does not mistake // inside a string value for a comment', () => {
+    expect(resolveDefaultApiHooksLogPath(urlInStringRepo)).toBe(cardsApiHooksLogPath(urlInStringRepo));
+  });
+
+  it('reports an unparseable settings file on stderr instead of silently ignoring it', () => {
+    const captured = captureStderr(() => {
+      expect(resolveDefaultApiHooksLogPath(malformedRepo)).toBeNull();
+    });
+
+    expect(captured).toContain(path.join(malformedRepo, '.claude', 'settings.json'));
+    expect(captured).toContain('resolving the hook log anchor');
+    // Outside a linked worktree the same file must not be read — or reported — twice.
+    expect(captured.trimEnd().split('\n')).toHaveLength(1);
+  });
+});
+
+describe('resolveDefaultApiHooksLogPath — install records without a usable marketplace path', () => {
+  // `mergeClaudeSettingsChain()` additionally requires a non-empty
+  // `source.path` because it goes on to `fs.stat` it. That requirement answers
+  // "may the extension treat this install as live", not "where does the log
+  // go", so applying it here only disabled logging for valid installs.
+
+  it('anchors on an install recorded without any extraKnownMarketplaces entry', () => {
+    expect(resolveDefaultApiHooksLogPath(noMarketplaceRepo)).toBe(cardsApiHooksLogPath(noMarketplaceRepo));
+  });
+
+  it('anchors on a git-sourced marketplace carrying url instead of path', () => {
+    expect(resolveDefaultApiHooksLogPath(gitMarketplaceRepo)).toBe(cardsApiHooksLogPath(gitMarketplaceRepo));
   });
 });
 
@@ -437,26 +578,6 @@ describe('log destination on disk', () => {
 });
 
 describe('diagnostics with no file destination', () => {
-  /**
-   * Captures everything the module writes to stderr while `body` runs.
-   *
-   * @param body - Code to run with stderr captured.
-   * @returns The captured stderr text.
-   */
-  function captureStderr(body: () => void): string {
-    let captured = '';
-    const write = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-      captured += String(chunk);
-      return true;
-    });
-    try {
-      body();
-    } finally {
-      write.mockRestore();
-    }
-    return captured;
-  }
-
   /**
    * Imports a fresh copy of the module, standing in for a fresh hook process.
    *

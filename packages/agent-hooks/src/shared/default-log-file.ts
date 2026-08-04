@@ -68,9 +68,6 @@ const GIT_TIMEOUT_MS = 3000;
 /** Log file name, byte-identical to the extension's `cardsApiHooksLogPath()`. */
 const LOG_FILE_NAME = 'claude-code-cards-api-hooks.log';
 
-/** Marketplace key the installer writes into `extraKnownMarketplaces`. */
-const MARKETPLACE_NAME = 'cards.management';
-
 /** Plugin key the installer writes into `enabledPlugins`. */
 const PLUGIN_ID = 'cards@cards.management';
 
@@ -189,42 +186,157 @@ function claudeConfigDir(): string {
 }
 
 /**
+ * Strips JSONC constructs that `JSON.parse` rejects: `//` and block comments,
+ * and trailing commas before `}` or `]`.
+ *
+ * Claude settings files are JSONC by design — the extension reads and writes
+ * them through `comment-json` precisely so hand-written comments survive plugin
+ * injection (see the `ClaudeSettingsService` module docblock). A reader that
+ * cannot cope with a comment therefore rejects files the product itself
+ * produced and preserved.
+ *
+ * Comments are replaced with spaces rather than removed so that byte offsets in
+ * any resulting `JSON.parse` error still point at the right place in the file
+ * the operator wrote. The scanner tracks string state (and backslash escapes) so
+ * that a `//` or `/*` inside a value — a Windows path, a URL — is left alone.
+ *
+ * @param source - Raw settings file contents.
+ * @returns The same text with comments blanked and trailing commas removed.
+ */
+function stripJsonc(source: string): string {
+  const out: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i] as string;
+
+    if (inString) {
+      out.push(char);
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      out.push(char);
+      continue;
+    }
+
+    const next = source[i + 1];
+    if (char === '/' && next === '/') {
+      while (i < source.length && source[i] !== '\n') {
+        out.push(' ');
+        i++;
+      }
+      // Keep the newline itself so line numbers survive.
+      if (i < source.length) out.push('\n');
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      const stop = end === -1 ? source.length : end + 2;
+      for (; i < stop; i++) {
+        out.push(source[i] === '\n' ? '\n' : ' ');
+      }
+      i--;
+      continue;
+    }
+
+    out.push(char);
+  }
+
+  // Trailing commas: a comma whose next non-whitespace character closes the
+  // container. Comments are already blanked, so whitespace is the only thing
+  // that can sit between them.
+  return out.join('').replace(/,(\s*[}\]])/g, '$1');
+}
+
+/** Outcome of reading one Claude settings file. */
+type SettingsRead =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'unreadable'; readonly reason: string }
+  | { readonly kind: 'parsed'; readonly value: unknown };
+
+/**
+ * Reads and tolerantly parses one Claude settings file.
+ *
+ * Distinguishes "there is no file here" from "there is a file here I could not
+ * read", because collapsing the two makes an annotated config indistinguishable
+ * from no install at all — the caller reports the latter on stderr.
+ *
+ * @param settingsFile - Absolute path to a Claude `settings*.json`.
+ * @returns Whether the file was absent, unreadable, or parsed, with the value.
+ */
+function readSettingsFile(settingsFile: string): SettingsRead {
+  let raw: string;
+  try {
+    raw = readFileSync(settingsFile, 'utf8');
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      return { kind: 'absent' };
+    }
+    return { kind: 'unreadable', reason: code ?? (error as Error).message };
+  }
+
+  try {
+    return { kind: 'parsed', value: JSON.parse(stripJsonc(raw)) };
+  } catch (error) {
+    return { kind: 'unreadable', reason: (error as Error).message };
+  }
+}
+
+/**
  * Reports whether a Claude settings file records a Cards plugin install.
  *
- * Applies the same content check as `mergeClaudeSettingsChain()` in the
- * extension's `agentDetection.ts` — `enabledPlugins['cards@cards.management']`
- * is `true` **and** `extraKnownMarketplaces['cards.management'].source.path` is
- * a non-empty string — minus that function's on-disk verification of the
- * marketplace path, which the hook has no reason to pay for. Any read or parse
- * failure means "no install recorded here".
+ * The install signal is `enabledPlugins['cards@cards.management'] === true`.
+ *
+ * This deliberately **diverges** from `mergeClaudeSettingsChain()` in the
+ * extension's `agentDetection.ts`, in two ways, both because the two functions
+ * answer different questions. That function decides whether the extension may
+ * treat an install as live, so it additionally requires
+ * `extraKnownMarketplaces['cards.management'].source.path` to be a non-empty
+ * string and then `fs.stat`s it. This function only decides *where a log file
+ * goes*, and the marketplace path tells it nothing about that. Requiring the
+ * path here would silently disable logging for two configurations that are
+ * perfectly valid installs — `enabledPlugins` recorded without an
+ * `extraKnownMarketplaces` entry, and a git-sourced marketplace whose `source`
+ * carries `url` instead of `path`.
+ *
+ * It also parses tolerantly ({@link stripJsonc}) where `agentDetection.ts` uses
+ * a bare `JSON.parse`; the extension has the same blind spot, tracked
+ * separately.
  *
  * @param settingsFile - Absolute path to a Claude `settings*.json`.
  * @returns `true` when this file installs the Cards plugin.
  */
 function recordsCardsInstall(settingsFile: string): boolean {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(settingsFile, 'utf8'));
-  } catch {
-    // Missing, unreadable, or not JSON — no install recorded here.
+  const read = readSettingsFile(settingsFile);
+  if (read.kind === 'absent') {
+    return false;
+  }
+  if (read.kind === 'unreadable') {
+    process.stderr.write(
+      `[cards-hooks] could not read ${settingsFile}: ${read.reason}; ` +
+        'ignoring it when resolving the hook log anchor\n'
+    );
     return false;
   }
 
+  const parsed = read.value;
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return false;
   }
 
-  const settings = parsed as {
-    extraKnownMarketplaces?: Record<string, { source?: { path?: unknown } }>;
-    enabledPlugins?: Record<string, unknown>;
-  };
-
-  if (settings.enabledPlugins?.[PLUGIN_ID] !== true) {
-    return false;
-  }
-
-  const marketplacePath = settings.extraKnownMarketplaces?.[MARKETPLACE_NAME]?.source?.path;
-  return typeof marketplacePath === 'string' && marketplacePath.length > 0;
+  const settings = parsed as { enabledPlugins?: Record<string, unknown> };
+  return settings.enabledPlugins?.[PLUGIN_ID] === true;
 }
 
 /**
@@ -263,7 +375,12 @@ function hasRepoScopeInstall(root: string): boolean {
 export function resolveLogAnchorRoot(cwd: string): string | null {
   const roots = resolveGitRoots(cwd);
   if (roots !== null) {
-    if (hasRepoScopeInstall(roots.worktreeRoot) || hasRepoScopeInstall(roots.mainRepoRoot)) {
+    // Deduplicated: outside a linked worktree these are the same directory, and
+    // checking it twice would read every settings file twice — and report an
+    // unparseable one twice.
+    const candidates =
+      roots.worktreeRoot === roots.mainRepoRoot ? [roots.mainRepoRoot] : [roots.worktreeRoot, roots.mainRepoRoot];
+    if (candidates.some(hasRepoScopeInstall)) {
       return roots.mainRepoRoot;
     }
   }
