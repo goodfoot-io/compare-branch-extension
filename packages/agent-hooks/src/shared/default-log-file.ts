@@ -16,8 +16,15 @@
  * `isUserScope ? os.homedir() : repoRoot` did. That distinction is load-bearing:
  * a user-scope install makes the plugin fire in *every* repository the user runs
  * `claude` in, and a scope-blind default would drop an untracked `.cards/logs/`
- * into all of them. Scope is read back from the settings files that record the
- * install rather than inferred from `cwd`.
+ * into all of them. That is not a minority configuration:
+ * `_restageAgentInstallersAfterUpgrade()` in the extension performs an
+ * unconditional `claude-user` install on every detected upgrade, so the entire
+ * user base carries a user-scope record one upgrade later. Scope is read back
+ * from the settings files that record the install rather than inferred from
+ * `cwd`.
+ *
+ * Nothing here ever guesses from `process.cwd()`. Diagnostics that arise before
+ * the payload identifies a session go to stderr — see {@link mirrorToStderr}.
  *
  * @summary Install the computed default hooks log file under the upstream logger
  * @module default-log-file
@@ -49,6 +56,15 @@ export const DEFAULT_LOG_FILE_ENV_VAR = 'CLAUDE_CODE_HOOKS_LOG_FILE';
  */
 const LOG_ENV_VAR_INDIRECTION = 'CLAUDE_CODE_HOOKS_LOG_ENV_VAR';
 
+/**
+ * Ceiling on the single `git rev-parse` this module spawns.
+ *
+ * The spawn is memoized per `cwd` and now happens only at handler entry, so a
+ * pathological repository (cold network mount, pathological `.git`) costs one
+ * invocation at most this much rather than twice it.
+ */
+const GIT_TIMEOUT_MS = 3000;
+
 /** Log file name, byte-identical to the extension's `cardsApiHooksLogPath()`. */
 const LOG_FILE_NAME = 'claude-code-cards-api-hooks.log';
 
@@ -69,10 +85,11 @@ interface GitRoots {
 /**
  * Memoized {@link resolveGitRoots} results, keyed by `cwd`.
  *
- * `git rev-parse` costs ~24 ms against a ~70 ms bin runtime, and the module-init
- * default plus the handler's own call would otherwise pay it twice — for the
- * same directory, in the common case where the payload `cwd` is the process cwd.
- * Git topology cannot change within a single hook invocation, so caching for the
+ * The spawn is cheap in the mean — measured at 4.7 ms in a scratch repository,
+ * 14.3 ms from a linked worktree, against a ~57 ms bin runtime — so this is not
+ * a latency fix. It is a tail fix: {@link GIT_TIMEOUT_MS} is charged *per*
+ * spawn, so every resolution avoided is 3 s of worst-case stall avoided. Git
+ * topology cannot change within a single hook invocation, so caching for the
  * process lifetime is safe.
  */
 const gitRootsCache = new Map<string, GitRoots | null>();
@@ -118,7 +135,7 @@ function computeGitRoots(cwd: string): GitRoots | null {
     const output = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir', '--show-toplevel'], {
       cwd,
       encoding: 'utf8',
-      timeout: 3000,
+      timeout: GIT_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'ignore']
     });
 
@@ -134,9 +151,22 @@ function computeGitRoots(cwd: string): GitRoots | null {
     }
 
     return { worktreeRoot, mainRepoRoot: dirname(commonDir) };
-  } catch {
-    // Fail-closed: any failure (missing git, non-repo cwd, timeout) degrades to
-    // no anchor. Guessing a path is worse than logging nowhere.
+  } catch (error) {
+    // Fail-closed: every failure degrades to no anchor, because guessing a path
+    // is worse than logging nowhere. But not every failure is the same kind of
+    // event. Exit 128 is git saying "not a repository" — routine, expected on
+    // any session outside a checkout, and silent by design. A timeout or a
+    // missing `git` is a broken environment: it costs the invocation up to the
+    // full 3 s and then produces no log file to explain the delay, so it goes
+    // to stderr rather than being swallowed.
+    const failure = error as NodeJS.ErrnoException & { status?: number | null; signal?: string | null };
+    if (failure.status !== 128) {
+      const reason =
+        failure.signal === 'SIGTERM' ? `timed out after ${GIT_TIMEOUT_MS} ms` : (failure.code ?? failure.message);
+      process.stderr.write(
+        `[cards-hooks] could not resolve a log anchor: git rev-parse ${reason}; hook logging is off\n`
+      );
+    }
     return null;
   }
 }
@@ -292,10 +322,11 @@ function hasOperatorOverride(): boolean {
  * when no anchor resolves from `cwd`, leaving file logging off rather than
  * guessing a location.
  *
- * Safe to call repeatedly: each handler calls it with the payload `cwd`, which
- * re-points the provisional `process.cwd()` default installed at module init.
+ * Safe to call repeatedly: each handler calls it with the payload `cwd` as its
+ * first statement, which is the earliest moment the session's own anchor is
+ * knowable. Until then {@link mirrorToStderr} carries any diagnostics.
  *
- * @param cwd - The hook payload's `cwd` (or `process.cwd()` provisionally).
+ * @param cwd - The hook payload's `cwd`.
  */
 export function applyDefaultLogFile(cwd: string): void {
   if (hasOperatorOverride()) {
@@ -308,16 +339,50 @@ export function applyDefaultLogFile(cwd: string): void {
   }
 
   logger.setLogFile(logFilePath);
+  fileDestinationInstalled = true;
 }
 
-// Provisional default, installed at module init so the SDK's own error entries —
-// which it emits before any handler runs — are not lost. Each handler re-points
-// it from the payload `cwd`.
-//
-// This creates nothing on disk: `setLogFile()` only records the path, and the
-// logger `mkdir`s and opens the file lazily on its first actual write. And
-// because the anchor is scope-derived, a process cwd in a repository that has no
-// Cards install can never select that repository — the worst case is a
-// pre-handler error landing under the *user* anchor, or under another Cards
-// workspace whose per-repo install the process cwd sits in.
-applyDefaultLogFile(process.cwd());
+/**
+ * Whether anything has claimed a file destination for this process yet.
+ *
+ * Seeded from the operator override, because upstream resolves that into
+ * `logFilePath` at construction — an override means diagnostics are already
+ * being filed and need no stderr mirror.
+ */
+let fileDestinationInstalled = hasOperatorOverride();
+
+/**
+ * Mirrors error events to stderr while no file destination exists.
+ *
+ * The SDK emits its own error entries — a malformed payload produces
+ * `Failed to parse stdin JSON` — *before* any handler runs, which is before the
+ * payload `cwd` has been read and therefore before the session's log anchor is
+ * knowable. The previous shape of this module answered that by installing a
+ * default derived from `process.cwd()` at module init. That guessed: a hook that
+ * dies while parsing its payload has no idea which session it belongs to, so the
+ * one record explaining the failure was filed under whichever repository the
+ * process happened to start in — not necessarily the one the operator was
+ * working in, and in the reproduced case a repository with no relationship to
+ * the session at all.
+ *
+ * Stderr is the honest destination for a diagnostic that cannot be attributed.
+ * It reaches the operator through the agent's own hook output rather than
+ * appearing as an untracked file in someone's checkout, and it is the one
+ * channel available before the payload is parsed. Once a handler installs the
+ * real path the mirror stops, so a healthy invocation writes nothing here.
+ *
+ * @param event - The error event the logger is delivering.
+ * @param event.level - Severity, always `error` for this subscription.
+ * @param event.message - The logged message.
+ * @param event.error - Structured error detail, when the entry carries one.
+ * @param event.error.message - The underlying error's message.
+ */
+const mirrorToStderr = (event: { level: string; message: string; error?: { message?: string } }): void => {
+  if (fileDestinationInstalled) {
+    return;
+  }
+  const detail = event.error?.message === undefined ? '' : `: ${event.error.message}`;
+  process.stderr.write(`[cards-hooks] ${event.level}: ${event.message}${detail} (no hook log file resolved)\n`);
+};
+
+logger.on('error', mirrorToStderr);

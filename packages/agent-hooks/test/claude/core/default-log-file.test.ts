@@ -14,7 +14,16 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -358,7 +367,7 @@ describe('applyDefaultLogFile', () => {
     expect(setLogFile).not.toHaveBeenCalled();
   });
 
-  it('re-points the provisional default when the payload cwd names another anchor', () => {
+  it('re-points when a later payload cwd names another anchor', () => {
     const setLogFile = vi.spyOn(logger, 'setLogFile').mockImplementation(() => undefined);
 
     applyDefaultLogFile(localRepo);
@@ -424,5 +433,110 @@ describe('log destination on disk', () => {
 
     expect(destination).toBeNull();
     expect(existsSync(path.join(plainRepo, '.cards'))).toBe(false);
+  });
+});
+
+describe('diagnostics with no file destination', () => {
+  /**
+   * Captures everything the module writes to stderr while `body` runs.
+   *
+   * @param body - Code to run with stderr captured.
+   * @returns The captured stderr text.
+   */
+  function captureStderr(body: () => void): string {
+    let captured = '';
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      captured += String(chunk);
+      return true;
+    });
+    try {
+      body();
+    } finally {
+      write.mockRestore();
+    }
+    return captured;
+  }
+
+  /**
+   * Imports a fresh copy of the module, standing in for a fresh hook process.
+   *
+   * "Has anything claimed a file destination yet" is per-process state that a
+   * real bin sets at most once, so these cases need module init, not the
+   * already-latched instance the rest of this file shares.
+   *
+   * @returns The freshly evaluated module.
+   */
+  async function freshModule(): Promise<typeof import('../../../src/shared/default-log-file.js')> {
+    vi.resetModules();
+    return import('../../../src/shared/default-log-file.js');
+  }
+
+  it('mirrors an error to stderr rather than filing it under an unrelated repository', async () => {
+    // The reproduced failure: the SDK emits `Failed to parse stdin JSON` before
+    // any handler has read the payload, so no session anchor exists yet.
+    const fresh = await freshModule();
+    logger.setLogFile(null);
+
+    try {
+      const captured = captureStderr(() => {
+        logger.error('Failed to parse stdin JSON');
+      });
+
+      expect(captured).toContain('Failed to parse stdin JSON');
+      expect(existsSync(path.join(plainRepo, '.cards'))).toBe(false);
+    } finally {
+      // Each fresh instance stays subscribed to the shared singleton for the
+      // rest of the file, so latch this one before leaving or it keeps
+      // mirroring into later cases. A real bin has exactly one instance.
+      fresh.applyDefaultLogFile(localRepo);
+      logger.setLogFile(null);
+    }
+  });
+
+  it('stops mirroring once a handler installs the real destination', async () => {
+    const fresh = await freshModule();
+    logger.setLogFile(null);
+    fresh.applyDefaultLogFile(localRepo);
+
+    try {
+      const captured = captureStderr(() => {
+        logger.error('handler-time failure');
+      });
+
+      expect(captured).toBe('');
+      expect(readFileSync(cardsApiHooksLogPath(localRepo), 'utf8')).toContain('handler-time failure');
+    } finally {
+      logger.setLogFile(null);
+    }
+  });
+
+  it('reports a broken git environment instead of stalling silently', () => {
+    // A `git` that never returns is the 3s-stall-with-no-explanation case: the
+    // routine "not a repository" exit stays silent, this must not.
+    const stubDir = path.join(scratchDir, 'stub-bin');
+    mkdirSync(stubDir, { recursive: true });
+    const stub = path.join(stubDir, 'git');
+    writeFileSync(stub, '#!/bin/sh\nexit 3\n');
+    chmodSync(stub, 0o755);
+
+    const savedPath = process.env['PATH'];
+    process.env['PATH'] = stubDir;
+    try {
+      const captured = captureStderr(() => {
+        expect(resolveDefaultApiHooksLogPath(path.join(scratchDir, 'broken-git-probe'))).toBeNull();
+      });
+
+      expect(captured).toContain('could not resolve a log anchor');
+    } finally {
+      process.env['PATH'] = savedPath;
+    }
+  });
+
+  it('stays silent for the routine not-a-repository exit', () => {
+    const captured = captureStderr(() => {
+      expect(resolveDefaultApiHooksLogPath(nonRepoDir)).toBeNull();
+    });
+
+    expect(captured).toBe('');
   });
 });
