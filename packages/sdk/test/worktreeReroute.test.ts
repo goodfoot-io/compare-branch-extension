@@ -10,8 +10,10 @@
  *
  * The policy-aware tests drive `.worktreeignore` and `.worktreeinclude` rules
  * under `node_modules` (including a `.vite`-style cache path) through
- * createWorktree and assert the rerouter skips non-shareable descendants
- * instead of symlinking them.
+ * createWorktree and assert the rerouter leaves non-shareable descendants to
+ * the policy: omitted paths stay absent, copied files are materialized real
+ * by the include step, and share files inside a copied package keep their
+ * symlinks.
  *
  * @summary rerouteNodeModules idempotency regression and policy awareness
  */
@@ -160,10 +162,14 @@ describe('policy-aware node_modules rerouting', () => {
     const viteLstat = await fs.lstat(path.join(wPath, 'node_modules', '.vite'));
     expect(viteLstat.isSymbolicLink()).toBe(false);
     expect(viteLstat.isDirectory()).toBe(true);
-    // Unmatched ignored siblings under the copied parent stay absent.
-    await expect(fs.lstat(path.join(wPath, 'node_modules', '.vite', 'cache', 'y.js'))).rejects.toMatchObject({
-      code: 'ENOENT'
-    });
+    // The unmatched sibling directory under the copied parent is share-
+    // classified, so the rerouter symlinks it wholesale and y.js resolves
+    // through it — node_modules entries default to share even under a
+    // copied parent.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '.vite', 'cache'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', '.vite', 'cache')
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', '.vite', 'cache', 'y.js'), 'utf8')).resolves.toBe('y');
     // Share siblings still resolve to the source.
     await expect(fs.readlink(path.join(wPath, 'node_modules', 'left-pad'))).resolves.toBe(
       path.join(repoDir, 'node_modules', 'left-pad')
@@ -172,17 +178,22 @@ describe('policy-aware node_modules rerouting', () => {
     await removeWorktree(wPath);
   });
 
-  it('keeps share siblings symlinked when a copy rule sits inside one @-scoped package', async () => {
+  it('keeps a copied @scoped package usable: share files and scope sibling symlinked', async () => {
     // A copy rule under @scope/pkgA classifies the whole @scope directory as
-    // 'copy' via the policy's copyAncestors set. The rerouter must still
-    // descend into the scope instead of skipping it wholesale, or the share
-    // sibling @scope/pkgB would be absent from the worktree.
+    // 'copy' via the policy's copyAncestors set, and pkgA itself as 'copy'
+    // too. The rerouter must descend into the scope AND into the copied
+    // package: the package's real share files (index.js, package.json) keep
+    // their symlinks, the copied cache file is real, and the share sibling
+    // @scope/pkgB stays symlinked — otherwise the package could not be
+    // resolved when building in the worktree.
     await makeNodeModulesRerouted();
     const nm = path.join(repoDir, 'node_modules');
     await fs.mkdir(path.join(nm, '@scope', 'pkgA', '.cache'), { recursive: true });
     await fs.writeFile(path.join(nm, '@scope', 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.writeFile(path.join(nm, '@scope', 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.writeFile(path.join(nm, '@scope', 'pkgA', 'package.json'), JSON.stringify({ name: 'pkgA' }));
     await fs.mkdir(path.join(nm, '@scope', 'pkgB'), { recursive: true });
-    await fs.writeFile(path.join(nm, '@scope', 'pkgB', 'index.js'), 'module.exports = 1;');
+    await fs.writeFile(path.join(nm, '@scope', 'pkgB', 'index.js'), 'module.exports = 2;');
     await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/@scope/pkgA/.cache/x.js\n');
 
     const { path: wPath, settle } = await createWorktree('feature/reroute-scope-copy', { cwd: repoDir });
@@ -192,6 +203,11 @@ describe('policy-aware node_modules rerouting', () => {
     const scopeLstat = await fs.lstat(path.join(wPath, 'node_modules', '@scope'));
     expect(scopeLstat.isDirectory()).toBe(true);
     expect(scopeLstat.isSymbolicLink()).toBe(false);
+    // The copied package directory is real too — the copy rule prevents it
+    // from being symlinked wholesale.
+    const pkgALstat = await fs.lstat(path.join(wPath, 'node_modules', '@scope', 'pkgA'));
+    expect(pkgALstat.isDirectory()).toBe(true);
+    expect(pkgALstat.isSymbolicLink()).toBe(false);
     // The copied descendant is a real file with the source content.
     const copied = await fs.lstat(path.join(wPath, 'node_modules', '@scope', 'pkgA', '.cache', 'x.js'));
     expect(copied.isSymbolicLink()).toBe(false);
@@ -199,9 +215,74 @@ describe('policy-aware node_modules rerouting', () => {
     await expect(
       fs.readFile(path.join(wPath, 'node_modules', '@scope', 'pkgA', '.cache', 'x.js'), 'utf8')
     ).resolves.toBe('export {};\n');
+    // The package's share files are symlinked to the source and readable.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'pkgA', 'index.js'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', '@scope', 'pkgA', 'index.js')
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', '@scope', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'pkgA', 'package.json'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', '@scope', 'pkgA', 'package.json')
+    );
+    // The source checkout is unchanged.
+    await expect(fs.readFile(path.join(repoDir, 'node_modules', '@scope', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
     // The share sibling inside the same scope is still symlinked to the source.
     await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'pkgB'))).resolves.toBe(
       path.join(repoDir, 'node_modules', '@scope', 'pkgB')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('keeps a copied top-level package usable: share files symlinked alongside the copied cache file', async () => {
+    // A copy rule inside a top-level package (node_modules/pkgA/.cache/x.js)
+    // classifies pkgA 'copy' via the policy's copyAncestors set. The rerouter
+    // must materialize pkgA as a real directory and descend into it: the
+    // copied cache file is real (owned by the include copy executor) while
+    // the package's share files (index.js, package.json) keep their symlinks
+    // — otherwise the package could not be resolved when building in the
+    // worktree.
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.writeFile(path.join(nm, 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.writeFile(path.join(nm, 'pkgA', 'package.json'), JSON.stringify({ name: 'pkgA' }));
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-pkg-copy', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The package directory is real, never a symlink — the copy rule prevents
+    // it from being linked wholesale.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The copied cache file is a real file, independent of the source copy.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    const srcCopiedStat = await fs.stat(path.join(repoDir, 'node_modules', 'pkgA', '.cache', 'x.js'));
+    expect(copied.ino).not.toBe(srcCopiedStat.ino);
+    // The package's share files are symlinked to the source and readable.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'pkgA', 'index.js'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'pkgA', 'index.js')
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'pkgA', 'package.json'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'pkgA', 'package.json')
+    );
+    // The source checkout is unchanged.
+    await expect(fs.readFile(path.join(repoDir, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
     );
 
     await removeWorktree(wPath);

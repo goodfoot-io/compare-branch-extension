@@ -1689,9 +1689,13 @@ interface RerouteNodeModulesOptions {
  * links and non-link entries are represented as symlinks to source paths.
  *
  * When a {@link WorktreePathQuery} policy is supplied (with `relativePath`),
- * entries the policy does not classify as share — omitted or copied paths such
- * as `node_modules/.vite` — are skipped at both the top level and inside
- * `@`-scopes, so specialized provisioning never bypasses the repository policy.
+ * the policy decides each entry: omitted entries are never provisioned,
+ * copied files are left to the include copy executor
+ * ({@link applyWorktreeInclude}), and copied directories are created real and
+ * descended into so share files inside them — a package's index.js or
+ * package.json under a cache-file copy rule — keep their symlinks. `@`-scope
+ * directories are always real with per-package classification, so specialized
+ * provisioning never bypasses the repository policy.
  *
  * @param opts - Source and destination node_modules directories, plus optional
  *   policy query and repository-relative path for policy classification.
@@ -1729,6 +1733,66 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
   // path.
   const policySkips = (entryRel: string | undefined): boolean =>
     entryRel !== undefined && policy !== undefined && policy.classify(entryRel) !== 'share';
+
+  /**
+   * Mirrors the children of a copy-classified directory into the worktree.
+   *
+   * A directory classified 'copy' cannot be symlinked wholesale — the policy
+   * prevents any symlink above a copied descendant. Instead the destination is
+   * created as a real directory and each child is decided on its own: share
+   * children are symlinked (a share-classified path can have no copied
+   * descendant, so a whole share directory is safe to link), copied files are
+   * left to the include copy executor ({@link applyWorktreeInclude}) in wave 3,
+   * copied directories are created real and descended into, and omitted
+   * children are never provisioned.
+   *
+   * @param sourceDir - Absolute source directory whose children are mirrored.
+   * @param destDir - Absolute destination directory populated in the worktree.
+   * @param dirRelativePath - Repository-relative POSIX path of `sourceDir`.
+   * @returns Count of internal workspace symlinks recreated below `destDir`.
+   */
+  const rerouteCopiedDir = async (sourceDir: string, destDir: string, dirRelativePath: string): Promise<number> => {
+    await fs.mkdir(destDir, { recursive: true });
+    const childEntries = await fs.readdir(sourceDir, { withFileTypes: true });
+    const childCounts = await Promise.all(
+      childEntries.map(async (child): Promise<number> => {
+        const childSource = path.join(sourceDir, child.name);
+        const childDest = path.join(destDir, child.name);
+        const childRelativePath = `${dirRelativePath}/${child.name}`;
+
+        if (policy !== undefined && policy.classify(childRelativePath) === 'omit') {
+          return 0;
+        }
+
+        if (child.isSymbolicLink()) {
+          if (policySkips(childRelativePath)) {
+            return 0;
+          }
+          const target = await fs.readlink(childSource);
+          if (isInternalSymlink(target)) {
+            await replaceSymlink(target, childDest);
+            return 1;
+          } else {
+            await replaceSymlink(childSource, childDest);
+            return 0;
+          }
+        } else if (child.isDirectory()) {
+          if (policySkips(childRelativePath)) {
+            return rerouteCopiedDir(childSource, childDest, childRelativePath);
+          }
+          await replaceSymlink(childSource, childDest);
+          return 0;
+        } else {
+          if (policySkips(childRelativePath)) {
+            return 0;
+          }
+          await replaceSymlink(childSource, childDest);
+          return 0;
+        }
+      })
+    );
+    return childCounts.reduce((sum, c) => sum + c, 0);
+  };
 
   const entries = await fs.readdir(sourceNodeModules, { withFileTypes: true });
   const counts = await Promise.all(
@@ -1768,11 +1832,20 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
             const scopeRelativePath =
               entryRelativePath !== undefined ? `${entryRelativePath}/${scopeEntry.name}` : undefined;
 
-            if (policySkips(scopeRelativePath)) {
+            // Omitted scope members are never provisioned (mirrors the
+            // top-level omit check).
+            if (
+              scopeRelativePath !== undefined &&
+              policy !== undefined &&
+              policy.classify(scopeRelativePath) === 'omit'
+            ) {
               return 0;
             }
 
             if (scopeEntry.isSymbolicLink()) {
+              if (policySkips(scopeRelativePath)) {
+                return 0;
+              }
               const target = await fs.readlink(scopeSourcePath);
               if (isInternalSymlink(target)) {
                 await replaceSymlink(target, scopeDestPath);
@@ -1781,6 +1854,19 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
                 await replaceSymlink(scopeSourcePath, scopeDestPath);
                 return 0;
               }
+            } else if (
+              scopeRelativePath !== undefined &&
+              policy !== undefined &&
+              policy.classify(scopeRelativePath) !== 'share'
+            ) {
+              // Copy-classified member: a copied package directory is
+              // materialized as a real tree so share files inside it keep
+              // their symlinks; a copied file is owned by the include copy
+              // executor (applyWorktreeInclude, wave 3).
+              if (scopeEntry.isDirectory()) {
+                return rerouteCopiedDir(scopeSourcePath, scopeDestPath, scopeRelativePath);
+              }
+              return 0;
             } else {
               await replaceSymlink(scopeSourcePath, scopeDestPath);
               return 0;
@@ -1789,7 +1875,14 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
         );
         return scopeCounts.reduce((sum, c) => sum + c, 0);
       } else {
-        if (policySkips(entryRelativePath)) {
+        if (entryRelativePath !== undefined && policy !== undefined && policy.classify(entryRelativePath) !== 'share') {
+          // Copy-classified entry (the omit check above already returned): a
+          // copied directory is materialized as a real tree so share files
+          // inside it keep their symlinks; a copied file is owned by the
+          // include copy executor (applyWorktreeInclude, wave 3).
+          if (entry.isDirectory()) {
+            return rerouteCopiedDir(sourcePath, destPath, entryRelativePath);
+          }
           return 0;
         }
         await replaceSymlink(sourcePath, destPath);
