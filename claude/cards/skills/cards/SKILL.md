@@ -247,6 +247,7 @@ Use `.worktreeignore` for generated outputs that should not appear in the worktr
 
 Rules:
 - **Omit wins over copy** — a path matching both files is omitted.
+- **Whole-dir omission** — a file-level `.worktreeignore` pattern under a fully-ignored directory removes the whole directory from the worktree (a symlinked directory cannot be partially omitted); use a copy rule for the file if the rest of the directory must remain.
 - **Gitignore-style patterns** — comments (`#`), negation (`!`), directory patterns (`dir/`); directory patterns cover descendants.
 - **Copy prevents ancestor symlinks** — a copy rule for `dist/bundle.js` under an ignored `dist/` prevents the `dist` symlink and copies only the selected files into a real directory; unmatched siblings stay absent.
 - **Regenerated per creation** — the policy is re-evaluated on every worktree creation; config edits take effect on the next materialization.

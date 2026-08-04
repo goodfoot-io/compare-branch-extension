@@ -446,6 +446,57 @@ describe('loadWorktreePathPolicy', () => {
     }
   );
 
+  // E5 regression: config presence is decided by lstat, which does not follow
+  // symlinks. A dangling symlink at the config path is present-but-unreadable
+  // and must fail closed; only a genuinely absent config means no patterns.
+  it('throws WorktreeIncludeError naming the config when .worktreeignore is a dangling symlink', async () => {
+    sourceRoot = await makeSourceRoot('ignore-dangling-symlink');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    await fs.symlink(path.join(sourceRoot, 'missing-ignore-target'), path.join(sourceRoot, '.worktreeignore'));
+
+    await expect(loadPolicy(sourceRoot)).rejects.toThrow(/\.worktreeignore/);
+  });
+
+  it('throws WorktreeIncludeError naming the config when .worktreeinclude is a dangling symlink', async () => {
+    sourceRoot = await makeSourceRoot('include-dangling-symlink');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    await fs.symlink(path.join(sourceRoot, 'missing-include-target'), path.join(sourceRoot, '.worktreeinclude'));
+
+    await expect(loadPolicy(sourceRoot)).rejects.toThrow(/\.worktreeinclude/);
+  });
+
+  it('treats a genuinely absent config as no patterns and still succeeds', async () => {
+    sourceRoot = await makeSourceRoot('absent-config');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.ignorePatterns).toEqual([]);
+    expect(policy.includePatterns).toEqual([]);
+    expect(policy.share).toEqual({ directories: [], files: ['.env'] });
+  });
+
+  it('loads patterns from a symlinked config whose target exists', async () => {
+    sourceRoot = await makeSourceRoot('ignore-symlinked-target');
+    await initGitRepo(sourceRoot, ['dist/', '.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    const configTarget = path.join(sourceRoot, 'ignore-target');
+    await fs.writeFile(configTarget, 'dist/\n');
+    await fs.symlink(configTarget, path.join(sourceRoot, '.worktreeignore'));
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.ignorePatterns).toEqual(['dist/']);
+    expect(policy.omit).toEqual(['dist']);
+    expect(policy.share).toEqual({ directories: [], files: ['.env'] });
+    expect(policy.classify('dist/bundle.js')).toBe('omit');
+  });
+
   it('classifies node_modules descendants as omit when .worktreeignore matches them', async () => {
     sourceRoot = await makeSourceRoot('reroute-omit');
     await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);

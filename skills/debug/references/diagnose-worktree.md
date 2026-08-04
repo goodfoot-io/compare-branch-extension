@@ -95,7 +95,7 @@ Ranked by probability:
 
 **Evidence**: `create-worktree` exits 3. The worktree is missing paths that should be shared, has symlinks where real files should be, or contains generated output that should be omitted.
 
-**Cause**: `.worktreeignore` (omit) and `.worktreeinclude` (copy) at the source repo root configure the worktree path policy, and the policy fails closed: an unreadable or invalid file stops creation with a `WorktreeIncludeError` before any matching path is linked. Otherwise every git-ignored path gets one of three decisions — omit (never provisioned), copy (real file; prevents the ignored ancestor directory from being symlinked), or share (symlink, the default for unmatched paths). Omit wins over copy; patterns are gitignore syntax. The policy is re-evaluated on every creation, so config edits apply on the next run.
+**Cause**: `.worktreeignore` (omit) and `.worktreeinclude` (copy) at the source repo root configure the worktree path policy, and the policy fails closed: an unreadable or invalid file stops creation with a `WorktreeIncludeError` before any matching path is linked. Otherwise every git-ignored path gets one of three decisions — omit (never provisioned), copy (real file; prevents the ignored ancestor directory from being symlinked), or share (symlink, the default for unmatched paths). Omit wins over copy; patterns are gitignore syntax. A file-level `.worktreeignore` pattern under a fully-ignored directory removes the whole directory from the worktree (a symlinked directory cannot be partially omitted); use a copy rule for the file if the rest of the directory must remain. The policy is re-evaluated on every creation, so config edits apply on the next run.
 
 **Recovery**:
 ```bash

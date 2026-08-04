@@ -210,21 +210,31 @@ async function enumerateIgnoredFiles(sourceRoot: string, dir: string): Promise<s
 /**
  * Reads one policy config file, treating absence as no patterns.
  *
- * Any other read failure (unreadable file, a directory at the path, an I/O
- * error) fails closed with a {@link WorktreeIncludeError} so worktree creation
- * stops before a matching source path can be linked.
+ * Presence is decided with `lstat`, which does not follow symlinks, so a
+ * dangling symlink at the config path still counts as present: its missing
+ * target surfaces as a {@link WorktreeIncludeError} naming the config file
+ * rather than being silently treated as no patterns. Every other read
+ * failure (unreadable file, a directory at the path, an I/O error) fails
+ * closed the same way, so worktree creation stops before a matching source
+ * path can be linked.
  *
  * @param sourceRoot - Source checkout root.
  * @param name - Which policy config file to read.
  * @returns File contents, or an empty string when the file is absent.
  */
 async function readConfigFile(sourceRoot: string, name: '.worktreeignore' | '.worktreeinclude'): Promise<string> {
+  const configPath = path.join(sourceRoot, name);
   try {
-    return await fs.readFile(path.join(sourceRoot, name), 'utf8');
+    await fs.lstat(configPath);
   } catch (error) {
     const err = error as NodeJS.ErrnoException;
     if (err.code === 'ENOENT') return '';
-    throw new WorktreeIncludeError(`Failed to read ${name}: ${err.message}`, { cause: error });
+    throw new WorktreeIncludeError(`Failed to stat ${name}: ${err.message}`, { cause: error });
+  }
+  try {
+    return await fs.readFile(configPath, 'utf8');
+  } catch (error) {
+    throw new WorktreeIncludeError(`Failed to read ${name}: ${(error as Error).message}`, { cause: error });
   }
 }
 
