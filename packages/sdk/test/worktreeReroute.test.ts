@@ -12,8 +12,10 @@
  * under `node_modules` (including a `.vite`-style cache path) through
  * createWorktree and assert the rerouter leaves non-shareable descendants to
  * the policy: omitted paths stay absent, copied files are materialized real
- * by the include step, and share files inside a copied package keep their
- * symlinks.
+ * by the include step, share files inside a copied package keep their
+ * symlinks, and a package whose interior holds a matcher-matched omitted path
+ * is materialized as a real tree (never symlinked wholesale) so worktree-side
+ * writes cannot reach the source.
  *
  * @summary rerouteNodeModules idempotency regression and policy awareness
  */
@@ -300,6 +302,208 @@ describe('policy-aware node_modules rerouting', () => {
 
     // The omitted node_modules dir is not rebuilt at all.
     await expect(fs.lstat(path.join(wPath, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+
+    await removeWorktree(wPath);
+  });
+
+  it('materializes a package with an interior omit rule: ruled path absent, share files symlinked, writes cannot reach the source', async () => {
+    // A file-level .worktreeignore rule inside a top-level package
+    // (node_modules/pkgA/.cache/x.js) matches neither node_modules nor pkgA
+    // itself, so classify leaves both 'share'. The rerouter must detect that
+    // pkgA is an ANCESTOR of the matcher-matched omitted path and materialize
+    // it as a real tree: the ruled file stays absent, the package's share
+    // files keep their symlinks, and a worktree-side write at the ruled path
+    // cannot reach the source checkout.
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.writeFile(path.join(nm, 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.writeFile(path.join(nm, 'pkgA', 'package.json'), JSON.stringify({ name: 'pkgA' }));
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-pkg-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The package is a real directory, never a wholesale symlink to the source.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The .cache directory is real too, so the ruled path stays absent.
+    const cacheLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache'));
+    expect(cacheLstat.isDirectory()).toBe(true);
+    expect(cacheLstat.isSymbolicLink()).toBe(false);
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The package's share files are symlinked to the source and readable.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'pkgA', 'index.js'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'pkgA', 'index.js')
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    // The source copy of the ruled file is untouched by the settle.
+    await expect(fs.readFile(path.join(repoDir, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    // A worktree-side write at the ruled path lands in the worktree's own
+    // directory — the real .cache tree — and never reaches the source.
+    await fs.writeFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'worktree-write\n');
+    await expect(fs.readFile(path.join(repoDir, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('materializes an @scoped package with an interior omit rule and keeps its scope sibling symlinked', async () => {
+    // Same ancestor trigger as the top-level case, inside an @scope: the rule
+    // targets node_modules/@scope/a/.cache/tmp, so the rerouter must descend
+    // through the always-real @scope into a — materialized as a real tree
+    // with tmp absent and the package's share files symlinked — while the
+    // sibling @scope/b stays symlinked wholesale.
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, '@scope', 'a', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, '@scope', 'a', '.cache', 'tmp'), 'x');
+    await fs.writeFile(path.join(nm, '@scope', 'a', 'index.js'), 'module.exports = 1;');
+    await fs.mkdir(path.join(nm, '@scope', 'b'), { recursive: true });
+    await fs.writeFile(path.join(nm, '@scope', 'b', 'index.js'), 'module.exports = 2;');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/@scope/a/.cache/tmp\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-scope-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The scoped package is a real directory, never a wholesale symlink.
+    const pkgALstat = await fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a'));
+    expect(pkgALstat.isDirectory()).toBe(true);
+    expect(pkgALstat.isSymbolicLink()).toBe(false);
+    // The ruled path is absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a', '.cache', 'tmp'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The package's share files are symlinked to the source and readable.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'a', 'index.js'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', '@scope', 'a', 'index.js')
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', '@scope', 'a', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    // The sibling package inside the same scope is still symlinked wholesale.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'b'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', '@scope', 'b')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('applies an interior omit rule inside the copy descent: copied file real, omitted sibling absent', async () => {
+    // A copy rule (.worktreeinclude: node_modules/pkgA/.cache/x.js) already
+    // materializes pkgA via the copy descent. An omit rule for a DIFFERENT
+    // interior path (node_modules/pkgA/logs/tmp) must trigger inside that
+    // descent: `logs` classifies share — it is not an ancestor of any copied
+    // path — but it hides a matcher-matched omitted path, so it must be
+    // materialized real instead of symlinked wholesale, or tmp would be
+    // exposed to worktree-side writes that mutate the source.
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.mkdir(path.join(nm, 'pkgA', 'logs'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'pkgA', 'logs', 'tmp'), 'x');
+    await fs.writeFile(path.join(nm, 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/pkgA/.cache/x.js\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/logs/tmp\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-pkg-mixed', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The package is a real directory, never a wholesale symlink.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The copied cache file is a real file with the source content.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    // The omit-triggered sibling directory is real and the ruled path absent.
+    const logsLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', 'logs'));
+    expect(logsLstat.isDirectory()).toBe(true);
+    expect(logsLstat.isSymbolicLink()).toBe(false);
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA', 'logs', 'tmp'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The package's share files are symlinked to the source and readable.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'pkgA', 'index.js'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'pkgA', 'index.js')
+    );
+    // The source copy of the ruled file is untouched.
+    await expect(fs.readFile(path.join(repoDir, 'node_modules', 'pkgA', 'logs', 'tmp'), 'utf8')).resolves.toBe('x');
+
+    await removeWorktree(wPath);
+  });
+
+  it('omits an entire package entry matched by a direct directory .worktreeignore pattern', async () => {
+    // A directory-level pattern (`node_modules/pkgA/`) matches the package
+    // itself, so classify returns 'omit' for the entry and the rerouter skips
+    // it wholesale — the omit-ancestor trigger must not change this.
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.writeFile(path.join(nm, 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.mkdir(path.join(nm, 'left-pad'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'left-pad', 'index.js'), 'module.exports = 0;');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-pkg-omit-all', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The omitted package is entirely absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // Share siblings still resolve to the source.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'left-pad'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'left-pad')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('materializes a .vite-style cache dir matched by a deep .worktreeignore pattern', async () => {
+    // A directory-level pattern INSIDE node_modules (`node_modules/.vite/cache/`)
+    // matches only paths under the cache dir — neither node_modules nor .vite
+    // itself. The rerouter must materialize .vite as a real tree so the ruled
+    // cache content stays absent instead of being exposed through a wholesale
+    // .vite symlink, while sibling packages keep their symlinks. The cache dir
+    // itself matches the pattern directly and is omitted wholesale, exactly
+    // like a direct directory pattern.
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, '.vite', 'cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, '.vite', 'cache', 'deadbeef'), 'x');
+    await fs.mkdir(path.join(nm, 'left-pad'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'left-pad', 'index.js'), 'module.exports = 0;');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/.vite/cache/\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-vite-deep-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // .vite is a real directory, never a wholesale symlink to the source.
+    const viteLstat = await fs.lstat(path.join(wPath, 'node_modules', '.vite'));
+    expect(viteLstat.isDirectory()).toBe(true);
+    expect(viteLstat.isSymbolicLink()).toBe(false);
+    // The cache dir matches the pattern directly and is omitted wholesale.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', '.vite', 'cache'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // Share siblings still resolve to the source.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'left-pad'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'left-pad')
+    );
 
     await removeWorktree(wPath);
   });

@@ -1677,7 +1677,10 @@ interface RerouteNodeModulesOptions {
    * Path policy query. Entries classified omit or copy — e.g. a
    * `.worktreeignore`-matched `node_modules/.vite` cache — are skipped instead
    * of symlinked: copied descendants are materialized as real files by the
-   * include copy step, and omitted ones stay absent. Requires `relativePath`.
+   * include copy step, and omitted ones stay absent. Directories that are
+   * ancestors of a matcher-matched omitted path are materialized as real
+   * trees with per-entry decisions instead of symlinked wholesale. Requires
+   * `relativePath`.
    */
   policy?: WorktreePathQuery;
 }
@@ -1691,11 +1694,15 @@ interface RerouteNodeModulesOptions {
  * When a {@link WorktreePathQuery} policy is supplied (with `relativePath`),
  * the policy decides each entry: omitted entries are never provisioned,
  * copied files are left to the include copy executor
- * ({@link applyWorktreeInclude}), and copied directories are created real and
+ * ({@link applyWorktreeInclude}), copied directories are created real and
  * descended into so share files inside them — a package's index.js or
- * package.json under a cache-file copy rule — keep their symlinks. `@`-scope
- * directories are always real with per-package classification, so specialized
- * provisioning never bypasses the repository policy.
+ * package.json under a cache-file copy rule — keep their symlinks, and so are
+ * directories that are ancestors of a matcher-matched omitted path (e.g. a
+ * file-level `node_modules/pkgA/.cache/x.js` rule), which keeps the omitted
+ * path out of the worktree instead of exposing it through a wholesale
+ * symlink. `@`-scope directories are always real with per-package
+ * classification, so specialized provisioning never bypasses the repository
+ * policy.
  *
  * @param opts - Source and destination node_modules directories, plus optional
  *   policy query and repository-relative path for policy classification.
@@ -1735,13 +1742,17 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
     entryRel !== undefined && policy !== undefined && policy.classify(entryRel) !== 'share';
 
   /**
-   * Mirrors the children of a copy-classified directory into the worktree.
+   * Mirrors the children of a materialized directory into the worktree.
    *
    * A directory classified 'copy' cannot be symlinked wholesale — the policy
-   * prevents any symlink above a copied descendant. Instead the destination is
-   * created as a real directory and each child is decided on its own: share
-   * children are symlinked (a share-classified path can have no copied
-   * descendant, so a whole share directory is safe to link), copied files are
+   * prevents any symlink above a copied descendant — and neither can a
+   * directory that is an ancestor of a matcher-matched omitted path (the
+   * symlink would expose the omitted path to worktree-side writes). Instead
+   * the destination is created as a real directory and each child is decided
+   * on its own: share children are symlinked (a share-classified path can
+   * have no copied descendant — though it may hide an omitted one, so a share
+   * directory that is an ancestor of a matcher-matched omitted path is
+   * created real and descended into rather than linked), copied files are
    * left to the include copy executor ({@link applyWorktreeInclude}) in wave 3,
    * copied directories are created real and descended into, and omitted
    * children are never provisioned.
@@ -1777,7 +1788,11 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
             return 0;
           }
         } else if (child.isDirectory()) {
-          if (policySkips(childRelativePath)) {
+          // A copied directory is materialized as a real tree (E6), and so is
+          // a directory that is an ancestor of a matcher-matched omitted path
+          // (E7) — symlinking it wholesale would expose the omitted descendant
+          // to worktree-side writes that mutate the source.
+          if (policySkips(childRelativePath) || policy?.isOmitAncestor(childRelativePath)) {
             return rerouteCopiedDir(childSource, childDest, childRelativePath);
           }
           await replaceSymlink(childSource, childDest);
@@ -1855,6 +1870,17 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
                 return 0;
               }
             } else if (
+              scopeEntry.isDirectory() &&
+              scopeRelativePath !== undefined &&
+              policy?.isOmitAncestor(scopeRelativePath)
+            ) {
+              // An ancestor of a matcher-matched omitted path (e.g. a
+              // file-level `node_modules/@scope/a/.cache/tmp` rule): the
+              // package is materialized as a real tree with per-entry
+              // decisions — symlinking it wholesale would expose the omitted
+              // path to worktree-side writes that mutate the source.
+              return rerouteCopiedDir(scopeSourcePath, scopeDestPath, scopeRelativePath);
+            } else if (
               scopeRelativePath !== undefined &&
               policy !== undefined &&
               policy.classify(scopeRelativePath) !== 'share'
@@ -1875,6 +1901,14 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
         );
         return scopeCounts.reduce((sum, c) => sum + c, 0);
       } else {
+        // An ancestor of a matcher-matched omitted path (e.g. a file-level
+        // `node_modules/pkgA/.cache/x.js` rule): the package is materialized
+        // as a real tree with per-entry decisions — symlinking it wholesale
+        // would expose the omitted path to worktree-side writes that mutate
+        // the source.
+        if (entry.isDirectory() && entryRelativePath !== undefined && policy?.isOmitAncestor(entryRelativePath)) {
+          return rerouteCopiedDir(sourcePath, destPath, entryRelativePath);
+        }
         if (entryRelativePath !== undefined && policy !== undefined && policy.classify(entryRelativePath) !== 'share') {
           // Copy-classified entry (the omit check above already returned): a
           // copied directory is materialized as a real tree so share files

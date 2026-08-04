@@ -94,6 +94,19 @@ export interface WorktreePathQuery {
    * symlinked. Backslashes are normalized to forward slashes.
    */
   readonly classify: (relativePath: string) => WorktreePathDecision;
+  /**
+   * Whether `relativePath` is a strict ancestor directory of a
+   * matcher-matched omitted path.
+   *
+   * `classify`'s omit branch is matcher-direct: a file-level pattern such as
+   * `node_modules/pkgA/.cache/x.js` matches only the path itself, so its
+   * ancestor directories classify `share`. Steps that must never expose an
+   * omitted path to worktree-side writes — the node_modules rerouter —
+   * consult this to materialize such ancestors as real directories with
+   * per-entry decisions instead of symlinking them wholesale. Backslashes are
+   * normalized to forward slashes.
+   */
+  readonly isOmitAncestor: (relativePath: string) => boolean;
 }
 
 /**
@@ -274,7 +287,10 @@ function posixNormalize(relativePath: string): string {
  * collapsed ignored directory is omitted wholesale when any of its
  * descendants matches `.worktreeignore` (unless a descendant is selected for
  * copy), because a symlinked directory cannot expose only part of its
- * contents.
+ * contents. The query also exposes {@link WorktreePathQuery.isOmitAncestor},
+ * which the node_modules rerouter uses to materialize a matcher-matched
+ * omitted path's ancestor directories as real trees instead of symlinking
+ * them wholesale.
  *
  * @param opts - Options for the policy load.
  * @param opts.sourceRoot - Source checkout root containing the config files.
@@ -368,6 +384,22 @@ export async function loadWorktreePathPolicy(opts: {
       copyAncestors.add(parts.slice(0, i).join('/'));
     }
   }
+
+  // omitAncestors: strict ancestor directories of matcher-matched omitted
+  // paths — the direct file matches plus every enumerated omitted descendant.
+  // classify's omit branch is matcher-direct (a file-level pattern matches
+  // only the path itself), so these ancestors classify 'share'; the node_modules
+  // rerouter consults this set to materialize them as real trees with per-entry
+  // decisions instead of symlinking them wholesale and exposing the omitted
+  // path to worktree-side writes.
+  const omitAncestors = new Set<string>();
+  for (const omitted of [...omitFiles, ...nestedByDir.flatMap((e) => e.omitMatches)]) {
+    const parts = omitted.split('/');
+    for (let i = 1; i < parts.length; i++) {
+      omitAncestors.add(parts.slice(0, i).join('/'));
+    }
+  }
+
   const classify = (relativePath: string): WorktreePathDecision => {
     const normalized = posixNormalize(relativePath);
     if (omitMatcher.ignores(normalized) || omitMatcher.ignores(`${normalized}/`)) {
@@ -379,5 +411,7 @@ export async function loadWorktreePathPolicy(opts: {
     return 'share';
   };
 
-  return { ignorePatterns, includePatterns, omit, copy, share, classify };
+  const isOmitAncestor = (relativePath: string): boolean => omitAncestors.has(posixNormalize(relativePath));
+
+  return { ignorePatterns, includePatterns, omit, copy, share, classify, isOmitAncestor };
 }

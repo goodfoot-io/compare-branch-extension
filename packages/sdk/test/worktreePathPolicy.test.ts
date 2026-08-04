@@ -517,6 +517,32 @@ describe('loadWorktreePathPolicy', () => {
     expect(policy.classify('node_modules/.vite/deps/x.js')).toBe('omit');
   });
 
+  it('exposes the ancestor directories of matcher-matched omitted node_modules paths without widening classify', async () => {
+    sourceRoot = await makeSourceRoot('reroute-omit-ancestors');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'node_modules', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'node_modules', 'pkgA', '.cache', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, 'node_modules', 'pkgA', 'index.js'), 'i');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // classify stays matcher-direct: the file-level pattern matches only the
+    // path itself, so its ancestor directories still classify 'share'...
+    expect(policy.classify('node_modules/pkgA')).toBe('share');
+    expect(policy.classify('node_modules/pkgA/.cache')).toBe('share');
+    expect(policy.classify('node_modules/pkgA/.cache/x.js')).toBe('omit');
+    // ...while the ancestor query lets the rerouter materialize them as real
+    // trees instead of symlinking them wholesale.
+    expect(policy.isOmitAncestor('node_modules')).toBe(true);
+    expect(policy.isOmitAncestor('node_modules/pkgA')).toBe(true);
+    expect(policy.isOmitAncestor('node_modules/pkgA/.cache')).toBe(true);
+    // The matched path itself is not an ancestor; unrelated paths are not.
+    expect(policy.isOmitAncestor('node_modules/pkgA/.cache/x.js')).toBe(false);
+    expect(policy.isOmitAncestor('node_modules/pkgA/index.js')).toBe(false);
+    expect(policy.isOmitAncestor('node_modules/other')).toBe(false);
+  });
+
   it('classifies a copied node_modules descendant as copy and its ancestors as copy', async () => {
     sourceRoot = await makeSourceRoot('reroute-copy');
     await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
