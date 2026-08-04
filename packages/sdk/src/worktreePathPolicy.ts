@@ -75,6 +75,28 @@ export interface WorktreeIgnoredPaths {
 }
 
 /**
+ * The narrow per-path decision query that provisioning steps consume instead
+ * of re-implementing pattern matching.
+ *
+ * The node_modules rerouter accepts this query object — or the full
+ * {@link WorktreePathPolicy}, which satisfies it — so specialized provisioning
+ * cannot bypass the repository policy.
+ */
+export interface WorktreePathQuery {
+  /**
+   * Classifies any repository-relative POSIX path as omit, copy, or share.
+   *
+   * The decision is pattern-based: a path is `omit` when it (or any ancestor)
+   * matches `.worktreeignore`, `copy` when it is a copied path or an ancestor
+   * of one, and `share` otherwise. Rerouting and symlink producers consult
+   * this query instead of re-implementing pattern matching, so a descendant
+   * such as `node_modules/.vite` that the policy omits or copies is never
+   * symlinked. Backslashes are normalized to forward slashes.
+   */
+  readonly classify: (relativePath: string) => WorktreePathDecision;
+}
+
+/**
  * The immutable path policy for one worktree creation.
  *
  * Built once from the authoritative collapsed ignored-path input and handed to
@@ -83,7 +105,7 @@ export interface WorktreeIgnoredPaths {
  * same path decision. Matching is deterministic with omit before copy before
  * share.
  */
-export interface WorktreePathPolicy {
+export interface WorktreePathPolicy extends WorktreePathQuery {
   /** Pattern lines configured in `.worktreeignore`. */
   readonly ignorePatterns: WorktreeIgnorePatterns;
   /** Pattern lines configured in `.worktreeinclude`. */
@@ -106,17 +128,6 @@ export interface WorktreePathPolicy {
    * under a copied-parent directory remain absent.
    */
   readonly share: WorktreeIgnoredPaths;
-  /**
-   * Classifies any repository-relative POSIX path as omit, copy, or share.
-   *
-   * The decision is pattern-based: a path is `omit` when it (or any ancestor)
-   * matches `.worktreeignore`, `copy` when it is a copied path or an ancestor
-   * of one, and `share` otherwise. Rerouting and symlink producers consult
-   * this query instead of re-implementing pattern matching, so a descendant
-   * such as `node_modules/.vite` that the policy omits or copies is never
-   * symlinked. Backslashes are normalized to forward slashes.
-   */
-  readonly classify: (relativePath: string) => WorktreePathDecision;
 }
 
 /**

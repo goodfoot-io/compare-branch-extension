@@ -1,5 +1,6 @@
 /**
- * Regression tests for the WorktreeCreate EEXIST failure on node_modules reroute.
+ * Regression tests for the WorktreeCreate EEXIST failure on node_modules reroute,
+ * plus policy-aware rerouting.
  *
  * Mirrors the real scenario: a repo whose `node_modules/` is git-ignored and
  * contains a `.experimental-vitest-cache` directory. createWorktree's settle
@@ -7,7 +8,12 @@
  * and rerouteNodeModules must be safe to run more than once against the same
  * worktree (a re-fired hook, re-entry, or retried launch) without EEXIST.
  *
- * @summary rerouteNodeModules idempotency regression
+ * The policy-aware tests drive `.worktreeignore` and `.worktreeinclude` rules
+ * under `node_modules` (including a `.vite`-style cache path) through
+ * createWorktree and assert the rerouter skips non-shareable descendants
+ * instead of symlinking them.
+ *
+ * @summary rerouteNodeModules idempotency regression and policy awareness
  */
 
 import { execFileSync } from 'node:child_process';
@@ -30,30 +36,30 @@ function initGitRepo(dir: string): void {
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
 }
 
+let tmpBase = '';
+let repoDir = '';
+let worktreesDir = '';
+const originalEnv = process.env;
+
+beforeEach(async () => {
+  tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-repro-')));
+  repoDir = path.join(tmpBase, 'repo');
+  worktreesDir = path.join(tmpBase, 'worktrees');
+  await fs.mkdir(repoDir);
+  await fs.mkdir(worktreesDir);
+  initGitRepo(repoDir);
+  process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir };
+});
+
+afterEach(async () => {
+  process.env = originalEnv;
+  if (tmpBase) {
+    await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    tmpBase = '';
+  }
+});
+
 describe('rerouteNodeModules idempotency', () => {
-  let tmpBase = '';
-  let repoDir = '';
-  let worktreesDir = '';
-  const originalEnv = process.env;
-
-  beforeEach(async () => {
-    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-repro-')));
-    repoDir = path.join(tmpBase, 'repo');
-    worktreesDir = path.join(tmpBase, 'worktrees');
-    await fs.mkdir(repoDir);
-    await fs.mkdir(worktreesDir);
-    initGitRepo(repoDir);
-    process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir };
-  });
-
-  afterEach(async () => {
-    process.env = originalEnv;
-    if (tmpBase) {
-      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-      tmpBase = '';
-    }
-  });
-
   it('settles without EEXIST when node_modules is git-ignored and holds a cache dir', async () => {
     // Source node_modules (git-ignored as a whole) with a real cache directory.
     const nm = path.join(repoDir, 'node_modules');
@@ -94,5 +100,91 @@ describe('rerouteNodeModules idempotency', () => {
     expect(resolved).toBe(path.join(sourceNodeModules, '.experimental-vitest-cache'));
     const scoped = await fs.readlink(path.join(destNodeModules, '@scope', 'pkg'));
     expect(scoped).toBe(path.join(sourceNodeModules, '@scope', 'pkg'));
+  });
+});
+
+describe('policy-aware node_modules rerouting', () => {
+  /**
+   * Makes the fixture a yarn-workspaces repo so enumerateReroutedNodeModules
+   * owns the root node_modules and the rerouter rebuilds it as a real directory
+   * of per-entry symlinks. Without this, the fixture's git-ignored node_modules
+   * is symlinked wholesale by symlinkIgnoredPaths instead — which would mask
+   * the per-descendant policy decisions this suite asserts.
+   */
+  async function makeNodeModulesRerouted(): Promise<void> {
+    await fs.writeFile(path.join(repoDir, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+  }
+
+  it('omits a .worktreeignore-matched node_modules descendant: no symlink is created for it', async () => {
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, '.vite', 'cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, '.vite', 'cache', 'deadbeef'), 'x');
+    await fs.mkdir(path.join(nm, 'left-pad'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'left-pad', 'index.js'), 'module.exports = 0;');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/.vite\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The omitted descendant is absent — no symlink, no directory.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', '.vite'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // Share siblings still resolve to the source.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'left-pad'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'left-pad')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('copies a .worktreeinclude-matched node_modules descendant instead of symlinking it', async () => {
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, '.vite', 'deps'), { recursive: true });
+    await fs.writeFile(path.join(nm, '.vite', 'deps', 'x.js'), 'export {};\n');
+    await fs.mkdir(path.join(nm, '.vite', 'cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, '.vite', 'cache', 'y.js'), 'y');
+    await fs.mkdir(path.join(nm, 'left-pad'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'left-pad', 'index.js'), 'module.exports = 0;');
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/.vite/deps/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-copy', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The copied descendant is a real file in the worktree, not a symlink.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', '.vite', 'deps', 'x.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    expect(await fs.readFile(path.join(wPath, 'node_modules', '.vite', 'deps', 'x.js'), 'utf8')).toBe('export {};\n');
+    // The copied parent is a real directory, never a symlink.
+    const viteLstat = await fs.lstat(path.join(wPath, 'node_modules', '.vite'));
+    expect(viteLstat.isSymbolicLink()).toBe(false);
+    expect(viteLstat.isDirectory()).toBe(true);
+    // Unmatched ignored siblings under the copied parent stay absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', '.vite', 'cache', 'y.js'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // Share siblings still resolve to the source.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'left-pad'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', 'left-pad')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('omits an entire node_modules entry matched by .worktreeignore', async () => {
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, 'left-pad'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'left-pad', 'index.js'), 'module.exports = 0;');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-omit-all', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The omitted node_modules dir is not rebuilt at all.
+    await expect(fs.lstat(path.join(wPath, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+
+    await removeWorktree(wPath);
   });
 });

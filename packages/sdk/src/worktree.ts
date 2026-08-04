@@ -21,7 +21,7 @@ import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
 import { atomicWriteHookFile, RESOLVE_NODE_BASH } from './git-hooks.js';
 import { applyWorktreeInclude } from './worktreeInclude.js';
-import { loadWorktreePathPolicy } from './worktreePathPolicy.js';
+import { loadWorktreePathPolicy, type WorktreePathQuery } from './worktreePathPolicy.js';
 import { createWorktreePerf } from './worktreePerf.js';
 
 /**
@@ -416,67 +416,100 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     );
     excludePathPromise.catch(() => undefined);
 
+    // Build the authoritative omit/copy/share policy once, as soon as
+    // ignored-path discovery resolves. Discovery started before `git worktree
+    // add`, so the policy load — config reads plus the git ls-files enumeration
+    // of ignored directories — typically completes during the checkout and
+    // overlaps the settle waves below. Every downstream step awaits this same
+    // promise so all of them make one path decision: the rerouter skips
+    // non-shareable node_modules descendants, the share-candidate join excludes
+    // omitted and copied paths from symlinking, and the include copy executor
+    // gets the precomputed copy set. A noop catch prevents an unhandled
+    // rejection during the checkout window before settle awaits it; settle
+    // still awaits it and surfaces any real error (fail-closed before a
+    // matching source path can be linked).
+    const policyPromise = perf.measure('settle:loadWorktreePathPolicy', async () =>
+      loadWorktreePathPolicy({ sourceRoot, ignored: await ignoredPromise })
+    );
+    policyPromise.catch(() => undefined);
+
     // Mirror node_modules now, overlapping wave 1 and the exclude-config writes.
     // It writes only the worktree's node_modules trees — disjoint from the root
     // symlinks, .cards copy, and the (node_modules-excluded) ignored-path symlinks
     // — so it is safe to start at settle entry rather than waiting for wave 2. It
     // reuses the enumeration already in flight (reroutedPromise) instead of
-    // re-reading package.json and re-lstat-ing every package.
+    // re-reading package.json and re-lstat-ing every package, and applies the
+    // policy (policyPromise) so omitted or copied descendants — e.g.
+    // node_modules/.vite — are never symlinked.
     const reroutePromise = perf.measure('settle:rerouteAllNodeModules', async () =>
-      rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot, entries: await reroutedPromise })
+      rerouteAllNodeModules({
+        sourceRoot,
+        worktreeDir,
+        repoRoot,
+        entries: await reroutedPromise,
+        policy: await policyPromise
+      })
     );
     reroutePromise.catch(() => undefined);
 
     try {
-      // Wave 1: await the source-only discovery already in flight (started before
-      // `git worktree add`), and run the worktree-writing copies that needed the
-      // worktree to exist. discoverIgnoredPaths / enumerateReroutedNodeModules
-      // typically resolve during the checkout, so this wave is bounded by the copies.
-      const [ignored, reroutedNodeModules] = await perf.measure('settle:wave1', () =>
+      // Wave 1: run the worktree-writing copies that needed the worktree to
+      // exist. discoverIgnoredPaths / enumerateReroutedNodeModules (started
+      // before `git worktree add`) are consumed by the policy and reroute
+      // promises above and typically resolve during the checkout, so this wave
+      // is bounded by the copies.
+      const [reroutedNodeModules] = await perf.measure('settle:wave1', () =>
         Promise.all([
-          ignoredPromise,
           reroutedPromise,
           perf.measure('settle:copyExistingSymlinks', () => copyExistingSymlinks(sourceRoot, worktreeDir)),
           perf.measure('settle:copyCardsDirectory', () => copyCardsDirectory(sourceRoot, worktreeDir))
         ])
       );
 
-      // Synchronization: compute filteredIgnored once both discovery results are in hand.
-      // .cards is copied rather than symlinked so each worktree gets an independent copy.
-      // node_modules owned by the rerouter are excluded here — the rerouter rebuilds
-      // them as real directories; symlinking first and then unlinking wastes syscalls
-      // and creates an ordering dependency between the two steps.
-      const ownedNodeModules = new Set(reroutedNodeModules.map((e) => e.relativePath));
-      const filteredIgnored: IgnoredPaths = {
-        directories: ignored.directories.filter(
-          (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedNodeModules.has(d)
-        ),
-        files: ignored.files.filter((f) => !f.startsWith('.cards/'))
-      };
+      // Synchronization: join the policy with the rerouter's ownership list once
+      // both are in hand. Share candidates are the policy's shareable ignored
+      // paths minus the directories the rerouter owns (node_modules is rebuilt
+      // as a real directory of per-entry symlinks; symlinking first and then
+      // unlinking wastes syscalls and creates an ordering dependency between the
+      // two steps) and minus .cards, which is copied rather than symlinked so
+      // each worktree gets an independent copy. Omitted and copied paths never
+      // reach this set — the policy already subtracted them from share.
+      const { policy, shareCandidates } = await perf.measure('settle:matchShareCandidates', async () => {
+        const policy = await policyPromise;
+        const ownedNodeModules = new Set(reroutedNodeModules.map((e) => e.relativePath));
+        const shareCandidates: IgnoredPaths = {
+          directories: policy.share.directories.filter(
+            (d) => d !== '.cards' && !d.startsWith('.cards/') && !ownedNodeModules.has(d)
+          ),
+          files: policy.share.files.filter((f) => !f.startsWith('.cards/'))
+        };
+        return { policy, shareCandidates };
+      });
 
-      // Wave 2: symlink the remaining ignored paths (node_modules already excluded
-      // from filteredIgnored and rerouted concurrently above).
+      // Wave 2: symlink the share-only ignored paths (node_modules excluded
+      // above and rerouted concurrently, .cards copied in wave 1).
       await perf.measure('settle:symlinkIgnoredPaths', () =>
-        symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored })
+        symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: shareCandidates })
       );
 
-      // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths to preserve original ordering
-      // on any overlapping gitignored paths; the exclude-file content write needs symlinks in
-      // place. The git config was already enabled above (excludePathPromise), so only the cheap
-      // filesystem append remains in the tail.
+      // Wave 3: applyWorktreeInclude runs after symlinkIgnoredPaths — the copy
+      // and share sets are disjoint (the policy prevents any ignored ancestor
+      // symlink above a copied descendant), and the exclude-file content write
+      // needs the wave-2 symlinks in place. The git config was already enabled
+      // above (excludePathPromise), so only the cheap filesystem append remains
+      // in the tail.
       const [copiedFromInclude] = await perf.measure('settle:wave3', () =>
         Promise.all([
-          // Compile bridge for the policy extraction: load the worktree path
-          // policy from the filtered ignored input and feed its copy set to the
-          // copy executor. The full policy rewiring (share candidates into
-          // symlinkIgnoredPaths / writeWorktreeExcludeFile, rerouter queries,
-          // dedicated perf spans) lands with the policy integration step.
-          perf.measure('settle:applyWorktreeInclude', async () => {
-            const policy = await loadWorktreePathPolicy({ sourceRoot, ignored: filteredIgnored });
-            return applyWorktreeInclude({ sourceRoot, worktreeDir, copySet: policy.copy });
-          }),
+          perf.measure('settle:applyWorktreeInclude', () =>
+            applyWorktreeInclude({ sourceRoot, worktreeDir, copySet: policy.copy })
+          ),
           perf.measure('settle:writeWorktreeExcludeFile', async () =>
-            writeWorktreeExcludeFile(await excludePathPromise, worktreeDir, ignored.directories, ignored.files)
+            writeWorktreeExcludeFile(
+              await excludePathPromise,
+              worktreeDir,
+              shareCandidates.directories,
+              shareCandidates.files
+            )
           )
         ])
       );
@@ -494,12 +527,20 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
       return result;
     } finally {
       // No spawned work may outlive settle. When a wave rejects early, the hoisted
-      // promises (resolveHead, node_modules reroute, and the prepareWorktreeExcludes
-      // git-config subprocesses) are still in flight; awaiting their settlement here
-      // guarantees no background git/fs operation races worktree teardown or the
-      // consumer's use of the directory. allSettled because their failures, if any,
-      // are already surfaced on the success path — here we only need them quiescent.
-      await Promise.allSettled([ignoredPromise, reroutedPromise, basePromise, excludePathPromise, reroutePromise]);
+      // promises (resolveHead, the policy load, node_modules reroute, and the
+      // prepareWorktreeExcludes git-config subprocesses) are still in flight;
+      // awaiting their settlement here guarantees no background git/fs operation
+      // races worktree teardown or the consumer's use of the directory. allSettled
+      // because their failures, if any, are already surfaced on the success path —
+      // here we only need them quiescent.
+      await Promise.allSettled([
+        ignoredPromise,
+        reroutedPromise,
+        basePromise,
+        excludePathPromise,
+        reroutePromise,
+        policyPromise
+      ]);
     }
   });
 
@@ -1546,6 +1587,19 @@ function isIgnoredWorktreePath(candidate: string, ignoredPrefixes: string[]): bo
 interface RerouteNodeModulesOptions {
   sourceNodeModules: string;
   destNodeModules: string;
+  /**
+   * Repository-relative POSIX path of this node_modules directory (e.g.
+   * `node_modules` or `packages/foo/node_modules`), used to build the
+   * repository-relative path of each entry for policy classification.
+   */
+  relativePath?: string;
+  /**
+   * Path policy query. Entries classified omit or copy — e.g. a
+   * `.worktreeignore`-matched `node_modules/.vite` cache — are skipped instead
+   * of symlinked: copied descendants are materialized as real files by the
+   * include copy step, and omitted ones stay absent. Requires `relativePath`.
+   */
+  policy?: WorktreePathQuery;
 }
 
 /**
@@ -1554,11 +1608,17 @@ interface RerouteNodeModulesOptions {
  * Internal workspace links keep their original relative targets while external
  * links and non-link entries are represented as symlinks to source paths.
  *
- * @param opts - Source and destination node_modules directories.
+ * When a {@link WorktreePathQuery} policy is supplied (with `relativePath`),
+ * entries the policy does not classify as share — omitted or copied paths such
+ * as `node_modules/.vite` — are skipped at both the top level and inside
+ * `@`-scopes, so specialized provisioning never bypasses the repository policy.
+ *
+ * @param opts - Source and destination node_modules directories, plus optional
+ *   policy query and repository-relative path for policy classification.
  * @returns Count of internal workspace symlinks recreated by target path.
  */
 export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promise<number> {
-  const { sourceNodeModules, destNodeModules } = opts;
+  const { sourceNodeModules, destNodeModules, relativePath, policy } = opts;
 
   try {
     await fs.lstat(sourceNodeModules);
@@ -1587,6 +1647,14 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
     entries.map(async (entry): Promise<number> => {
       const sourcePath = path.join(sourceNodeModules, entry.name);
       const destPath = path.join(destNodeModules, entry.name);
+      const entryRelativePath = relativePath !== undefined ? `${relativePath}/${entry.name}` : undefined;
+
+      // Policy-driven skip: an omitted or copied descendant must not be
+      // symlinked. The check covers the symlink, @-scope, and plain-entry
+      // branches below; entries inside an @-scope are classified again.
+      if (entryRelativePath !== undefined && policy !== undefined && policy.classify(entryRelativePath) !== 'share') {
+        return 0;
+      }
 
       if (entry.isSymbolicLink()) {
         const target = await fs.readlink(sourcePath);
@@ -1604,6 +1672,16 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
           scopeEntries.map(async (scopeEntry): Promise<number> => {
             const scopeSourcePath = path.join(sourcePath, scopeEntry.name);
             const scopeDestPath = path.join(destPath, scopeEntry.name);
+            const scopeRelativePath =
+              entryRelativePath !== undefined ? `${entryRelativePath}/${scopeEntry.name}` : undefined;
+
+            if (
+              scopeRelativePath !== undefined &&
+              policy !== undefined &&
+              policy.classify(scopeRelativePath) !== 'share'
+            ) {
+              return 0;
+            }
 
             if (scopeEntry.isSymbolicLink()) {
               const target = await fs.readlink(scopeSourcePath);
@@ -1724,6 +1802,13 @@ interface RerouteAllNodeModulesOptions {
    * here so the same `package.json` read and per-package `lstat`s do not run twice.
    */
   entries?: ReroutedNodeModulesEntry[];
+  /**
+   * Path policy query (the full {@link WorktreePathPolicy} satisfies this).
+   * Entries the policy omits outright (e.g. `.worktreeignore` matches
+   * `node_modules/`) are not rebuilt at all; the per-entry skip inside
+   * {@link rerouteNodeModules} leaves omitted or copied descendants unlinked.
+   */
+  policy?: WorktreePathQuery;
 }
 
 /**
@@ -1731,11 +1816,12 @@ interface RerouteAllNodeModulesOptions {
  *
  * The operation is skipped when the repository has no workspace configuration.
  *
- * @param opts - Source root, destination worktree root, repo root, and optional pre-enumerated entries.
+ * @param opts - Source root, destination worktree root, repo root, optional
+ *   pre-enumerated entries, and optional path policy query.
  * @returns Total number of recreated internal workspace symlinks.
  */
 export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions): Promise<number> {
-  const { sourceRoot, worktreeDir, repoRoot, entries } = opts;
+  const { sourceRoot, worktreeDir, repoRoot, entries, policy } = opts;
 
   const reroutedEntries = entries ?? (await enumerateReroutedNodeModules({ sourceRoot, repoRoot }));
   if (reroutedEntries.length === 0) {
@@ -1748,12 +1834,22 @@ export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions):
   // blocked the small per-package trees behind it; now they overlap.
   const counts = await Promise.all(
     reroutedEntries.map(async (entry) => {
+      // An entry the policy omits outright is not rebuilt at all. Entries
+      // classified `copy` are still processed: classify marks the node_modules
+      // directory itself `copy` when any descendant is copied, and the
+      // per-child skip below leaves copied (and omitted) descendants unlinked
+      // while share siblings keep their symlinks.
+      if (policy !== undefined && policy.classify(entry.relativePath) === 'omit') {
+        return 0;
+      }
       const destNodeModules = path.join(worktreeDir, entry.relativePath);
       const destParent = path.dirname(destNodeModules);
       await fs.mkdir(destParent, { recursive: true });
       return rerouteNodeModules({
         sourceNodeModules: entry.sourceNodeModules,
-        destNodeModules
+        destNodeModules,
+        relativePath: entry.relativePath,
+        policy
       });
     })
   );
