@@ -5,10 +5,15 @@ Scope: every log file the Cards extension and its plugins produce, by subsystem 
 ## Quick Discovery
 
 ```bash
-# Workspace-scoped logs
-find "$(git rev-parse --show-toplevel)/.cards/logs" -name "*.log" -type f 2>/dev/null
+# Repo-scoped logs. From a linked worktree the two roots differ and the hook logs
+# live under the main repo root, so search both rather than assuming they coincide.
+COMMON_DIR=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+[ "$(basename "${COMMON_DIR:-}")" = ".git" ] && MAIN_REPO_ROOT=$(dirname "$COMMON_DIR")
+find "$MAIN_REPO_ROOT/.cards/logs" "$(git rev-parse --show-toplevel)/.cards/logs" \
+  -name "*.log" -type f 2>/dev/null
 
-# Global logs — resolveGlobalCardsConfigDir()
+# Global logs — resolveGlobalCardsConfigDir(), and the Claude API hook log when the
+# Cards plugin is installed at user scope
 find ~/.cards -name "*.log" -type f 2>/dev/null
 
 # VS Code extension host logs
@@ -32,12 +37,12 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 
 | Field | Value |
 |-------|-------|
-| **Path** | `{main-repo-root}/.cards/logs/claude-code-cards-api-hooks.log` — unchanged; only its source moved into the bundle |
+| **Path** | `$HOOKS_LOG_ANCHOR/.cards/logs/claude-code-cards-api-hooks.log` — `{main-repo-root}` for a `claude-local`/`claude-project` install, `$HOME` for a `claude-user` install (§1 of `SKILL.md` computes it) |
 | **Format** | JSON Lines — one JSON object per line |
-| **Env var** | `CLAUDE_CODE_HOOKS_LOG_FILE` — operator override only, unset by default. (`CARDS_CLAUDE_CODE_HOOKS_LOG_FILE` is the legacy name; the bundles no longer read it.) |
-| **Set by** | Nothing — the compiled bundle computes the path itself at handler entry from the hook payload's `cwd`, resolved to the main repo root. Nothing is written into `settings.json` or the launch env. |
+| **Env var** | `CLAUDE_CODE_HOOKS_LOG_FILE` — operator override only, unset by default. `CLAUDE_CODE_HOOKS_LOG_ENV_VAR` redirects that name; an **empty** value of whichever name applies means file logging is deliberately off. (`CARDS_CLAUDE_CODE_HOOKS_LOG_FILE` is the legacy name; the bundles no longer read it.) |
+| **Set by** | Nothing — the compiled bundle computes the path itself at handler entry, from the install scope recorded in the Claude settings chain plus the hook payload's `cwd`. Nothing is written into `settings.json` or the launch env. |
 | **Source** | `public/packages/agent-hooks/src/shared/default-log-file.ts`::`resolveDefaultApiHooksLogPath()` |
-| **No file?** | The path resolves fail-closed: a bare repo, a non-repo `cwd`, or a missing `git` yields no path and therefore no file, rather than a guessed location. |
+| **No file?** | The path resolves fail-closed: no recorded Cards install, a bare repo, a non-repo `cwd`, or a missing `git` yields no path and therefore no file, rather than a guessed location. |
 | **JSON schema** | `{timestamp, level, hookType, message, input?, context?, error?}` |
 
 ### Claude Runtime Hooks
@@ -49,6 +54,7 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 | **Env var** | `CLAUDE_CODE_RUNTIME_HOOKS_LOG_FILE` |
 | **Set by** | `ActionDispatcher` (line ~1361) |
 | **Source** | `packages/extension/src/runtime/ActionDispatcher.ts` (line ~1361) |
+| **Note** | `{workspace}` is the **VS Code window's** workspace folder, resolved at activation — not the session's cwd and not a git root. A window opened on the main repo logs every session it dispatches, including ones running in worktrees, to the main repo root; a window opened on a worktree logs to that worktree. So this log can sit under either root and neither `WORKSPACE` nor `MAIN_REPO_ROOT` reliably names it — locate it with the Quick Discovery `find` above rather than composing a path. |
 
 ### Claude Assistant Hook
 
@@ -71,18 +77,18 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 
 | Field | Value |
 |-------|-------|
-| **Path** | `{workspace}/.cards/logs/{subsystem}.log` or `$CARDS_HOOKS_LOG_FILE` |
+| **Path** | `{main-repo-root}/.cards/logs/{subsystem}.log` or `$CARDS_HOOKS_LOG_FILE` |
 | **Format** | JSON Lines |
 | **Source** | `public/packages/sdk/src/config/logger.ts` |
-| **Resolution order** | 1. `config.logFilePath` (explicit) — 2. `$CARDS_HOOKS_LOG_FILE` env var — 3. `$CARDS_LOG_DIR/{subsystem}.log` — 4. `{mainRepoRoot}/.cards/logs/{subsystem}.log` (computed via `git rev-parse --path-format=absolute --git-common-dir`) — 5. `null` (file output disabled) |
+| **Resolution order** | 1. `config.logFilePath` (explicit) — 2. `$CARDS_HOOKS_LOG_FILE` env var — 3. `$CARDS_LOG_DIR/{subsystem}.log` — 4. `{main-repo-root}/.cards/logs/{subsystem}.log` (computed via `git rev-parse --path-format=absolute --git-common-dir`) — 5. `null` (file output disabled) |
 
 ### Branch Cleanup Watcher
 
 | Field | Value |
 |-------|-------|
-| **Path** | `{workspace}/.cards/logs/cards-default-configuration-hooks.log` |
+| **Path** | `{main-repo-root}/.cards/logs/cards-default-configuration-hooks.log` |
 | **Format** | JSON Lines |
-| **Source** | `public/packages/default-configuration/src/lib/branch-cleanup-watcher.ts` (hardcoded path) |
+| **Source** | `public/packages/default-configuration/src/lib/branch-cleanup-watcher.ts` — resolves via `resolveLogFilePath()`, so the Handler resolution order above applies; the parent passes the resolved path to the detached child as `CARDS_HOOKS_LOG_FILE` |
 
 ### Session Stderr
 
@@ -94,8 +100,10 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 
 ## Reading JSON Lines Logs
 
+`HOOKS_LOG_ANCHOR` is set by §1 of `SKILL.md`; substitute any other inventory path above for a different subsystem.
+
 ```bash
-LOG={workspace}/.cards/logs/claude-code-cards-api-hooks.log
+LOG=$HOOKS_LOG_ANCHOR/.cards/logs/claude-code-cards-api-hooks.log
 
 # Live tail, filtered — swap the predicate for any field, e.g. .hookType == "SessionStart"
 tail -f "$LOG" | jq 'select(.level == "error")'
