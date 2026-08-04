@@ -1,0 +1,377 @@
+/**
+ * Unit specs for `loadWorktreePathPolicy`.
+ *
+ * These tests document the full contract of the policy surface — configured
+ * patterns, omitted paths, matched copy files, shareable ignored paths, and
+ * the path-state query used by rerouting. They were bootstrapped as skipped
+ * specs (Phase 2) and unskipped in groups as the implementation was built out
+ * (Phase 3).
+ *
+ * @summary unit specs for loadWorktreePathPolicy
+ */
+
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import { discoverIgnoredPaths } from '../src/worktree.js';
+import { WorktreeIncludeError } from '../src/worktreeInclude.js';
+import { loadWorktreePathPolicy, type WorktreePathPolicy } from '../src/worktreePathPolicy.js';
+
+// Some specs depend on POSIX permission enforcement (chmod 0o000 must actually
+// deny access). Two environments cannot provide that: Windows does not
+// implement POSIX file modes, and the superuser (uid 0) bypasses POSIX DAC
+// permission checks entirely — root can read a 0o000 file, so the expected
+// rejection never occurs. Skip honestly in both; the POSIX path itself is
+// unchanged.
+const cannotEnforcePosixPermissions = process.platform === 'win32' || process.getuid?.() === 0;
+
+/**
+ * Creates an isolated tmp directory to use as a source checkout root.
+ *
+ * @param prefix - Short label appended to the tmp dir name for diagnostics.
+ * @returns Absolute path to the empty source root.
+ */
+async function makeSourceRoot(prefix: string): Promise<string> {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), `wpp-${prefix}-`));
+  const sourceRoot = path.join(base, 'source');
+  await fs.mkdir(sourceRoot, { recursive: true });
+  return sourceRoot;
+}
+
+/**
+ * Initialises a minimal git repo in `dir`. Writes a `.gitignore` with the given
+ * patterns, creates any tracked files listed in `trackedFiles`, then makes an
+ * initial commit so `git ls-files --ignored` reports the collapsed listing.
+ *
+ * @param dir - Absolute path to the directory to initialise as a git repo.
+ * @param gitignorePatterns - Lines to write into `.gitignore`.
+ * @param trackedFiles - Files to create and commit (relative path + content).
+ */
+async function initGitRepo(
+  dir: string,
+  gitignorePatterns: string[],
+  trackedFiles: Array<{ rel: string; content: string }>
+): Promise<void> {
+  const { execFileSync } = await import('node:child_process');
+
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+
+  if (gitignorePatterns.length > 0) {
+    await fs.writeFile(path.join(dir, '.gitignore'), `${gitignorePatterns.join('\n')}\n`);
+  }
+
+  for (const { rel, content } of trackedFiles) {
+    const abs = path.join(dir, rel);
+    await fs.mkdir(path.dirname(abs), { recursive: true });
+    await fs.writeFile(abs, content);
+  }
+
+  execFileSync('git', ['add', '.'], { cwd: dir });
+  execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
+}
+
+/**
+ * Loads the policy for a source root using the authoritative collapsed
+ * ignored-path input from `discoverIgnoredPaths`.
+ *
+ * @param sourceRoot - Source checkout root.
+ * @returns The loaded worktree path policy.
+ */
+async function loadPolicy(sourceRoot: string): Promise<WorktreePathPolicy> {
+  const ignored = await discoverIgnoredPaths(sourceRoot);
+  return loadWorktreePathPolicy({ sourceRoot, ignored });
+}
+
+describe('loadWorktreePathPolicy', () => {
+  let sourceRoot = '';
+
+  afterEach(async () => {
+    // Best-effort cleanup: restore permissions before removal so rm can succeed.
+    try {
+      await fs.chmod(path.join(sourceRoot, '.worktreeignore'), 0o644);
+    } catch (err) {
+      console.warn('afterEach: could not restore .worktreeignore mode:', err);
+    }
+    try {
+      await fs.chmod(path.join(sourceRoot, '.worktreeinclude'), 0o644);
+    } catch (err) {
+      console.warn('afterEach: could not restore .worktreeinclude mode:', err);
+    }
+    const base = path.dirname(sourceRoot);
+    await fs.rm(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('shares every ignored path when neither config file exists', async () => {
+    sourceRoot = await makeSourceRoot('no-config');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=hunter2');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.ignorePatterns).toEqual([]);
+    expect(policy.includePatterns).toEqual([]);
+    expect(policy.omit).toEqual([]);
+    expect(policy.copy).toEqual([]);
+    expect(policy.share).toEqual({ directories: [], files: ['.env'] });
+    expect(policy.classify('.env')).toBe('share');
+  });
+
+  it('omits an ignored directory matched by .worktreeignore and keeps other ignored paths shareable', async () => {
+    sourceRoot = await makeSourceRoot('ignore-dir');
+    await initGitRepo(sourceRoot, ['dist/', '.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.ignorePatterns).toEqual(['dist/']);
+    expect(policy.omit).toEqual(['dist']);
+    expect(policy.copy).toEqual([]);
+    expect(policy.share).toEqual({ directories: [], files: ['.env'] });
+    expect(policy.classify('dist')).toBe('omit');
+    // Directory patterns must cover descendants.
+    expect(policy.classify('dist/bundle.js')).toBe('omit');
+  });
+
+  it('omits an ignored file matched by .worktreeignore and shares the rest', async () => {
+    sourceRoot = await makeSourceRoot('ignore-file');
+    await initGitRepo(sourceRoot, ['.env', '.env.local'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'A=1');
+    await fs.writeFile(path.join(sourceRoot, '.env.local'), 'B=2');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), '.env\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.omit).toEqual(['.env']);
+    expect(policy.share).toEqual({ directories: [], files: ['.env.local'] });
+    expect(policy.classify('.env')).toBe('omit');
+    expect(policy.classify('.env.local')).toBe('share');
+  });
+
+  it('copies an ignored file matched by .worktreeinclude', async () => {
+    sourceRoot = await makeSourceRoot('copy-file');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=hunter2');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), '.env\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.includePatterns).toEqual(['.env']);
+    expect(policy.copy).toEqual(['.env']);
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('.env')).toBe('copy');
+  });
+
+  it('copies ignored files matched by a directory include pattern', async () => {
+    sourceRoot = await makeSourceRoot('include-dir-pattern');
+    await initGitRepo(sourceRoot, ['config/secrets.json'], [{ rel: 'config/default.json', content: '{"x":1}' }]);
+    await fs.writeFile(path.join(sourceRoot, 'config', 'secrets.json'), '{"pw":"s3cr3t"}');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'config/\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual(['config/secrets.json']);
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('config/secrets.json')).toBe('copy');
+  });
+
+  it('never selects tracked files for copy', async () => {
+    sourceRoot = await makeSourceRoot('tracked-file');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'package.json', content: '{}' }]);
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'package.json\n.env\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual(['.env']);
+    expect(policy.classify('package.json')).toBe('share');
+  });
+
+  it('copies selected files from a fully ignored directory and prevents the directory symlink', async () => {
+    sourceRoot = await makeSourceRoot('copy-nested');
+    await initGitRepo(sourceRoot, ['dist/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'other.js'), 'o');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'dist/bundle.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual(['dist/bundle.js']);
+    // The copied descendant removes the collapsed directory from share so it
+    // is never symlinked; unmatched siblings remain absent.
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('dist')).toBe('copy');
+    expect(policy.classify('dist/bundle.js')).toBe('copy');
+    expect(policy.classify('dist/other.js')).toBe('share');
+  });
+
+  it('applies .worktreeinclude negation like the existing .worktreeinclude tests', async () => {
+    sourceRoot = await makeSourceRoot('include-negation');
+    await initGitRepo(sourceRoot, ['.env', '.env.local', '.env.public'], [{ rel: 'README.md', content: 'hi' }]);
+    for (const file of ['.env', '.env.local', '.env.public']) {
+      await fs.writeFile(path.join(sourceRoot, file), 'x');
+    }
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), '.env*\n!.env.public\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual(['.env', '.env.local']);
+    expect(policy.classify('.env')).toBe('copy');
+    expect(policy.classify('.env.public')).toBe('share');
+  });
+
+  it('omit wins over copy when a path matches both config files', async () => {
+    sourceRoot = await makeSourceRoot('omit-wins');
+    await initGitRepo(sourceRoot, ['dist/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/\n');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'dist/bundle.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.omit).toEqual(['dist']);
+    expect(policy.copy).toEqual([]);
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('dist/bundle.js')).toBe('omit');
+  });
+
+  it('subtracts copied descendants from share candidates at the collapsed directory boundary', async () => {
+    sourceRoot = await makeSourceRoot('nested-subtract');
+    await initGitRepo(sourceRoot, ['out/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'out', 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'out', 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, 'out', 'dist', 'other.js'), 'o');
+    await fs.mkdir(path.join(sourceRoot, 'out', 'cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'out', 'cache', 'c.js'), 'c');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'out/dist/bundle.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual(['out/dist/bundle.js']);
+    // The whole collapsed `out/` subtree leaves share: no symlink may stand
+    // above a copied descendant, and unmatched ignored siblings stay absent.
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('out')).toBe('copy');
+    expect(policy.classify('out/dist')).toBe('copy');
+    expect(policy.classify('out/dist/bundle.js')).toBe('copy');
+    expect(policy.classify('out/dist/other.js')).toBe('share');
+    expect(policy.classify('out/cache/c.js')).toBe('share');
+  });
+
+  it('throws WorktreeIncludeError when .worktreeignore is a directory', async () => {
+    sourceRoot = await makeSourceRoot('ignore-is-dir');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, '.worktreeignore'));
+
+    await expect(loadPolicy(sourceRoot)).rejects.toThrow(WorktreeIncludeError);
+  });
+
+  it('throws WorktreeIncludeError when .worktreeinclude is a directory', async () => {
+    sourceRoot = await makeSourceRoot('include-is-dir');
+    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, '.worktreeinclude'));
+
+    await expect(loadPolicy(sourceRoot)).rejects.toThrow(WorktreeIncludeError);
+  });
+
+  it.skipIf(cannotEnforcePosixPermissions)(
+    'throws WorktreeIncludeError when .worktreeignore is unreadable',
+    async () => {
+      sourceRoot = await makeSourceRoot('ignore-unreadable');
+      await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+
+      const ignorePath = path.join(sourceRoot, '.worktreeignore');
+      await fs.writeFile(ignorePath, 'dist/\n');
+      await fs.chmod(ignorePath, 0o000);
+
+      await expect(loadPolicy(sourceRoot)).rejects.toThrow(WorktreeIncludeError);
+    }
+  );
+
+  it.skipIf(cannotEnforcePosixPermissions)(
+    'throws WorktreeIncludeError when .worktreeinclude is unreadable',
+    async () => {
+      sourceRoot = await makeSourceRoot('include-unreadable');
+      await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+
+      const includePath = path.join(sourceRoot, '.worktreeinclude');
+      await fs.writeFile(includePath, '.env\n');
+      await fs.chmod(includePath, 0o000);
+
+      await expect(loadPolicy(sourceRoot)).rejects.toThrow(WorktreeIncludeError);
+    }
+  );
+
+  it('classifies node_modules descendants as omit when .worktreeignore matches them', async () => {
+    sourceRoot = await makeSourceRoot('reroute-omit');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'node_modules', '.vite', 'deps'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'node_modules', '.vite', 'deps', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/.vite\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // node_modules itself is not matched by the `.vite` pattern and stays
+    // shareable; the omitted descendant and everything under it are omit.
+    expect(policy.share.directories).toEqual(['node_modules']);
+    expect(policy.classify('node_modules')).toBe('share');
+    expect(policy.classify('node_modules/.vite')).toBe('omit');
+    expect(policy.classify('node_modules/.vite/deps/x.js')).toBe('omit');
+  });
+
+  it('classifies a copied node_modules descendant as copy and its ancestors as copy', async () => {
+    sourceRoot = await makeSourceRoot('reroute-copy');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'node_modules', '.vite', 'deps'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'node_modules', '.vite', 'deps', 'x.js'), 'x');
+    await fs.mkdir(path.join(sourceRoot, 'node_modules', '.vite', 'cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'node_modules', '.vite', 'cache', 'y.js'), 'y');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'node_modules/.vite/deps/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual(['node_modules/.vite/deps/x.js']);
+    // The copied descendant removes the collapsed node_modules directory from
+    // share so no ancestor symlink can stand above it.
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('node_modules/.vite')).toBe('copy');
+    expect(policy.classify('node_modules/.vite/deps')).toBe('copy');
+    expect(policy.classify('node_modules/.vite/deps/x.js')).toBe('copy');
+    expect(policy.classify('node_modules/.vite/cache/y.js')).toBe('share');
+  });
+
+  it('keeps omit winning over copy for rerouted node_modules descendants', async () => {
+    sourceRoot = await makeSourceRoot('reroute-omit-wins');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'node_modules', '.vite', 'deps'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'node_modules', '.vite', 'deps', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/.vite\n');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'node_modules/.vite/deps/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual([]);
+    expect(policy.share.directories).toEqual(['node_modules']);
+    expect(policy.classify('node_modules/.vite')).toBe('omit');
+    expect(policy.classify('node_modules/.vite/deps/x.js')).toBe('omit');
+  });
+
+  it('normalizes backslashes to POSIX form in classify queries', async () => {
+    sourceRoot = await makeSourceRoot('posix');
+    await initGitRepo(sourceRoot, ['dist/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.classify('dist\\bundle.js')).toBe('omit');
+  });
+});

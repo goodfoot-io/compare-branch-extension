@@ -21,6 +21,7 @@ import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
 import { atomicWriteHookFile, RESOLVE_NODE_BASH } from './git-hooks.js';
 import { applyWorktreeInclude } from './worktreeInclude.js';
+import { loadWorktreePathPolicy } from './worktreePathPolicy.js';
 import { createWorktreePerf } from './worktreePerf.js';
 
 /**
@@ -465,7 +466,15 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
       // filesystem append remains in the tail.
       const [copiedFromInclude] = await perf.measure('settle:wave3', () =>
         Promise.all([
-          perf.measure('settle:applyWorktreeInclude', () => applyWorktreeInclude({ sourceRoot, worktreeDir })),
+          // Compile bridge for the policy extraction: load the worktree path
+          // policy from the filtered ignored input and feed its copy set to the
+          // copy executor. The full policy rewiring (share candidates into
+          // symlinkIgnoredPaths / writeWorktreeExcludeFile, rerouter queries,
+          // dedicated perf spans) lands with the policy integration step.
+          perf.measure('settle:applyWorktreeInclude', async () => {
+            const policy = await loadWorktreePathPolicy({ sourceRoot, ignored: filteredIgnored });
+            return applyWorktreeInclude({ sourceRoot, worktreeDir, copySet: policy.copy });
+          }),
           perf.measure('settle:writeWorktreeExcludeFile', async () =>
             writeWorktreeExcludeFile(await excludePathPromise, worktreeDir, ignored.directories, ignored.files)
           )

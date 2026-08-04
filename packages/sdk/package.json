@@ -23,6 +23,7 @@
     "./worktree": "./src/worktree.ts",
     "./worktree-for-card": "./src/worktreeForCard.ts",
     "./worktree-include": "./src/worktreeInclude.ts",
+    "./worktree-path-policy": "./src/worktreePathPolicy.ts",
     "./client/cardRepoFilters": "./src/client/cardRepoFilters.ts",
     "./card-repo": "./src/cardRepo.ts",
     "./card-repo-layout": "./src/cardRepoLayout.ts",
