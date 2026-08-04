@@ -41,9 +41,10 @@ cat ~/.agents/plugins/marketplace.json 2>/dev/null | jq '.plugins'
 **Keys written by Cards** (`ClaudeSettingsService.installPlugin()` at `packages/extension/src/services/ClaudeSettingsService.ts`):
 - `enabledPlugins["cards@cards.management"] = true`
 - `extraKnownMarketplaces["cards.management"] = { source: { source: "directory", path: <marketplacePath> } }`
-- `env.CARDS_CLAUDE_CODE_HOOKS_LOG_FILE = "<workspace>/.cards/logs/claude-code-cards-api-hooks.log"`
 
-**Keys removed on uninstall** (`removePluginConfig()`): same three keys, removed by identity.
+No `env` key is written. The API hooks bundle computes its own log path, so a healthy install has no Cards entry under `env` — and `.claude/settings.json` is committed, so a machine-specific absolute path there would leak across clones.
+
+**Keys removed on uninstall** (`removePluginConfig()`): the two keys above plus the legacy `env.CARDS_CLAUDE_CODE_HOOKS_LOG_FILE`, all removed by identity. Workspaces configured before the bundle computed its own path still carry that env key; finding it is expected on an older install, not a defect.
 
 ## Codex Settings
 

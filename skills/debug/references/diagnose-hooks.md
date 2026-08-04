@@ -130,9 +130,9 @@ Based on symptom, ranked by probability:
 
 **Evidence**: Hook seems to work (announcement appears, session state is written) but no log file exists.
 
-**Cause**: The log env var isn't set. For Claude Cards hooks, `CARDS_CLAUDE_CODE_HOOKS_LOG_FILE` must be in `settings.json` env. For Codex hooks, `CODEX_HOOKS_LOG_FILE` is not set by Cards — the Logger falls back to no file output.
+**Cause**: For Claude Cards hooks, the bundle computes its own path and fails closed when it cannot: `resolveDefaultApiHooksLogPath()` runs `git rev-parse --git-common-dir` in the hook payload's `cwd`, and a bare repo, a `cwd` outside any repository, a non-`.git` common dir (submodule, separate-git-dir), or a missing `git` binary all yield no path — so no file is written rather than one in a guessed location. For Codex hooks, `CODEX_HOOKS_LOG_FILE` is not set by Cards — the Logger falls back to no file output.
 
-**Recovery**: For Claude: verify `env.CARDS_CLAUDE_CODE_HOOKS_LOG_FILE` in the settings file. For Codex: set `CODEX_HOOKS_LOG_FILE` manually. **Risk**: **safe**.
+**Recovery**: For Claude: run `git rev-parse --path-format=absolute --git-common-dir` from the session's working directory and confirm it prints a path ending in `/.git`. If it does not, either launch from inside the repository or set `CLAUDE_CODE_HOOKS_LOG_FILE` to an explicit path — an operator override always wins over the computed default. For Codex: set `CODEX_HOOKS_LOG_FILE` manually. **Risk**: **safe**.
 
 ### Codex Trust Interstitial (LOW probability)
 

@@ -32,11 +32,12 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 
 | Field | Value |
 |-------|-------|
-| **Path** | `{workspace}/.cards/logs/claude-code-cards-api-hooks.log` |
+| **Path** | `{main-repo-root}/.cards/logs/claude-code-cards-api-hooks.log` — unchanged; only its source moved into the bundle |
 | **Format** | JSON Lines — one JSON object per line |
-| **Env var** | `CARDS_CLAUDE_CODE_HOOKS_LOG_FILE` |
-| **Set by** | `ClaudeSettingsService.installPlugin()` writes env key into Claude settings; `ActionDispatcher` also sets it directly in launch env |
-| **Source** | `packages/extension/src/services/ClaudeSettingsService.ts`::`cardsApiHooksLogPath()`, `packages/extension/src/runtime/ActionDispatcher.ts` (line ~1356) |
+| **Env var** | `CLAUDE_CODE_HOOKS_LOG_FILE` — operator override only, unset by default. (`CARDS_CLAUDE_CODE_HOOKS_LOG_FILE` is the legacy name; the bundles no longer read it.) |
+| **Set by** | Nothing — the compiled bundle computes the path itself at handler entry from the hook payload's `cwd`, resolved to the main repo root. Nothing is written into `settings.json` or the launch env. |
+| **Source** | `public/packages/agent-hooks/src/shared/default-log-file.ts`::`resolveDefaultApiHooksLogPath()` |
+| **No file?** | The path resolves fail-closed: a bare repo, a non-repo `cwd`, or a missing `git` yields no path and therefore no file, rather than a guessed location. |
 | **JSON schema** | `{timestamp, level, hookType, message, input?, context?, error?}` |
 
 ### Claude Runtime Hooks
