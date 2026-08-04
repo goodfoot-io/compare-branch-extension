@@ -695,11 +695,111 @@ describe('createWorktree worktree path policy integration', () => {
 
     await expect(settle).rejects.toBeInstanceOf(WorktreeIncludeError);
 
-    // The checkout itself exists (the usable-directory boundary), but no
-    // ignored path was symlinked or copied: neither dist nor cache exists.
-    await expect(fs.access(wPath)).resolves.toBeUndefined();
+    // Fail-closed recovery: the failed settle removed the worktree, its git
+    // registration, and the branch this call created — a half-provisioned
+    // worktree must not be left behind for a re-run to trip over. Neither
+    // ignored path was ever symlinked or copied.
+    await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(listWorktrees(repoDir)).not.toContain(wPath);
+    const branches = execFileSync('git', ['branch', '--list', 'feature/policy-config-failure'], {
+      cwd: repoDir,
+      encoding: 'utf8'
+    });
+    expect(branches.trim()).toBe('');
     await expect(fs.lstat(path.join(wPath, 'dist'))).rejects.toMatchObject({ code: 'ENOENT' });
     await expect(fs.lstat(path.join(wPath, 'cache'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('re-runs against the same ref after a settle failure once the config is fixed', async () => {
+    // A failed settle must leave no trace — no worktree directory, no git
+    // registration, no branch — or the natural recovery (fix the config, run
+    // the action again) dies with "Worktree already exists" before the fix is
+    // even evaluated.
+    commitGitignore(repoDir, 'dist/\n');
+    await fs.mkdir(path.join(repoDir, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'dist', 'bundle.js'), 'console.log(1);\n');
+    // A directory at the config path is unreadable as a file → fail closed.
+    await fs.mkdir(path.join(repoDir, '.worktreeinclude'));
+
+    const first = await createWorktree('feature/policy-rerun', { cwd: repoDir });
+    await expect(first.settle).rejects.toBeInstanceOf(WorktreeIncludeError);
+    await expect(fs.access(first.path)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(listWorktrees(repoDir)).not.toContain(first.path);
+
+    // Fix the config and re-run the exact same ref — must succeed now.
+    await fs.rmdir(path.join(repoDir, '.worktreeinclude'));
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'dist/bundle.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/policy-rerun', { cwd: repoDir });
+    const result = await settle;
+    expect(result.copiedFromInclude).toBe(1);
+    await expect(fs.readFile(path.join(wPath, 'dist', 'bundle.js'), 'utf8')).resolves.toBe('console.log(1);\n');
+
+    await removeWorktree(wPath);
+  });
+
+  it('leaves a pre-existing branch alive when settle fails against it', async () => {
+    // The settle-failure cleanup deletes only the branch this call created
+    // (`git worktree add -b`). A branch that existed before must survive the
+    // failed creation — it is the user's work, not a leftover.
+    execFileSync('git', ['branch', 'feature/pre-existing'], { cwd: repoDir });
+    commitGitignore(repoDir, 'dist/\n');
+    await fs.mkdir(path.join(repoDir, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'dist', 'bundle.js'), 'console.log(1);\n');
+    await fs.mkdir(path.join(repoDir, '.worktreeinclude'));
+
+    const { path: wPath, settle } = await createWorktree('feature/pre-existing', { cwd: repoDir });
+    await expect(settle).rejects.toBeInstanceOf(WorktreeIncludeError);
+
+    // The worktree is gone, but the pre-existing branch survives.
+    await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    const branches = execFileSync('git', ['branch', '--list', 'feature/pre-existing'], {
+      cwd: repoDir,
+      encoding: 'utf8'
+    });
+    expect(branches.trim()).toBe('feature/pre-existing');
+  });
+
+  it('omits a git-ignored root symlink the policy omits: absent from the worktree', async () => {
+    commitGitignore(repoDir, 'rootlink\n');
+    await fs.symlink('/absolute/target', path.join(repoDir, 'rootlink'));
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'rootlink\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/e3-omit', { cwd: repoDir });
+    await settle;
+
+    await expect(fs.lstat(path.join(wPath, 'rootlink'))).rejects.toMatchObject({ code: 'ENOENT' });
+
+    await removeWorktree(wPath);
+  });
+
+  it('copies a git-ignored root symlink the policy copies: recreated as a symlink by the include executor', async () => {
+    commitGitignore(repoDir, 'rootlink\n');
+    await fs.symlink('/absolute/target', path.join(repoDir, 'rootlink'));
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'rootlink\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/e3-copy', { cwd: repoDir });
+    await settle;
+
+    // applyWorktreeInclude recreates the symlink with its original target
+    // (readlink + fs.symlink) — not a copy of the link, not the source path.
+    await expect(fs.readlink(path.join(wPath, 'rootlink'))).resolves.toBe('/absolute/target');
+
+    await removeWorktree(wPath);
+  });
+
+  it('mirrors an unclassified git-ignored root symlink as a symlink to the source entry', async () => {
+    commitGitignore(repoDir, 'rootlink\n');
+    await fs.symlink('/absolute/target', path.join(repoDir, 'rootlink'));
+
+    const { path: wPath, settle } = await createWorktree('feature/e3-share', { cwd: repoDir });
+    await settle;
+
+    // Unmatched ignored root symlinks keep the share default: a symlink
+    // pointing at the source entry.
+    await expect(fs.readlink(path.join(wPath, 'rootlink'))).resolves.toBe(path.join(repoDir, 'rootlink'));
+
+    await removeWorktree(wPath);
   });
 
   it('lists only actual symlinks in the worktree exclude file, keeping copied directories out', async () => {

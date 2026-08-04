@@ -905,14 +905,6 @@ export async function spawnClaudeSession(
   const { worktreePath: cwd, branchName, parentBranch, settle } = worktreeResult;
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-  // Let the worktree settle (symlinks, node_modules, git excludes) run
-  // concurrently with the claude spawn. Errors are logged, not swallowed.
-  if (settle) {
-    settle.catch((error) => {
-      context.logger.error('Worktree settle failed', { error: errorMessage(error) });
-    });
-  }
-
   const marketplacePath = resolveMarketplacePath();
   await updateMarketplaceRegistration(marketplacePath, context.logger);
 
@@ -948,6 +940,23 @@ export async function spawnClaudeSession(
     }
   });
 
+  // A settle rejection means createWorktree tore the worktree down (the
+  // settle-failure cleanup removed it) — the agent must never run in a
+  // missing or unprovisioned worktree. Fail the launch loudly: kill the
+  // spawned agent and surface the settle error below instead of logging and
+  // continuing. If the child already exited when the rejection lands, the
+  // kill is a no-op but the throw below still fails the action — a completed
+  // agent session in a worktree that was just removed is not a success to
+  // report, and the worktree is already cleaned up for the next launch.
+  let settleError: unknown;
+  if (settle) {
+    settle.catch((error: unknown) => {
+      settleError = error;
+      context.logger.error('Worktree settle failed — aborting launch', { error: errorMessage(error) });
+      child.kill('SIGTERM');
+    });
+  }
+
   context.onCancel(() => {
     context.logger.info(`${input.actionName} action cancelled, terminating claude`, { sessionId });
     child.kill('SIGTERM');
@@ -974,6 +983,14 @@ export async function spawnClaudeSession(
   const exitCode = await new Promise<number | null>((resolve) => {
     child.on('close', resolve);
   });
+
+  // Fail the launch loudly when the settle phase rejected: the agent was
+  // killed and the worktree is gone, so the action must not report a normal
+  // completion (post-exit cleanup has nothing meaningful to do either — the
+  // settle-failure cleanup already removed the worktree).
+  if (settleError !== undefined) {
+    throw settleError instanceof Error ? settleError : new Error(String(settleError));
+  }
 
   context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode });
 

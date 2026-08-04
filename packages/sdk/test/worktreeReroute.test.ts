@@ -172,6 +172,41 @@ describe('policy-aware node_modules rerouting', () => {
     await removeWorktree(wPath);
   });
 
+  it('keeps share siblings symlinked when a copy rule sits inside one @-scoped package', async () => {
+    // A copy rule under @scope/pkgA classifies the whole @scope directory as
+    // 'copy' via the policy's copyAncestors set. The rerouter must still
+    // descend into the scope instead of skipping it wholesale, or the share
+    // sibling @scope/pkgB would be absent from the worktree.
+    await makeNodeModulesRerouted();
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, '@scope', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, '@scope', 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.mkdir(path.join(nm, '@scope', 'pkgB'), { recursive: true });
+    await fs.writeFile(path.join(nm, '@scope', 'pkgB', 'index.js'), 'module.exports = 1;');
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/@scope/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/reroute-scope-copy', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The @scope directory is real, never a symlink, so both members coexist.
+    const scopeLstat = await fs.lstat(path.join(wPath, 'node_modules', '@scope'));
+    expect(scopeLstat.isDirectory()).toBe(true);
+    expect(scopeLstat.isSymbolicLink()).toBe(false);
+    // The copied descendant is a real file with the source content.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', '@scope', 'pkgA', '.cache', 'x.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(
+      fs.readFile(path.join(wPath, 'node_modules', '@scope', 'pkgA', '.cache', 'x.js'), 'utf8')
+    ).resolves.toBe('export {};\n');
+    // The share sibling inside the same scope is still symlinked to the source.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'pkgB'))).resolves.toBe(
+      path.join(repoDir, 'node_modules', '@scope', 'pkgB')
+    );
+
+    await removeWorktree(wPath);
+  });
+
   it('omits an entire node_modules entry matched by .worktreeignore', async () => {
     await makeNodeModulesRerouted();
     const nm = path.join(repoDir, 'node_modules');

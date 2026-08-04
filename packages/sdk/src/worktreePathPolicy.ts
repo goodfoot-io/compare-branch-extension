@@ -112,7 +112,11 @@ export interface WorktreePathPolicy extends WorktreePathQuery {
   readonly includePatterns: WorktreeIncludePatterns;
   /**
    * Ignored paths omitted from the worktree (matched by `.worktreeignore`).
-   * Omit wins over copy for paths matching both config files.
+   * A collapsed ignored directory appears here wholesale when any of its
+   * descendants match — a symlink cannot expose part of a directory — unless
+   * a descendant is selected for copy, which materializes the directory as a
+   * real tree where per-file omission applies. Omit wins over copy for paths
+   * matching both config files.
    */
   readonly omit: string[];
   /**
@@ -131,15 +135,29 @@ export interface WorktreePathPolicy extends WorktreePathQuery {
 }
 
 /**
+ * Upper bound for one `git ls-files` enumeration, matching the 30s timeout
+ * `discoverIgnoredPaths` uses for the same full-tree scan. A hung git (network
+ * filesystem, stuck index) must fail closed rather than hang worktree settle
+ * forever.
+ */
+const GIT_LS_FILES_TIMEOUT_MS = 30_000;
+
+/**
  * Runs `git ls-files` and returns null-delimited stdout entries.
+ *
+ * `--literal-pathspecs` precedes the subcommand so pathspec arguments such as
+ * a `:`-prefixed directory name are taken literally instead of being parsed as
+ * pathspec magic (which makes the enumeration silently return nothing).
  *
  * @param cwd - Directory to run the command from.
  * @param args - Arguments passed after `ls-files`.
  * @returns Array of relative paths (no trailing NUL).
+ * @throws {WorktreeIncludeError} When git fails, cannot be spawned, or does
+ *   not finish within {@link GIT_LS_FILES_TIMEOUT_MS}.
  */
 function gitLsFiles(cwd: string, args: string[]): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['ls-files', ...args], {
+    const child = spawn('git', ['--literal-pathspecs', 'ls-files', ...args], {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -150,7 +168,13 @@ function gitLsFiles(cwd: string, args: string[]): Promise<string[]> {
     child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
     child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
 
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new WorktreeIncludeError(`git ls-files timed out after ${GIT_LS_FILES_TIMEOUT_MS}ms`));
+    }, GIT_LS_FILES_TIMEOUT_MS);
+
     child.on('close', (code) => {
+      clearTimeout(timer);
       const stdout = Buffer.concat(stdoutChunks).toString('utf8');
       if (code === 0) {
         resolve(stdout ? stdout.split('\0').filter(Boolean) : []);
@@ -161,36 +185,26 @@ function gitLsFiles(cwd: string, args: string[]): Promise<string[]> {
     });
 
     child.on('error', (err) => {
+      clearTimeout(timer);
       reject(new WorktreeIncludeError(`git ls-files spawn failed: ${err.message}`, { cause: err }));
     });
   });
 }
 
 /**
- * Enumerates gitignored files within a directory that match include patterns.
+ * Enumerates gitignored files within a directory.
  *
- * Runs `git ls-files --ignored --exclude-standard --others` scoped to `dir`
- * and returns the subset of paths that match the ignore instance.
+ * Runs `git ls-files --ignored --exclude-standard --others` scoped to `dir`.
+ * All reported entries are returned unfiltered; the omit and include matchers
+ * are applied by the caller so one enumeration feeds both the copy selection
+ * and the omit descendant matching.
  *
  * @param sourceRoot - Source checkout root.
  * @param dir - Relative directory path to enumerate within.
- * @param ig - Configured ignore instance for `.worktreeinclude` patterns.
- * @returns Array of relative paths to copy.
+ * @returns Array of repository-relative paths to git-ignored files under `dir`.
  */
-async function enumerateIgnoredFiles(
-  sourceRoot: string,
-  dir: string,
-  ig: ReturnType<typeof ignore>
-): Promise<string[]> {
-  const entries = await gitLsFiles(sourceRoot, ['--ignored', '--exclude-standard', '--others', '-z', '--', dir]);
-
-  return entries.filter((p) => {
-    try {
-      return ig.ignores(p);
-    } catch {
-      return false;
-    }
-  });
+async function enumerateIgnoredFiles(sourceRoot: string, dir: string): Promise<string[]> {
+  return gitLsFiles(sourceRoot, ['--ignored', '--exclude-standard', '--others', '-z', '--', dir]);
 }
 
 /**
@@ -245,8 +259,12 @@ function posixNormalize(relativePath: string): string {
  * files contribute no patterns), intersects `.worktreeignore` matches and
  * `.worktreeinclude` copy selections with the authoritative collapsed
  * ignored-path input, enumerates the ignored descendants of collapsed ignored
- * directories for copy selection, and computes the final omit/copy/share
- * classification.
+ * directories — once, feeding both copy selection and omit descendant
+ * matching — and computes the final omit/copy/share classification. A
+ * collapsed ignored directory is omitted wholesale when any of its
+ * descendants matches `.worktreeignore` (unless a descendant is selected for
+ * copy), because a symlinked directory cannot expose only part of its
+ * contents.
  *
  * @param opts - Options for the policy load.
  * @param opts.sourceRoot - Source checkout root containing the config files.
@@ -270,32 +288,61 @@ export async function loadWorktreePathPolicy(opts: {
 
   // Omit: collapsed ignored paths matched by .worktreeignore. Collapsed
   // directory entries are tested bare and with a trailing slash so both `dist`
-  // and `dist/` patterns match a collapsed `dist` entry.
-  const omit = [
-    ...ignored.directories.filter((d) => omitMatcher.ignores(d) || omitMatcher.ignores(`${d}/`)),
-    ...ignored.files.filter((f) => omitMatcher.ignores(f))
-  ];
+  // and `dist/` patterns match a collapsed `dist` entry. Patterns that address
+  // paths INSIDE a collapsed directory (`dist/**`, `dist/*`, `dist/bundle.js`)
+  // cannot match the collapsed entry itself; the descendant enumeration below
+  // surfaces those and omits the whole directory.
+  const omitDirectories = ignored.directories.filter((d) => omitMatcher.ignores(d) || omitMatcher.ignores(`${d}/`));
+  const omitFiles = ignored.files.filter((f) => omitMatcher.ignores(f));
 
   // Copy: ignored files matched by .worktreeinclude, minus anything omitted
-  // (omit wins over copy). Collapsed ignored directories are enumerated so a
-  // pattern such as `dist/bundle.js` can select a descendant of a directory
-  // that does not itself match the pattern.
+  // (omit wins over copy).
   const matchedFiles = ignored.files.filter((f) => includeMatcher.ignores(f) && !omitMatcher.ignores(f));
-  const nestedByDir = await Promise.all(
-    ignored.directories.map(async (dir) => {
-      const files = await enumerateIgnoredFiles(sourceRoot, dir, includeMatcher);
-      return { dir, files: files.filter((f) => !omitMatcher.ignores(f)) };
-    })
-  );
-  const copy = [...matchedFiles, ...nestedByDir.flatMap((e) => e.files)];
+
+  // Enumerate each collapsed ignored directory's descendants once. The single
+  // enumeration feeds both sides: include patterns select descendants for
+  // copy, and omit patterns can only be tested against descendants here — a
+  // collapsed `dist` entry never matches `dist/**` or `dist/bundle.js`.
+  // Skipped entirely when neither config file has patterns, so the common
+  // no-config path pays no per-directory `git ls-files` scan.
+  const needsEnumeration = ignorePatterns.length > 0 || includePatterns.length > 0;
+  const nestedByDir = needsEnumeration
+    ? await Promise.all(
+        ignored.directories.map(async (dir) => {
+          const entries = await enumerateIgnoredFiles(sourceRoot, dir);
+          const omitMatches = entries.filter((p) => omitMatcher.ignores(p));
+          const copyMatches = entries.filter((p) => !omitMatcher.ignores(p) && includeMatcher.ignores(p));
+          return { dir, omitMatches, copyMatches };
+        })
+      )
+    : [];
+
+  // A collapsed directory with an omitted descendant cannot be shared: the
+  // symlink would expose the omitted path to worktree-side writes that mutate
+  // the source. Omit the whole directory — unless a descendant is selected for
+  // copy, which materializes the directory as a real tree where per-file
+  // omission applies (the omitted sibling simply stays absent).
+  const copyParentDirs = new Set(nestedByDir.filter((e) => e.copyMatches.length > 0).map((e) => e.dir));
+  for (const e of nestedByDir) {
+    if (
+      e.omitMatches.length > 0 &&
+      !copyParentDirs.has(e.dir) &&
+      // Already omitted by a direct match on the collapsed entry itself.
+      !omitDirectories.includes(e.dir)
+    ) {
+      omitDirectories.push(e.dir);
+    }
+  }
+
+  const omit = [...omitDirectories, ...omitFiles];
+  const omitSet = new Set(omit);
+  const copy = [...matchedFiles, ...nestedByDir.flatMap((e) => e.copyMatches)];
+  const copySet = new Set(copy);
 
   // Share: collapsed ignored paths minus omitted paths, copied paths, and
   // every collapsed directory containing a copied descendant. Copy prevents
   // any ancestor ignored directory from being linked, and unmatched ignored
   // siblings under a copied-parent directory remain absent.
-  const copySet = new Set(copy);
-  const copyParentDirs = new Set(nestedByDir.filter((e) => e.files.length > 0).map((e) => e.dir));
-  const omitSet = new Set(omit);
   const share: WorktreeIgnoredPaths = {
     directories: ignored.directories.filter((d) => !omitSet.has(d) && !copyParentDirs.has(d)),
     files: ignored.files.filter((f) => !omitSet.has(f) && !copySet.has(f))

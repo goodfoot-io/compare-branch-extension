@@ -119,6 +119,26 @@ describe('loadWorktreePathPolicy', () => {
     expect(policy.classify('.env')).toBe('share');
   });
 
+  it('shares a collapsed ignored directory without enumerating its descendants when neither config file exists', async () => {
+    sourceRoot = await makeSourceRoot('no-config-dir');
+    await initGitRepo(sourceRoot, ['dist/', '.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // Both pattern lists are empty, so the per-directory `git ls-files`
+    // enumeration is skipped entirely — the collapsed directory shares
+    // untouched, with no descendant-level copy or omit decisions.
+    expect(policy.ignorePatterns).toEqual([]);
+    expect(policy.includePatterns).toEqual([]);
+    expect(policy.omit).toEqual([]);
+    expect(policy.copy).toEqual([]);
+    expect(policy.share).toEqual({ directories: ['dist'], files: ['.env'] });
+    expect(policy.classify('dist/bundle.js')).toBe('share');
+  });
+
   it('omits an ignored directory matched by .worktreeignore and keeps other ignored paths shareable', async () => {
     sourceRoot = await makeSourceRoot('ignore-dir');
     await initGitRepo(sourceRoot, ['dist/', '.env'], [{ rel: 'README.md', content: 'hi' }]);
@@ -136,6 +156,105 @@ describe('loadWorktreePathPolicy', () => {
     expect(policy.classify('dist')).toBe('omit');
     // Directory patterns must cover descendants.
     expect(policy.classify('dist/bundle.js')).toBe('omit');
+  });
+
+  it('omits a collapsed ignored directory when a `dist/**`-style .worktreeignore glob matches its contents', async () => {
+    sourceRoot = await makeSourceRoot('omit-glob-double-star');
+    await initGitRepo(sourceRoot, ['dist/**', '.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist', 'sub'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'sub', 'chunk.js'), 'c');
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/**\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // `dist/**` never matches the collapsed `dist` entry itself — only the
+    // descendant enumeration surfaces the match, and it must omit the whole
+    // collapsed directory or the dist symlink would expose every file. Git
+    // reports `dist/bundle.js` as a collapsed-level file for this pattern, so
+    // it is matched directly as well. Directory ordering follows git's
+    // working-tree readdir order, so compare sorted.
+    expect([...policy.omit].sort()).toEqual(['dist', 'dist/sub', 'dist/bundle.js'].sort());
+    expect(policy.copy).toEqual([]);
+    expect(policy.share).toEqual({ directories: [], files: ['.env'] });
+    expect(policy.classify('dist/bundle.js')).toBe('omit');
+    expect(policy.classify('dist/sub/chunk.js')).toBe('omit');
+  });
+
+  it('omits a collapsed ignored directory when a `dist/*`-style .worktreeignore glob matches its contents', async () => {
+    sourceRoot = await makeSourceRoot('omit-glob-star');
+    await initGitRepo(sourceRoot, ['dist/', '.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/*\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // Same root cause as `dist/**`: the glob matches only descendants, and the
+    // enumeration must omit the whole collapsed directory.
+    expect(policy.omit).toEqual(['dist']);
+    expect(policy.share).toEqual({ directories: [], files: ['.env'] });
+    expect(policy.classify('dist/bundle.js')).toBe('omit');
+  });
+
+  it('omits a collapsed ignored directory when a file-level .worktreeignore pattern matches one of its files', async () => {
+    sourceRoot = await makeSourceRoot('omit-nested-file');
+    await initGitRepo(sourceRoot, ['dist/', '.env'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'other.js'), 'o');
+    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/bundle.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // The pattern matches only a descendant, never the collapsed `dist` entry.
+    // Without whole-directory omission the dist symlink would expose bundle.js
+    // to worktree-side writes that mutate the source file.
+    expect(policy.omit).toEqual(['dist']);
+    expect(policy.copy).toEqual([]);
+    expect(policy.share).toEqual({ directories: [], files: ['.env'] });
+    expect(policy.classify('dist/bundle.js')).toBe('omit');
+  });
+
+  it('keeps a negated .worktreeignore descendant excluded when its parent directory is excluded', async () => {
+    sourceRoot = await makeSourceRoot('omit-negation-parent-excluded');
+    await initGitRepo(sourceRoot, ['dist/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'keep.js'), 'k');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/\n!dist/keep.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // Git parent-exclusion: a file under an excluded parent cannot be
+    // re-included, so `!dist/keep.js` leaves keep.js omitted and the collapsed
+    // dir stays omitted wholesale.
+    expect(policy.omit).toEqual(['dist']);
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('dist/keep.js')).toBe('omit');
+  });
+
+  it('lets a negated .worktreeignore descendant re-include under a non-excluded parent while the dir is still omitted wholesale', async () => {
+    sourceRoot = await makeSourceRoot('omit-negation-reinclude');
+    await initGitRepo(sourceRoot, ['dist/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, 'dist', 'keep.js'), 'k');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'dist/**\n!dist/keep.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // `dist/**` does not exclude `dist` itself, so `!dist/keep.js` re-includes
+    // keep.js — matching git semantics — while the still-matching bundle.js
+    // keeps the collapsed dir omitted wholesale (a symlink cannot omit part of
+    // a directory).
+    expect(policy.omit).toEqual(['dist']);
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify('dist/bundle.js')).toBe('omit');
+    expect(policy.classify('dist/keep.js')).toBe('share');
   });
 
   it('omits an ignored file matched by .worktreeignore and shares the rest', async () => {
@@ -209,6 +328,24 @@ describe('loadWorktreePathPolicy', () => {
     expect(policy.classify('dist')).toBe('copy');
     expect(policy.classify('dist/bundle.js')).toBe('copy');
     expect(policy.classify('dist/other.js')).toBe('share');
+  });
+
+  it('copies ignored files from a colon-prefixed ignored directory (literal pathspec)', async () => {
+    sourceRoot = await makeSourceRoot('colon-prefixed');
+    await initGitRepo(sourceRoot, [':foo/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, ':foo'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, ':foo', 'bundle.js'), 'b');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), ':foo/bundle.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // `git ls-files ... -- :foo` would parse the leading colon as pathspec
+    // magic and silently return nothing; --literal-pathspecs must keep the
+    // enumeration working so the selected file is copied and the directory is
+    // never symlinked whole.
+    expect(policy.copy).toEqual([':foo/bundle.js']);
+    expect(policy.share).toEqual({ directories: [], files: [] });
+    expect(policy.classify(':foo/bundle.js')).toBe('copy');
   });
 
   it('applies .worktreeinclude negation like the existing .worktreeinclude tests', async () => {
@@ -318,9 +455,12 @@ describe('loadWorktreePathPolicy', () => {
 
     const policy = await loadPolicy(sourceRoot);
 
-    // node_modules itself is not matched by the `.vite` pattern and stays
-    // shareable; the omitted descendant and everything under it are omit.
-    expect(policy.share.directories).toEqual(['node_modules']);
+    // The `.vite` pattern matches only a descendant, never the collapsed
+    // node_modules entry — but any omitted descendant omits the whole
+    // collapsed directory (a symlink cannot expose part of a directory). The
+    // rerouter still rebuilds node_modules because classify stays pattern-based.
+    expect(policy.omit).toEqual(['node_modules']);
+    expect(policy.share.directories).toEqual([]);
     expect(policy.classify('node_modules')).toBe('share');
     expect(policy.classify('node_modules/.vite')).toBe('omit');
     expect(policy.classify('node_modules/.vite/deps/x.js')).toBe('omit');
@@ -358,7 +498,8 @@ describe('loadWorktreePathPolicy', () => {
     const policy = await loadPolicy(sourceRoot);
 
     expect(policy.copy).toEqual([]);
-    expect(policy.share.directories).toEqual(['node_modules']);
+    expect(policy.omit).toEqual(['node_modules']);
+    expect(policy.share.directories).toEqual([]);
     expect(policy.classify('node_modules/.vite')).toBe('omit');
     expect(policy.classify('node_modules/.vite/deps/x.js')).toBe('omit');
   });

@@ -108,7 +108,7 @@ ls -la <worktree>/<path>
 readlink <worktree>/<path>    # symlink = shared
 stat -c %F <worktree>/<path>  # regular file = copied (or checked out)
 ```
-Fix the pattern or file permissions, then re-run `create-worktree` — the policy is rebuilt from scratch, no cache to clear. **Risk**: **safe**.
+Fix the pattern or file permissions, then re-run `create-worktree` — the policy is rebuilt from scratch, no cache to clear. A failed creation removes its partially-provisioned worktree automatically: the directory, its git registration, and the branch the failed run created are cleaned up before the error surfaces, so the re-run starts from a clean slate (a branch that existed before the failed run is left untouched). If cleanup itself fails, a warning is printed to stderr naming the leftover directory — remove it manually with `remove-worktree <path>` first, then re-run. **Risk**: **safe**.
 
 **Post-fix verification**: `create-worktree` exits 0; omitted paths have no entry, copied paths are regular files, unmatched ignored paths are symlinks.
 
