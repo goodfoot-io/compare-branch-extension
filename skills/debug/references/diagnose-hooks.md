@@ -131,9 +131,14 @@ Based on symptom, ranked by probability:
 
 ### No Log Output (MEDIUM probability)
 
-**Evidence**: Hook seems to work (announcement appears, session state is written) but no log file exists **at the path you looked in**.
+**Evidence**: Hook seems to work (announcement appears, session state is written) but no log file exists **at the path you looked in**. Check the agent's hook output for a `[cards-hooks]` line on stderr before treating the missing file as the whole story — when the bundle has no log file it says so there.
 
 **Cause**: For Claude Cards hooks, check the anchor before the file. A user-scope install logs to `$HOME/.cards/logs/`, not the repository — looking under the repo finds nothing while the hooks are fine. Beyond that the bundle fails closed and writes nothing at all when: no Claude settings file records the install; `git rev-parse --git-common-dir` in the payload `cwd` yields no `/.git` path (bare repo, non-repo `cwd`, submodule, separate-git-dir, missing `git`); or the operator set `CLAUDE_CODE_HOOKS_LOG_FILE` (or the name `CLAUDE_CODE_HOOKS_LOG_ENV_VAR` redirects to) to an empty value, which means "off". For Codex hooks, `CODEX_HOOKS_LOG_FILE` is not set by Cards — the Logger falls back to no file output.
+
+**Read stderr, it is self-explaining.** With no file to write to, the bundle routes two things there rather than guessing a repository to file them in:
+
+- `[cards-hooks] could not resolve a log anchor: git rev-parse <reason>; hook logging is off` — a broken environment (`git` missing, or timed out after the 3 s budget). Note the asymmetry: git exiting 128, meaning "not a repository", is routine and stays **silent**, so a session outside a checkout produces no file and no message. Absence of this line does not mean the anchor resolved.
+- `[cards-hooks] error: <message> (no hook log file resolved)` — an error the hook raised before any handler installed a real path, typically while parsing its payload. At that point the invocation cannot know which session it belongs to, so the record goes to the operator instead of into an arbitrary checkout. A healthy invocation writes nothing here, and the mirror stops as soon as a real path is installed.
 
 **Recovery**: For Claude: re-run §1 of `SKILL.md` and read `HOOKS_LOG_ANCHOR`; look there first. If it is `unset`, confirm the plugin is enabled in one of the settings files (see `inspect-settings.md`) and that `git rev-parse --path-format=absolute --git-common-dir` prints a path ending in `/.git` from the session's working directory. Setting `CLAUDE_CODE_HOOKS_LOG_FILE` to an explicit path always wins over the computed default. For Codex: set `CODEX_HOOKS_LOG_FILE` manually. **Risk**: **safe**.
 
