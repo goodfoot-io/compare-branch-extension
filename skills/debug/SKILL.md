@@ -63,17 +63,49 @@ else
   HOOKS_LOG_OVERRIDE_SET=
   echo "HOOKS_LOG_OVERRIDE=none"
 fi
-# Computed default anchor: the Cards plugin's install scope decides it.
+# Computed default anchor: the Cards plugin's install scope decides it. Classify
+# each settings file into the same three states the bundle does, so a file jq
+# cannot read is reported rather than counted as "no install".
+classify_claude_settings() {
+  [ -f "$1" ] || { echo absent; return 0; }
+  jq -e '.enabledPlugins["cards@cards.management"] == true' "$1" >/dev/null 2>&1
+  case $? in
+    0) echo install ;;
+    1) echo no-install ;;
+    *) echo unreadable-by-jq ;;  # 5 = parse error (JSONC or malformed), 4 = empty
+  esac
+}
 HOOKS_LOG_ANCHOR=
-for f in "$WORKSPACE/.claude/settings.local.json" "$WORKSPACE/.claude/settings.json" \
-         "$MAIN_REPO_ROOT/.claude/settings.local.json" "$MAIN_REPO_ROOT/.claude/settings.json"; do
-  jq -e '.enabledPlugins["cards@cards.management"] == true' "$f" >/dev/null 2>&1 \
-    && HOOKS_LOG_ANCHOR=$MAIN_REPO_ROOT && break
-done
-[ -z "$HOOKS_LOG_ANCHOR" ] \
-  && jq -e '.enabledPlugins["cards@cards.management"] == true' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" >/dev/null 2>&1 \
-  && HOOKS_LOG_ANCHOR=$HOME
+HOOKS_LOG_UNREADABLE=
+if [ -n "${MAIN_REPO_ROOT:-}" ]; then
+  PREV_ROOT=
+  for root in "$WORKSPACE" "$MAIN_REPO_ROOT"; do
+    [ "$root" = "$PREV_ROOT" ] && continue   # deduplicated outside a linked worktree
+    PREV_ROOT=$root
+    for f in "$root/.claude/settings.local.json" "$root/.claude/settings.json"; do
+      case "$(classify_claude_settings "$f")" in
+        install) HOOKS_LOG_ANCHOR=$MAIN_REPO_ROOT ;;
+        unreadable-by-jq) HOOKS_LOG_UNREADABLE="$HOOKS_LOG_UNREADABLE
+  $f" ;;
+      esac
+      [ -n "$HOOKS_LOG_ANCHOR" ] && break    # the bundle stops at the first install too
+    done
+    [ -n "$HOOKS_LOG_ANCHOR" ] && break
+  done
+  # A repo-scope install settles the anchor at MAIN_REPO_ROOT whatever the
+  # unreadable files held, so they cannot change the answer — drop them.
+  [ -n "$HOOKS_LOG_ANCHOR" ] && HOOKS_LOG_UNREADABLE=
+fi
+if [ -z "$HOOKS_LOG_ANCHOR" ]; then
+  USER_SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+  case "$(classify_claude_settings "$USER_SETTINGS")" in
+    install) HOOKS_LOG_ANCHOR=$HOME ;;
+    unreadable-by-jq) HOOKS_LOG_UNREADABLE="$HOOKS_LOG_UNREADABLE
+  $USER_SETTINGS" ;;
+  esac
+fi
 echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}${HOOKS_LOG_OVERRIDE_SET:+ (computed default — NOT in use, override set)}"
+[ -n "$HOOKS_LOG_UNREADABLE" ] && echo "HOOKS_LOG_ANCHOR is INCONCLUSIVE — jq could not parse:$HOOKS_LOG_UNREADABLE"
 ```
 
 `CARDS_CONFIG_DIR` is the root for discovery, databases, sessions, and worktrees. `WORKSPACE`, `MAIN_REPO_ROOT`, and `HOOKS_LOG_ANCHOR` are referenced by diagnostic commands throughout the reference files; `find-logs.md` names which one each log uses.
@@ -81,6 +113,8 @@ echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}${HOOKS_LOG_OVERRIDE_SET:+ (com
 `MAIN_REPO_ROOT` is where a repo-scoped `.cards/logs/` tree hangs off. It differs from `WORKSPACE` whenever the session runs in a linked worktree: `--git-common-dir` collapses a worktree back to the repository that owns it, `--show-toplevel` does not. Anchoring a log path on `WORKSPACE` from a worktree targets a path the bundle never wrote — usually nothing at all, which reads as "hooks are dead" when they are fine, and occasionally a stale copy that is worse (see `find-logs.md`). The basename guard mirrors the hook bundle's own — a common dir not named `.git` (bare repo, submodule, separate-git-dir) leaves `MAIN_REPO_ROOT` unset, matching the bundle's fail-closed resolution in `public/packages/agent-hooks/src/shared/default-log-file.ts`.
 
 `HOOKS_LOG_ANCHOR` is where the **Claude API hook log** lands, and it is not always `MAIN_REPO_ROOT`. The bundle anchors on the repository only when that repository carries the install (`claude-local` / `claude-project`); a user-scope install fires in every repository the user opens, so it anchors on `$HOME` instead and leaves unrelated repositories untouched. `unset` means no Cards install is recorded anywhere — the bundle then writes no file at all, which is the expected state, not a fault.
+
+**Do not act on `unset` when the `INCONCLUSIVE` line printed.** Claude settings files are JSONC by design — the extension reads and writes them through `comment-json` so hand-written comments survive plugin injection — and jq 1.7 rejects a `//` comment or trailing comma outright (exit 5). The bundle strips JSONC before parsing, so every file jq refuses is one it may well read perfectly, install and all. jq cannot tell that file apart from genuinely malformed JSON, so §1 names it and declines to conclude rather than reporting an `unset` it has not earned. Resolve it by reading the named file directly: if it carries `enabledPlugins["cards@cards.management"]: true`, the anchor is `MAIN_REPO_ROOT` for a per-repo file or `$HOME` for the user-scope one. The bundle's own view is on stderr — `[cards-hooks] could not read <file>: <reason>; ignoring it when resolving the hook log anchor` means it failed too, and then `unset` is real.
 
 **Read `HOOKS_LOG_OVERRIDE` before `HOOKS_LOG_ANCHOR`.** The two are not alternatives to weigh; the override decides on its own and the anchor is then irrelevant. When a value is present the bundle skips the computed default entirely, so `HOOKS_LOG_ANCHOR` still prints a plausible directory that nothing is writing to — which is why the line marks it *NOT in use* rather than leaving you to notice. An **empty** value is not a missing one: it means logging is deliberately off, and the anchor is equally moot. Only `HOOKS_LOG_OVERRIDE=none` makes `HOOKS_LOG_ANCHOR` the answer. The name is followed rather than assumed because `CLAUDE_CODE_HOOKS_LOG_ENV_VAR` can point the logger at a different variable, and testing `CLAUDE_CODE_HOOKS_LOG_FILE` under that indirection reports "no override" while one is in force.
 
