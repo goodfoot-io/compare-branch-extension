@@ -1,16 +1,17 @@
 /**
- * Integration tests for the removeWorktree SDK helper and the per-entry symlink
- * provisioning of `.cards/bin` and `.cards/www`.
+ * Integration tests for the removeWorktree SDK helper, the per-entry symlink
+ * provisioning of `.cards/bin` and `.cards/www`, and the end-to-end
+ * `.worktreeignore`/`.worktreeinclude` path policy through createWorktree.
  *
  * Each test creates a real git worktree via createWorktree, then exercises
- * removeWorktree or the static-subtree provisioning against it. Real git
- * operations, real filesystem. The one exception is the symlink-privilege
- * propagation test, which routes `fs.symlink` through a controllable override so
- * the Windows EPERM/EINVAL denial — unreproducible on Linux — can be simulated
- * at the OS boundary; the override delegates to the real implementation for
- * every other test.
+ * removeWorktree, the static-subtree provisioning, or the path-policy
+ * isolation outcomes against it. Real git operations, real filesystem. The one
+ * exception is the symlink-privilege propagation test, which routes
+ * `fs.symlink` through a controllable override so the Windows EPERM/EINVAL
+ * denial — unreproducible on Linux — can be simulated at the OS boundary; the
+ * override delegates to the real implementation for every other test.
  *
- * @summary removeWorktree and static-subtree provisioning integration tests
+ * @summary removeWorktree, static-subtree provisioning, and path-policy integration tests
  */
 
 import { execFileSync } from 'node:child_process';
@@ -28,6 +29,7 @@ import {
   SymlinkPrivilegeError,
   WorktreeScopeError
 } from '../src/worktree.js';
+import { WorktreeIncludeError } from '../src/worktreeInclude.js';
 
 // `fs.symlink` on the node:fs/promises namespace is non-configurable in ESM, so
 // it cannot be spied via vi.spyOn (same limitation as execFileSync). To simulate
@@ -59,6 +61,19 @@ function initGitRepo(dir: string): void {
   writeFileSync(path.join(dir, 'README.md'), '# test\n');
   execFileSync('git', ['add', '.'], { cwd: dir });
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
+}
+
+/**
+ * Writes a `.gitignore` and commits it, so the ignore rules are part of the
+ * repo state before worktree creation discovers ignored paths.
+ *
+ * @param repoDir - Repository root to write into.
+ * @param contents - `.gitignore` file contents.
+ */
+function commitGitignore(repoDir: string, contents: string): void {
+  writeFileSync(path.join(repoDir, '.gitignore'), contents);
+  execFileSync('git', ['add', '.gitignore'], { cwd: repoDir });
+  execFileSync('git', ['commit', '-q', '-m', 'add gitignore'], { cwd: repoDir });
 }
 
 /**
@@ -318,66 +333,6 @@ describe('removeWorktree', () => {
       }
     }
   );
-
-  it('applyWorktreeInclude ordering: settle resolves and worktree is correct when gitignored paths overlap with .worktreeinclude', async () => {
-    // This test guards the Wave 2 → Wave 3 ordering contract:
-    // symlinkIgnoredPaths (Wave 2) must complete before applyWorktreeInclude (Wave 3) starts.
-    //
-    // Scenario:
-    // - `.link` is a root-level symlink (not gitignored) → copyExistingSymlinks (Wave 1) copies
-    //   it to the worktree; symlinkIgnoredPaths and applyWorktreeInclude do not touch it.
-    // - `dist/` is a gitignored directory → symlinkIgnoredPaths (Wave 2) creates
-    //   worktreeDir/dist as a symlink to sourceRoot/dist; applyWorktreeInclude (Wave 3)
-    //   enumerates dist/bundle.js and copies it — safe because fs.copyFile resolves through
-    //   the symlink (same inode, succeeds without EEXIST).
-    //
-    // The Wave 1 barrier ensures copyExistingSymlinks completes before applyWorktreeInclude
-    // starts (Wave 3). The Wave 2 barrier ensures symlinkIgnoredPaths completes before
-    // applyWorktreeInclude starts. If those barriers were removed and all steps ran concurrently,
-    // applyWorktreeInclude could race copyExistingSymlinks on a gitignored root-level symlink
-    // (F2) or race symlinkIgnoredPaths on a gitignored file in .worktreeinclude, producing
-    // EEXIST (applyWorktreeInclude has no EEXIST guard) and rejecting the settle promise.
-    await fs.writeFile(path.join(repoDir, '.gitignore'), 'dist/\n');
-    execFileSync('git', ['add', '.gitignore'], { cwd: repoDir });
-    execFileSync('git', ['commit', '-q', '-m', 'add gitignore'], { cwd: repoDir });
-
-    // Root-level symlink (copied by copyExistingSymlinks in Wave 1; not gitignored so
-    // symlinkIgnoredPaths and applyWorktreeInclude do not touch it)
-    await fs.writeFile(path.join(repoDir, 'target.txt'), 'target content');
-    await fs.symlink('target.txt', path.join(repoDir, '.link'));
-
-    // Gitignored directory with a regular file (symlinkIgnoredPaths symlinks the dir in Wave 2;
-    // applyWorktreeInclude copies the file through the symlink in Wave 3 — safe)
-    await fs.mkdir(path.join(repoDir, 'dist'), { recursive: true });
-    await fs.writeFile(path.join(repoDir, 'dist', 'bundle.js'), 'console.log(1);');
-
-    // .worktreeinclude re-includes the dist directory's contents
-    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'dist/\n');
-
-    const { path: wPath, settle } = await createWorktree('feature/include-ordering', { cwd: repoDir });
-
-    // settle must resolve — a wrong ordering that produces EEXIST would reject it
-    const result = await settle;
-    expect(result).toBeDefined();
-
-    // copyExistingSymlinks (Wave 1) placed the root symlink; it must be a symlink in the worktree.
-    // copyExistingSymlinks creates a symlink pointing to the source entry (absolute path), not
-    // to the original link target — that is the correct sequential result for this step.
-    const linkLstat = await fs.lstat(path.join(wPath, '.link'));
-    expect(linkLstat.isSymbolicLink()).toBe(true);
-    // The symlink resolves to the source .link, which in turn resolves to target.txt
-    const resolvedLink = await fs.realpath(path.join(wPath, '.link'));
-    expect(resolvedLink).toBe(await fs.realpath(path.join(repoDir, '.link')));
-
-    // dist/bundle.js is accessible in the worktree (symlinkIgnoredPaths created worktreeDir/dist
-    // as a symlink; applyWorktreeInclude's copy resolves through it to the source file)
-    const bundleStat = await fs.stat(path.join(wPath, 'dist', 'bundle.js'));
-    expect(bundleStat.isFile()).toBe(true);
-    const bundleContent = await fs.readFile(path.join(wPath, 'dist', 'bundle.js'), 'utf8');
-    expect(bundleContent).toBe('console.log(1);');
-
-    await removeWorktree(wPath);
-  });
 });
 
 describe('createWorktree static .cards subtree provisioning', () => {
@@ -604,5 +559,168 @@ describe('createWorktree static .cards subtree provisioning', () => {
     await expect(
       fs.access(path.join(repoDir, '.cards', 'www', 'claude-code-session', 'stray.html'))
     ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+});
+
+describe('createWorktree worktree path policy integration', () => {
+  let tmpBase = '';
+  let repoDir = '';
+  let worktreesDir = '';
+  const originalEnv = process.env;
+
+  beforeEach(async () => {
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'wt-policy-')));
+    repoDir = path.join(tmpBase, 'repo');
+    worktreesDir = path.join(tmpBase, 'worktrees');
+    await fs.mkdir(repoDir);
+    await fs.mkdir(worktreesDir);
+    initGitRepo(repoDir);
+    process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir };
+  });
+
+  afterEach(async () => {
+    process.env = originalEnv;
+    if (tmpBase) {
+      // maxRetries/retryDelay: on Windows a git subprocess can briefly hold a
+      // handle into tmpBase (.git admin files), so rmdir races EBUSY/EPERM —
+      // retry past the transient lock, mirroring removeWorktree() in worktree.ts.
+      await fs.rm(tmpBase, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      tmpBase = '';
+    }
+  });
+
+  it('copies a .worktreeinclude-selected ignored file into a real directory that isolates worktree writes from the source', async () => {
+    // dist/ is gitignored, .worktreeinclude selects dist/bundle.js, and
+    // stats.json is an unmatched sibling under the same ignored parent.
+    commitGitignore(repoDir, 'dist/\n');
+    await fs.mkdir(path.join(repoDir, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'dist', 'bundle.js'), 'console.log(1);\n');
+    await fs.writeFile(path.join(repoDir, 'dist', 'stats.json'), '{"hits":0}\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'dist/bundle.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/policy-copy-isolation', { cwd: repoDir });
+    const result = await settle;
+    expect(result.copiedFromInclude).toBe(1);
+
+    // The included directory is real, not a symlink — inspect the parent with
+    // lstat() before reading any child so an ancestor directory symlink cannot
+    // masquerade as a copy (the plan's risk section).
+    const distStat = await fs.lstat(path.join(wPath, 'dist'));
+    expect(distStat.isDirectory()).toBe(true);
+    expect(distStat.isSymbolicLink()).toBe(false);
+
+    // The selected file is a real copied file, not a symlink into the source.
+    const bundleStat = await fs.lstat(path.join(wPath, 'dist', 'bundle.js'));
+    expect(bundleStat.isFile()).toBe(true);
+    expect(bundleStat.isSymbolicLink()).toBe(false);
+    await expect(fs.readFile(path.join(wPath, 'dist', 'bundle.js'), 'utf8')).resolves.toBe('console.log(1);\n');
+
+    // Source and worktree files have distinct inodes and realpaths — the
+    // worktree file is a separate filesystem object from the source file.
+    const srcBundleStat = await fs.stat(path.join(repoDir, 'dist', 'bundle.js'));
+    const wtBundleStat = await fs.stat(path.join(wPath, 'dist', 'bundle.js'));
+    expect(wtBundleStat.ino).not.toBe(srcBundleStat.ino);
+    expect(await fs.realpath(path.join(wPath, 'dist', 'bundle.js'))).not.toBe(
+      await fs.realpath(path.join(repoDir, 'dist', 'bundle.js'))
+    );
+
+    // Mutate the worktree copy — the source file must stay unchanged.
+    await fs.writeFile(path.join(wPath, 'dist', 'bundle.js'), 'console.log(2);\n');
+    await expect(fs.readFile(path.join(wPath, 'dist', 'bundle.js'), 'utf8')).resolves.toBe('console.log(2);\n');
+    await expect(fs.readFile(path.join(repoDir, 'dist', 'bundle.js'), 'utf8')).resolves.toBe('console.log(1);\n');
+
+    // Unmatched ignored siblings under the copied parent remain absent.
+    await expect(fs.lstat(path.join(wPath, 'dist', 'stats.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('omits .worktreeignore-matched generated directories entirely while sharing unmatched ignored directories', async () => {
+    commitGitignore(repoDir, 'build/\ncache/\n');
+    await fs.mkdir(path.join(repoDir, 'build'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'build', 'out.txt'), 'generated\n');
+    await fs.mkdir(path.join(repoDir, 'cache'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'cache', 'entry.bin'), 'cached\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'build/\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/policy-omit-dir', { cwd: repoDir });
+    await settle;
+
+    // build is omitted: neither symlinked nor copied — absent from the worktree.
+    await expect(fs.lstat(path.join(wPath, 'build'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // cache is unmatched by .worktreeignore → the default share: a symlink.
+    const cacheStat = await fs.lstat(path.join(wPath, 'cache'));
+    expect(cacheStat.isSymbolicLink()).toBe(true);
+    // The omitted directory still exists in the source.
+    await expect(fs.readFile(path.join(repoDir, 'build', 'out.txt'), 'utf8')).resolves.toBe('generated\n');
+  });
+
+  it('resolves nested and conflicting patterns with omit winning over copy inside a copied parent', async () => {
+    commitGitignore(repoDir, 'gen/\n');
+    await fs.mkdir(path.join(repoDir, 'gen'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'gen', 'out.txt'), 'out\n');
+    await fs.writeFile(path.join(repoDir, 'gen', 'tmp.txt'), 'tmp\n');
+    // gen/ selects the whole ignored directory for copy; gen/tmp.txt is also
+    // listed in .worktreeignore — omit wins over copy for the nested file.
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'gen/\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'gen/tmp.txt\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/policy-nested-conflict', { cwd: repoDir });
+    await settle;
+
+    // gen is a real directory — the copied parent is never symlinked.
+    const genStat = await fs.lstat(path.join(wPath, 'gen'));
+    expect(genStat.isDirectory()).toBe(true);
+    expect(genStat.isSymbolicLink()).toBe(false);
+
+    // out.txt is a real copied file.
+    const outStat = await fs.lstat(path.join(wPath, 'gen', 'out.txt'));
+    expect(outStat.isFile()).toBe(true);
+    expect(outStat.isSymbolicLink()).toBe(false);
+    await expect(fs.readFile(path.join(wPath, 'gen', 'out.txt'), 'utf8')).resolves.toBe('out\n');
+
+    // tmp.txt matches both config files; omit wins — it is absent.
+    await expect(fs.lstat(path.join(wPath, 'gen', 'tmp.txt'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('fails closed with WorktreeIncludeError when .worktreeinclude is unreadable, before any ignored path is symlinked', async () => {
+    commitGitignore(repoDir, 'dist/\ncache/\n');
+    await fs.mkdir(path.join(repoDir, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'dist', 'bundle.js'), 'console.log(1);\n');
+    await fs.mkdir(path.join(repoDir, 'cache'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'cache', 'entry.bin'), 'cached\n');
+    // A directory at the config path is unreadable as a file — the policy must
+    // fail closed before a matching source path can be linked into the worktree.
+    await fs.mkdir(path.join(repoDir, '.worktreeinclude'));
+
+    const { path: wPath, settle } = await createWorktree('feature/policy-config-failure', { cwd: repoDir });
+
+    await expect(settle).rejects.toBeInstanceOf(WorktreeIncludeError);
+
+    // The checkout itself exists (the usable-directory boundary), but no
+    // ignored path was symlinked or copied: neither dist nor cache exists.
+    await expect(fs.access(wPath)).resolves.toBeUndefined();
+    await expect(fs.lstat(path.join(wPath, 'dist'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(fs.lstat(path.join(wPath, 'cache'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('lists only actual symlinks in the worktree exclude file, keeping copied directories out', async () => {
+    commitGitignore(repoDir, 'dist/\ncache/\n');
+    await fs.mkdir(path.join(repoDir, 'dist'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'dist', 'bundle.js'), 'console.log(1);\n');
+    await fs.mkdir(path.join(repoDir, 'cache'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'cache', 'entry.bin'), 'cached\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'dist/bundle.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/policy-exclude-file', { cwd: repoDir });
+    await settle;
+
+    // The exclude file lives in the worktree's git dir, exactly where
+    // prepareWorktreeExcludes pointed core.excludesFile.
+    const gitDir = execFileSync('git', ['-C', wPath, 'rev-parse', '--git-dir'], { encoding: 'utf8' }).trim();
+    const excludeContent = await fs.readFile(path.join(gitDir, 'info', 'exclude'), 'utf8');
+
+    // cache is a shared symlink → listed as an injected symlink exclusion.
+    expect(excludeContent).toContain('cache');
+    // dist is a real copied directory, not a symlink → must not be listed.
+    expect(excludeContent).not.toContain('dist');
   });
 });
