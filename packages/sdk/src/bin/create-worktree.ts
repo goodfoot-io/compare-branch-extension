@@ -12,7 +12,7 @@
  *
  * Outputs JSON: `{"branch":"...","worktree":"...","baseSha":"...","copiedFromInclude":N,"reroutedSymlinks":N}`
  *
- * Exit codes: 0 success, 2 general failure, 3 `.worktreeinclude` processing failure.
+ * Exit codes: 0 success, 2 general failure, 3 path-policy (`.worktreeignore`/`.worktreeinclude`) processing failure.
  *
  * @summary CLI for git worktree creation
  */

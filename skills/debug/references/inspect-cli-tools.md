@@ -63,7 +63,7 @@ Routes through `POST /execute-command` with `{command: "cards.reportIssue", args
 
 **Usage**: `create-worktree [--card-id <id>] [--parent-branch <name>] <branch|tag|sha>`
 
-**Exit codes**: 0 success, 2 general failure, 3 `.worktreeinclude` processing failure.
+**Exit codes**: 0 success, 2 general failure, 3 path-policy (`.worktreeignore`/`.worktreeinclude`) processing failure. The path policy is loaded by `loadWorktreePathPolicy()` (`public/packages/sdk/src/worktreePathPolicy.ts`) — omit for `.worktreeignore`, copy for `.worktreeinclude`, share (symlink) as the default for unmatched git-ignored paths. Omit wins over copy; patterns are gitignore syntax; the policy is re-evaluated per creation. An unreadable or invalid config file fails closed as a `WorktreeIncludeError` before any matching path is linked.
 
 **Auth** (with `--card-id`): Bearer token from `~/.cards/cards-api.json`.
 

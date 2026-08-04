@@ -235,6 +235,23 @@ METAEOF
 cd "$REPO" && git add "attachments/$ATT_NAME" "attachments/${ATT_NAME}.meta.json" && git commit -m "Added attachment [single sentence describing what was attached and why]."
 ```
 
+## Worktree Path Policy
+
+Worktree creation makes one authoritative path decision for every git-ignored path before provisioning:
+
+- **Share (default)** — symlinked into the worktree; unmatched by both policy files.
+- **Omit** — never provisioned; matched by `.worktreeignore` at the repo root.
+- **Copy** — copied as a real file the agent can edit without touching the source; matched by `.worktreeinclude` at the repo root.
+
+Use `.worktreeignore` for generated outputs that should not appear in the worktree (build artifacts, caches); use `.worktreeinclude` for git-ignored files the agent needs as editable copies (local env files, tool-managed lockfiles).
+
+Rules:
+- **Omit wins over copy** — a path matching both files is omitted.
+- **Gitignore-style patterns** — comments (`#`), negation (`!`), directory patterns (`dir/`); directory patterns cover descendants.
+- **Copy prevents ancestor symlinks** — a copy rule for `dist/bundle.js` under an ignored `dist/` prevents the `dist` symlink and copies only the selected files into a real directory; unmatched siblings stay absent.
+- **Regenerated per creation** — the policy is re-evaluated on every worktree creation; config edits take effect on the next materialization.
+- **Fail closed** — an unreadable or invalid `.worktreeignore`/`.worktreeinclude` stops creation before any matching path is linked (`create-worktree` exits 3).
+
 <card-status>
 - **todo**: This card is ready for implementation.
 - **active**: The agent is actively working on this card. Set automatically when an action handler starts; do not set directly.

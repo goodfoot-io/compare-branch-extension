@@ -91,6 +91,27 @@ Ranked by probability:
 
 **Recovery**: Rerun `cards <id> bind` to re-outfit the worktree — **safe**. Check `.cards/CARD_ORIGINAL_HOOK_PATH` for the previous value.
 
+### Worktree Contents Not Isolated (Path Policy) — MEDIUM probability
+
+**Evidence**: `create-worktree` exits 3. The worktree is missing paths that should be shared, has symlinks where real files should be, or contains generated output that should be omitted.
+
+**Cause**: `.worktreeignore` (omit) and `.worktreeinclude` (copy) at the source repo root configure the worktree path policy, and the policy fails closed: an unreadable or invalid file stops creation with a `WorktreeIncludeError` before any matching path is linked. Otherwise every git-ignored path gets one of three decisions — omit (never provisioned), copy (real file; prevents the ignored ancestor directory from being symlinked), or share (symlink, the default for unmatched paths). Omit wins over copy; patterns are gitignore syntax. The policy is re-evaluated on every creation, so config edits apply on the next run.
+
+**Recovery**:
+```bash
+# Config files live at the source repo root; both must be readable and valid
+ls -la .worktreeignore .worktreeinclude
+# What the source considers ignored (must match the policy's input)
+git check-ignore -v <path>
+# What the worktree actually contains
+ls -la <worktree>/<path>
+readlink <worktree>/<path>    # symlink = shared
+stat -c %F <worktree>/<path>  # regular file = copied (or checked out)
+```
+Fix the pattern or file permissions, then re-run `create-worktree` — the policy is rebuilt from scratch, no cache to clear. **Risk**: **safe**.
+
+**Post-fix verification**: `create-worktree` exits 0; omitted paths have no entry, copied paths are regular files, unmatched ignored paths are symlinks.
+
 ### Worktree Path on Windows — LOW probability
 
 **Evidence**: Path mismatch between `git worktree list` output (forward slashes) and filesystem (backslashes).
@@ -112,6 +133,7 @@ Ranked by probability:
 File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Bind lock persists after confirming no bind operation is running**: Include `ls -la ~/.cards/bind-locks/` and `git worktree list`.
 - **Worktree creation consistently fails with no collision**: Include `create-worktree` stderr output and the worktree directory listing.
+- **Worktree contents wrong or creation exits 3 (path policy)**: Include `cat .worktreeignore` / `cat .worktreeinclude` (redacted), the `create-worktree` stderr, and `ls -la` of the affected worktree paths.
 - **Hooks refuse to run after multiple re-outfit attempts**: Include `git config core.hooksPath` and `cat .cards/CARD_ORIGINAL_HOOK_PATH`.
 - **Worktree removal fails with `git worktree remove`**: Include `git worktree list` and the specific error from `rm -rf` fallback.
 
