@@ -26,6 +26,10 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 
+// React requires this flag to flush effects synchronously under act() outside a
+// browser test runner (jsdom).
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 // jsdom has no ResizeObserver; assistant-ui's ThreadPrimitive.Viewport observes
 // its own size via one (useOnResizeContent), so a real DOM mount needs a stub
 // or the mount throws before any assertion runs.
@@ -35,6 +39,13 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+
+// jsdom's Element does not implement scrollTo; assistant-ui's
+// useThreadViewportAutoScroll calls viewport.scrollTo(...) from a
+// requestAnimationFrame callback, which is exactly the uncaught TypeError this
+// test guards against. jsdom performs no layout, so a no-op matches the
+// environment's semantics.
+Element.prototype.scrollTo = (() => {}) as typeof Element.prototype.scrollTo;
 
 // Hoisted so the mock factory can reference these identifiers.
 const { mockGetState, mockSubscribe } = vi.hoisted(() => ({

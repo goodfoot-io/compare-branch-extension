@@ -27,6 +27,10 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 
+// React requires this flag to flush effects synchronously under act() outside a
+// browser test runner (jsdom).
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 // jsdom has no ResizeObserver; assistant-ui's ThreadPrimitive.Viewport observes
 // its own size via one (useOnResizeContent), so a real DOM mount (as this test
 // performs, unlike the renderToStaticMarkup-based aui-foundation tests) needs a
@@ -37,6 +41,13 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+
+// jsdom's Element does not implement scrollTo; assistant-ui's
+// useThreadViewportAutoScroll calls viewport.scrollTo(...) from a
+// requestAnimationFrame callback, which would otherwise throw an uncaught
+// TypeError after this test's assertions have already passed. jsdom performs
+// no layout, so a no-op matches the environment's semantics.
+Element.prototype.scrollTo = (() => {}) as typeof Element.prototype.scrollTo;
 
 // Hoisted so the mock factory can reference these identifiers.  Without
 // vi.hoisted the references would be out of scope when vi.mock is hoisted.
@@ -152,5 +163,18 @@ describe('ExpandedView bootstrap race — subscribe:response window', () => {
     // appear when the store actually has lines.
     expect(container.textContent).not.toContain('No output yet.');
     expect(container.textContent).toContain('Hello from assistant.');
+
+    // Let the auto-scroll animation frame fire (a no-op via the scrollTo stub)
+    // while the jsdom window is still alive, then unmount so effect cleanups
+    // cancel anything still scheduled. Without this, pending rAF and React
+    // scheduler callbacks race environment teardown and surface as vitest
+    // "Unhandled Errors" (`div.scrollTo is not a function`, `window is not
+    // defined`) while the test itself still passes.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    await act(async () => {
+      root.unmount();
+    });
   });
 });
