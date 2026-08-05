@@ -707,6 +707,194 @@ describe('policy-aware rerouting of symlinked workspace packages', () => {
     await removeWorktree(wPath);
   });
 
+  it('reconciles a whole-package copy rule with an interior omit rule on a symlinked package: real dir, ruled path absent, package files copied', async () => {
+    // A legitimate, documented combination: .worktreeinclude: node_modules/pkgA
+    // (whole-package copy rule on a symlinked workspace package) combined with
+    // .worktreeignore: node_modules/pkgA/.cache/x.js (interior omit rule). The
+    // directory pattern puts the package's whole interior in the copy set, so
+    // omit wins over copy: the reroute walk must materialize pkgA as a real
+    // directory, the ruled path stays absent, the package's files become real
+    // copies (written by the include executor into the materialized tree), and
+    // the executor must skip the walk-provisioned package path instead of
+    // trying to recreate the source link over it (which failed creation with
+    // EEXIST, or raced the walk's unlink).
+    await makeSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/pkgA\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/symlink-pkg-copy-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The package is a real directory, never a wholesale link to the source.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The ruled path is absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The whole-package copy rule makes the package's files real copies.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', 'index.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    const srcCopiedStat = await fs.stat(path.join(repoDir, 'packages', 'pkgA', 'index.js'));
+    expect(copied.ino).not.toBe(srcCopiedStat.ino);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'package.json'), 'utf8')).resolves.toBe(
+      JSON.stringify({ name: 'pkgA' })
+    );
+    // The share sibling in the same node_modules stays a link into the
+    // worktree's own packages checkout.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'b'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'b')
+    );
+    // A worktree-side write at the ruled path lands in the worktree's own real
+    // tree and never reaches the source checkout.
+    await fs.writeFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'worktree-write\n');
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    // The source checkout is unchanged.
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('reconciles a whole-package copy rule with an interior omit rule on a symlinked @scope package and keeps its scope sibling linked', async () => {
+    // Same copy+omit combination at @-scope depth: the rule targets
+    // node_modules/@scope/a (whole-package copy) plus an interior omit
+    // (node_modules/@scope/a/.cache/tmp). The walk descends through the
+    // always-real @scope and materializes a as a real tree with tmp absent
+    // and its files copied into it; the executor must skip the materialized
+    // destination there too.
+    await makeSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/@scope/a\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/@scope/a/.cache/tmp\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/symlink-scope-copy-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The scoped package is a real directory, never a wholesale link.
+    const pkgALstat = await fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a'));
+    expect(pkgALstat.isDirectory()).toBe(true);
+    expect(pkgALstat.isSymbolicLink()).toBe(false);
+    // The ruled path is absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a', '.cache', 'tmp'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The package's index.js is a real copy, independent of the checkout copy.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a', 'index.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', '@scope', 'a', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    // The sibling package inside the same scope is still a link to the
+    // worktree's packages checkout.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'b'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'b')
+    );
+    // A worktree-side write at the ruled path never reaches the source.
+    await fs.writeFile(path.join(wPath, 'node_modules', '@scope', 'a', '.cache', 'tmp'), 'worktree-write\n');
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'a', '.cache', 'tmp'), 'utf8')).resolves.toBe('x');
+
+    await removeWorktree(wPath);
+  });
+
+  it('copies a complete package tree deterministically when the copy set holds node_modules paths alongside omit rules', async () => {
+    // The copy set contains node_modules paths (the whole package link plus a
+    // file inside it) and an omit rule rules a sibling interior path. The
+    // reroute walk and the include executor both write node_modules
+    // destinations here, so creation must join the walk before copying: every
+    // copied file is present in the final tree (no partial outcomes where the
+    // walk's unlink destroys an in-flight copy), the walk-materialized package
+    // entry is skipped by the executor, and the copy count reports exactly the
+    // files the executor actually wrote.
+    await makeSymlinkedWorkspace();
+    // The omit rule addresses a path the base fixture does not contain, so the
+    // ruled file must exist in the source package for the rule to match at all.
+    await fs.mkdir(path.join(repoDir, 'packages', 'pkgA', 'logs'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'packages', 'pkgA', 'logs', 'tmp'), 'x');
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/pkgA\nnode_modules/pkgA/.cache/x.js\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/logs/tmp\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/symlink-pkg-copy-race', { cwd: repoDir });
+    const result = await settle;
+
+    // The executor copied the package's files (index.js, package.json, and
+    // the interior x.js): the whole-package entry itself was provisioned by
+    // the walk and skipped, and the .cache directory entry is skipped as a
+    // directory.
+    expect(result.copiedFromInclude).toBe(3);
+    // The package is a real directory, never a wholesale link to the source.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // Every copied file is present as a real file — the complete tree, not a
+    // partial one.
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'package.json'), 'utf8')).resolves.toBe(
+      JSON.stringify({ name: 'pkgA' })
+    );
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    // The omit-triggered sibling directory is real and the ruled path absent.
+    const logsLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', 'logs'));
+    expect(logsLstat.isDirectory()).toBe(true);
+    expect(logsLstat.isSymbolicLink()).toBe(false);
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA', 'logs', 'tmp'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+
+    await removeWorktree(wPath);
+  });
+
+  it('reconciles copy with an interior omit rule on a symlinked package with an absolute target outside the repo: writes at the ruled path cannot reach the target', async () => {
+    // Same copy+omit combination for an EXTERNAL (absolute) link target: the
+    // package is materialized as a real tree, the executor skips the
+    // materialized destination and copies the package's files into it, and a
+    // worktree-side write at the ruled path can never reach the external
+    // target's file.
+    const externalPkg = path.join(tmpBase, 'external-pkgA-copy-omit');
+    await fs.mkdir(path.join(externalPkg, '.cache'), { recursive: true });
+    await fs.writeFile(path.join(externalPkg, '.cache', 'x.js'), 'external-cache\n');
+    await fs.writeFile(path.join(externalPkg, 'index.js'), 'external-index\n');
+    await makeSymlinkedWorkspace(externalPkg);
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/pkgA\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/symlink-abs-copy-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The package is a real directory, never a wholesale link to the target.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The ruled path is absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // A worktree-side write at the ruled path creates the file in the
+    // worktree's real tree and never reaches the external target's file.
+    await fs.writeFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'worktree-write\n');
+    await expect(fs.readFile(path.join(externalPkg, '.cache', 'x.js'), 'utf8')).resolves.toBe('external-cache\n');
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'worktree-write\n'
+    );
+
+    await removeWorktree(wPath);
+  });
+
   it('recreates every symlinked workspace entry as before when no policy config exists', async () => {
     // No config files: no enumeration, no rules — every entry stays a link
     // with its original relative target, exactly as before the policy waves.

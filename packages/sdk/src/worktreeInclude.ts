@@ -7,6 +7,13 @@
  * and expanding its patterns against gitignored paths is the policy loader's
  * job; this function only executes the copies.
  *
+ * The node_modules reroute walk runs before this function and provisions part
+ * of the copy set itself: a copy-set entry whose interior the policy omits is
+ * materialized as a real directory (the omit-wins-over-copy outcome), so the
+ * walk's destination is skipped here rather than overwritten with the source
+ * link — recreating the link over the materialized tree would fail with
+ * EEXIST and abort worktree creation.
+ *
  * @summary `.worktreeinclude` copy step for worktree creation
  * @module worktreeInclude
  */
@@ -33,6 +40,14 @@ export class WorktreeIncludeError extends Error {
  * rather than dereferencing them. Missing paths are tolerated (a file that
  * disappeared between enumeration and copy is skipped); parent directories are
  * created on demand.
+ *
+ * A copy-set path whose destination the node_modules reroute walk already
+ * provisioned is skipped: the walk materializes a copy-set entry whose
+ * interior the policy omits as a real directory, and that materialized tree —
+ * ruled path absent, package usable — is the correct omit-wins-over-copy
+ * outcome, so this executor never overwrites a destination the walk wrote.
+ * The caller must join the walk before invoking this function, so any
+ * existing destination is unambiguously the walk's work.
  *
  * Returns the count of files copied. Throws {@link WorktreeIncludeError} on
  * stat or copy failure.
@@ -79,6 +94,26 @@ export async function applyWorktreeInclude(opts: {
     }
 
     if (stat.isSymbolicLink()) {
+      // Skip a destination the node_modules reroute walk already provisioned.
+      // A symlink-source copy-set entry whose interior the policy omits (e.g.
+      // .worktreeinclude: node_modules/pkgA with an interior .worktreeignore
+      // rule) is materialized by the walk as a real directory — the
+      // omit-wins-over-copy outcome — and recreating the source link over it
+      // would fail with EEXIST. The caller joins the walk before invoking this
+      // function, so an existing destination is always the walk's work and is
+      // never overwritten here; a file-source entry is never a walk
+      // destination (the walk provisions package directories, and copied files
+      // inside a materialized package are left unlinked for this executor).
+      let destStats: Awaited<ReturnType<typeof fs.lstat>> | undefined;
+      try {
+        destStats = await fs.lstat(destAbs);
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err.code !== 'ENOENT') {
+          throw new WorktreeIncludeError(`Failed to stat destination for ${relPath}: ${err.message}`, { cause: error });
+        }
+      }
+      if (destStats !== undefined) continue;
       try {
         const target = await fs.readlink(srcAbs);
         await fs.symlink(target, destAbs);

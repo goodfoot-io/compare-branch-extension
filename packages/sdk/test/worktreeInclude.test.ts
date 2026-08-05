@@ -142,6 +142,47 @@ describe('applyWorktreeInclude', () => {
     expect(linkTarget).toBe('.env.real');
   });
 
+  it('skips a symlink entry whose destination the reroute walk already provisioned as a real directory', async () => {
+    // The node_modules reroute walk materializes a copy-set entry whose
+    // interior the policy omits as a real directory (omit wins over copy).
+    // The executor must skip such an entry — recreating the source link over
+    // the directory would fail with EEXIST — and count nothing, while a
+    // sibling entry with a free destination is still copied.
+    ({ sourceRoot, worktreeDir } = await makeTmpPair('walk-provisioned'));
+
+    // The walk's outcome: node_modules/pkgA exists in dest as a real
+    // directory (a previous run of the walk left it behind, mirroring the
+    // materialized omit-ancestor tree).
+    await fs.mkdir(path.join(worktreeDir, 'node_modules', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(worktreeDir, 'node_modules', 'pkgA', 'index.js'), 'walk-copy');
+    // The source entry is a symlink (a workspace package link).
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.symlink('../packages/pkgA', path.join(sourceRoot, 'node_modules', 'pkgA'));
+    // A second copy-set entry with a free destination is still copied.
+    await fs.writeFile(path.join(sourceRoot, 'README.md'), 'readme');
+
+    const count = await applyWorktreeInclude({
+      sourceRoot,
+      worktreeDir,
+      copySet: ['node_modules/pkgA', 'README.md']
+    });
+
+    expect(count).toBe(1);
+
+    // The walk-provisioned destination is untouched: still a real directory
+    // (no symlink recreated over it), with its pre-existing content intact.
+    const destPkg = await fs.lstat(path.join(worktreeDir, 'node_modules', 'pkgA'));
+    expect(destPkg.isDirectory()).toBe(true);
+    expect(destPkg.isSymbolicLink()).toBe(false);
+    await expect(fs.readFile(path.join(worktreeDir, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'walk-copy'
+    );
+    // The un-provisioned entry was copied normally.
+    await expect(fs.readFile(path.join(worktreeDir, 'README.md'), 'utf8')).resolves.toBe('readme');
+  });
+
   // Depends on POSIX permission enforcement; skipped where it cannot be enforced
   // (Windows or root — see cannotEnforcePosixPermissions). `fs.chmod(worktreeDir,
   // 0o500)` does not deny the copy there, so the expected rejection never occurs.

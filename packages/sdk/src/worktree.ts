@@ -455,11 +455,17 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     // Mirror node_modules now, overlapping wave 1 and the exclude-config writes.
     // It writes only the worktree's node_modules trees — disjoint from the root
     // symlinks, .cards copy, and the (node_modules-excluded) ignored-path symlinks
-    // — so it is safe to start at settle entry rather than waiting for wave 2. It
-    // reuses the enumeration already in flight (reroutedPromise) instead of
-    // re-reading package.json and re-lstat-ing every package, and applies the
-    // policy (policyPromise) so omitted or copied descendants — e.g.
-    // node_modules/.vite — are never symlinked.
+    // — so it is safe to start at settle entry rather than waiting for wave 2. The
+    // include copy executor is the one other node_modules writer, and the
+    // partition is explicit: the walk provisions copy-set directories and any
+    // copy-set entry whose interior the policy omits (omit wins over copy) as
+    // materialized real trees, leaving copy-set links and files unprovisioned
+    // for wave 3 — which joins this walk before the executor writes them, and
+    // the executor skips the destinations the walk already made real. It reuses
+    // the enumeration already in flight (reroutedPromise) instead of re-reading
+    // package.json and re-lstat-ing every package, and applies the policy
+    // (policyPromise) so omitted or copied descendants — e.g. node_modules/.vite
+    // — are never symlinked.
     const reroutePromise = perf.measure('settle:rerouteAllNodeModules', async () =>
       rerouteAllNodeModules({
         sourceRoot,
@@ -524,12 +530,19 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
         // symlink above a copied descendant), and the exclude-file content write
         // needs the wave-2 symlinks in place. The git config was already enabled
         // above (excludePathPromise), so only the cheap filesystem append remains
-        // in the tail.
+        // in the tail. The include executor shares node_modules with the reroute
+        // walk, so it joins the walk first: a copy set containing node_modules
+        // paths (e.g. a whole-package copy rule) targets destinations the walk is
+        // still provisioning, and the executor's symlink/copyfile would race the
+        // walk's unlink/mkdir on them — ENOENT and EEXIST failures or copies
+        // silently destroyed by the walk's unlink. The join guarantees the walk
+        // has finished writing before the executor touches the same paths.
         const [copiedFromInclude] = await perf.measure('settle:wave3', () =>
           Promise.all([
-            perf.measure('settle:applyWorktreeInclude', () =>
-              applyWorktreeInclude({ sourceRoot, worktreeDir, copySet: policy.copy })
-            ),
+            perf.measure('settle:applyWorktreeInclude', async () => {
+              await reroutePromise;
+              return applyWorktreeInclude({ sourceRoot, worktreeDir, copySet: policy.copy });
+            }),
             perf.measure('settle:writeWorktreeExcludeFile', async () =>
               writeWorktreeExcludeFile(
                 await excludePathPromise,
@@ -1952,11 +1965,14 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
    * A share-classified entry is recreated as a link: internal (relative)
    * targets keep their original target so the link resolves into the
    * worktree's own counterpart of the source layout, and external targets
-   * point at the source entry. An entry whose interior the policy rules — an
-   * ancestor of a matcher-matched omitted path, or copy-classified unless the
-   * entry itself is a directly copied path (which the include copy executor
-   * writes) — is materialized as a real tree when its target is a directory;
-   * a file-target link keeps the current per-entry behavior.
+   * point at the source entry. An entry whose interior the policy rules is
+   * materialized as a real tree when its target is a directory: an ancestor
+   * of a matcher-matched omitted path — even when the entry is itself a
+   * directly copied path, because omit wins over copy and the include copy
+   * executor skips the materialized destination — or copy-classified unless
+   * the entry itself is a directly copied path (which the include copy
+   * executor writes). A file-target link keeps the current per-entry
+   * behavior.
    *
    * @param sourcePath - Absolute path of the symlink entry in the source.
    * @param destPath - Absolute destination path.
