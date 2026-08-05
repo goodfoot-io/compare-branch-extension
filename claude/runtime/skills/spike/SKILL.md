@@ -3,8 +3,6 @@ name: spike
 description: Resolve a technical uncertainty by running a small, throwaway investigation in the card repository and recording the result as a note.
 ---
 
-Spikes run inline in the caller's own context — no subagents. One spike answers one question; if there are two questions, run two spikes.
-
 <placeholder-variables>
 [SPIKE_QUESTION] — The specific technical question the spike must answer (one sentence, yes/no or which-of-these)
 [SPIKE_SLUG] — Kebab-case identifier for the spike directory (e.g., `redis-adapter`, `stream-backpressure`)
@@ -33,7 +31,7 @@ mkdir -p [SPIKE_PATH]
 
 Everything the spike produces — scratch scripts, sample inputs, captured output — lives under `[SPIKE_PATH]`. Never write spike artifacts into the workspace codebase.
 
-## 3. Run the Investigation Inline
+## 3. Run the Investigation
 
 Write the smallest script or test that answers `[SPIKE_QUESTION]`. Run it. Capture the output.
 

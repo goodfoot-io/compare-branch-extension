@@ -1,1 +1,0 @@
-../../card/references/blocked.md
