@@ -85,6 +85,19 @@ async function loadPolicy(sourceRoot: string): Promise<WorktreePathPolicy> {
   return loadWorktreePathPolicy({ sourceRoot, ignored });
 }
 
+/**
+ * Commits the source root's `node_modules` symlinks (force-added despite any
+ * `.gitignore` `node_modules/` line) so they are TRACKED — the shape the
+ * git-ignored enumeration never reports.
+ *
+ * @param sourceRoot - Source checkout root holding the links.
+ */
+async function commitTrackedNodeModules(sourceRoot: string): Promise<void> {
+  const { execFileSync } = await import('node:child_process');
+  execFileSync('git', ['add', '-f', 'node_modules'], { cwd: sourceRoot });
+  execFileSync('git', ['commit', '-q', '-m', 'track node_modules symlinks'], { cwd: sourceRoot });
+}
+
 describe('loadWorktreePathPolicy', () => {
   let sourceRoot = '';
 
@@ -658,5 +671,91 @@ describe('loadWorktreePathPolicy', () => {
     expect(policy.isOmitAncestor('node_modules/a')).toBe(true);
     // The loop path exists in the checkout and classifies share (unruled).
     expect(policy.classify('node_modules/a/loop')).toBe('share');
+  });
+
+  it('sees through a TRACKED symlinked node_modules package when a .worktreeignore rule addresses its interior', async () => {
+    // The workspaces shape with the links COMMITTED (force-added): git never
+    // reports a tracked file as ignored, so the ignored enumeration is blind
+    // to the link — the tracked-symlink phase must synthesize its interior or
+    // the file-level rule silently no-ops and a worktree-side write at the
+    // ruled path reaches the source.
+    sourceRoot = await makeSourceRoot('tracked-symlink-omit');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.symlink('../packages/pkgA', path.join(sourceRoot, 'node_modules', 'pkgA'));
+    await commitTrackedNodeModules(sourceRoot);
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // The synthesized descendant matched, so the rule's ancestor directories
+    // — including the tracked link itself — are exposed to the rerouter.
+    expect(policy.isOmitAncestor('node_modules')).toBe(true);
+    expect(policy.isOmitAncestor('node_modules/pkgA')).toBe(true);
+    expect(policy.isOmitAncestor('node_modules/pkgA/.cache')).toBe(true);
+    // classify stays matcher-direct and pattern-based.
+    expect(policy.classify('node_modules/pkgA')).toBe('share');
+    expect(policy.classify('node_modules/pkgA/.cache/x.js')).toBe('omit');
+    expect(policy.classify('node_modules/pkgA/index.js')).toBe('share');
+  });
+
+  it('sees through a TRACKED symlinked node_modules package when a .worktreeinclude rule addresses its interior', async () => {
+    sourceRoot = await makeSourceRoot('tracked-symlink-copy');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.symlink('../packages/pkgA', path.join(sourceRoot, 'node_modules', 'pkgA'));
+    await commitTrackedNodeModules(sourceRoot);
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // The synthesized descendant is the copy source the executor reads
+    // through the tracked link, and its ancestor package classifies copy so
+    // the reroute walk materializes it instead of recreating the link.
+    expect(policy.copy).toEqual(['node_modules/pkgA/.cache/x.js']);
+    expect(policy.classify('node_modules/pkgA')).toBe('copy');
+    expect(policy.classify('node_modules/pkgA/.cache/x.js')).toBe('copy');
+  });
+
+  it('keeps omit winning over copy for a TRACKED symlinked node_modules descendant', async () => {
+    sourceRoot = await makeSourceRoot('tracked-symlink-omit-wins');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.symlink('../packages/pkgA', path.join(sourceRoot, 'node_modules', 'pkgA'));
+    await commitTrackedNodeModules(sourceRoot);
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.copy).toEqual([]);
+    expect(policy.classify('node_modules/pkgA/.cache/x.js')).toBe('omit');
+  });
+
+  it('keeps tracked symlinked packages out of the policy when neither config file exists', async () => {
+    sourceRoot = await makeSourceRoot('tracked-symlink-no-config');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.symlink('../packages/pkgA', path.join(sourceRoot, 'node_modules', 'pkgA'));
+    await commitTrackedNodeModules(sourceRoot);
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.ignorePatterns).toEqual([]);
+    expect(policy.includePatterns).toEqual([]);
+    expect(policy.omit).toEqual([]);
+    expect(policy.copy).toEqual([]);
+    expect(policy.isOmitAncestor('node_modules/pkgA')).toBe(false);
   });
 });

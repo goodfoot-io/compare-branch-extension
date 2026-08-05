@@ -923,3 +923,205 @@ describe('policy-aware rerouting of symlinked workspace packages', () => {
     await removeWorktree(wPath);
   });
 });
+
+describe('policy-aware rerouting of TRACKED symlinked workspace packages', () => {
+  /**
+   * Makes the fixture a workspaces repo whose node_modules symlinks are
+   * TRACKED — force-added despite the initGitRepo `node_modules/` ignore line
+   * and committed — instead of git-ignored, the shape the policy's ignored
+   * enumeration never reports. Same packages as `makeSymlinkedWorkspace`;
+   * the node_modules entries are committed with `git add -f`. When
+   * `ignorePkgACache` is set, `packages/pkgA/.cache` is gitignored after the
+   * symlinks are committed — the S7b shape, where the worktree provisions the
+   * package's cache dir as a shared symlink from the source unless the policy
+   * materializes the tracked package.
+   *
+   * @param ignorePkgACache Whether to gitignore `packages/pkgA/.cache`.
+   */
+  async function makeTrackedSymlinkedWorkspace(ignorePkgACache = false): Promise<void> {
+    await fs.writeFile(path.join(repoDir, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+    const pkgs = path.join(repoDir, 'packages');
+    await fs.mkdir(path.join(pkgs, 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(pkgs, 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.writeFile(path.join(pkgs, 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.writeFile(path.join(pkgs, 'pkgA', 'package.json'), JSON.stringify({ name: 'pkgA' }));
+    await fs.mkdir(path.join(pkgs, 'a', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(pkgs, 'a', '.cache', 'tmp'), 'x');
+    await fs.writeFile(path.join(pkgs, 'a', 'index.js'), 'module.exports = 1;');
+    await fs.mkdir(path.join(pkgs, 'b'));
+    await fs.writeFile(path.join(pkgs, 'b', 'index.js'), 'module.exports = 2;');
+    await fs.mkdir(path.join(repoDir, 'node_modules', '@scope'), { recursive: true });
+    await fs.symlink('../packages/pkgA', path.join(repoDir, 'node_modules', 'pkgA'));
+    await fs.symlink('../../packages/a', path.join(repoDir, 'node_modules', '@scope', 'a'));
+    await fs.symlink('../../packages/b', path.join(repoDir, 'node_modules', '@scope', 'b'));
+    // The ignore line must precede the first add: a file committed once stays
+    // tracked even after a later .gitignore line, and the S7b shape requires
+    // packages/pkgA/.cache to be genuinely untracked so the worktree shares
+    // it as a symlink from the source.
+    if (ignorePkgACache) {
+      await fs.appendFile(path.join(repoDir, '.gitignore'), 'packages/pkgA/.cache\n');
+    }
+    execFileSync('git', ['add', '.'], { cwd: repoDir });
+    execFileSync('git', ['add', '-f', 'node_modules'], { cwd: repoDir });
+    execFileSync('git', ['commit', '-q', '-m', 'add workspace packages with tracked node_modules'], { cwd: repoDir });
+  }
+
+  it('materializes a TRACKED symlinked package with an interior omit rule: ruled path absent, writes cannot reach the source', async () => {
+    // S7b shape: the tracked link's target interior (packages/pkgA/.cache) is
+    // gitignored, so the worktree shares it as a symlink from the source —
+    // but the policy's tracked phase must make the rerouter replace the
+    // checkout's node_modules/pkgA link with a real tree whose own .cache is
+    // real, or a worktree-side write at the ruled path resolves through both
+    // links into the source file.
+    await makeTrackedSymlinkedWorkspace(true);
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-pkg-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The tracked package is a real directory, never the checkout's link.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The .cache directory is real too, so the ruled path stays absent.
+    const cacheLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache'));
+    expect(cacheLstat.isDirectory()).toBe(true);
+    expect(cacheLstat.isSymbolicLink()).toBe(false);
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The worktree's own packages side still shares the unmatched ignored
+    // cache from the source...
+    await expect(fs.readlink(path.join(wPath, 'packages', 'pkgA', '.cache'))).resolves.toBe(
+      path.join(repoDir, 'packages', 'pkgA', '.cache')
+    );
+    // ...but a write through the materialized node_modules path lands in the
+    // worktree's real tree and never reaches the source file.
+    await fs.writeFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'worktree-write\n');
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'worktree-write\n'
+    );
+    // The package's share files link into the worktree's own packages.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'pkgA', 'index.js'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'pkgA', 'index.js')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('copies a file inside a TRACKED symlinked package: real copy in the worktree, share files symlinked, source untouched', async () => {
+    await makeTrackedSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-pkg-copy', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The tracked package is materialized as a real tree (its interior is
+    // copy-classified), never the checkout's link.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The copied cache file is a real file, independent of the checkout copy.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    const srcCopiedStat = await fs.stat(path.join(repoDir, 'packages', 'pkgA', '.cache', 'x.js'));
+    expect(copied.ino).not.toBe(srcCopiedStat.ino);
+    // The package's share files link into the worktree's own packages.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', 'pkgA', 'index.js'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'pkgA', 'index.js')
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    // The source checkout is unchanged.
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('reconciles a whole-package copy rule with an interior omit rule on a TRACKED symlinked package', async () => {
+    // Same copy+omit combination as the git-ignored shape, on a tracked link:
+    // omit wins over copy, so the reroute walk materializes the package as a
+    // real tree (the include executor must skip that walk-provisioned
+    // destination) and the whole-package copy rule makes the package's files
+    // real copies inside it.
+    await makeTrackedSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeinclude'), 'node_modules/pkgA\n');
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-pkg-copy-omit', { cwd: repoDir });
+    const result = await settle;
+
+    // The package is a real directory, never a wholesale link to the source.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The ruled path is absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The whole-package copy rule makes the package's share files real copies.
+    const copied = await fs.lstat(path.join(wPath, 'node_modules', 'pkgA', 'index.js'));
+    expect(copied.isSymbolicLink()).toBe(false);
+    expect(copied.isFile()).toBe(true);
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', 'package.json'), 'utf8')).resolves.toBe(
+      JSON.stringify({ name: 'pkgA' })
+    );
+    // The executor copied the package's two share files into the
+    // walk-materialized tree and skipped the walk-provisioned entry itself.
+    expect(result.copiedFromInclude).toBe(2);
+    // A worktree-side write at the ruled path lands in the worktree's real
+    // tree and never reaches the source checkout.
+    await fs.writeFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'worktree-write\n');
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'export {};\n'
+    );
+    await expect(fs.readFile(path.join(wPath, 'node_modules', 'pkgA', '.cache', 'x.js'), 'utf8')).resolves.toBe(
+      'worktree-write\n'
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('materializes a TRACKED symlinked @scope package with an interior omit rule and keeps its scope sibling linked', async () => {
+    await makeTrackedSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/@scope/a/.cache/tmp\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-scope-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The scoped package is a real directory, never the checkout's link.
+    const pkgALstat = await fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a'));
+    expect(pkgALstat.isDirectory()).toBe(true);
+    expect(pkgALstat.isSymbolicLink()).toBe(false);
+    // The ruled path is absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a', '.cache', 'tmp'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+    // The package's share file resolves into the worktree's own packages.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'a', 'index.js'))).resolves.toBe(
+      path.join('..', '..', '..', 'packages', 'a', 'index.js')
+    );
+    // The sibling package inside the same scope is still a link to the
+    // worktree's packages checkout.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'b'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'b')
+    );
+    // The source checkout is unchanged.
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'a', '.cache', 'tmp'), 'utf8')).resolves.toBe('x');
+
+    await removeWorktree(wPath);
+  });
+});
