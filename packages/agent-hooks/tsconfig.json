@@ -9,6 +9,7 @@
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
+    "rootDir": "..",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,

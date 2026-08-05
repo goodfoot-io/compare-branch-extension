@@ -5,14 +5,16 @@
  * @module vitest.config
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { devNull } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 // Repo root — the `.md` assets live at `<root>/public/claude/...`, outside this
-// package. Vite must be allowed to serve them, otherwise it rewrites the import
-// to a `/@fs/` URL that resolves to a broken `C:\@fs\C:\...` path on Windows.
+// package. Vitest 4 computes its own serve allowlist (`resolveFsAllow`: config
+// file dir + workspace root), which covers the repo root, so no explicit
+// `server.fs.allow` config is needed or accepted here (`test.server` no longer
+// has an `fs` key in vitest 4).
 const repoRoot = resolve(__dirname, '../../..');
 
 /**
@@ -44,6 +46,32 @@ const textAssetPlugin = {
   }
 };
 
+// vitest's experimental fs module cache (`--experimental.fsModuleCache`, set by
+// the vitest-unchanged runner) fetches `/@fs/` ids without the `url[0] !== '/'
+// resolveId` stage, so a `.js`-suffixed import whose source is the `.ts` sibling
+// (e.g. the sdk's internal `./childProcess.js`) skips vite's `.js`→`.ts`
+// probing, and the unmapped id is handed to node's native loader, which cannot
+// map extensions ("Cannot find module '/@fs/.../childProcess.js'"). Re-probe the
+// sibling source file here so the id resolves to the real `.ts` file regardless
+// of which fetch path the cache uses.
+const jsToTsSiblingResolve = {
+  name: 'js-to-ts-sibling-resolve',
+  enforce: 'pre' as const,
+  resolveId(id: string, importer: string | undefined) {
+    if (!id.endsWith('.js')) {
+      return null;
+    }
+    // The id is either a relative specifier (resolve against the importer) or an
+    // already-absolute `/@fs/`/filesystem path.
+    const candidate = id.startsWith('/') ? id : importer ? resolve(dirname(importer), id) : id;
+    const tsSibling = `${candidate.replace(/^\/@fs/, '').slice(0, -3)}.ts`;
+    if (existsSync(tsSibling)) {
+      return tsSibling;
+    }
+    return null;
+  }
+};
+
 export default defineConfig({
   // This monorepo's workspace-root directory is literally named `public/`
   // (`<repoRoot>/public/packages/...`). Vite's default `publicDir` detection
@@ -54,13 +82,12 @@ export default defineConfig({
   // module id, breaking the import ("Cannot find module"). There is no dev
   // server here — disable the feature entirely.
   publicDir: false,
-  plugins: [textAssetPlugin],
+  plugins: [textAssetPlugin, jsToTsSiblingResolve],
   test: {
     include: ['test/**/*.test.ts'],
     globals: false,
     reporters: ['dot'],
     testTimeout: 30000,
-    server: { fs: { allow: [repoRoot] } },
     env: {
       // `os.devNull` is `/dev/null` on POSIX and `\\.\nul` on Windows.
       CARDS_HOOKS_LOG_FILE: devNull
