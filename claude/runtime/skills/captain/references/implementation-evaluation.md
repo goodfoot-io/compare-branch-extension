@@ -26,7 +26,7 @@ Run validation per the plan's validation commands (or the workspace validation c
 
 Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes, then read the card (and plan, if one exists) again with that diff in hand. Evaluate from both angles below and list every finding — do not stop at the first one:
 
-**Failure modes.** Trace consumers, data flow, and error paths for each change. Where could this break at runtime that the validation suite wouldn't catch — new API boundaries, async/error-path logic, shared state, silently drifting contracts?
+**Failure modes.** Perform a failure mode and effects analysis on the implementation. Trace consumers, data flow, and error paths for each change. Where could this break at runtime that the validation suite wouldn't catch — new API boundaries, async/error-path logic, shared state, silently drifting contracts?
 
 **Delivered experience.** Read the card's acceptance criteria and exercise the implementation from its user-facing entry points. Does it deliver what the card asked for, not just what the diff technically implements?
 

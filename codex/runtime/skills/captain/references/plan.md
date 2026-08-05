@@ -7,7 +7,7 @@
 
 ## 1. Assess Starting State
 
-If `gates.planApproved` is true, skip to Step 3: Route to Implementation — the plan is already approved.
+If `gates.planApproved` is true, skip to Step 4: Route to Implementation — the plan is already approved.
 
 Read `CARD.md` for goals and constraints. Read `CARD.meta.json` for current `title`, `gates`, and `tags`. Read the contents of the 5 most recent `comments/*.md` files for context.
 
@@ -66,7 +66,21 @@ For each testable uncertainty, load the `$runtime:spike` skill and follow its in
 
 After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spike that disproves a load-bearing assumption invalidates the plan from intent through approach, so rewrite rather than patch.
 
-## 3. Route to Implementation
+## 3. Evaluate the Plan
+
+Build the failure-mode question set for the card — from `CARD.md`, the plan, your notes, adjacent cards, and similar workspace code: what must hold at runtime for the plan to work? Verify each answer against workspace source, not the plan's own assertions; a question the plan cannot answer is a finding.
+
+Evaluate from the angles below and list every finding — do not stop at the first one:
+
+**Failure modes.** Perform a failure mode and effects analysis on the plan. Trace consumers, data flow, and error paths for each planned change. Where could this break at runtime that the validation suite wouldn't catch — new API boundaries, async/error-path logic, shared state, silently drifting contracts?
+
+**Delivered experience.** Read the card's acceptance criteria against the plan's outcome. Does it deliver what the card asked, not just a technically sound approach?
+
+**Surviving assumptions.** A load-bearing assumption that outlived Step 2's spikes is an unanswered question — verify it against source or revise the plan; never surface it as a user question.
+
+Revise `[PLAN_FILE]` per finding, commit, and re-evaluate against the full question set — a fix can raise a new question. Stop only when every question is answered. Findings are plan-revision work; re-prompting the user to resolve them is a protocol violation.
+
+## 4. Route to Implementation
 
 Do not re-prompt the user for confirmation — `gates.planApproved` and `gates.planRequired` are the authorization. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
 
