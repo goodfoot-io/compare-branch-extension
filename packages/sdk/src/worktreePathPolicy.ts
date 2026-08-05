@@ -24,6 +24,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import type { Dirent } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import ignore from 'ignore';
@@ -205,19 +206,155 @@ function gitLsFiles(cwd: string, args: string[]): Promise<string[]> {
 }
 
 /**
- * Enumerates gitignored files within a directory.
+ * Enumerates gitignored files within a directory, seeing through symlinked
+ * directories.
  *
- * Runs `git ls-files --ignored --exclude-standard --others` scoped to `dir`.
- * All reported entries are returned unfiltered; the omit and include matchers
- * are applied by the caller so one enumeration feeds both the copy selection
- * and the omit descendant matching.
+ * Runs `git ls-files --ignored --exclude-standard --others` scoped to `dir`,
+ * then synthesizes the descendants of any symlink entry whose target resolves
+ * to a directory — git reports a symlink entry itself but never descends
+ * through it. All reported and synthesized entries are returned unfiltered;
+ * the omit and include matchers are applied by the caller so one enumeration
+ * feeds both the copy selection and the omit descendant matching.
  *
  * @param sourceRoot - Source checkout root.
  * @param dir - Relative directory path to enumerate within.
- * @returns Array of repository-relative paths to git-ignored files under `dir`.
+ * @returns Array of repository-relative paths to git-ignored files under `dir`,
+ *   including the synthesized descendants of symlinked directories.
  */
 async function enumerateIgnoredFiles(sourceRoot: string, dir: string): Promise<string[]> {
-  return gitLsFiles(sourceRoot, ['--ignored', '--exclude-standard', '--others', '-z', '--', dir]);
+  const entries = await gitLsFiles(sourceRoot, ['--ignored', '--exclude-standard', '--others', '-z', '--', dir]);
+  const synthesized = await synthesizeSymlinkedDescendants(sourceRoot, entries);
+  return [...entries, ...synthesized];
+}
+
+/**
+ * Recursively appends the repo-relative descendants of a directory to `out`,
+ * seeing through symlinked children whose target resolves to a directory.
+ *
+ * Every child path is appended in checkout form (`<prefix>/<name>`), whether
+ * or not it is descended into, because the path exists in the checkout either
+ * way. Directories are never revisited: each entered directory's realpath is
+ * recorded before its children are walked, so a symlink cycle (a link that
+ * resolves back to an ancestor) terminates on the second encounter and a
+ * diamond-shaped link topology synthesizes each subtree once.
+ *
+ * @param absDir - Absolute directory whose children are appended.
+ * @param prefix - Repo-relative POSIX path of `absDir` in the checkout.
+ * @param visited - Realpaths of directories already entered on this walk.
+ * @param out - Accumulated repo-relative descendant paths.
+ */
+async function walkSymlinkedDirectory(
+  absDir: string,
+  prefix: string,
+  visited: Set<string>,
+  out: string[]
+): Promise<void> {
+  let realDir: string;
+  try {
+    realDir = await fs.realpath(absDir);
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // A dangling link or vanished directory contributes nothing, matching
+    // git's own tolerance for unreadable ignored content.
+    if (code === 'ENOENT' || code === 'ENOTDIR') return;
+    throw error;
+  }
+  if (visited.has(realDir)) return;
+  visited.add(realDir);
+
+  let children: Dirent[];
+  try {
+    children = await fs.readdir(absDir, { withFileTypes: true });
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return;
+    throw error;
+  }
+
+  await Promise.all(
+    children.map(async (child): Promise<void> => {
+      const childRel = `${prefix}/${child.name}`;
+      out.push(childRel);
+      if (child.isSymbolicLink()) {
+        const childAbs = path.join(absDir, child.name);
+        let childTarget: string;
+        try {
+          childTarget = await fs.readlink(childAbs);
+        } catch (error: unknown) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+          throw error;
+        }
+        await walkSymlinkedDirectory(path.resolve(absDir, childTarget), childRel, visited, out);
+      } else if (child.isDirectory()) {
+        await walkSymlinkedDirectory(path.join(absDir, child.name), childRel, visited, out);
+      }
+    })
+  );
+}
+
+/**
+ * Synthesizes the repo-relative descendants of symlinked directories among an
+ * enumerated entry list.
+ *
+ * `git ls-files` never descends through a symlinked directory: for the
+ * workspaces shape — node_modules entries are links into packages/ — it
+ * reports `node_modules/pkgA` but nothing under it, so a policy rule
+ * addressing `node_modules/pkgA/.cache/x.js` would otherwise match nothing and
+ * the omit/copy decisions for the package's interior would silently no-op. For
+ * each entry that is a symlink (decided by lstat, which does not follow links)
+ * whose resolved target is a directory, the target is walked recursively with
+ * `walkSymlinkedDirectory`, appending the descendants as `<entry>/<child>`
+ * paths — exactly the paths as seen in the checkout. The cycle guard bounds
+ * the walk on pathological link topologies, and the 30s `git ls-files`
+ * timeout bounds the overall enumeration.
+ *
+ * @param sourceRoot - Source checkout root.
+ * @param entries - Repo-relative paths reported by `git ls-files`.
+ * @returns The synthesized repo-relative descendant paths.
+ */
+async function synthesizeSymlinkedDescendants(sourceRoot: string, entries: string[]): Promise<string[]> {
+  const synthesized: string[] = [];
+  await Promise.all(
+    entries.map(async (entry): Promise<void> => {
+      const linkAbs = path.join(sourceRoot, entry);
+      let linkStats: Awaited<ReturnType<typeof fs.lstat>>;
+      try {
+        linkStats = await fs.lstat(linkAbs);
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+        throw error;
+      }
+      if (!linkStats.isSymbolicLink()) return;
+
+      let target: string;
+      try {
+        target = await fs.readlink(linkAbs);
+      } catch (error: unknown) {
+        // Deleted between lstat and readlink.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+        throw error;
+      }
+
+      const resolvedTarget = path.resolve(path.dirname(linkAbs), target);
+      let targetStats: Awaited<ReturnType<typeof fs.stat>>;
+      try {
+        targetStats = await fs.stat(resolvedTarget);
+      } catch (error: unknown) {
+        // Dangling link or vanished target: nothing to synthesize.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT' || (error as NodeJS.ErrnoException).code === 'ENOTDIR') {
+          return;
+        }
+        throw error;
+      }
+      if (!targetStats.isDirectory()) return;
+
+      // One walk per entry: two links to the same realpath are two distinct
+      // checkout paths, each of which the user's patterns may address.
+      const visited = new Set<string>();
+      await walkSymlinkedDirectory(resolvedTarget, entry, visited, synthesized);
+    })
+  );
+  return synthesized;
 }
 
 /**

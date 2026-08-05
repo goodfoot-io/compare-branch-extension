@@ -592,4 +592,71 @@ describe('loadWorktreePathPolicy', () => {
 
     expect(policy.classify('dist\\bundle.js')).toBe('omit');
   });
+
+  it('sees through a symlinked node_modules package when a .worktreeignore rule addresses its interior', async () => {
+    // The workspaces shape: node_modules entries are links into packages/.
+    // git reports the link itself but never its interior, so the descendant
+    // enumeration must synthesize node_modules/pkgA/.cache/x.js — the path the
+    // user's file-level rule addresses — or the omit decision silently no-ops.
+    sourceRoot = await makeSourceRoot('symlink-omit');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.symlink('../packages/pkgA', path.join(sourceRoot, 'node_modules', 'pkgA'));
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // The synthesized descendant matched, so the collapsed node_modules dir is
+    // omitted wholesale (a symlink cannot expose part of a directory) and the
+    // rule's ancestor directories are exposed to the rerouter.
+    expect(policy.omit).toEqual(['node_modules']);
+    expect(policy.isOmitAncestor('node_modules')).toBe(true);
+    expect(policy.isOmitAncestor('node_modules/pkgA')).toBe(true);
+    expect(policy.isOmitAncestor('node_modules/pkgA/.cache')).toBe(true);
+    // classify stays matcher-direct and pattern-based.
+    expect(policy.classify('node_modules/pkgA')).toBe('share');
+    expect(policy.classify('node_modules/pkgA/.cache/x.js')).toBe('omit');
+  });
+
+  it('sees through a symlinked node_modules package when a .worktreeinclude rule addresses its interior', async () => {
+    sourceRoot = await makeSourceRoot('symlink-copy');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.symlink('../packages/pkgA', path.join(sourceRoot, 'node_modules', 'pkgA'));
+    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), 'node_modules/pkgA/.cache/x.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // The synthesized descendant is the copy source the executor reads through
+    // the link, and its ancestor package classifies copy so no symlink stands
+    // above the copied descendant.
+    expect(policy.copy).toEqual(['node_modules/pkgA/.cache/x.js']);
+    expect(policy.classify('node_modules/pkgA')).toBe('copy');
+    expect(policy.classify('node_modules/pkgA/.cache/x.js')).toBe('copy');
+  });
+
+  it('terminates on a symlink cycle while enumerating symlinked package descendants', async () => {
+    sourceRoot = await makeSourceRoot('symlink-cycle');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.mkdir(path.join(sourceRoot, 'packages', 'a'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'packages', 'a', 'index.js'), 'i');
+    // packages/a/loop -> ../../node_modules/a resolves back to the walked
+    // package; the cycle guard must stop the second visit.
+    await fs.symlink('../../node_modules/a', path.join(sourceRoot, 'packages', 'a', 'loop'));
+    await fs.mkdir(path.join(sourceRoot, 'node_modules'), { recursive: true });
+    await fs.symlink('../packages/a', path.join(sourceRoot, 'node_modules', 'a'));
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/a/index.js\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    expect(policy.isOmitAncestor('node_modules/a')).toBe(true);
+    // The loop path exists in the checkout and classifies share (unruled).
+    expect(policy.classify('node_modules/a/loop')).toBe('share');
+  });
 });
