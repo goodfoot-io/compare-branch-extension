@@ -21,7 +21,12 @@ import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
 import { atomicWriteHookFile, RESOLVE_NODE_BASH } from './git-hooks.js';
 import { applyWorktreeInclude } from './worktreeInclude.js';
-import { loadWorktreePathPolicy, type WorktreePathPolicy, type WorktreePathQuery } from './worktreePathPolicy.js';
+import {
+  enumerateOwnedNodeModules,
+  loadWorktreePathPolicy,
+  type WorktreePathPolicy,
+  type WorktreePathQuery
+} from './worktreePathPolicy.js';
 import { createWorktreePerf } from './worktreePerf.js';
 
 /**
@@ -1696,6 +1701,30 @@ function isIgnoredWorktreePath(candidate: string, ignoredPrefixes: string[]): bo
   );
 }
 
+/**
+ * Removes a destination entry the policy omits, when the git checkout has
+ * already materialized it.
+ *
+ * The policy's omit contract — "a path matching `.worktreeignore` is omitted
+ * from the worktree" — must hold regardless of whether node_modules is
+ * git-ignored or committed. For git-ignored content the destination is absent
+ * (the reroute walk rebuilds node_modules itself and the omit branch never
+ * provisions), so this is a no-op; for TRACKED content the checkout has
+ * already materialized the entry — a committed symlink, file, or real
+ * package tree — and the omit branch must actively remove exactly that entry
+ * or the ruled path stays present and writable. `force` tolerates an absent
+ * destination; the recursion removes a materialized real package tree; a
+ * symlink is unlinked without following it. Only the omitted entry's own
+ * path is ever touched — the source checkout is never modified.
+ *
+ * @param destPath - Absolute destination path of the omitted entry.
+ * @throws {Error} When removal fails for a reason other than absence (fail
+ *   closed — a half-removed omitted entry is worse than a failed creation).
+ */
+async function removeOmittedDestination(destPath: string): Promise<void> {
+  await fs.rm(destPath, { recursive: true, force: true });
+}
+
 interface RerouteNodeModulesOptions {
   sourceNodeModules: string;
   destNodeModules: string;
@@ -1709,10 +1738,11 @@ interface RerouteNodeModulesOptions {
    * Path policy query. Entries classified omit or copy — e.g. a
    * `.worktreeignore`-matched `node_modules/.vite` cache — are skipped instead
    * of symlinked: copied descendants are materialized as real files by the
-   * include copy step, and omitted ones stay absent. Directories that are
-   * ancestors of a matcher-matched omitted path are materialized as real
-   * trees with per-entry decisions instead of symlinked wholesale. Requires
-   * `relativePath`.
+   * include copy step, and omitted ones stay absent — a checkout-materialized
+   * TRACKED entry is actively removed so the omit contract holds on the
+   * committed shape too. Directories that are ancestors of a matcher-matched
+   * omitted path are materialized as real trees with per-entry decisions
+   * instead of symlinked wholesale. Requires `relativePath`.
    */
   policy?: WorktreePathQuery;
 }
@@ -1843,6 +1873,11 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
         const childRelativePath = `${dirRelativePath}/${child.name}`;
 
         if (policy !== undefined && policy.classify(childRelativePath) === 'omit') {
+          // The checkout may have materialized a TRACKED child here (a
+          // committed real package tree being materialized for a copy rule
+          // with an interior omit); the omitted child must be absent, so the
+          // materialized entry is removed rather than left in place.
+          await removeOmittedDestination(childDest);
           return 0;
         }
 
@@ -2015,11 +2050,16 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
       const entryRelativePath = relativePath !== undefined ? `${relativePath}/${entry.name}` : undefined;
 
       // Policy-driven skip: an entry the policy omits outright is never
-      // provisioned. Copy-classified entries are still processed — a copied
-      // path under @scope/pkgA classifies the whole @scope directory as
-      // 'copy', and descending lets the per-entry checks below leave copied
-      // descendants unlinked while share siblings keep their symlinks.
+      // provisioned — and when the git checkout already materialized it
+      // (TRACKED node_modules content: a committed symlink, file, or real
+      // package tree), the materialized entry is removed so the omit
+      // contract holds on the committed shape too instead of leaving the
+      // ruled path present. Copy-classified entries are still processed — a
+      // copied path under @scope/pkgA classifies the whole @scope directory
+      // as 'copy', and descending lets the per-entry checks below leave
+      // copied descendants unlinked while share siblings keep their symlinks.
       if (entryRelativePath !== undefined && policy !== undefined && policy.classify(entryRelativePath) === 'omit') {
+        await removeOmittedDestination(destPath);
         return 0;
       }
 
@@ -2036,12 +2076,15 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
               entryRelativePath !== undefined ? `${entryRelativePath}/${scopeEntry.name}` : undefined;
 
             // Omitted scope members are never provisioned (mirrors the
-            // top-level omit check).
+            // top-level omit check), and a checkout-materialized tracked
+            // member is removed so the omit contract holds on the committed
+            // shape.
             if (
               scopeRelativePath !== undefined &&
               policy !== undefined &&
               policy.classify(scopeRelativePath) === 'omit'
             ) {
+              await removeOmittedDestination(scopeDestPath);
               return 0;
             }
 
@@ -2123,8 +2166,18 @@ export interface ReroutedNodeModulesEntry {
 /**
  * Enumerates the node_modules directories that the rerouter will own.
  *
- * Returns `[]` when `repoRoot/package.json` is absent or has no `workspaces`
- * field — mirroring the early-return behaviour of `rerouteAllNodeModules`.
+ * Delegates to {@link enumerateOwnedNodeModules}, the single source of truth
+ * for ownership shared with the path policy's TRACKED phase: root
+ * `node_modules` plus one `<glob-matched package dir>/node_modules` per
+ * existing package directory, both derived from `package.json` `workspaces`.
+ * Deriving from the globs (rather than a hardcoded one-level `packages/*`)
+ * makes the mirror own what a repo actually declares — `apps/*`, `libs/*`,
+ * nested two-level `packages/*` globs — so policy coverage and mirror reach
+ * agree by construction and a rule under a non-`packages` workspace tree is
+ * honored instead of silently no-op'ing on the checkout's committed link.
+ *
+ * Returns `[]` when `package.json` is absent or has no `workspaces` field —
+ * mirroring the early-return behaviour of `rerouteAllNodeModules`.
  *
  * Always includes the root entry. Per-package entries are only included when
  * their source `node_modules` directory exists (matching the `lstat` check in
@@ -2132,60 +2185,19 @@ export interface ReroutedNodeModulesEntry {
  *
  * @param opts - Options bag.
  * @param opts.sourceRoot - Absolute path to the source checkout root.
- * @param opts.repoRoot - Absolute path to the repository root containing `package.json`.
+ * @param opts.repoRoot - Retained for API compatibility; ownership is derived
+ *   from `sourceRoot`'s `package.json`, which is the checkout's own copy of
+ *   the repository root's.
  * @returns Owned entries in root-first order.
  */
 export async function enumerateReroutedNodeModules(opts: {
   sourceRoot: string;
   repoRoot: string;
 }): Promise<ReroutedNodeModulesEntry[]> {
-  const { sourceRoot, repoRoot } = opts;
+  const { sourceRoot } = opts;
 
-  let packageJson: { workspaces?: string[] };
-  try {
-    const packageJsonContent = await fs.readFile(path.join(repoRoot, 'package.json'), 'utf-8');
-    packageJson = JSON.parse(packageJsonContent);
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
-    }
-    throw error;
-  }
-
-  if (!packageJson.workspaces) {
-    return [];
-  }
-
-  const entries: ReroutedNodeModulesEntry[] = [
-    { relativePath: 'node_modules', sourceNodeModules: path.join(sourceRoot, 'node_modules') }
-  ];
-
-  const packagesDir = path.join(sourceRoot, 'packages');
-  try {
-    const packageEntries = await fs.readdir(packagesDir, { withFileTypes: true });
-    for (const entry of packageEntries) {
-      if (entry.isDirectory()) {
-        const pkgNodeModules = path.join(packagesDir, entry.name, 'node_modules');
-        try {
-          await fs.lstat(pkgNodeModules);
-          entries.push({
-            relativePath: `packages/${entry.name}/node_modules`,
-            sourceNodeModules: pkgNodeModules
-          });
-        } catch (error: unknown) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-            throw error;
-          }
-        }
-      }
-    }
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
-  }
-
-  return entries;
+  const owned = await enumerateOwnedNodeModules(sourceRoot);
+  return owned.map((relativePath) => ({ relativePath, sourceNodeModules: path.join(sourceRoot, relativePath) }));
 }
 
 interface RerouteAllNodeModulesOptions {
@@ -2231,15 +2243,18 @@ export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions):
   // blocked the small per-package trees behind it; now they overlap.
   const counts = await Promise.all(
     reroutedEntries.map(async (entry) => {
-      // An entry the policy omits outright is not rebuilt at all. Entries
+      // An entry the policy omits outright is not rebuilt at all — and on the
+      // committed shape the checkout has already materialized the tree, so
+      // the omitted entry is removed (absent, not present-and-ruled). Entries
       // classified `copy` are still processed: classify marks the node_modules
       // directory itself `copy` when any descendant is copied, and the
       // per-child skip below leaves copied (and omitted) descendants unlinked
       // while share siblings keep their symlinks.
+      const destNodeModules = path.join(worktreeDir, entry.relativePath);
       if (policy !== undefined && policy.classify(entry.relativePath) === 'omit') {
+        await removeOmittedDestination(destNodeModules);
         return 0;
       }
-      const destNodeModules = path.join(worktreeDir, entry.relativePath);
       const destParent = path.dirname(destNodeModules);
       await fs.mkdir(destParent, { recursive: true });
       return rerouteNodeModules({

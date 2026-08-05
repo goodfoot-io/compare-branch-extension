@@ -19,10 +19,19 @@
  * committed with `git add -f`, which the git-ignored enumeration never
  * reports) are synthesized so rules addressing a package's interior match
  * and the rerouter materializes the package instead of recreating the link.
+ * The TRACKED phase is scoped to exactly the node_modules trees the rerouter
+ * owns — root `node_modules` plus each glob-matched workspace package's
+ * `node_modules`, both derived from `package.json` `workspaces` — and a
+ * TRACKED node_modules-segment symlink outside those trees fails closed
+ * naming the path: no pass can enforce a rule on it, and the checkout's link
+ * left in place would let worktree-side writes reach the source.
  * The policy fails closed: a readable-but-invalid, unreadable, or otherwise
  * unprocessable config file — or an enumeration phase that outlives its
  * shared fail-closed deadline — surfaces as a {@link WorktreeIncludeError}
- * before any matching source path can be linked into the destination.
+ * before any matching source path can be linked into the destination. The
+ * deadline budget defaults to 30000ms and is configurable via the
+ * `CARDS_WORKTREE_POLICY_TIMEOUT_MS` environment variable (milliseconds;
+ * the timeout message names it when a budget is exceeded).
  * Repository-relative paths stay normalized to POSIX form (forward slashes)
  * at the boundary.
  *
@@ -35,6 +44,7 @@ import type { Dirent } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import ignore from 'ignore';
+import { minimatch } from 'minimatch';
 import { WorktreeIncludeError } from './worktreeInclude.js';
 
 /**
@@ -162,8 +172,8 @@ export interface WorktreePathPolicy extends WorktreePathQuery {
 }
 
 /**
- * Upper bound for one `git ls-files` call and the shared fail-closed budget
- * for the policy's whole enumeration phase.
+ * Default upper bound for one `git ls-files` call and the shared fail-closed
+ * budget for the policy's whole enumeration phase.
  *
  * Each individual `git ls-files` call gets this much time before it is killed
  * (a hung git — network filesystem, stuck index — must fail closed rather
@@ -171,12 +181,46 @@ export interface WorktreePathPolicy extends WorktreePathQuery {
  * `discoverIgnoredPaths` uses for the same full-tree scan). The same window,
  * measured from the start of the enumeration phase, is the single deadline
  * that bounds every phase of that phase — the per-directory scans, the
- * tracked-symlink scan, and the see-through synthesis walks all share it, so
- * "30s bounds the overall enumeration" is actually true. Expiry throws
- * {@link WorktreeIncludeError}; the policy fails closed and never truncates,
- * which would silently drop omit entries.
+ * tracked-symlink scan, the owned-workspace walk, and the see-through
+ * synthesis walks all share it, so "30s bounds the overall enumeration" is
+ * actually true. Expiry throws {@link WorktreeIncludeError}; the policy fails
+ * closed and never truncates, which would silently drop omit entries.
  */
-const GIT_LS_FILES_TIMEOUT_MS = 30_000;
+const DEFAULT_ENUMERATION_TIMEOUT_MS = 30_000;
+
+/**
+ * Environment variable that overrides the enumeration budget in
+ * milliseconds. An invalid (non-positive) value fails the policy load closed
+ * with the variable named, so a mistyped override can never silently shrink
+ * or disable the deadline.
+ */
+const ENUMERATION_TIMEOUT_ENV = 'CARDS_WORKTREE_POLICY_TIMEOUT_MS';
+
+/**
+ * Resolves the enumeration budget from the environment at policy-load time.
+ *
+ * Reads {@link ENUMERATION_TIMEOUT_ENV} (default
+ * {@link DEFAULT_ENUMERATION_TIMEOUT_MS}) so an operator with a slow
+ * enumeration — a huge tree, a network filesystem — can raise the budget
+ * without touching code. A set-but-invalid value rejects with
+ * {@link WorktreeIncludeError} naming the variable instead of silently using
+ * the default.
+ *
+ * @returns The budget in milliseconds.
+ * @throws {WorktreeIncludeError} When the variable is set to a non-positive
+ *   or non-numeric value.
+ */
+function resolveEnumerationTimeoutMs(): number {
+  const raw = process.env[ENUMERATION_TIMEOUT_ENV];
+  if (raw === undefined) return DEFAULT_ENUMERATION_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new WorktreeIncludeError(
+      `Invalid ${ENUMERATION_TIMEOUT_ENV} value "${raw}": expected a positive number of milliseconds (default ${DEFAULT_ENUMERATION_TIMEOUT_MS})`
+    );
+  }
+  return parsed;
+}
 
 /**
  * Fails closed when the shared enumeration deadline has passed.
@@ -186,14 +230,18 @@ const GIT_LS_FILES_TIMEOUT_MS = 30_000;
  * walk. Any phase that outlives it rejects with {@link WorktreeIncludeError}
  * — consistent with the per-call `git ls-files` timeout's fail-closed
  * contract — instead of truncating, which would silently drop omit entries
- * for large trees.
+ * for large trees. The message names the remedy: raising
+ * {@link ENUMERATION_TIMEOUT_ENV} (default
+ * {@link DEFAULT_ENUMERATION_TIMEOUT_MS}) gives the enumeration more budget.
  *
  * @param deadline - Epoch-ms deadline from the start of the enumeration phase.
  * @throws {WorktreeIncludeError} When `Date.now()` exceeds `deadline`.
  */
 function assertBeforeDeadline(deadline: number): void {
   if (Date.now() > deadline) {
-    throw new WorktreeIncludeError(`Worktree path policy enumeration timed out after ${GIT_LS_FILES_TIMEOUT_MS}ms`);
+    throw new WorktreeIncludeError(
+      `Worktree path policy enumeration timed out; raise the ${ENUMERATION_TIMEOUT_ENV} environment variable (default ${DEFAULT_ENUMERATION_TIMEOUT_MS} ms) to allow a larger budget`
+    );
   }
 }
 
@@ -212,12 +260,14 @@ function assertBeforeDeadline(deadline: number): void {
  * @param cwd - Directory to run the command from.
  * @param args - Arguments passed after `ls-files`.
  * @param deadline - Shared enumeration deadline (epoch ms).
+ * @param timeoutMs - Per-call kill budget in milliseconds (the configured
+ *   enumeration budget).
  * @returns Array of relative paths (no trailing NUL).
  * @throws {WorktreeIncludeError} When git fails, cannot be spawned, does not
- *   finish within {@link GIT_LS_FILES_TIMEOUT_MS}, or starts after the
- *   shared enumeration `deadline`.
+ *   finish within `timeoutMs`, or starts after the shared enumeration
+ *   `deadline`.
  */
-function gitLsFiles(cwd: string, args: string[], deadline: number): Promise<string[]> {
+function gitLsFiles(cwd: string, args: string[], deadline: number, timeoutMs: number): Promise<string[]> {
   assertBeforeDeadline(deadline);
   return new Promise((resolve, reject) => {
     const child = spawn('git', ['--literal-pathspecs', 'ls-files', ...args], {
@@ -233,8 +283,12 @@ function gitLsFiles(cwd: string, args: string[], deadline: number): Promise<stri
 
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(new WorktreeIncludeError(`git ls-files timed out after ${GIT_LS_FILES_TIMEOUT_MS}ms`));
-    }, GIT_LS_FILES_TIMEOUT_MS);
+      reject(
+        new WorktreeIncludeError(
+          `git ls-files timed out after ${timeoutMs}ms; raise the ${ENUMERATION_TIMEOUT_ENV} environment variable (default ${DEFAULT_ENUMERATION_TIMEOUT_MS} ms) to allow a larger budget`
+        )
+      );
+    }, timeoutMs);
 
     child.on('close', (code) => {
       clearTimeout(timer);
@@ -268,14 +322,21 @@ function gitLsFiles(cwd: string, args: string[], deadline: number): Promise<stri
  * @param sourceRoot - Source checkout root.
  * @param dir - Relative directory path to enumerate within.
  * @param deadline - Shared enumeration deadline (fail-closed).
+ * @param timeoutMs - Per-call `git ls-files` kill budget in milliseconds.
  * @returns Array of repository-relative paths to git-ignored files under `dir`,
  *   including the synthesized descendants of symlinked directories.
  */
-async function enumerateIgnoredFiles(sourceRoot: string, dir: string, deadline: number): Promise<string[]> {
+async function enumerateIgnoredFiles(
+  sourceRoot: string,
+  dir: string,
+  deadline: number,
+  timeoutMs: number
+): Promise<string[]> {
   const entries = await gitLsFiles(
     sourceRoot,
     ['--ignored', '--exclude-standard', '--others', '-z', '--', dir],
-    deadline
+    deadline,
+    timeoutMs
   );
   const synthesized = await synthesizeSymlinkedDescendants(sourceRoot, entries, deadline);
   return [...entries, ...synthesized];
@@ -371,9 +432,10 @@ async function walkSymlinkedDirectory(
  * `walkSymlinkedDirectory`, appending the descendants as `<entry>/<child>`
  * paths — exactly the paths as seen in the checkout. The cycle guard bounds
  * the walk on pathological link topologies, and the shared enumeration
- * deadline — one fail-closed budget of {@link GIT_LS_FILES_TIMEOUT_MS}
- * measured from the start of the enumeration phase, covering every `git
- * ls-files` scan and every synthesis walk — bounds the overall enumeration.
+ * deadline — one fail-closed budget of `CARDS_WORKTREE_POLICY_TIMEOUT_MS`
+ * (default 30000) measured from the start of the enumeration phase, covering
+ * every `git ls-files` scan and every synthesis walk — bounds the overall
+ * enumeration.
  * The `git ls-files` timeout itself cannot bound this walk: it only guards
  * the git subprocess, which resolves before the walk begins. Expiry throws
  * {@link WorktreeIncludeError} (fail closed, never truncating — truncation
@@ -435,8 +497,209 @@ async function synthesizeSymlinkedDescendants(
 }
 
 /**
+ * Whether a repository-relative path lies inside an owned node_modules tree.
+ *
+ * A path is covered when it equals the owned tree itself (a tracked link AT
+ * `node_modules`, the workspace shape force-added) or sits below it. The
+ * prefix check is segment-exact (`node_modulesX/...` is not under
+ * `node_modules`), so ownership never bleeds into lookalike directories.
+ *
+ * @param rel - Repository-relative POSIX path of a tracked entry.
+ * @param ownedNodeModules - Repo-relative node_modules trees the rerouter owns.
+ * @returns True when `rel` is at or below an owned tree.
+ */
+function isUnderOwnedNodeModules(rel: string, ownedNodeModules: string[]): boolean {
+  return ownedNodeModules.some((owned) => rel === owned || rel.startsWith(`${owned}/`));
+}
+
+/**
+ * Reads the package.json `workspaces` globs and walks the filesystem to find
+ * the node_modules trees the node_modules rerouter owns — root `node_modules`
+ * plus one `<glob-matched package dir>/node_modules` per existing package
+ * directory — so the policy's TRACKED phase covers exactly what the reroute
+ * walk can act on.
+ *
+ * The mirror (`enumerateReroutedNodeModules` in `worktree.ts`) derives its
+ * ownership from this same function, so policy coverage and mirror reach agree
+ * by construction instead of each maintaining their own idea of a workspace
+ * (the historical hardcoded `packages/*` one-level shape silently excluded
+ * globs like `apps/*` or `libs/*`). Returns `[]` when `package.json` is
+ * absent or has no `workspaces` field, mirroring the rerouter's early-return
+ * behavior. A non-array `workspaces` value (an object form never emitted by
+ * yarn) contributes no globs, keeping root-only ownership.
+ *
+ * The walk is bounded by the shared enumeration deadline when one is supplied
+ * (the policy phase), so an out-of-control glob walk fails closed instead of
+ * eating the whole budget; the mirror calls without a deadline.
+ *
+ * @param sourceRoot - Source checkout root holding `package.json`.
+ * @param deadline - Optional shared enumeration deadline (fail-closed).
+ * @returns Repo-relative node_modules trees the rerouter will own.
+ * @throws {Error} When `package.json` exists but is unparsable.
+ */
+export async function enumerateOwnedNodeModules(sourceRoot: string, deadline?: number): Promise<string[]> {
+  let packageJson: { workspaces?: unknown };
+  try {
+    const packageJsonContent = await fs.readFile(path.join(sourceRoot, 'package.json'), 'utf-8');
+    packageJson = JSON.parse(packageJsonContent);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+
+  const workspaces = packageJson.workspaces;
+  if (workspaces === undefined) return [];
+  const globs = Array.isArray(workspaces) ? (workspaces as string[]) : [];
+
+  const owned = ['node_modules'];
+  for (const packageDir of await expandWorkspacePackageDirs(sourceRoot, globs, deadline)) {
+    const nm = `${packageDir}/node_modules`;
+    try {
+      await fs.lstat(path.join(sourceRoot, nm));
+      owned.push(nm);
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
+  return owned;
+}
+
+/**
+ * Expands a `workspaces` glob list to the existing package directories it
+ * matches.
+ *
+ * Positive globs contribute matches; `!`-prefixed globs subtract them (yarn
+ * negation semantics). Each glob is walked segment by segment under
+ * `sourceRoot`: literal segments descend directly, glob segments (anything
+ * with `*`, `?`, or `[...]` — including a bare `*` for one directory level)
+ * read the directory and keep the entries the segment pattern matches, and a
+ * full `**` segment matches zero or more levels recursively. The walk never
+ * descends into `node_modules` unless a glob explicitly names it, so a huge
+ * installed tree cannot be walked by accident.
+ *
+ * @param sourceRoot - Source checkout root to walk.
+ * @param globs - Workspaces glob patterns from `package.json`.
+ * @param deadline - Optional shared enumeration deadline (fail-closed).
+ * @returns Repo-relative package directories matching the globs (deduplicated).
+ */
+async function expandWorkspacePackageDirs(sourceRoot: string, globs: string[], deadline?: number): Promise<string[]> {
+  const positive: string[] = [];
+  const negative: string[] = [];
+  for (const glob of globs) {
+    if (glob.startsWith('!')) {
+      negative.push(glob.slice(1));
+    } else {
+      positive.push(glob);
+    }
+  }
+
+  const matched = new Set<string>();
+  for (const glob of positive) {
+    for (const dir of await walkWorkspaceGlob(sourceRoot, glob, deadline)) {
+      matched.add(dir);
+    }
+  }
+  for (const glob of negative) {
+    for (const dir of await walkWorkspaceGlob(sourceRoot, glob, deadline)) {
+      matched.delete(dir);
+    }
+  }
+  return [...matched];
+}
+
+/**
+ * Lists the existing child directories of `absDir`, treating a missing or
+ * non-directory parent as an empty listing.
+ *
+ * @param absDir - Absolute directory whose children are listed.
+ * @returns The directory children as `Dirent` entries.
+ */
+async function readDirDirs(absDir: string): Promise<Dirent[]> {
+  let children: Dirent[];
+  try {
+    children = await fs.readdir(absDir, { withFileTypes: true });
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // A vanished or non-directory segment contributes nothing, mirroring the
+    // tolerated-missing behavior of the per-package lstat in
+    // enumerateOwnedNodeModules. Anything else (EACCES, I/O) propagates so a
+    // real failure cannot silently shrink the owned set.
+    if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+    throw error;
+  }
+  return children.filter((child) => child.isDirectory());
+}
+
+/**
+ * Walks one `workspaces` glob against the filesystem, returning the existing
+ * directories it matches.
+ *
+ * See {@link expandWorkspacePackageDirs} for the segment semantics. The walk
+ * is bounded by the optional shared enumeration deadline, checked before
+ * every segment expansion and every match is recorded.
+ *
+ * @param sourceRoot - Source checkout root to walk.
+ * @param glob - One workspaces glob pattern.
+ * @param deadline - Optional shared enumeration deadline (fail-closed).
+ * @returns Repo-relative directories matching `glob`.
+ */
+async function walkWorkspaceGlob(sourceRoot: string, glob: string, deadline?: number): Promise<string[]> {
+  const segments = glob.split('/').filter((segment) => segment.length > 0);
+  const matches: string[] = [];
+
+  const walk = async (absDir: string, relPrefix: string, index: number): Promise<void> => {
+    if (deadline !== undefined) assertBeforeDeadline(deadline);
+    if (index === segments.length) {
+      if (relPrefix.length > 0) matches.push(relPrefix);
+      return;
+    }
+
+    const segment = segments[index];
+    if (segment === undefined) return;
+    if (segment === '**') {
+      // Zero or more directory levels: finish the pattern at this depth, then
+      // descend into every child directory and try again.
+      await walk(absDir, relPrefix, index + 1);
+      for (const child of await readDirDirs(absDir)) {
+        await walk(path.join(absDir, child.name), relPrefix ? `${relPrefix}/${child.name}` : child.name, index);
+      }
+      return;
+    }
+
+    if (!/[*?[]/.test(segment)) {
+      // A literal segment: descend directly when it is an existing directory.
+      let stats: Awaited<ReturnType<typeof fs.lstat>>;
+      try {
+        stats = await fs.lstat(path.join(absDir, segment));
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT' || (error as NodeJS.ErrnoException).code === 'ENOTDIR') {
+          return;
+        }
+        throw error;
+      }
+      if (!stats.isDirectory()) return;
+      await walk(path.join(absDir, segment), relPrefix ? `${relPrefix}/${segment}` : segment, index + 1);
+      return;
+    }
+
+    for (const child of await readDirDirs(absDir)) {
+      if (minimatch(child.name, segment)) {
+        await walk(path.join(absDir, child.name), relPrefix ? `${relPrefix}/${child.name}` : child.name, index + 1);
+      }
+    }
+  };
+
+  await walk(sourceRoot, '', 0);
+  return matches;
+}
+
+/**
  * Matches the policy patterns against the interiors of TRACKED symlinked
- * node_modules entries.
+ * node_modules entries inside the node_modules trees the rerouter owns.
  *
  * The ignored-only enumeration never reports tracked files, so a committed
  * node_modules link — the workspaces shape force-added, or any committed
@@ -445,31 +708,43 @@ async function synthesizeSymlinkedDescendants(
  * package interior is gitignored, a worktree-side write at the ruled path
  * resolves through the recreated link into the source checkout. This phase
  * lists every tracked file's index mode (`git ls-files -s`), keeps the
- * symlink entries (mode 120000) under node_modules subtrees — the only
- * tracked links the rerouter's materialization walk can act on — and feeds
+ * symlink entries (mode 120000) under owned node_modules trees — exactly the
+ * tracked links the rerouter's materialization walk can act on, derived from
+ * the same {@link enumerateOwnedNodeModules} list the mirror uses — and feeds
  * them through the same see-through synthesis the ignored enumeration uses,
  * so matcher matches and the omit-ancestor materialization cover tracked
  * package interiors too. The entry paths themselves are matched as well
  * (mirroring the ignored enumeration, where git reports the link), so a
  * directly matched tracked entry is handled as a directly copied path instead
- * of being materialized. Scoping to node_modules keeps the phase honest: a
- * tracked symlink elsewhere has no materialization mechanism, and a copy rule
- * addressing its interior would write through the checkout's link.
+ * of being materialized.
+ *
+ * A TRACKED node_modules-segment symlink OUTSIDE the owned trees fails closed
+ * naming the path: no pass ever reaches that tree, so a rule on it would
+ * silently no-op and the checkout's link would stay in place — a worktree-side
+ * write at the ruled path escaping the worktree. The invariant: a tracked
+ * node_modules-segment symlink is either inside owned trees where the policy
+ * fully applies, or creation fails loudly.
  *
  * @param sourceRoot - Source checkout root.
  * @param omitMatcher - `.worktreeignore` matcher.
  * @param includeMatcher - `.worktreeinclude` matcher.
  * @param deadline - Shared enumeration deadline (fail-closed).
+ * @param timeoutMs - Per-call `git ls-files` kill budget in milliseconds.
+ * @param ownedNodeModules - Node_modules trees the rerouter owns (repo-relative).
  * @returns The matched omit and copy paths among tracked symlink entries and
  *   their synthesized descendants.
+ * @throws {WorktreeIncludeError} When a TRACKED node_modules-segment symlink
+ *   lies outside the owned trees, naming each offending path.
  */
 async function enumerateTrackedSymlinkInteriors(
   sourceRoot: string,
   omitMatcher: ReturnType<typeof ignore>,
   includeMatcher: ReturnType<typeof ignore>,
-  deadline: number
+  deadline: number,
+  timeoutMs: number,
+  ownedNodeModules: string[]
 ): Promise<{ omitMatches: string[]; copyMatches: string[] }> {
-  const tracked = await gitLsFiles(sourceRoot, ['-s', '-z'], deadline);
+  const tracked = await gitLsFiles(sourceRoot, ['-s', '-z'], deadline, timeoutMs);
   const trackedSymlinkEntries = tracked
     .map((line): string | undefined => {
       const tab = line.indexOf('\t');
@@ -482,10 +757,20 @@ async function enumerateTrackedSymlinkInteriors(
       return rel.split('/').includes('node_modules') ? rel : undefined;
     })
     .filter((rel): rel is string => rel !== undefined);
-  const matched = [
-    ...trackedSymlinkEntries,
-    ...(await synthesizeSymlinkedDescendants(sourceRoot, trackedSymlinkEntries, deadline))
-  ];
+
+  // Split the tracked node_modules-segment symlinks into the trees the walk
+  // will reach (owned) and the rest, which no pass can enforce: fail closed
+  // naming each out-of-reach path instead of silently leaving rules
+  // unenforced on a link the checkout materialized.
+  const inReach = trackedSymlinkEntries.filter((rel) => isUnderOwnedNodeModules(rel, ownedNodeModules));
+  const outOfReach = trackedSymlinkEntries.filter((rel) => !inReach.includes(rel));
+  if (outOfReach.length > 0) {
+    throw new WorktreeIncludeError(
+      `Tracked symlink(s) under node_modules outside the rerouted workspace trees cannot be covered by the path policy: ${outOfReach.join(', ')}. Add the containing directory to the package.json "workspaces" globs or remove the tracked link(s).`
+    );
+  }
+
+  const matched = [...inReach, ...(await synthesizeSymlinkedDescendants(sourceRoot, inReach, deadline))];
   return {
     omitMatches: matched.filter((p) => omitMatcher.ignores(p)),
     copyMatches: matched.filter((p) => !omitMatcher.ignores(p) && includeMatcher.ignores(p))
@@ -556,20 +841,22 @@ function posixNormalize(relativePath: string): string {
  * ignored-path input, enumerates the ignored descendants of collapsed ignored
  * directories — once, feeding both copy selection and omit descendant
  * matching — plus the synthesized interiors of TRACKED symlink entries under
- * node_modules subtrees (see {@link enumerateTrackedSymlinkInteriors}) — and
- * computes the final omit/copy/share classification. A collapsed ignored
- * directory is omitted wholesale when any of its descendants matches
- * `.worktreeignore` (unless a descendant is selected for copy), because a
- * symlinked directory cannot expose only part of its contents. The query
- * also exposes {@link WorktreePathQuery.isOmitAncestor}, which the
- * node_modules rerouter uses to materialize a matcher-matched omitted path's
- * ancestor directories as real trees instead of symlinking them wholesale.
+ * the node_modules trees the rerouter owns, derived from the `workspaces`
+ * globs (see {@link enumerateTrackedSymlinkInteriors}) — and computes the
+ * final omit/copy/share classification. A collapsed ignored directory is
+ * omitted wholesale when any of its descendants matches `.worktreeignore`
+ * (unless a descendant is selected for copy), because a symlinked directory
+ * cannot expose only part of its contents. The query also exposes
+ * {@link WorktreePathQuery.isOmitAncestor}, which the node_modules rerouter
+ * uses to materialize a matcher-matched omitted path's ancestor directories
+ * as real trees instead of symlinking them wholesale.
  *
  * When either config file has patterns, the whole enumeration phase — every
- * per-directory `git ls-files` scan, the tracked-symlink scan, and every
- * see-through synthesis walk — shares one fail-closed deadline of
- * {@link GIT_LS_FILES_TIMEOUT_MS}; expiry rejects with
- * {@link WorktreeIncludeError}, never truncating.
+ * per-directory `git ls-files` scan, the tracked-symlink scan, the owned-
+ * workspace walk, and every see-through synthesis walk — shares one
+ * fail-closed deadline of `CARDS_WORKTREE_POLICY_TIMEOUT_MS` (default
+ * 30000); expiry rejects with {@link WorktreeIncludeError} naming the
+ * variable, never truncating.
  *
  * @param opts - Options for the policy load.
  * @param opts.sourceRoot - Source checkout root containing the config files.
@@ -612,23 +899,53 @@ export async function loadWorktreePathPolicy(opts: {
   // no-config path pays no per-directory `git ls-files` scan.
   const needsEnumeration = ignorePatterns.length > 0 || includePatterns.length > 0;
   // One shared fail-closed budget for the whole enumeration phase: every
-  // per-directory `git ls-files` scan, the tracked-symlink scan, and every
-  // see-through synthesis walk must finish within GIT_LS_FILES_TIMEOUT_MS of
-  // enumeration start. Expiry throws — the policy fails closed (never
-  // truncates, which would silently drop omit entries), matching the
-  // per-call git timeout's fail-closed contract.
-  const enumerationDeadline = Date.now() + GIT_LS_FILES_TIMEOUT_MS;
+  // per-directory `git ls-files` scan, the tracked-symlink scan, the owned-
+  // workspace walk, and every see-through synthesis walk must finish within
+  // the budget of enumeration start (the configured
+  // CARDS_WORKTREE_POLICY_TIMEOUT_MS, default 30000). Expiry throws — the
+  // policy fails closed (never truncates, which would silently drop omit
+  // entries), matching the per-call git timeout's fail-closed contract.
+  const enumerationTimeoutMs = resolveEnumerationTimeoutMs();
+  const enumerationDeadline = Date.now() + enumerationTimeoutMs;
+  // The TRACKED phase is scoped to the node_modules trees the rerouter owns
+  // (root plus glob-matched workspace packages, derived from package.json
+  // `workspaces`), so policy coverage equals mirror reach; a tracked
+  // node_modules-segment symlink outside those trees fails closed naming the
+  // path. Failures here (an unparsable package.json) are policy-load
+  // failures, so they surface as WorktreeIncludeError like every other
+  // unprocessable config.
+  let ownedNodeModules: string[] = [];
+  if (needsEnumeration) {
+    try {
+      ownedNodeModules = await enumerateOwnedNodeModules(sourceRoot, enumerationDeadline);
+    } catch (error: unknown) {
+      if (error instanceof WorktreeIncludeError) {
+        throw error;
+      }
+      throw new WorktreeIncludeError(
+        `Failed to enumerate rerouted workspace node_modules: ${(error as Error).message}`,
+        { cause: error }
+      );
+    }
+  }
   const [nestedByDir, trackedSymlinkMatches] = needsEnumeration
     ? await Promise.all([
         Promise.all(
           ignored.directories.map(async (dir) => {
-            const entries = await enumerateIgnoredFiles(sourceRoot, dir, enumerationDeadline);
+            const entries = await enumerateIgnoredFiles(sourceRoot, dir, enumerationDeadline, enumerationTimeoutMs);
             const omitMatches = entries.filter((p) => omitMatcher.ignores(p));
             const copyMatches = entries.filter((p) => !omitMatcher.ignores(p) && includeMatcher.ignores(p));
             return { dir, omitMatches, copyMatches };
           })
         ),
-        enumerateTrackedSymlinkInteriors(sourceRoot, omitMatcher, includeMatcher, enumerationDeadline)
+        enumerateTrackedSymlinkInteriors(
+          sourceRoot,
+          omitMatcher,
+          includeMatcher,
+          enumerationDeadline,
+          enumerationTimeoutMs,
+          ownedNodeModules
+        )
       ])
     : [[], { omitMatches: [], copyMatches: [] }];
 

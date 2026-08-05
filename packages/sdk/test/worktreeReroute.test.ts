@@ -1124,4 +1124,175 @@ describe('policy-aware rerouting of TRACKED symlinked workspace packages', () =>
 
     await removeWorktree(wPath);
   });
+
+  it('omits a whole TRACKED node_modules tree matched by .worktreeignore: the checkout-materialized tree is removed', async () => {
+    // A whole-tree rule (node_modules/) omits every owned node_modules dir:
+    // on the committed shape the checkout has already materialized the
+    // tracked links, so the omit branch must remove the tree instead of
+    // merely skipping the rebuild.
+    await makeTrackedSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-nm-omit-all', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The whole node_modules tree is absent, not present-and-ruled.
+    await expect(fs.lstat(path.join(wPath, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // The source checkout is untouched.
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('omits a whole TRACKED symlinked package matched by .worktreeignore: package absent, sibling links intact', async () => {
+    // A whole-package rule (node_modules/pkgA) matches the tracked symlink
+    // ENTRY itself, so the entry classifies 'omit' and the rerouter skips it —
+    // but the git checkout has already materialized the tracked link in the
+    // worktree, so the skip alone leaves the package fully present. The omit
+    // branch must actively remove the checkout-materialized entry, or the
+    // rule silently no-ops on the committed shape while omitting wholesale on
+    // the gitignored shape.
+    await makeTrackedSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-pkg-omit-all', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The omitted package is entirely absent — the checkout's link is gone.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // Unruled tracked entries stay recreated as links into the worktree's
+    // own packages checkout.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'b'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'b')
+    );
+    // The source checkout is untouched.
+    await expect(fs.readFile(path.join(repoDir, 'packages', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('omits a whole TRACKED symlinked package matched by a trailing-slash .worktreeignore pattern', async () => {
+    await makeTrackedSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA/\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-pkg-omit-all-trailing', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // A scope sibling of the omitted package keeps its link.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'a'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'a')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('omits a whole TRACKED @scope package member matched by .worktreeignore and keeps its scope sibling linked', async () => {
+    await makeTrackedSymlinkedWorkspace();
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/@scope/a\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-scope-member-omit-all', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The omitted scope member is absent — the checkout's link is removed.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', '@scope', 'a'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // The sibling inside the same scope is still a link to the worktree's
+    // packages checkout.
+    await expect(fs.readlink(path.join(wPath, 'node_modules', '@scope', 'b'))).resolves.toBe(
+      path.join('..', '..', 'packages', 'b')
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('omits a whole TRACKED real-directory package matched by .worktreeignore: the checkout-materialized tree is removed', async () => {
+    // A package committed as a real directory under node_modules (files
+    // force-added, no symlink): the checkout materializes the real tree, and
+    // the whole-package rule must remove it — absent, not present-but-ruled.
+    await fs.writeFile(path.join(repoDir, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+    const nm = path.join(repoDir, 'node_modules');
+    await fs.mkdir(path.join(nm, 'pkgA', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'pkgA', '.cache', 'x.js'), 'export {};\n');
+    await fs.writeFile(path.join(nm, 'pkgA', 'index.js'), 'module.exports = 1;');
+    await fs.mkdir(path.join(nm, 'left-pad'), { recursive: true });
+    await fs.writeFile(path.join(nm, 'left-pad', 'index.js'), 'module.exports = 0;');
+    execFileSync('git', ['add', '-f', 'node_modules'], { cwd: repoDir });
+    execFileSync('git', ['commit', '-q', '-m', 'track real-dir node_modules'], { cwd: repoDir });
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/pkgA\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-real-dir-omit-all', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The omitted real-directory package is entirely absent.
+    await expect(fs.lstat(path.join(wPath, 'node_modules', 'pkgA'))).rejects.toMatchObject({ code: 'ENOENT' });
+    // The unruled sibling stays present.
+    await expect(fs.stat(path.join(wPath, 'node_modules', 'left-pad', 'index.js'))).resolves.toBeDefined();
+    // The source checkout is untouched.
+    await expect(fs.readFile(path.join(repoDir, 'node_modules', 'pkgA', 'index.js'), 'utf8')).resolves.toBe(
+      'module.exports = 1;'
+    );
+
+    await removeWorktree(wPath);
+  });
+
+  it('honors an interior omit rule under a non-packages workspaces glob (apps/*) with a TRACKED symlinked package', async () => {
+    // The mirror owns only what the package.json workspaces globs declare.
+    // With a glob-derived ownership (apps/*), apps/bar/node_modules is a
+    // rerouted tree and the interior rule is enforced; without it, the rule
+    // would no-op and the checkout's tracked link would expose the ruled path
+    // to worktree-side writes.
+    await fs.writeFile(path.join(repoDir, 'package.json'), JSON.stringify({ workspaces: ['packages/*', 'apps/*'] }));
+    const apps = path.join(repoDir, 'apps');
+    await fs.mkdir(path.join(apps, 'bar', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(apps, 'bar', '.cache', 'tmp'), 'x');
+    await fs.writeFile(path.join(apps, 'bar', 'index.js'), 'module.exports = 3;');
+    await fs.mkdir(path.join(apps, 'bar', 'node_modules'), { recursive: true });
+    await fs.symlink('../../bar', path.join(apps, 'bar', 'node_modules', 'bar'));
+    execFileSync('git', ['add', '.'], { cwd: repoDir });
+    execFileSync('git', ['add', '-f', 'apps/bar/node_modules'], { cwd: repoDir });
+    execFileSync('git', ['commit', '-q', '-m', 'track apps workspace link'], { cwd: repoDir });
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'apps/bar/node_modules/bar/.cache/tmp\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/tracked-apps-glob-omit', { cwd: repoDir });
+    await expect(settle).resolves.toBeDefined();
+
+    // The tracked package is a real directory, never the checkout's link.
+    const pkgLstat = await fs.lstat(path.join(wPath, 'apps', 'bar', 'node_modules', 'bar'));
+    expect(pkgLstat.isDirectory()).toBe(true);
+    expect(pkgLstat.isSymbolicLink()).toBe(false);
+    // The ruled path is absent.
+    await expect(
+      fs.lstat(path.join(wPath, 'apps', 'bar', 'node_modules', 'bar', '.cache', 'tmp'))
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+    // A worktree-side write at the ruled path lands in the worktree's real
+    // tree and never reaches the source file.
+    await fs.writeFile(path.join(wPath, 'apps', 'bar', 'node_modules', 'bar', '.cache', 'tmp'), 'worktree-write\n');
+    await expect(fs.readFile(path.join(repoDir, 'apps', 'bar', '.cache', 'tmp'), 'utf8')).resolves.toBe('x');
+
+    await removeWorktree(wPath);
+  });
+
+  it('fails closed naming the path when a TRACKED node_modules symlink sits outside the rerouted workspace trees', async () => {
+    // A tracked node_modules-segment symlink OUTSIDE the trees the mirror
+    // owns (root node_modules plus glob-matched workspace packages) can never
+    // be reached by the reroute walk, so a policy rule on it would silently
+    // no-op and the checkout's link would stay writable. Worktree creation
+    // must fail closed naming the path — even when no rule addresses it.
+    await fs.writeFile(path.join(repoDir, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+    const vendor = path.join(repoDir, 'vendor', 'x');
+    await fs.mkdir(path.join(vendor, 'node_modules'), { recursive: true });
+    await fs.symlink('../../../packages/pkgA', path.join(vendor, 'node_modules', 'link'));
+    execFileSync('git', ['add', '-f', 'vendor/x/node_modules'], { cwd: repoDir });
+    execFileSync('git', ['commit', '-q', '-m', 'track out-of-reach node_modules link'], { cwd: repoDir });
+    await fs.writeFile(path.join(repoDir, '.worktreeignore'), 'node_modules/.vite\n');
+
+    const { settle } = await createWorktree('feature/tracked-out-of-reach', { cwd: repoDir });
+    await expect(settle).rejects.toThrow(/vendor\/x\/node_modules\/link/);
+    // The failed settle removes the worktree itself (fail-closed cleanup), so
+    // no removeWorktree call is needed here.
+  });
 });

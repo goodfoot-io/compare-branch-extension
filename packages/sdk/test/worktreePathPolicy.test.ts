@@ -681,6 +681,10 @@ describe('loadWorktreePathPolicy', () => {
     // ruled path reaches the source.
     sourceRoot = await makeSourceRoot('tracked-symlink-omit');
     await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    // The tracked phase covers only the node_modules trees the rerouter owns
+    // (derived from the workspaces globs); without a workspaces declaration
+    // the fixture's tracked links would fail closed as out of reach.
+    await fs.writeFile(path.join(sourceRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
     await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
     await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
     await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
@@ -705,6 +709,7 @@ describe('loadWorktreePathPolicy', () => {
   it('sees through a TRACKED symlinked node_modules package when a .worktreeinclude rule addresses its interior', async () => {
     sourceRoot = await makeSourceRoot('tracked-symlink-copy');
     await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
     await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
     await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
     await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
@@ -726,6 +731,7 @@ describe('loadWorktreePathPolicy', () => {
   it('keeps omit winning over copy for a TRACKED symlinked node_modules descendant', async () => {
     sourceRoot = await makeSourceRoot('tracked-symlink-omit-wins');
     await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
     await fs.mkdir(path.join(sourceRoot, 'packages', 'pkgA', '.cache'), { recursive: true });
     await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', '.cache', 'x.js'), 'x');
     await fs.writeFile(path.join(sourceRoot, 'packages', 'pkgA', 'index.js'), 'i');
@@ -757,5 +763,83 @@ describe('loadWorktreePathPolicy', () => {
     expect(policy.omit).toEqual([]);
     expect(policy.copy).toEqual([]);
     expect(policy.isOmitAncestor('node_modules/pkgA')).toBe(false);
+  });
+
+  it('sees through a TRACKED symlinked package under a non-packages workspaces glob (apps/*)', async () => {
+    // The tracked phase is scoped to the node_modules trees the rerouter owns,
+    // which are derived from the workspaces globs — a glob like apps/* (not
+    // packages/*) must still put apps/bar/node_modules in reach, or the rule
+    // silently no-ops and the checkout's link stays writable.
+    sourceRoot = await makeSourceRoot('tracked-apps-glob');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*', 'apps/*'] }));
+    await fs.mkdir(path.join(sourceRoot, 'apps', 'bar', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceRoot, 'apps', 'bar', '.cache', 'tmp'), 'x');
+    await fs.writeFile(path.join(sourceRoot, 'apps', 'bar', 'index.js'), 'i');
+    await fs.mkdir(path.join(sourceRoot, 'apps', 'bar', 'node_modules'), { recursive: true });
+    await fs.symlink('../../bar', path.join(sourceRoot, 'apps', 'bar', 'node_modules', 'bar'));
+    const { execFileSync } = await import('node:child_process');
+    execFileSync('git', ['add', '.'], { cwd: sourceRoot });
+    execFileSync('git', ['add', '-f', 'apps/bar/node_modules'], { cwd: sourceRoot });
+    execFileSync('git', ['commit', '-q', '-m', 'track apps workspace link'], { cwd: sourceRoot });
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'apps/bar/node_modules/bar/.cache/tmp\n');
+
+    const policy = await loadPolicy(sourceRoot);
+
+    // The glob-derived tree is in reach, so the interior is synthesized and
+    // the rule's ancestor directories are exposed to the rerouter.
+    expect(policy.isOmitAncestor('apps/bar/node_modules/bar')).toBe(true);
+    expect(policy.isOmitAncestor('apps/bar/node_modules/bar/.cache')).toBe(true);
+    expect(policy.classify('apps/bar/node_modules/bar/.cache/tmp')).toBe('omit');
+  });
+
+  it('fails closed on a TRACKED node_modules symlink outside the rerouted workspace trees, naming the path', async () => {
+    // A tracked node_modules-segment symlink OUTSIDE the trees the rerouter
+    // owns can never be enforced by the walk — the checkout's link would stay
+    // in place and a worktree-side write at a ruled path would reach the
+    // source. The policy must fail closed naming the path instead of silently
+    // leaving the rule unenforced.
+    sourceRoot = await makeSourceRoot('tracked-out-of-reach');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
+    await fs.mkdir(path.join(sourceRoot, 'vendor', 'x', 'node_modules'), { recursive: true });
+    await fs.symlink('../../../packages/pkgA', path.join(sourceRoot, 'vendor', 'x', 'node_modules', 'link'));
+    const { execFileSync } = await import('node:child_process');
+    execFileSync('git', ['add', '-f', 'vendor/x/node_modules'], { cwd: sourceRoot });
+    execFileSync('git', ['commit', '-q', '-m', 'track out-of-reach node_modules link'], { cwd: sourceRoot });
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/pkgA\n');
+
+    const error = await loadPolicy(sourceRoot).then(
+      () => null,
+      (e: unknown) => e
+    );
+    expect(error).toBeInstanceOf(WorktreeIncludeError);
+    expect(error).not.toBeNull();
+    expect((error as Error).message).toContain('vendor/x/node_modules/link');
+  });
+
+  it('names the remedy variable when the enumeration deadline expires', async () => {
+    sourceRoot = await makeSourceRoot('timeout-remedy');
+    await initGitRepo(sourceRoot, ['node_modules/'], [{ rel: 'README.md', content: 'hi' }]);
+    await fs.writeFile(path.join(sourceRoot, '.worktreeignore'), 'node_modules/pkgA\n');
+    const timeoutKey = 'CARDS_WORKTREE_POLICY_TIMEOUT_MS';
+    const previous = process.env[timeoutKey];
+    process.env[timeoutKey] = '1';
+    try {
+      const ignored = await discoverIgnoredPaths(sourceRoot);
+      const error = await loadWorktreePathPolicy({ sourceRoot, ignored }).then(
+        () => null,
+        (e: unknown) => e
+      );
+      expect(error).not.toBeNull();
+      expect((error as Error).message).toContain(timeoutKey);
+      expect((error as Error).message).toContain('30000');
+    } finally {
+      if (previous === undefined) {
+        delete process.env[timeoutKey];
+      } else {
+        process.env[timeoutKey] = previous;
+      }
+    }
   });
 });

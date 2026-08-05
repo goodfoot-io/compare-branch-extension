@@ -253,6 +253,7 @@ Rules:
 - **Copy prevents ancestor symlinks** — a copy rule for `dist/bundle.js` under an ignored `dist/` prevents the `dist` symlink and copies only the selected files into a real directory; unmatched siblings stay absent.
 - **Regenerated per creation** — the policy is re-evaluated on every worktree creation; config edits take effect on the next materialization.
 - **Fail closed** — an unreadable or invalid `.worktreeignore`/`.worktreeinclude` stops creation before any matching path is linked (`create-worktree` exits 3).
+- **Enumeration is deadline-bounded** — the policy's git scans and filesystem walks fail closed after `CARDS_WORKTREE_POLICY_TIMEOUT_MS` (default 30000); raise it for huge trees or slow filesystems when the error names the variable.
 
 <card-status>
 - **todo**: This card is ready for implementation.
