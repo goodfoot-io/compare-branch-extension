@@ -67,8 +67,16 @@ describe('findExternalResources — hardened locality', () => {
     expect(urls.some((u) => u.includes('cdn.example.com'))).toBe(true);
   });
 
-  it('does not flag a data: URI or a relative path', () => {
-    expect(findExternalResources('<img src="data:image/png;base64,AAAA"><a href="./page.html">x</a>')).toEqual([]);
+  it('does not flag a data: URI or a same-document fragment', () => {
+    expect(findExternalResources('<img src="data:image/png;base64,AAAA"><a href="#section">x</a>')).toEqual([]);
+  });
+
+  it.each([
+    ['relative path', '<img src="./page.html">'],
+    ['bare relative path', '<a href="assets/logo.png">x</a>'],
+    ['parent-relative path', '<img src="../images/a.png">']
+  ])('flags a %s — render-time CSP only allows img-src data:', (_label, html) => {
+    expect(findExternalResources(html)).not.toEqual([]);
   });
 });
 

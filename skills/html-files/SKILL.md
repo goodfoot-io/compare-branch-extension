@@ -1,6 +1,6 @@
 ---
 name: html-files
-description: Author HTML files in a card repository — two-file pairing, sidecar schema, Tailwind/daisyUI styling, and the card html check gate.
+description: Author HTML files in a card repository — two-file pairing, sidecar schema, Tailwind/daisyUI styling, and the cards html check gate.
 ---
 
 <placeholder-variables>
@@ -49,10 +49,12 @@ No per-card setup. Write daisyUI component classes (`btn`, `card`, `badge`, …)
 
 ## Inline assets only
 
-External URLs (`https://`, `http://`, `//`) are forbidden. The commit-time check
-flags them in `src`/`href`/`srcset` attributes and in CSS `url()` / `@import`
-references; the runtime CSP blocks any that slip past. Use `data:` URIs for
-images, fonts, and binary assets, or reference relative paths within the card repo.
+External URLs (`https://`, `http://`, `//`) and relative paths are both forbidden.
+The render-time CSP only allows `img-src data:` — a relative path passes the
+commit-time check's syntax but fails to load silently in the iframe. Use `data:`
+URIs for every image, font, and binary asset; the commit-time check now rejects
+any `src`/`href`/`url()` value that isn't a `data:` URI or a same-document
+fragment (`#id`).
 
 ## Scripts, nonces, and the CSP
 
@@ -65,8 +67,9 @@ the network, not the page's own scripts:
   `scripts` omitted or `true`, the builder stamps the per-panel nonce onto
   **every** static `<script>` in the file — there is no "builder vs. author"
   distinction, so whatever script you write *or paste* executes. The sandbox is
-  `allow-scripts allow-same-origin`, so that script can reach the webview origin.
-  Do **not** paste untrusted third-party `<script>` you don't intend to run.
+  `allow-scripts` only — `allow-same-origin` is deliberately withheld, so that
+  script cannot reach the parent webview's origin even though it runs. Do
+  **not** paste untrusted third-party `<script>` you don't intend to run.
 - **The CSP blocks the network and runtime-injected scripts.** `default-src
   'none'` / `connect-src 'none'` mean no `fetch`, beacon, or external asset load
   at runtime — assets must be inline or `data:`. A script injected at runtime
@@ -85,13 +88,13 @@ security boundary.
 Run the checker before staging:
 
 ```bash
-card html check [CARD_REPO_PATH]/html/walkthrough.html
+cards html check [CARD_REPO_PATH]/html/walkthrough.html
 ```
 
 Or check all files in the directory:
 
 ```bash
-card html check [CARD_REPO_PATH]/html/
+cards html check [CARD_REPO_PATH]/html/
 ```
 
 Exit codes:

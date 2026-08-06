@@ -21,33 +21,54 @@ const MAX_HTML_SUMMARY_LENGTH = 280;
 const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 'scripts']);
 
 /**
- * Detects external (non-local) URLs in `src`/`href`/`srcset` attributes and CSS
- * `url()` / `@import` references.
+ * Detects any non-local resource reference in `src`/`href`/`srcset` attributes
+ * and CSS `url()` / `@import` references — anything that isn't a `data:` URI
+ * or a same-document fragment (`#id`).
  *
  * This is a defense-in-depth, commit-time author convenience that catches the
- * common ways an external resource sneaks into authored HTML. It is NOT the
+ * common ways a resource reference silently fails to render. It is NOT the
  * security boundary: the real runtime enforcement is the per-panel CSP
  * (`default-src 'none'; connect-src 'none'; img-src data:`) injected at render
- * time. The regex deliberately does not attempt to be a complete control.
+ * time. Because that CSP only allows `img-src data:`, a relative path (e.g.
+ * `./logo.png`) passes commit-time syntax but silently fails to load in the
+ * sandboxed iframe with no surfaced error — so relative paths are rejected
+ * here too, not just absolute/protocol-relative URLs.
  *
- * Matched vectors (all targeting `https:`, `http:`, or protocol-relative `//`):
+ * Matched vectors (any scheme/path, not just `https:`/`http:`/`//`):
  * - quoted/unquoted `src=`/`href=` attributes
  * - `srcset=` candidate lists
  * - CSS `url(...)` (quoted or unquoted) in inline styles or `<style>` blocks
  * - CSS `@import` rules
  */
-const EXTERNAL_RESOURCE_RES: readonly RegExp[] = [
-  // Quoted src/href: src="https://…" / href='//…'
-  /(?:src|href)\s*=\s*["']\s*((?:https?:)?\/\/[^"']+)["']/gi,
-  // Unquoted src/href: src=https://… (terminated by whitespace or '>')
-  /(?:src|href)\s*=\s*((?:https?:)?\/\/[^\s"'>]+)/gi,
-  // srcset candidate URLs (quoted attribute value, any candidate that is external)
-  /srcset\s*=\s*["'][^"']*?((?:https?:)?\/\/[^\s,"']+)/gi,
+// srcset candidate URLs (quoted attribute value, one or more comma-separated candidates).
+// Named separately so `findExternalResources` can special-case its comma-splitting —
+// a data: URI's own comma (the base64 separator) must not be split like a srcset list.
+const SRCSET_RE = /srcset\s*=\s*["']([^"']+)["']/gi;
+
+const RESOURCE_REFERENCE_RES: readonly RegExp[] = [
+  // Quoted src/href: src="…" / href='…'
+  /(?:src|href)\s*=\s*["']\s*([^"']+)["']/gi,
+  // Unquoted src/href: src=… (terminated by whitespace or '>')
+  /(?:src|href)\s*=\s*([^\s"'>]+)/gi,
+  SRCSET_RE,
   // CSS url(...) — quoted or unquoted
-  /url\(\s*["']?\s*((?:https?:)?\/\/[^)"']+)["']?\s*\)/gi,
+  /url\(\s*["']?\s*([^)"']+)["']?\s*\)/gi,
   // CSS @import "url" or @import url(...)
-  /@import\s+(?:url\(\s*)?["']?\s*((?:https?:)?\/\/[^)"';\s]+)/gi
+  /@import\s+(?:url\(\s*)?["']?\s*([^)"';\s]+)/gi
 ];
+
+/**
+ * Whether a single resource reference value is permitted: a `data:` URI or a
+ * same-document fragment (`#id`). Anything else — absolute URLs, protocol-relative
+ * URLs, and relative paths alike — is rejected (see {@link RESOURCE_REFERENCE_RES}).
+ *
+ * @param value - A single captured `src`/`href`/`url()` reference value.
+ * @returns `true` when the value is a `data:` URI or a `#fragment`.
+ */
+function isAllowedResourceReference(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith('data:') || trimmed.startsWith('#');
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,15 +173,23 @@ export function parseAspectRatio(value: string | number): number | null {
  * clear commit-time error naming the offending URL.
  *
  * @param htmlSource - HTML source to scan.
- * @returns Array of offending external URLs (empty when none are found).
+ * @returns Array of offending resource references (empty when none are found).
  */
 export function findExternalResources(htmlSource: string): string[] {
   const urls: string[] = [];
-  for (const re of EXTERNAL_RESOURCE_RES) {
+  for (const re of RESOURCE_REFERENCE_RES) {
     // Each regex is global; reset lastIndex defensively before iterating.
     re.lastIndex = 0;
+    const isSrcset = re === SRCSET_RE;
     for (const match of htmlSource.matchAll(re)) {
-      if (match[1]) urls.push(match[1]);
+      const raw = match[1];
+      if (!raw) continue;
+      // srcset is a comma-separated candidate list; a data: URI's own comma
+      // (the base64 separator) must not be split, so only srcset splits.
+      const candidates = isSrcset ? raw.split(',').map((c) => c.trim().split(/\s+/)[0]) : [raw];
+      for (const candidate of candidates) {
+        if (candidate && !isAllowedResourceReference(candidate)) urls.push(candidate);
+      }
     }
   }
   return urls;
@@ -256,7 +285,7 @@ export function checkHtmlContent(params: {
     return {
       valid: false,
       errors: [
-        `${htmlPath}: absolute external URL(s) are not permitted (src/href/srcset/CSS url()): ${externalUrls.join(', ')}`
+        `${htmlPath}: non-local resource reference(s) are not permitted (src/href/srcset/CSS url() must be a data: URI or a #fragment): ${externalUrls.join(', ')}`
       ]
     };
   }
