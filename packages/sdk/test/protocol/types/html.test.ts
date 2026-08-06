@@ -78,6 +78,20 @@ describe('findExternalResources — hardened locality', () => {
   ])('flags a %s — render-time CSP only allows img-src data:', (_label, html) => {
     expect(findExternalResources(html)).not.toEqual([]);
   });
+
+  it('does not flag a data: URI srcset with multiple candidates (base64 comma must not split it)', () => {
+    const html =
+      '<img srcset="data:image/png;base64,AAA 1x, data:image/png;base64,BBB 2x" src="data:image/png;base64,AAA">';
+    expect(findExternalResources(html)).toEqual([]);
+  });
+
+  it('does not flag a data-src attribute (not a real src attribute)', () => {
+    expect(findExternalResources('<div data-src="foo"></div>')).toEqual([]);
+  });
+
+  it('does not flag inline JS assigning .src/.href as if they were HTML attributes', () => {
+    expect(findExternalResources('<script>a.src = fn(); o.href="/x";</script>')).toEqual([]);
+  });
 });
 
 describe('filterStructuralParseErrors', () => {

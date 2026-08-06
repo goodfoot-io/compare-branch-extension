@@ -35,27 +35,78 @@ const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 's
  * here too, not just absolute/protocol-relative URLs.
  *
  * Matched vectors (any scheme/path, not just `https:`/`http:`/`//`):
- * - quoted/unquoted `src=`/`href=` attributes
+ * - quoted/unquoted `src=`/`href=` attributes (with a left-boundary guard so
+ *   `data-src="…"` and JS property assignments like `o.href = "…"` are not
+ *   mistaken for the HTML attribute)
  * - `srcset=` candidate lists
  * - CSS `url(...)` (quoted or unquoted) in inline styles or `<style>` blocks
  * - CSS `@import` rules
  */
+// Left-boundary guard: `src`/`href` must not be immediately preceded by a word
+// character, `.`, or `-` — excludes `data-src="…"` (preceded by `-`) and JS
+// property access like `o.href = …` or `a.src = …` (preceded by `.`), which
+// would otherwise be mistaken for the HTML attribute.
+const ATTR_BOUNDARY = String.raw`(?<![\w.-])`;
+
 // srcset candidate URLs (quoted attribute value, one or more comma-separated candidates).
 // Named separately so `findExternalResources` can special-case its comma-splitting —
 // a data: URI's own comma (the base64 separator) must not be split like a srcset list.
-const SRCSET_RE = /srcset\s*=\s*["']([^"']+)["']/gi;
+const SRCSET_RE = new RegExp(`${ATTR_BOUNDARY}srcset\\s*=\\s*["']([^"']+)["']`, 'gi');
 
 const RESOURCE_REFERENCE_RES: readonly RegExp[] = [
   // Quoted src/href: src="…" / href='…'
-  /(?:src|href)\s*=\s*["']\s*([^"']+)["']/gi,
+  new RegExp(`${ATTR_BOUNDARY}(?:src|href)\\s*=\\s*["']\\s*([^"']+)["']`, 'gi'),
   // Unquoted src/href: src=… (terminated by whitespace or '>')
-  /(?:src|href)\s*=\s*([^\s"'>]+)/gi,
+  new RegExp(`${ATTR_BOUNDARY}(?:src|href)\\s*=\\s*([^\\s"'>]+)`, 'gi'),
   SRCSET_RE,
   // CSS url(...) — quoted or unquoted
   /url\(\s*["']?\s*([^)"']+)["']?\s*\)/gi,
   // CSS @import "url" or @import url(...)
   /@import\s+(?:url\(\s*)?["']?\s*([^)"';\s]+)/gi
 ];
+
+/**
+ * Splits a `srcset` attribute value into its candidate URL strings, respecting
+ * the single comma that separates a `data:` URI's metadata from its payload —
+ * a naive `raw.split(',')` breaks that comma apart, turning
+ * `data:image/png;base64,AAA` into the two bogus candidates `data:image/png;base64`
+ * and `AAA`.
+ *
+ * Each returned string is a full "url descriptor" candidate (e.g. `data:...,AAA 1x`);
+ * callers extract just the URL with `candidate.split(/\s+/)[0]`.
+ *
+ * @param raw - The raw `srcset` attribute value (comma-separated candidate list).
+ * @returns The candidate segments, comma-split but data-URI-aware.
+ */
+function splitSrcsetCandidates(raw: string): string[] {
+  const candidates: string[] = [];
+  let i = 0;
+  const n = raw.length;
+
+  while (i < n) {
+    while (i < n && /[\s,]/.test(raw[i]!)) i++;
+    if (i >= n) break;
+    const start = i;
+
+    if (raw.startsWith('data:', i)) {
+      // The first comma after `data:` separates metadata from payload and is
+      // part of the URI, not a candidate separator — skip past it before
+      // looking for the real candidate-terminating comma.
+      const metaComma = raw.indexOf(',', i);
+      const payloadComma = metaComma === -1 ? -1 : raw.indexOf(',', metaComma + 1);
+      i = payloadComma === -1 ? n : payloadComma;
+    } else {
+      const comma = raw.indexOf(',', i);
+      i = comma === -1 ? n : comma;
+    }
+
+    const segment = raw.slice(start, i).trim();
+    if (segment) candidates.push(segment);
+    if (i < n && raw[i] === ',') i++;
+  }
+
+  return candidates;
+}
 
 /**
  * Whether a single resource reference value is permitted: a `data:` URI or a
@@ -184,9 +235,9 @@ export function findExternalResources(htmlSource: string): string[] {
     for (const match of htmlSource.matchAll(re)) {
       const raw = match[1];
       if (!raw) continue;
-      // srcset is a comma-separated candidate list; a data: URI's own comma
-      // (the base64 separator) must not be split, so only srcset splits.
-      const candidates = isSrcset ? raw.split(',').map((c) => c.trim().split(/\s+/)[0]) : [raw];
+      // srcset is a comma-separated "url descriptor" candidate list; extract
+      // just the URL from each data-URI-aware candidate segment.
+      const candidates = isSrcset ? splitSrcsetCandidates(raw).map((c) => c.split(/\s+/)[0]) : [raw];
       for (const candidate of candidates) {
         if (candidate && !isAllowedResourceReference(candidate)) urls.push(candidate);
       }

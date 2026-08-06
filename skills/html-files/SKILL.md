@@ -50,11 +50,11 @@ No per-card setup. Write daisyUI component classes (`btn`, `card`, `badge`, …)
 ## Inline assets only
 
 External URLs (`https://`, `http://`, `//`) and relative paths are both forbidden.
-The render-time CSP only allows `img-src data:` — a relative path passes the
-commit-time check's syntax but fails to load silently in the iframe. Use `data:`
-URIs for every image, font, and binary asset; the commit-time check now rejects
-any `src`/`href`/`url()` value that isn't a `data:` URI or a same-document
-fragment (`#id`).
+The render-time CSP only allows `img-src data:`, so a relative path would fail to
+load silently in the iframe — the commit-time check catches this before it ships:
+it rejects any `src`/`href`/`url()` value that isn't a `data:` URI or a
+same-document fragment (`#id`). Use `data:` URIs for every image, font, and
+binary asset.
 
 ## Scripts, nonces, and the CSP
 
