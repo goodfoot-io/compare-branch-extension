@@ -11,6 +11,10 @@ import {
   checkHtmlContent,
   filterStructuralParseErrors,
   findExternalResources,
+  htmlCardDocPathForSidecar,
+  htmlCardDocSidecarPath,
+  isHtmlCardDocPath,
+  isHtmlCardDocSidecarPath,
   parseAspectRatio,
   validateHtmlInfo
 } from '../../../src/protocol/index.js';
@@ -197,5 +201,65 @@ describe('checkHtmlContent — orchestration', () => {
       parseErrorCodes: ['missing-doctype']
     });
     expect(result.valid).toBe(true);
+  });
+});
+
+describe('isHtmlCardDocPath', () => {
+  it.each([
+    ['repo-root .html', 'walkthrough.html'],
+    ['nested .html', 'docs/architecture-overview.html'],
+    ['deeply nested .html', 'docs/sub/dir/thing.html'],
+    ['legacy html/ location is still eligible, not special', 'html/walkthrough.html'],
+    ['a filename that merely starts with "attachments"', 'attachments-report.html'],
+    ['a filename that is exactly "attachments.html"', 'attachments.html'],
+    ['a nested filename that merely starts with "attachments"', 'docs/attachments.html']
+  ])('accepts %s', (_label, path) => {
+    expect(isHtmlCardDocPath(path)).toBe(true);
+  });
+
+  it.each([
+    ['a top-level attachments/ file', 'attachments/foo.html'],
+    ['a nested attachments/ file', 'docs/attachments/bar.html'],
+    ['a deeply nested attachments/ file', 'a/b/attachments/c/d.html'],
+    ['a non-.html file', 'docs/notes.md'],
+    ['the sidecar itself', 'docs/walkthrough.meta.json'],
+    ['a path merely containing "html"', 'html/notes.md']
+  ])('rejects %s', (_label, path) => {
+    expect(isHtmlCardDocPath(path)).toBe(false);
+  });
+
+  it('classifies Windows-separator paths identically', () => {
+    expect(isHtmlCardDocPath('docs\\sub\\thing.html')).toBe(true);
+    expect(isHtmlCardDocPath('docs\\attachments\\thing.html')).toBe(false);
+  });
+});
+
+describe('isHtmlCardDocSidecarPath', () => {
+  it.each([
+    ['a repo-root sidecar', 'walkthrough.meta.json'],
+    ['a nested sidecar', 'docs/architecture-overview.meta.json']
+  ])('accepts %s', (_label, path) => {
+    expect(isHtmlCardDocSidecarPath(path)).toBe(true);
+  });
+
+  it.each([
+    ['a markdown document sidecar (extension-carrying stem)', 'CARD.md.meta.json'],
+    ['a nested markdown document sidecar', 'plans/plan.md.meta.json'],
+    ['an attachment sidecar', 'attachments/att-1.png.meta.json'],
+    ['a sidecar under attachments/', 'attachments/foo.meta.json'],
+    ['a nested sidecar under attachments/', 'docs/attachments/foo.meta.json'],
+    ['the .html file itself', 'docs/walkthrough.html']
+  ])('rejects %s', (_label, path) => {
+    expect(isHtmlCardDocSidecarPath(path)).toBe(false);
+  });
+});
+
+describe('sidecar path derivation', () => {
+  it('derives the sidecar from an html path', () => {
+    expect(htmlCardDocSidecarPath('docs/sub/thing.html')).toBe('docs/sub/thing.meta.json');
+  });
+
+  it('derives the html path from a sidecar', () => {
+    expect(htmlCardDocPathForSidecar('docs/sub/thing.meta.json')).toBe('docs/sub/thing.html');
   });
 });

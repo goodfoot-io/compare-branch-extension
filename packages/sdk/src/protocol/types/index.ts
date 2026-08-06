@@ -122,7 +122,11 @@ export {
   checkHtmlContent,
   filterStructuralParseErrors,
   findExternalResources,
+  htmlCardDocPathForSidecar,
+  htmlCardDocSidecarPath,
   INFORMATIONAL_PARSE5_CODES,
+  isHtmlCardDocPath,
+  isHtmlCardDocSidecarPath,
   parseAspectRatio,
   validateHtmlInfo
 } from './html.js';

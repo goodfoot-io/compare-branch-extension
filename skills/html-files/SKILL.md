@@ -1,6 +1,6 @@
 ---
 name: html-files
-description: Author HTML files in a card repository — two-file pairing, sidecar schema, Tailwind/daisyUI styling, and the cards html check gate.
+description: Author HTML files in a card repository — two-file pairing, sidecar schema, inline CSS styling, and the cards html check gate.
 ---
 
 <placeholder-variables>
@@ -9,22 +9,22 @@ description: Author HTML files in a card repository — two-file pairing, sideca
 
 # HTML Files in a Card
 
-Drop interactive HTML pages into a card's `html/` directory. They appear as expandable rows in the card-detail timeline, rendered in sandboxed iframes at the declared aspect ratio. Tailwind v4 + daisyUI 5 styles are wired automatically — write classes and they paint.
+Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline, rendered in sandboxed iframes at the declared aspect ratio.
 
 ## Two-file pairing
 
-Every HTML file requires an exact-name sidecar. Both files must be committed together:
+Every HTML file requires a same-basename sidecar next to it. Both files must be committed together:
 
 ```
-html/walkthrough.html
-html/walkthrough.meta.json
+docs/architecture-overview.html
+docs/architecture-overview.meta.json
 ```
 
 An orphan `.html` without its `.meta.json`, or a `.meta.json` without its `.html`, is rejected by the pre-commit hook.
 
 ## Sidecar schema
 
-[`html/<name>.meta.json`](./public/packages/sdk/src/protocol/types/html.ts) is a closed schema — unknown keys are rejected.
+[`<name>.meta.json`](./public/packages/sdk/src/protocol/types/html.ts) is a closed schema — unknown keys are rejected.
 
 | Field | Type | Required | Constraint |
 |-------|------|----------|------------|
@@ -43,18 +43,29 @@ Example:
 }
 ```
 
-## Tailwind v4 + daisyUI 5
+## Styling
 
-No per-card setup. Write daisyUI component classes (`btn`, `card`, `badge`, …) and Tailwind utility classes directly in the HTML. The build pipeline compiles only the classes that appear in the static source.
+Write plain CSS yourself. No CSS framework is compiled in — an unstyled page renders unstyled. Put it in an inline `<style>` block:
+
+```html
+<style>
+  .cta { border-radius: 6px; background: #2563eb; color: #fff; padding: 8px 16px; }
+</style>
+<button class="cta">Submit</button>
+```
+
+A separate stylesheet must be embedded as a `data:` URI like any other asset —
+`<link rel="stylesheet" href="data:text/css;base64,…">`. A relative path or
+external URL is rejected (see *Inline assets only*).
 
 ## Inline assets only
 
 External URLs (`https://`, `http://`, `//`) and relative paths are both forbidden.
-The render-time CSP only allows `img-src data:`, so a relative path would fail to
+The render-time CSP only allows `data:` sources, so a relative path would fail to
 load silently in the iframe — the commit-time check catches this before it ships:
 it rejects any `src`/`href`/`url()` value that isn't a `data:` URI or a
 same-document fragment (`#id`). Use `data:` URIs for every image, font, and
-binary asset.
+binary asset — including stylesheets.
 
 ## Scripts, nonces, and the CSP
 
@@ -88,13 +99,13 @@ security boundary.
 Run the checker before staging:
 
 ```bash
-cards html check [CARD_REPO_PATH]/html/walkthrough.html
+cards html check [CARD_REPO_PATH]/docs/architecture-overview.html
 ```
 
-Or check all files in the directory:
+Or check every HTML file in the card repo:
 
 ```bash
-cards html check [CARD_REPO_PATH]/html/
+cards html check
 ```
 
 Exit codes:
@@ -103,9 +114,8 @@ Exit codes:
 |------|---------|
 | `0` | All checks passed |
 | `1` | Content failure — fix the HTML or sidecar |
-| `2` | Infrastructure failure — Tailwind/daisyUI packages unavailable; reinstall the extension |
 
-The pre-commit hook runs the same checks automatically on every staged `html/**` file.
+The pre-commit hook runs the same checks automatically on every staged HTML file and sidecar.
 
 ## Well-formedness check — what it catches
 
@@ -116,21 +126,3 @@ catch every mis-nesting: the HTML5 parser auto-closes many unclosed or
 mis-ordered tags (`<li>` without `</li>`, mis-nested inline elements) and those
 pass. Verify your structure yourself; a clean check means "not truncated," not
 "perfectly nested."
-
-## Scanner limitation — no dynamic class concatenation
-
-The Tailwind content scanner reads the **static HTML source** at check time. A class name injected via JavaScript at runtime (string concatenation, template literals, `classList.add(variable)`) may not appear in the compiled CSS even though the page appears to render. The marker-class probe that the checker runs verifies only that the scanner ran and saw the source file — it does not verify that dynamically constructed class names are covered.
-
-Write all class names literally in the HTML source so the scanner can see them:
-
-```html
-<!-- Good: scanner sees "btn-primary" -->
-<button class="btn btn-primary">Submit</button>
-
-<!-- Bad: scanner misses the class; element may be unstyled -->
-<button id="btn">Submit</button>
-<script>
-  const variant = 'primary';
-  document.getElementById('btn').className = `btn btn-${variant}`;
-</script>
-```

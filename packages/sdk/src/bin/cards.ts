@@ -98,7 +98,7 @@ Commands:
   <card-id> action <action-id> [options]  Execute an action on a card
   <card-id> watch [glob...]     Wait for next unattributed commit
   <card-id> bind [options]      Bind an existing card to the current worktree
-  html check [path...]          Validate and build card-repo HTML files
+  html check [path...]          Validate card-repo HTML files
 
 Get:
   Pass a card identifier as the sole argument. The full Card object is
@@ -211,9 +211,9 @@ Bind:
     cards main-42 bind --parent-branch main
 
 Html:
-  Validates and builds HTML files under a card repo's html/ directory:
-  pairing, sidecar schema, well-formedness, resource locality, and the
-  Tailwind/daisyUI build. Delegates to the extension's bundled check.mjs.
+  Validates a card repo's HTML documents (any *.html outside attachments/):
+  pairing, sidecar schema, well-formedness, and resource locality. Delegates to
+  the extension's bundled check.mjs.
 
   Options:
     --staged                 Only check files staged for commit (used by
@@ -221,13 +221,12 @@ Html:
 
   Examples:
     cards html check
-    cards html check [CARD_REPO_PATH]/html/walkthrough.html
+    cards html check [CARD_REPO_PATH]/docs/architecture-overview.html
     cards html check --staged
 
   Exit codes:
     0  All checks passed
     1  Content failure — fix the HTML file or sidecar
-    2  Infrastructure failure — Tailwind/daisyUI unavailable, reinstall the extension
 
 Exit codes:
   0  Success

@@ -1,13 +1,17 @@
 /**
  * Protocol types for HTML file entries in card repositories.
  *
- * An HTML file entry consists of an `.html` source file and a `.meta.json`
- * sidecar under `html/` in a card repository. The sidecar's schema is closed —
- * only the keys enumerated here are permitted.
+ * An HTML file entry consists of an `.html` source file and a same-basename
+ * `.meta.json` sidecar sitting next to it. The pair may live anywhere in the
+ * card repository except under an `attachments/` directory (see
+ * {@link isHtmlCardDocPath}). The sidecar's schema is closed — only the keys
+ * enumerated here are permitted.
  *
  * @summary Protocol types for HTML card file entries
  * @module types/html
  */
+
+import { ATTACHMENTS_DIR } from '../../cardRepoLayout.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -178,7 +182,7 @@ function isAllowedResourceReference(value: string): boolean {
 /**
  * File-persisted metadata for an HTML card file.
  *
- * Stored in `html/<name>.meta.json` alongside `html/<name>.html`.
+ * Stored in `<dir>/<name>.meta.json` alongside `<dir>/<name>.html`.
  * The schema is closed: only the keys `title`, `summary`, `aspect`, and
  * `scripts` are permitted — any unknown key causes validation to fail.
  *
@@ -222,6 +226,88 @@ export interface HtmlInfoFile {
    * When `false`, scripts are fully disabled: `allow-same-origin` only.
    */
   scripts?: boolean;
+}
+
+// ─── Path eligibility ─────────────────────────────────────────────────────────
+
+const HTML_EXTENSION = '.html';
+const HTML_SIDECAR_EXTENSION = '.meta.json';
+
+/**
+ * Splits a repo-relative path into its segments, tolerating Windows separators
+ * so `path.relative()` output classifies the same as git's POSIX paths.
+ *
+ * @param repoRelativePath - Path to split.
+ * @returns The path's non-empty segments.
+ */
+function pathSegments(repoRelativePath: string): string[] {
+  return repoRelativePath.split(/[/\\]/).filter((segment) => segment.length > 0);
+}
+
+/**
+ * Whether a repo-relative path is an eligible HTML card document.
+ *
+ * Single source of truth for the discovery rule shared by the panel builder,
+ * the `cards html check` CLI, the pre-commit hook, the search indexer, and the
+ * timeline: any `*.html` file anywhere in a card repository qualifies, except
+ * one living under an `attachments/` directory at any depth (those belong to
+ * the attachment feature). A file merely *named* like the directory —
+ * `attachments.html`, `attachments-report.html` — is eligible; only a real
+ * `attachments` path segment excludes.
+ *
+ * @param repoRelativePath - Repo-relative path (POSIX or Windows separators).
+ * @returns `true` when the path is a renderable HTML card document.
+ */
+export function isHtmlCardDocPath(repoRelativePath: string): boolean {
+  if (!repoRelativePath.endsWith(HTML_EXTENSION)) return false;
+  const segments = pathSegments(repoRelativePath);
+  return !segments.slice(0, -1).includes(ATTACHMENTS_DIR);
+}
+
+/**
+ * Whether a repo-relative path is the `.meta.json` sidecar of an eligible HTML
+ * card document — i.e. the companion the pairing rule expects next to an
+ * `.html` file of the same basename.
+ *
+ * Sidecar naming disambiguates this from every other `.meta.json` in a card
+ * repo: an HTML sidecar *replaces* the `.html` extension (`report.html` →
+ * `report.meta.json`), whereas document and attachment sidecars *append* to a
+ * full filename (`CARD.md` → `CARD.md.meta.json`). So a stem that still carries
+ * an extension is never an HTML sidecar.
+ *
+ * Existence of the `.html` file is deliberately not consulted: an orphaned
+ * sidecar must still be recognized as HTML-feature-relevant so the pairing gate
+ * can reject it.
+ *
+ * @param repoRelativePath - Repo-relative path (POSIX or Windows separators).
+ * @returns `true` when the path is an eligible HTML card document's sidecar.
+ */
+export function isHtmlCardDocSidecarPath(repoRelativePath: string): boolean {
+  if (!repoRelativePath.endsWith(HTML_SIDECAR_EXTENSION)) return false;
+  const stem = repoRelativePath.slice(0, -HTML_SIDECAR_EXTENSION.length);
+  const basename = pathSegments(stem).at(-1);
+  if (basename === undefined || basename.includes('.')) return false;
+  return isHtmlCardDocPath(`${stem}${HTML_EXTENSION}`);
+}
+
+/**
+ * Derives the `.meta.json` sidecar path for an HTML card document path.
+ *
+ * @param htmlPath - Path ending in `.html`.
+ * @returns The sibling sidecar path with the same basename.
+ */
+export function htmlCardDocSidecarPath(htmlPath: string): string {
+  return `${htmlPath.slice(0, -HTML_EXTENSION.length)}${HTML_SIDECAR_EXTENSION}`;
+}
+
+/**
+ * Derives the `.html` document path for an HTML card document sidecar path.
+ *
+ * @param sidecarPath - Path ending in `.meta.json`.
+ * @returns The sibling `.html` path with the same basename.
+ */
+export function htmlCardDocPathForSidecar(sidecarPath: string): string {
+  return `${sidecarPath.slice(0, -HTML_SIDECAR_EXTENSION.length)}${HTML_EXTENSION}`;
 }
 
 // ─── Aspect ratio parsing ──────────────────────────────────────────────────────
