@@ -117,7 +117,7 @@ export type {
 // --- Hook Configuration Types ---
 export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 // --- HTML File Types ---
-export type { HtmlContentCheckResult, HtmlInfoFile, HtmlInfoValidationResult } from './html.js';
+export type { HtmlContentCheckResult, HtmlInfoFile, HtmlInfoValidationResult, ScriptSpan } from './html.js';
 export {
   checkHtmlContent,
   filterStructuralParseErrors,

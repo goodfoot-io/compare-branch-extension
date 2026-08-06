@@ -78,18 +78,43 @@ const RESOURCE_REFERENCE_RES: readonly RegExp[] = [
 // regexes are scoped to run only outside `<script>` element bodies.
 const CSS_SYNTAX_RES: ReadonlySet<RegExp> = new Set([RESOURCE_REFERENCE_RES[3]!, RESOURCE_REFERENCE_RES[4]!]);
 
-const SCRIPT_ELEMENT_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+/**
+ * A `<script>` element's byte-offset span within the HTML source, as derived
+ * from a parse5 parse with `sourceCodeLocationInfo: true`.
+ *
+ * parse5 is not an SDK dependency (see {@link checkHtmlContent}), so callers
+ * that already parse the document for the well-formedness gate (check 3) walk
+ * the resulting tree for `script` elements and pass their spans in here — a
+ * real parse is correct by construction against comments, attribute values,
+ * and RCDATA text (`<title>`, `<textarea>`), where a raw-text regex for
+ * `<script>` tokens is not.
+ */
+export interface ScriptSpan {
+  /** Offset (inclusive) of the `<script` element's opening `<` in `htmlSource`. */
+  start: number;
+  /** Offset (exclusive) just past the element's closing `</script>`. */
+  end: number;
+}
 
 /**
- * Blanks out `<script>…</script>` element bodies (preserving length/offsets,
- * so unrelated regex behavior is unaffected) so CSS-syntax patterns don't
- * scan inline JavaScript.
+ * Blanks out `<script>…</script>` element bodies at the given spans
+ * (preserving length/offsets and newlines, so unrelated regex behavior is
+ * unaffected) so CSS-syntax patterns don't scan inline JavaScript.
  *
  * @param htmlSource - HTML source to redact.
+ * @param scriptSpans - `<script>` element spans, as parsed by the caller.
  * @returns `htmlSource` with script element contents replaced with spaces.
  */
-function blankScriptElements(htmlSource: string): string {
-  return htmlSource.replace(SCRIPT_ELEMENT_RE, (match) => match.replace(/[^\n]/g, ' '));
+function blankScriptElements(htmlSource: string, scriptSpans: readonly ScriptSpan[]): string {
+  if (scriptSpans.length === 0) return htmlSource;
+  // Index by UTF-16 code unit (not code point) to match parse5's byte offsets.
+  const chars = Array.from({ length: htmlSource.length }, (_, i) => htmlSource[i]!);
+  for (const { start, end } of scriptSpans) {
+    for (let i = start; i < end && i < chars.length; i++) {
+      if (chars[i] !== '\n') chars[i] = ' ';
+    }
+  }
+  return chars.join('');
 }
 
 /**
@@ -251,11 +276,15 @@ export function parseAspectRatio(value: string | number): number | null {
  * clear commit-time error naming the offending URL.
  *
  * @param htmlSource - HTML source to scan.
+ * @param scriptSpans - `<script>` element spans (see {@link ScriptSpan}), used to
+ *   exclude inline JavaScript from the CSS-syntax (`url()`/`@import`) patterns.
+ *   Defaults to none, which is safe (just less precise) when the caller hasn't
+ *   already parsed the document.
  * @returns Array of offending resource references (empty when none are found).
  */
-export function findExternalResources(htmlSource: string): string[] {
+export function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
   const urls: string[] = [];
-  const scriptRedactedSource = blankScriptElements(htmlSource);
+  const scriptRedactedSource = blankScriptElements(htmlSource, scriptSpans);
   for (const re of RESOURCE_REFERENCE_RES) {
     // Each regex is global; reset lastIndex defensively before iterating.
     re.lastIndex = 0;
@@ -274,7 +303,9 @@ export function findExternalResources(htmlSource: string): string[] {
       }
     }
   }
-  return urls;
+  // `@import url(X)` matches both the url() and @import patterns above;
+  // dedupe so the offending reference is only reported once.
+  return [...new Set(urls)];
 }
 
 // ─── Well-formedness ────────────────────────────────────────────────────────────
@@ -335,6 +366,9 @@ export interface HtmlContentCheckResult {
  * @param params.htmlSource - HTML source text.
  * @param params.parsedMeta - Already-JSON-parsed sidecar value (unknown shape).
  * @param params.parseErrorCodes - parse5 error codes collected from `htmlSource`.
+ * @param params.scriptSpans - `<script>` element spans from the same parse5 parse
+ *   (with `sourceCodeLocationInfo: true`), used by check 4 to exclude inline
+ *   JavaScript from the CSS-syntax (`url()`/`@import`) locality patterns.
  * @returns Aggregated result; `valid` is false on the first failing check.
  */
 export function checkHtmlContent(params: {
@@ -343,8 +377,9 @@ export function checkHtmlContent(params: {
   htmlSource: string;
   parsedMeta: unknown;
   parseErrorCodes: readonly string[];
+  scriptSpans?: readonly ScriptSpan[];
 }): HtmlContentCheckResult {
-  const { htmlPath, metaPath, htmlSource, parsedMeta, parseErrorCodes } = params;
+  const { htmlPath, metaPath, htmlSource, parsedMeta, parseErrorCodes, scriptSpans = [] } = params;
 
   // ── Check 2: Closed-schema sidecar (includes aspect parse) ──
   const schemaResult = validateHtmlInfo(parsedMeta);
@@ -362,7 +397,7 @@ export function checkHtmlContent(params: {
   }
 
   // ── Check 4: Resource locality ──
-  const externalUrls = findExternalResources(htmlSource);
+  const externalUrls = findExternalResources(htmlSource, scriptSpans);
   if (externalUrls.length > 0) {
     return {
       valid: false,

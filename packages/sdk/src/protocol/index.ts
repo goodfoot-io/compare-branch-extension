@@ -129,6 +129,7 @@ export type {
   NotificationSeverity,
   ProcessState,
   ReadFileCallback,
+  ScriptSpan,
   ServerChangedMessage,
   SessionBaseline,
   SessionType,

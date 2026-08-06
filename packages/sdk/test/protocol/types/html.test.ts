@@ -93,25 +93,54 @@ describe('findExternalResources — hardened locality', () => {
     expect(findExternalResources('<script>a.src = fn(); o.href="/x";</script>')).toEqual([]);
   });
 
+  /**
+   * Locates the `<script>…</script>` span in a single-script test fixture, the
+   * same shape a real caller derives from a parse5 parse with
+   * `sourceCodeLocationInfo: true` (see `collectScriptSpans` in the git-hooks
+   * and extension packages, which have the parse5 dependency the SDK does not).
+   *
+   * @param html - Single-script HTML fixture to locate the `<script>` span in.
+   * @returns The `<script>…</script>` span, as `{ start, end }` character offsets.
+   */
+  function scriptSpanOf(html: string): { start: number; end: number } {
+    const start = html.indexOf('<script');
+    const end = html.indexOf('</script>') + '</script>'.length;
+    return { start, end };
+  }
+
   it.each([
     ['<script>const u = new URL(base);</script>', 'new URL(base)'],
     ['<script>const u = buildUrl(path);</script>', 'buildUrl(path)'],
     ['<script>const b = createObjectUrl(blob);</script>', 'createObjectUrl(blob)'],
     ['<script>fetchUrl("/api/x");</script>', 'fetchUrl("/api/x")'],
     ['<script>const s = "please @import this config";</script>', 'string literal containing @import']
-  ])('does not flag %s (%s is inline JS, not CSS)', (html) => {
-    expect(findExternalResources(html)).toEqual([]);
+  ])('does not flag %s (%s is inline JS, not CSS) given its script span', (html) => {
+    expect(findExternalResources(html, [scriptSpanOf(html)])).toEqual([]);
   });
 
   it('still flags an external CSS url() inside a <style> block', () => {
-    expect(findExternalResources('<style>body { background: url(https://evil.example/x.png); }</style>')).toEqual([
-      'https://evil.example/x.png'
-    ]);
+    const html = '<style>body { background: url(https://evil.example/x.png); }</style>';
+    expect(findExternalResources(html)).toEqual(['https://evil.example/x.png']);
   });
 
   it('still flags an external CSS @import inside a <style> block', () => {
-    expect(findExternalResources('<style>@import "https://evil.example/x.css";</style>')).toEqual([
-      'https://evil.example/x.css'
+    const html = '<style>@import "https://evil.example/x.css";</style>';
+    expect(findExternalResources(html)).toEqual(['https://evil.example/x.css']);
+  });
+
+  it('still flags an external url() sitting between an inert "<script" text token and a later real <script> element, when given only the real span', () => {
+    const html =
+      '<div title="<script>"></div><style>a{background:url(https://evil.example/y)}</style><script>init()</script>';
+    // The real span, as a real parse5 parse would report it — deliberately NOT
+    // `scriptSpanOf(html)`, whose naive first-`<script`-occurrence search would
+    // find the inert token inside the `title` attribute instead.
+    const realScriptSpan = { start: html.indexOf('<script>init()'), end: html.length };
+    expect(findExternalResources(html, [realScriptSpan])).toEqual(['https://evil.example/y']);
+  });
+
+  it('dedupes a url() that is also captured by the @import pattern (e.g. @import url(X))', () => {
+    expect(findExternalResources('<style>@import url(https://evil.example/z.css);</style>')).toEqual([
+      'https://evil.example/z.css'
     ]);
   });
 });
