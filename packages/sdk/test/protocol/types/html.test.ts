@@ -92,6 +92,28 @@ describe('findExternalResources — hardened locality', () => {
   it('does not flag inline JS assigning .src/.href as if they were HTML attributes', () => {
     expect(findExternalResources('<script>a.src = fn(); o.href="/x";</script>')).toEqual([]);
   });
+
+  it.each([
+    ['<script>const u = new URL(base);</script>', 'new URL(base)'],
+    ['<script>const u = buildUrl(path);</script>', 'buildUrl(path)'],
+    ['<script>const b = createObjectUrl(blob);</script>', 'createObjectUrl(blob)'],
+    ['<script>fetchUrl("/api/x");</script>', 'fetchUrl("/api/x")'],
+    ['<script>const s = "please @import this config";</script>', 'string literal containing @import']
+  ])('does not flag %s (%s is inline JS, not CSS)', (html) => {
+    expect(findExternalResources(html)).toEqual([]);
+  });
+
+  it('still flags an external CSS url() inside a <style> block', () => {
+    expect(findExternalResources('<style>body { background: url(https://evil.example/x.png); }</style>')).toEqual([
+      'https://evil.example/x.png'
+    ]);
+  });
+
+  it('still flags an external CSS @import inside a <style> block', () => {
+    expect(findExternalResources('<style>@import "https://evil.example/x.css";</style>')).toEqual([
+      'https://evil.example/x.css'
+    ]);
+  });
 });
 
 describe('filterStructuralParseErrors', () => {

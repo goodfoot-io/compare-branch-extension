@@ -41,6 +41,12 @@ const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 's
  * - `srcset=` candidate lists
  * - CSS `url(...)` (quoted or unquoted) in inline styles or `<style>` blocks
  * - CSS `@import` rules
+ *
+ * The two CSS-syntax patterns above are scanned only outside `<script>`
+ * element bodies (see {@link blankScriptElements}): they have no attribute
+ * name to left-boundary-guard against, so unlike `src=`/`href=`, a bare
+ * inline-JS call such as `new URL(base)` or `buildUrl(path)` is
+ * indistinguishable from real CSS by regex alone.
  */
 // Left-boundary guard: `src`/`href` must not be immediately preceded by a word
 // character, `.`, or `-` — excludes `data-src="…"` (preceded by `-`) and JS
@@ -64,6 +70,27 @@ const RESOURCE_REFERENCE_RES: readonly RegExp[] = [
   // CSS @import "url" or @import url(...)
   /@import\s+(?:url\(\s*)?["']?\s*([^)"';\s]+)/gi
 ];
+
+// CSS-syntax patterns (url()/@import) have no attribute-name left-context to
+// boundary-guard against — a bare inline-JS call like `URL(base)` or a string
+// literal containing the text "@import" is indistinguishable from real CSS by
+// regex alone. Rather than chase unboundable false positives, these two
+// regexes are scoped to run only outside `<script>` element bodies.
+const CSS_SYNTAX_RES: ReadonlySet<RegExp> = new Set([RESOURCE_REFERENCE_RES[3]!, RESOURCE_REFERENCE_RES[4]!]);
+
+const SCRIPT_ELEMENT_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+
+/**
+ * Blanks out `<script>…</script>` element bodies (preserving length/offsets,
+ * so unrelated regex behavior is unaffected) so CSS-syntax patterns don't
+ * scan inline JavaScript.
+ *
+ * @param htmlSource - HTML source to redact.
+ * @returns `htmlSource` with script element contents replaced with spaces.
+ */
+function blankScriptElements(htmlSource: string): string {
+  return htmlSource.replace(SCRIPT_ELEMENT_RE, (match) => match.replace(/[^\n]/g, ' '));
+}
 
 /**
  * Splits a `srcset` attribute value into its candidate URL strings, respecting
@@ -228,11 +255,15 @@ export function parseAspectRatio(value: string | number): number | null {
  */
 export function findExternalResources(htmlSource: string): string[] {
   const urls: string[] = [];
+  const scriptRedactedSource = blankScriptElements(htmlSource);
   for (const re of RESOURCE_REFERENCE_RES) {
     // Each regex is global; reset lastIndex defensively before iterating.
     re.lastIndex = 0;
     const isSrcset = re === SRCSET_RE;
-    for (const match of htmlSource.matchAll(re)) {
+    // CSS-syntax patterns (url()/@import) scan the script-redacted source so
+    // inline JS like `new URL(base)` or `buildUrl(path)` isn't mistaken for CSS.
+    const source = CSS_SYNTAX_RES.has(re) ? scriptRedactedSource : htmlSource;
+    for (const match of source.matchAll(re)) {
       const raw = match[1];
       if (!raw) continue;
       // srcset is a comma-separated "url descriptor" candidate list; extract
