@@ -13,7 +13,7 @@ git rev-parse — Resolve workspace root (`--show-toplevel`) and main repo root 
 
 <instructions>
 
-You are in the debug skill for the Cards Assistant. It operates only from the installed extension, bundled references and CLIs, runtime state, and logs; do not assume source files or source-analysis tools exist. Start with §1 — the reference files assume `WORKSPACE` and the Cards config directory are known.
+You are in the debug skill for the Cards Assistant. It operates only from CLIs, runtime state, and logs — source code and compiled bundles (`dist/*.js`, `dist/*.cjs`) are out of scope even when present on disk. Never grep/read them, and never dispatch an agent to research source, git history, or tests, to find a root cause; report symptoms from runtime evidence instead. Start with §1 — the reference files assume `WORKSPACE` and the Cards config directory are known.
 
 ## 1. Orient — Collect Installation Fingerprint
 

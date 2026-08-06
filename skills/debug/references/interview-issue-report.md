@@ -2,16 +2,26 @@
 
 Scope: interview process for gathering signal before filing a Cards extension bug via `cards-extension issue`.
 
-## 1. Dispatch Research Immediately
+## 1. Gather Runtime Evidence First
 
-Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:
-- The code path implicated by the error (symbol, file, caller/callee chain)
-- Recent changes to that path via git log/blame (regression candidates)
-- Test coverage of the path and known flaky history
-- Error/log instrumentation already in place
-- Adjacent failure modes the same code could exhibit
+Before engaging the user, run the debug skill's §1 fingerprint plus:
 
-Do not block on research. Proceed to the interview while subagents run.
+```bash
+# Logs — select the most relevant subsystem (see find-logs.md for the inventory)
+tail -100 ${WORKSPACE}/.cards/logs/<log-name>.log 2>/dev/null
+
+# Discovery file — server state at time of failure
+cat ~/.cards/cards-api.json 2>/dev/null | jq '{port, pid, buildTime}'
+
+# Plugin cache — hook binary state
+find ~/.claude/plugins/cache ~/.codex/plugins/cache -name 'hooks.json' -type f 2>/dev/null
+
+# Worktree state — if the failure involves worktrees
+git worktree list 2>/dev/null
+cat .cards/CARD_ID 2>/dev/null || echo 'not card-bound'
+```
+
+Source code and compiled bundles are out of scope per `SKILL.md` — never grep/read them and never dispatch an agent into source, git history, or tests. A bug report documents observed symptoms for someone else to diagnose, not a root cause you derived.
 
 ## 2. Interview and Accumulate Findings
 
@@ -29,26 +39,7 @@ Interview the user conversationally. The commander's intent is built through the
 - Anchor in the user's frame: name the artifact, command, or moment they will actually see.
 - Separate observation from interpretation; do not let the user's hypothesis narrow the investigation prematurely.
 
-As research subagents return and the conversation settles pieces of the destination, hold findings, user answers, and rejected hypotheses in conversation state, shaped against the section structure in `./issue-report-guide.md`.
-
-### Cards-Specific Evidence Collection
-
-Collect from the Cards extension environment too. The debug skill's §1 fingerprint commands provide the baseline. Supplement with:
-
-```bash
-# Logs — select the most relevant subsystem (see find-logs.md for the inventory)
-tail -100 ${WORKSPACE}/.cards/logs/<log-name>.log 2>/dev/null
-
-# Discovery file — server state at time of failure
-cat ~/.cards/cards-api.json 2>/dev/null | jq '{port, pid, buildTime}'
-
-# Plugin cache — hook binary state
-find ~/.claude/plugins/cache ~/.codex/plugins/cache -name 'hooks.json' -type f 2>/dev/null
-
-# Worktree state — if the failure involves worktrees
-git worktree list 2>/dev/null
-cat .cards/CARD_ID 2>/dev/null || echo 'not card-bound'
-```
+As the conversation settles pieces of the destination, hold findings, user answers, and rejected hypotheses in conversation state, shaped against the section structure in `./issue-report-guide.md`.
 
 ## 3. File the Issue
 
@@ -66,11 +57,10 @@ EOF
 ## 4. Constraints
 
 - No fixes. No code, no remediation, no test stubs.
-- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Never ask the user to look something up. If it is recoverable from CLIs, runtime state, or logs, find it yourself — but not from source or compiled bundles (see §1).
 - Never ask for the environment fingerprint or system info — the report auto-captures it.
-- Do not ask the user how the bug currently affects them or to rate its severity — current-impact questions yield answers that are neither actionable nor relevant. Derive impact and blast radius from the reproduction and the affected code path, ranking by consequence rather than volume: silent data corruption outranks visible crashes.
+- Do not ask the user how the bug currently affects them or to rate its severity — current-impact questions yield answers that are neither actionable nor relevant. Derive impact and blast radius from the reproduction and observed failure surface, ranking by consequence rather than volume: silent data corruption outranks visible crashes.
 - Ask only for the expected observable behavior, never for the resolution. Do not ask the user where the fix should live, which component to change, or which mechanism resolves the defect — the reporter supplies the symptom; choosing the fix is a later step.
-- Report failing tests or broken builds you encounter during research in the issue body; do not remediate.
 
 ## 5. Finalize
 
