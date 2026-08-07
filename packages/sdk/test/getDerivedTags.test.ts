@@ -24,7 +24,7 @@ function makeCard(overrides: Partial<CardListSummary> = {}): CardListSummary {
     mergeRequestRequired: false,
     mergeApproved: false,
     isMerged: null,
-    hasStaleMerge: false,
+    hasPlanDrift: false,
     hasUnread: false,
     relations: [],
     incomingRelations: [],
@@ -79,18 +79,18 @@ describe('getDerivedTags', () => {
       expect(getDerivedTags(card)).not.toContain('merged');
     });
 
-    it('does not return merged when hasStaleMerge is true', () => {
-      const card = makeCard({ isMerged: true, hasStaleMerge: true });
+    it('does not return merged when hasPlanDrift is true', () => {
+      const card = makeCard({ isMerged: true, hasPlanDrift: true });
       expect(getDerivedTags(card)).not.toContain('merged');
     });
 
-    it('returns merged when hasStaleMerge is false and isMerged is true', () => {
-      const card = makeCard({ isMerged: true, hasStaleMerge: false });
+    it('returns merged when hasPlanDrift is false and isMerged is true', () => {
+      const card = makeCard({ isMerged: true, hasPlanDrift: false });
       expect(getDerivedTags(card)).toContain('merged');
     });
 
-    it('does not return merged when hasStaleMerge is true regardless of planApproved state', () => {
-      const card = makeCard({ isMerged: true, hasStaleMerge: true, planRequired: true, planApproved: true });
+    it('does not return merged when hasPlanDrift is true regardless of planApproved state', () => {
+      const card = makeCard({ isMerged: true, hasPlanDrift: true, planRequired: true, planApproved: true });
       expect(getDerivedTags(card)).not.toContain('merged');
     });
   });
@@ -104,6 +104,31 @@ describe('getDerivedTags', () => {
     it('does not return unmerged for active cards', () => {
       const card = makeCard({ status: 'active', isMerged: false, mergeRequestRequired: false });
       expect(getDerivedTags(card)).not.toContain('unmerged');
+    });
+  });
+
+  describe('plan-drift tag', () => {
+    it('returns plan-drift when hasPlanDrift is true regardless of isMerged', () => {
+      expect(getDerivedTags(makeCard({ hasPlanDrift: true, isMerged: true }))).toContain('plan-drift');
+      expect(getDerivedTags(makeCard({ hasPlanDrift: true, isMerged: false }))).toContain('plan-drift');
+      expect(getDerivedTags(makeCard({ hasPlanDrift: true, isMerged: null }))).toContain('plan-drift');
+    });
+
+    it('does not return plan-drift when hasPlanDrift is false', () => {
+      const card = makeCard({ hasPlanDrift: false, isMerged: true });
+      expect(getDerivedTags(card)).not.toContain('plan-drift');
+    });
+
+    it('does not return plan-drift for active cards even when hasPlanDrift is true', () => {
+      const card = makeCard({ status: 'active', hasPlanDrift: true, isMerged: true });
+      expect(getDerivedTags(card)).not.toContain('plan-drift');
+    });
+
+    it('returns both plan-drift and unmerged simultaneously when both conditions hold', () => {
+      const card = makeCard({ hasPlanDrift: true, isMerged: false, mergeRequestRequired: false });
+      const tags = getDerivedTags(card);
+      expect(tags).toContain('plan-drift');
+      expect(tags).toContain('unmerged');
     });
   });
 

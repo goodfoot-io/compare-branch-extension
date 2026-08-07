@@ -295,7 +295,7 @@ export interface Card extends CardMetadata {
    * actual computed value before sending API responses. When `true`, the `merged`
    * pseudotag is suppressed even if `isMerged === true`.
    */
-  hasStaleMerge: boolean;
+  hasPlanDrift: boolean;
 
   /**
    * Whether the card has unread activity since the user last viewed its timeline.

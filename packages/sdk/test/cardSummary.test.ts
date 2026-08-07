@@ -22,7 +22,7 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
     updatedAt: '2024-01-15T12:45:00Z',
     order: 100,
     isMerged: null,
-    hasStaleMerge: false,
+    hasPlanDrift: false,
     hasUnread: false,
     gates: {
       planRequired: false,

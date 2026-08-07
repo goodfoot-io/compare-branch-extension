@@ -46,7 +46,7 @@ describe('Event Types', () => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
         isMerged: null,
-        hasStaleMerge: true,
+        hasPlanDrift: true,
         relations: [],
         incomingRelations: [],
         hasUnread: false
@@ -182,7 +182,7 @@ describe('Event Types', () => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
         isMerged: null,
-        hasStaleMerge: true,
+        hasPlanDrift: true,
         relations: [],
         incomingRelations: [],
         hasUnread: false

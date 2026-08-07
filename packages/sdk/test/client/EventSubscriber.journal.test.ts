@@ -57,7 +57,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: { id: 'card-1' },
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 7
     });
     // No public getter for cardSeq — give the async message delivery a tick
@@ -100,7 +100,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: {},
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 5
     });
 
@@ -144,7 +144,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: {},
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 5
     });
     await new Promise((r) => setTimeout(r, 20));
@@ -178,7 +178,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: {},
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 5
     });
     await new Promise((r) => setTimeout(r, 20));
@@ -235,7 +235,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: {},
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 5
     });
 
@@ -274,7 +274,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: {},
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 1
     });
     await vi.waitFor(() => {
@@ -319,7 +319,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: {},
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 9
     });
     await new Promise((r) => setTimeout(r, 20));
@@ -373,7 +373,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-foreign',
       card: { id: 'card-foreign' },
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 42
     });
     server.broadcast({
@@ -415,7 +415,7 @@ describe('EventSubscriber journal subscribe/replay', () => {
       type: 'card:snapshot',
       cardId: 'card-1',
       card: {},
-      mergeStatus: { isMerged: null, hasStaleMerge: false },
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
       seq: 4
     });
     await new Promise((r) => setTimeout(r, 20));

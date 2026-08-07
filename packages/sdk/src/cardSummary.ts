@@ -54,7 +54,7 @@ export interface CardListSummary {
    * Whether plan documents are newer than the latest workspace commit.
    * When `true`, the `merged` pseudotag is suppressed even if `isMerged === true`.
    */
-  hasStaleMerge: boolean;
+  hasPlanDrift: boolean;
 
   /**
    * Whether the card has unread activity since the user last viewed its timeline.
@@ -117,7 +117,7 @@ export function toCardListSummary(card: Card): CardListSummary {
 
     // Derived fields
     isMerged: card.isMerged,
-    hasStaleMerge: card.hasStaleMerge,
+    hasPlanDrift: card.hasPlanDrift,
     hasUnread: card.hasUnread,
     relations: card.relations ?? [],
     incomingRelations: card.incomingRelations ?? [],

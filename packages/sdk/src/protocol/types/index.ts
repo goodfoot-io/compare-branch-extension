@@ -145,7 +145,7 @@ export type {
   CardUnsubscribeMessage,
   MergeStatusSnapshot,
   MergeStatusValue,
-  StaleMergeStatusValue
+  PlanDriftValue
 } from './journal.js';
 // --- Notification Types ---
 export type { NotificationCreateRequest, NotificationSeverity } from './notifications.js';

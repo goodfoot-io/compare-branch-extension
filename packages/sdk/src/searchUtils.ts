@@ -22,7 +22,7 @@ import type { CardRelation } from './protocol/index.js';
  *
  * @see [[Card Pseudotags]] for computation rules and display semantics.
  */
-export const DERIVED_TAGS = ['planning', 'merge-requested', 'merged', 'unmerged'] as const;
+export const DERIVED_TAGS = ['planning', 'merge-requested', 'merged', 'unmerged', 'plan-drift'] as const;
 
 /**
  * Type for derived tag names.
@@ -38,7 +38,8 @@ export const DERIVED_TAG_CLASSES: Record<DerivedTag, string> = {
   planning: 'border-purple-500 text-purple-500',
   'merge-requested': 'border-amber-500 text-amber-500',
   merged: 'border-green-500 text-green-500',
-  unmerged: 'border-amber-500 text-amber-500'
+  unmerged: 'border-amber-500 text-amber-500',
+  'plan-drift': 'border-orange-500 text-orange-500'
 };
 
 /**
@@ -72,6 +73,9 @@ export const USER_TAG_CLASSES: Record<string, string> = {
  * - `merged`: All workspace commits merged into the viewer's HEAD (suppressed
  *   when `planRequired && !planApproved` — a new unapproved plan takes priority)
  * - `unmerged`: Has unmerged workspace commits and no pending merge review
+ * - `plan-drift`: Plan documents are newer than the latest attributed commit —
+ *   independent of `isMerged`, so it's visible whether the card is merged,
+ *   unmerged, or has no merge status at all
  *
  * @param card - Card summary used to derive virtual search tags.
  * @returns Virtual tag names that should be searchable for this card.
@@ -97,12 +101,18 @@ export function getDerivedTags(card: CardListSummary): DerivedTag[] {
     }
 
     // Merge status — suppressed when plan documents are newer than the latest commit
-    // (hasStaleMerge signals that old merged commits are stale relative to a new plan cycle).
-    if (card.isMerged === true && !card.hasStaleMerge) {
+    // (hasPlanDrift signals that old merged commits are stale relative to a new plan cycle).
+    if (card.isMerged === true && !card.hasPlanDrift) {
       tags.push('merged');
     }
     if (card.isMerged === false && (!card.mergeRequestRequired || card.mergeApproved)) {
       tags.push('unmerged');
+    }
+
+    // Plan drift — independent of isMerged, so it's visible whether the card
+    // is merged, unmerged, or has no merge status at all.
+    if (card.hasPlanDrift) {
+      tags.push('plan-drift');
     }
   }
 

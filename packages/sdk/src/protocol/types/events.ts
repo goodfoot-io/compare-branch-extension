@@ -369,7 +369,7 @@ export interface CardsMetadataEvent {
   /** Merge status of workspace commits. `null` when unknown or no workspace commits exist. */
   isMerged: boolean | null;
   /** Whether plan documents are newer than the latest commit. Suppresses `merged` when true. */
-  hasStaleMerge: boolean;
+  hasPlanDrift: boolean;
   /** Outgoing relations from this card. */
   relations: CardRelation[];
   /** Incoming relations targeting this card. */

@@ -20,12 +20,12 @@ export type MergeStatusValue = boolean | null;
  * check failed or could not be computed — distinct from a confirmed
  * `true`/`false` so a failed derivation is never mistaken for a real value.
  */
-export type StaleMergeStatusValue = boolean | 'unknown';
+export type PlanDriftValue = boolean | 'unknown';
 
 /** Merge-status pair produced by the shared server-side derivation function. */
 export interface MergeStatusSnapshot {
   isMerged: MergeStatusValue;
-  hasStaleMerge: StaleMergeStatusValue;
+  hasPlanDrift: PlanDriftValue;
 }
 
 /**
