@@ -99,11 +99,11 @@ On Deep depth you mediate cross-evaluator critique: relay each evaluator's `FIND
 
 Continue until every spawned evaluator has reported a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
-Never Finalize on a partial set — every spawned evaluator must report `VERDICT: APPROVED` for the current round first. An evaluator that finished its task without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run.
-
 An evaluator that reported dirty paths instead of a verdict is the exception. Commit or revert the outstanding changes, then re-engage that lane with the new HEAD SHA — never spawn a fresh replacement, which would re-open findings already accepted.
 
-A fresh replacement is a new child with no prior context. Spawn it through Step 4, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its spawn message so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
+Otherwise, an evaluator that finished its task without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run.
+
+A fresh replacement is a new child with no prior context. Spawn it through Step 4, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Point it at its lane's questions note in the card repository's `notes/` (`failure-mode-questions` or `user-outcome-questions`) and inline the known prior-round findings for its lane into its spawn message so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
 
 A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
 
@@ -182,7 +182,7 @@ COMMITMSG
 )"
 ```
 
-NEEDS_REVISION rollback:
+Discarding uncommitted work for re-dispatch:
 
 ```bash
 git restore .

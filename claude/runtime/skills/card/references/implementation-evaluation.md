@@ -25,7 +25,7 @@ Run validation per the plan's validation commands.
 
 Based on the result:
 - **All validations pass**: Proceed to Step 3: Dispatch Evaluators.
-- **Failure**: Treat each failure's output as an initial finding, then proceed to Step 5: Dispatch Developer Wave (developers are not part of the evaluation group in any case). After Step 6: Validate and Commit, return to Step 2: Pre-Evaluation Validation.
+- **Failure**: Treat each failure's output as an initial finding, then proceed to Step 5: Dispatch Developer Wave. After Step 6: Validate and Commit, return to Step 2: Pre-Evaluation Validation.
 
 ## 3. Dispatch Evaluators
 
@@ -38,7 +38,7 @@ Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes. Sele
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
-The evaluators form an ad-hoc group purely by being named, and run in the background so you can collect their DMs while they work. They are not long-running processes: after DMing a round's `VERDICT:` an evaluator goes idle and stops on its own. Your Step 7 re-evaluation DM wakes it with its prior context, resuming at its skill's "When Resuming for a Fixed Implementation" section. Developers dispatched in Step 5 are **not** part of this group.
+The evaluators form an ad-hoc group purely by being named, and run in the background so you can collect their DMs while they work. After DMing a round's `VERDICT:` an evaluator goes idle and stops on its own; your Step 7 re-evaluation DM wakes it with its prior context, resuming at its skill's "When Resuming for a Fixed Implementation" section.
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card. Record the HEAD SHA you dispatch against and inline it in every prompt; the tree must be clean at dispatch.
 
@@ -117,19 +117,17 @@ Monitor inbound DMs from each evaluator. Each evaluator emits two kinds of DM ad
 
 Cross-evaluator critiques are exchanged as DMs between the evaluators (`CRITIQUE: <label>` from `failure-mode` to `experience-evaluator` and vice versa) and do not reach you. On Deep depth, evaluators also DM each other their `FINDING:` markers directly so they can critique each other's findings; you receive your own copy from each evaluator.
 
-If an evaluator verifies a peer's CRITIQUE and folds it into its own findings, that finding will arrive at your inbox as a fresh `FINDING:` DM from the verifying evaluator. Treat each inbound `FINDING:` as a record from its sender — do not deduplicate across evaluators. Two evaluators may legitimately raise the same underlying issue from different angles; the developer wave's prompt will inline both labels.
+A verified peer CRITIQUE arrives as a fresh `FINDING:` DM from the verifying evaluator. Do not deduplicate across evaluators — two evaluators may legitimately raise the same underlying issue from different angles, and the developer wave's prompt inlines both labels.
 
 Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
-Never Finalize on a partial set — every dispatched evaluator must DM `VERDICT: APPROVED` for the current round first. An incomplete set while an evaluator is still running is expected; continue waiting.
-
-An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state. Idle **without** this round's verdict means the evaluator will never act again on its own — waiting on it is never correct. A DM stating intent ("verdict imminent") does not keep the agent alive. Wake the evaluator with a DM that inlines whatever it is waiting on — task-notifications for work it delegated may be delivered to you, not to it, so forward those results in the wake-up DM.
+An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state. Idle **without** it, the evaluator will never act again on its own — wake it with a DM that inlines whatever it is waiting on; task-notifications for work it delegated may be delivered to you, not to it, so forward those results in the wake-up DM.
 
 An evaluator that yielded on a dirty tree is the exception. Commit or revert the outstanding changes, then wake it with the new HEAD SHA — never re-dispatch, which would re-open findings already accepted.
 
 Otherwise, if it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below).
 
-A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its dispatch prompt so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 7 re-evaluation loop covers it like any other evaluator.
+A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Point it at its lane's questions note in the card repository's `notes/` (`failure-mode-questions` or `user-outcome-questions`) and inline the known prior-round findings for its lane into its dispatch prompt; it produces its own round-1 verdict, after which the normal Step 7 re-evaluation loop covers it like any other evaluator.
 
 A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 5.
 
@@ -216,7 +214,7 @@ COMMITMSG
 )"
 ```
 
-NEEDS_REVISION rollback:
+Discarding uncommitted work for re-dispatch:
 
 ```bash
 git restore .
@@ -225,7 +223,7 @@ git clean -fd
 
 ## 7. Trigger Re-Evaluation
 
-The evaluators are still alive. DM a re-evaluation trigger to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
+DM a re-evaluation trigger to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
 
 The evaluator holds its own findings in context. Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The evaluator re-checks against the new HEAD on its own judgment.
 
