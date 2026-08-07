@@ -15,6 +15,7 @@ Every DM: marker in `summary`, repeated as the first line of `message`, then a `
 |---|---|---|
 | `FINDING: <label> for:[PLANNER] round-K` | [PLANNER] | Cause / failure mode / effect, severity / occurrence / detection, and the plan section or file it applies to |
 | `MONOCULTURE: [question]` | every live planner | The question, and why every plan answered it identically |
+| `QUESTION: <label> for:[PLANNER] round-K` | [PLANNER] | A specific ambiguity or possible misreading you must resolve before the verdict; max 3 per plan per round |
 | `VERDICT: APPROVED for:[PLANNER] round-K`<br>`VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` | `team-lead`, then [PLANNER] | Round-level synthesis — approach-level concerns first, then step-level; final thoughts not yet streamed |
 | `VERDICT: BLOCKED for:[PLANNER] because:<cause>` | `team-lead`, then [PLANNER], then every other live planner (one-line body) | Which findings are unresolved across which rounds; what was missing or wrong |
 | `WINNER: [PLANNER]` | `team-lead` | Comparative rationale — the questions that decided the contest, each qualifying plan's floor, the tie-break path if invoked |
@@ -65,9 +66,11 @@ Once the contest has ended — you have DM'd `WINNER:`, or every planner is bloc
 
 ## 1. Draft the Failure-Mode Questions Note
 
-The failure-mode questions are the lens for every plan you review — questions, keyed to this card's outcomes and this class of problem, that a working plan must answer. Draft the initial set before the first `PLAN: READY` arrives; it extends as plans reveal specifics (§2.2). Do not read `plans/` during this step, and do not DM the questions to anyone.
+The failure-mode questions are the lens for every plan you review — questions, keyed to this card's outcomes and this class of problem, that a working plan must answer. Draft the initial set before the first `PLAN: READY` arrives; it extends as plans reveal specifics (§2.2). Do not read `plans/` during this step, and do not DM the questions to anyone — commit them as the note; planners read `notes/` and answer the questions inline in their plans, so commit before the first review begins.
 
-Research here (web searches, `~/.claude/**/*.jsonl` transcripts) takes time. If a `PLAN: READY` arrives mid-draft, do not block it — capture what you have and start §2 for the arriving plan in parallel. Questions added later apply retroactively to plans already reviewed.
+The published set is a floor, never a ceiling — every §2 sweep goes beyond the note.
+
+Research here (web searches, `~/.claude/**/*.jsonl` transcripts) takes time. If a `PLAN: READY` arrives mid-draft, do not block it — commit the note with what you have and start §2 for the arriving plan in parallel. Questions added later apply retroactively to plans already reviewed.
 
 Start from the outcomes the card must deliver. Each acceptance criterion is an outcome; `<card>` metadata and orchestrator context surface additional behaviors the card implies but does not enumerate. For every outcome, ask what a working result looks like ("what does the user do, and what do they observe?") and what plausible plans could produce instead.
 
@@ -118,6 +121,7 @@ Prompts for plan-revealed questions:
 
 - **Load-bearing bets** — For each mechanism, scope claim, environment assumption, or ordering the rest of the approach depends on, what question must hold for the bet to be safe? The failure modes that matter most invalidate a bet, not a single step.
 - **Codebase assertions** — Every claim the plan makes about the workspace ("only used in X," "always returns Y," "no other callers") and every claim you are about to make ("the plan is missing Z") becomes a question the workspace, not reasoning, must answer.
+- **Measured coverage** — When the plan's correctness depends on the shape of real-world data (live payloads, environment-injected values, file formats), an asserted coverage claim is `Unanswered` until backed by a captured fixture committed to the card repo.
 - **Step dependencies and failure paths** — For each step that can fail, what does the plan say happens when it does? Does Step N depend on Step M being implemented a specific way without stating it?
 - **New failure categories the plan introduces** — If the plan adds a daemon, a cache, or a new error-handling strategy, what questions does that approach now invite?
 
@@ -151,11 +155,13 @@ A revision can attack any of the three: narrow severity, reduce occurrence, or a
 
 **Compound failures.** When failure A raises the occurrence or severity of failure B, document the dependency — compounds are higher severity than their components suggest.
 
+**Class findings.** When a finding has constructible siblings — other instances of the same underlying flaw (further escapes past the same delimiter or sink, further untracked failure paths of the same kind) — file it once as a class: name the class, enumerate the siblings you can construct, and require closure by construction over the whole class. In later rounds, reject an instance-level patch of a class finding; the class stays open until the plan's mechanism forecloses every member.
+
 ## 4. Stream Findings to the Originating Planner
 
 As soon as a finding meets the §3 detail bar, DM the originating planner by name. Do not wait for the rest of your analysis. Do not batch.
 
-The planner acts on each finding as it arrives and may revise under you. Continue after each message — if the plan changes, read what's current when you need it. Do not restart. Never send a finding about one planner's plan to another planner.
+The planner acts on each finding as it arrives and may revise under you. Continue after each message — if the plan changes, read what's current when you need it. Do not restart. Never send a finding about a plan it does not apply to; when one verified finding applies to multiple live plans, derive it once and stream the same body to each affected planner rather than rediscovering it per plan.
 
 ## 5. Issue Verdict
 
@@ -163,7 +169,11 @@ You reach the team only through SendMessage; plain text output is not delivered.
 
 Every `PLAN: READY for:[PLANNER] round-K` is answered by exactly one verdict for that round before your turn ends — `APPROVED`, `CHANGES_REQUESTED`, or `BLOCKED` (§5.1). There is no silent approval. Once re-reading a revision leaves you no further findings to stream, DM the `APPROVED` verdict — do not wait, arm a watcher, or see if anything else comes in. The planner and orchestrator read closure off your verdict, never off your silence; a turn ending with an outstanding `PLAN: READY` and no paired verdict deadlocks the contest.
 
-A verdict is one message DM'd to `team-lead` first, then the targeted planner, both carrying the same `summary` and `message`. The body is a concise round-level synthesis plus final thoughts that emerged after the last streamed finding — not a repeat of every finding; the planner already has those via §4.
+**A verdict covers the full sweep.** Complete the entire §2 analysis — every question, every dimension, every finding at every severity streamed — before issuing any verdict. Each verdict must leave nothing you already hold unstated.
+
+**Cross-examine before the verdict.** When a plan is ambiguous or a prospective finding may rest on your misreading, DM `QUESTION:` per the envelope (max 3 per plan per round) and use the answers. An exhausted budget never blocks the verdict — file the finding and let revision resolve it. Findings close only against committed plan text — a chat answer resolves nothing until the planner commits it.
+
+A verdict is one message DM'd to `team-lead` first, then the targeted planner, both carrying the same `summary` and `message`. The body is a concise round-level synthesis plus final thoughts that emerged after the last streamed finding — not a repeat of every finding; the planner already has those via §4. After each verdict, append one line (`VERDICT ... for:[PLANNER] round-K` plus open finding labels) to the `review-ledger` note per `<take-notes>` — the durable record follow-on sessions read instead of transcripts.
 
 Use `APPROVED` only when you have no blocking findings against that plan. It is the qualifying bar, not the finish line — a later question may force you to revoke it per §2.2.
 
@@ -185,15 +195,17 @@ The verdict is round-agnostic and terminal. The planner exits per its skill's `B
 
 The orchestrator DMs `SELECT_WINNER` once every live planner holds `APPROVED` for its most recent round and none is mid-revision. Run a final pass before naming a winner.
 
-### 6.1. Final Retroactive Pass
+### 6.1. Confirm the Field Is Closed
 
-Re-check every approved plan against the current question set. If any now fails — typically a question raised late in review that never got a satisfying answer — issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5 and stream the finding per §4. Do not select a winner; the contest reopens and is not closeable until that plan re-qualifies.
+Approvals were earned against the full current question set (§2.2 applies retroactively as questions arrive), so this is not a scheduled re-read. Confirm only that no question raised since each approval remains untriaged against that plan. Reopen a qualified plan solely on new evidence — a new question with a workspace-verified witness the plan fails: issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5, stream the finding per §4, and do not select a winner until that plan re-qualifies. Re-reading alone, without a new witnessed finding, does not revoke.
 
 ### 6.2. Lone Survivor
 
 If only one live planner remains because every other self-declared `PLAN: BLOCKED` or was ruled `VERDICT: BLOCKED`, the survivor wins. DM `WINNER:` with a rationale focused on the questions its plan answers. No comparison needed.
 
 ### 6.3. Compare Qualifying Plans
+
+When the orchestrator's `SELECT_WINNER` notes **convergence collapse** — live plans share one architecture — compare only plans holding `APPROVED`; a converged plan that never qualified is an architecture-duplicate and does not block selection. After your `WINNER:` DM, expect a short red-team phase: losing planners DM `CRITIQUE:` against the winner — verify per §2.3, stream per §4, and re-verdict the winner per §5 until it re-holds `APPROVED`, then go idle.
 
 When multiple plans hold `APPROVED`, compare them across the question set using **maximin over weakest answers**: each plan's worst answer across all questions sets its floor; the highest floor wins. This rewards a plan with no fatal holes over one with many strong answers and one critical gap.
 
@@ -221,16 +233,15 @@ Identify what was addressed since the previous round, then `git show <sha>` any 
 
 ### 7.2. Triage Each Prior Finding
 
-- **Addressed**: The plan now accounts for it. Verify by reading the referenced code, not by accepting the plan's description. An incomplete correction, or one that introduces a new risk, is a new finding.
+- **Addressed**: The plan now accounts for it. Verify by reading the referenced code, not by accepting the plan's description. An incomplete correction, or one that introduces a new risk, is a new finding. A §3 class finding is addressed only with a witness — the plan commits a PoC test, fixture, or exhaustive construction argument covering the class; a prose closure claim stays open. A revision responding to your own requested change gets the same scrutiny as any other.
 - **Partially addressed**: The concern is acknowledged but the fix is incomplete or shifts the risk. State what remains and why it still matters.
 - **Unaddressed**: Still applies. Re-state with the same weight, noting it was not resolved.
 
 ### 7.3. Deep-Dive the Changed Sections
 
-Apply the §2 checks to every modified section with greater depth than the previous round:
+Apply the §2 checks to every modified section at full depth — the same bar as a first review:
 
-- Follow consumers one hop further than before.
-- Trace error paths branching from the changed area into adjacent code you did not read in prior rounds.
+- Trace error paths branching from the changed area into adjacent code.
 - Verify every new assertion the planner added — treat each as unverified until confirmed in the workspace.
 - Pursue partially-resolved findings to conclusion: read every caller, verify every dependency, check every test.
 

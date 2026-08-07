@@ -1,6 +1,6 @@
 # Parallel Planner Contest
 
-Tier 3 and tier 4 orchestration: dispatch multiple sonnet planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.
+Tier 3 and tier 4 orchestration: dispatch multiple planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.
 
 Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-but-revocable (see `<definitions>` and Closure below).
 
@@ -16,6 +16,7 @@ Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-b
 
 <placeholder-variables>
 [N_PLANNERS] — Number of parallel planners (2 for tier 3, 4 for tier 4)
+[PLANNER_MODEL] — `sonnet` for every planner at tier 3; alternate `sonnet`/`opus` across planner slots at tier 4
 [WINNING_PLANNER] — The `planner-N` subagent the reviewer named in its `WINNER:` DM
 [WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` DM (e.g., `initial`, `phase-2`, `schema-first`)
 </placeholder-variables>
@@ -32,7 +33,7 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 <invoke name="Agent">
 <parameter name="description">Plan creation</parameter>
 <parameter name="subagent_type">runtime:card:planner</parameter>
-<parameter name="model">sonnet</parameter>
+<parameter name="model">[PLANNER_MODEL]</parameter>
 <parameter name="name">planner-[N]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
@@ -104,6 +105,12 @@ Close the contest when every planner in the live set holds `APPROVED` for its mo
 An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.
 
 The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it DMs a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.
+
+### Convergence Collapse (Instrumented)
+
+When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` DMs plus matching mechanisms across plan files are the signal — the design fork is settled. As soon as any converged plan holds `APPROVED` for its current round, trigger Step 4 with `SELECT_WINNER (convergence collapse)` in the DM body; do not wait for the others to qualify.
+
+After the `WINNER:` DM, before Step 5: DM each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; DM `CRITIQUE: ... for:[WINNING_PLANNER]` for every real risk you find in the winning plan. The reviewer verifies critiques, streams verified findings to the winner, and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and the red-teamers have settled — settling is silence, as in Step 3 closure. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.
 
 **Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 4 — the reviewer's lone-survivor branch names the survivor without comparison.
 

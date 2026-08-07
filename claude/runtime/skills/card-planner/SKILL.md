@@ -70,7 +70,7 @@ Peer plans are public. You may read them, steal good ideas into your own plan, a
 
 ## 1. Create and Spike Your Plan
 
-Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plans/`; if a prior plan has been implemented and the card requests new work, treat it as established context.
+Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plans/`; if a prior plan has been implemented and the card requests new work, treat it as established context. Read the reviewer's failure-mode questions note in `notes/` when present and answer every applicable question inline in your plan.
 
 If `[PLAN_FILE]` already exists when you start — the orchestrator seeded it from a pre-existing un-approved plan — you are the **incumbent**. Defend and refine that plan through review rather than rewriting it from scratch. Round-1 is the inherited draft as-is (with any small corrections you already see); subsequent rounds revise in response to reviewer findings. You may still steal from peer plans and revise on real risks like any other planner — the incumbent role sets your starting point, not your ceiling.
 
@@ -119,6 +119,7 @@ The reviewer DMs `FINDING: <label> for:[AGENT_NAME] round-K` as it discovers the
 - Route empirically-testable uncertainties through the `runtime:spike` skill before revising.
 - Decide which axis to attack: reduce **occurrence** (change the mechanism so the bet is no longer fragile), narrow **severity** (shrink the blast radius), or add **detection** (a test, assertion, or runtime check that surfaces the failure).
 - Revise `[PLAN_FILE]` directly and commit. Write a single-sentence message per `<card-repo-commit-style>` prefixed with the axis you attacked: `occurrence:`, `severity:`, `detection:`, or `accepted:` (the last when you accept the finding without changing the plan and want it on the record). The axis label tells the reviewer where on the failure-mode triangle the revision landed.
+- A **class finding** (the reviewer names a flaw class with constructible siblings) closes only by construction over the whole class, witnessed by a committed PoC test, fixture, or exhaustive argument — patching the cited instance or claiming closure in prose reopens it next round. Commit fixture witnesses under `notes/` and PoC-test witnesses under `spike/` in the card repo.
 
 Do not re-DM `PLAN: READY` after each streamed revision — that DM is reserved for §4.2, so the reviewer evaluates a finalized plan rather than an in-flight state. If the reviewer finds every concern already addressed it DMs `VERDICT: APPROVED` directly and §4.2 never fires.
 
@@ -133,6 +134,8 @@ The reviewer DMs `VERDICT: ... for:[AGENT_NAME] round-K` with the round-level sy
 ### 4.3 Peer DMs and Reviewer Cross-Cutting Findings
 
 Peer `FINDING:` DMs are workspace truth — use them as you would your own research.
+
+A `QUESTION: <label> for:[AGENT_NAME] round-K` DM from the reviewer is pre-verdict cross-examination. Answer by revising `[PLAN_FILE]` so the plan text itself answers, commit, then reply with a one-line pointer to the section — a chat-only answer closes nothing.
 
 A `MONOCULTURE: [question]` DM from the reviewer means every live plan, including yours, gave the same load-bearing answer to a failure-mode question. Treat it like a streamed finding: consider whether your plan can answer differently — a different mechanism, ordering, or fallback. If you have a real alternative, revise; if you believe your answer is best, address it in your next reviewer interaction.
 
@@ -164,7 +167,11 @@ A peer's `PLAN: BLOCKED` or a `VERDICT: BLOCKED for:peer-N` ruling removes that 
 
 You have dropped out of contention. Stop revising your plan and stop DMing critiques of peer plans. There is no path back into contention, so end your turn.
 
-### 4.7 Contest End
+### 4.7 Red-Team Re-Role
+
+After a convergence-collapse loss, the orchestrator may DM you a red-team assignment naming the winner. Stop revising `[PLAN_FILE]` — your plan is out. Attack the winning plan instead: for every real risk you find, DM `CRITIQUE: [label] for:[WINNER]` per §4.3, hardest-to-detect risks first. Your former plan's mechanisms are legitimate ammunition — anywhere the winner made a different bet, ask which bet survives. When you have nothing further, end your turn.
+
+### 4.8 Contest End
 
 Once you have settled — DMed your last `PLAN: READY` and sent nothing further, or dropped out via `BLOCKED` — you are done; the orchestrator promotes the winner and deletes the losing plan files without needing anything from you. The orchestrator may also DM `{"type": "shutdown_request"}` as an optional early kill while you are still mid-revision — approve it, commit nothing further, and exit cleanly.
 
