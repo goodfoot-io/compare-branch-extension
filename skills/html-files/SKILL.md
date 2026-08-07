@@ -54,25 +54,36 @@ Write plain CSS yourself. No CSS framework is compiled in — an unstyled page r
 <button class="cta">Submit</button>
 ```
 
-A separate stylesheet must be embedded as a `data:` URI like any other asset —
-`<link rel="stylesheet" href="data:text/css;base64,…">`. A relative path or
-external URL is rejected (see *Inline assets only*).
+A separate stylesheet can be a `data:` URI like any other asset —
+`<link rel="stylesheet" href="data:text/css;base64,…">` — or an `https://` link,
+e.g. `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?...">`. A
+relative path or `http://` link is rejected (see *Inline or `https://` assets*).
 
-## Inline assets only
+## Inline or `https://` assets
 
-External URLs (`https://`, `http://`, `//`) and relative paths are both forbidden.
-The render-time CSP only allows `data:` sources, so a relative path would fail to
-load silently in the iframe — the commit-time check catches this before it ships:
-it rejects any `src`/`href`/`url()` value that isn't a `data:` URI or a
-same-document fragment (`#id`). Use `data:` URIs for every image, font, and
-binary asset — including stylesheets.
+`src`/`href`/`srcset`/CSS `url()`/`@import` values may be a `data:` URI, a
+same-document fragment (`#id`), or an `https://` URL. Relative paths, `http://`
+(unencrypted), and every other scheme (`javascript:`, `file:`, protocol-relative
+`//`, etc.) are rejected — the render-time CSP has no token for them, so they'd
+fail to load silently in the iframe even if the commit-time check let them
+through. There is no host allowlist: any `https://` origin is usable.
+
+An `https://` reference is a live third-party dependency, not an inlined
+`data:` asset: the resource is fetched from whatever that host serves at
+*render* time, not the byte content you committed, so it can change, go down,
+or become unreachable independently of the card. Only reference hosts you trust
+to keep serving what you expect.
 
 ## Scripts, nonces, and the CSP
 
-The iframe runs under a real Content-Security-Policy injected at render time
-(`default-src 'none'; connect-src 'none'; img-src data:`, plus a per-panel
-`script-src 'nonce-…'`). The CSP is a genuine runtime boundary — but it confines
-the network, not the page's own scripts:
+The iframe runs under a real Content-Security-Policy injected at render time:
+
+```
+default-src 'none'; script-src 'nonce-<nonce>' https:; style-src 'unsafe-inline' https:; img-src data: https:; font-src data: https:; connect-src https:; base-uri 'none'; form-action 'none'
+```
+
+The CSP is a genuine runtime boundary — but it confines the network, not the
+page's own scripts:
 
 - **All JavaScript in the file you commit runs, and the page is trusted.** With
   `scripts` omitted or `true`, the builder stamps the per-panel nonce onto
@@ -81,18 +92,24 @@ the network, not the page's own scripts:
   `allow-scripts` only — `allow-same-origin` is deliberately withheld, so that
   script cannot reach the parent webview's origin even though it runs. Do
   **not** paste untrusted third-party `<script>` you don't intend to run.
-- **The CSP blocks the network and runtime-injected scripts.** `default-src
-  'none'` / `connect-src 'none'` mean no `fetch`, beacon, or external asset load
-  at runtime — assets must be inline or `data:`. A script injected at runtime
-  (e.g. `document.createElement('script')`) carries no nonce and is blocked, as
-  are inline event handlers and `eval`.
+- **An external `<script src="https://…">` runs on scheme, not nonce.** It
+  can't carry the pipeline-issued nonce, so `script-src`'s `https:` token
+  authorizes it instead — treat a referenced external script with the same
+  trust posture as a pasted one: it executes with full page trust the moment
+  the card renders.
+- **The CSP scopes the network to `https:`, not off entirely.** `connect-src
+  https:` permits `fetch`/XHR/beacon to any `https://` origin from scripts
+  running in the iframe (nonce'd inline or `https:`-loaded external); non-`https:`
+  egress is still blocked, and a runtime-injected script
+  (e.g. `document.createElement('script')`) still carries no nonce or scheme
+  match and is blocked, as are inline event handlers and `eval`.
 - **`"scripts": false` is the only way to disable JavaScript.** It drops
   `allow-scripts` from the sandbox entirely — no script runs at all. Use it for
   any page that should not execute JavaScript.
 
-External resources are enforced by the same CSP at runtime (see *Inline assets
-only* above); the commit-time URL check is an early author convenience, not the
-security boundary.
+External resources are enforced by the same CSP at runtime (see *Inline or
+`https://` assets* above); the commit-time URL check is an early author
+convenience, not the security boundary.
 
 ## Checking before commit
 
