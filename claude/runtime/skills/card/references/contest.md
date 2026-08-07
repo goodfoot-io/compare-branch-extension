@@ -142,7 +142,7 @@ Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in 
   <parameter name="message">
 SELECT_WINNER
 ---
-Every live plan is approved and nothing is in flight; please run the final retroactive pass and name a winner.
+Every live plan is approved and nothing is in flight; please confirm the field is closed and name a winner.
   </parameter>
 </invoke>
 ```
