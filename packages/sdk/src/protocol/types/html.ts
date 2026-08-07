@@ -49,11 +49,12 @@ const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 's
  * - CSS `url(...)` (quoted or unquoted) in inline styles or `<style>` blocks
  * - CSS `@import` rules
  *
- * The two CSS-syntax patterns above are scanned only outside `<script>`
- * element bodies (see {@link blankScriptElements}): they have no attribute
- * name to left-boundary-guard against, so unlike `src=`/`href=`, a bare
- * inline-JS call such as `new URL(base)` or `buildUrl(path)` is
- * indistinguishable from real CSS by regex alone.
+ * Every pattern above is scanned outside `<script>` element *bodies* (see
+ * {@link blankScriptBodies}): inline JavaScript is not markup and not CSS, so
+ * neither the left-boundary guard nor the CSS syntax can tell a bare
+ * `var href = …` assignment or a `new URL(base)` call from the real thing.
+ * Only the body is redacted, never the start tag — a `<script src="…">`
+ * attribute is a genuine resource reference and must stay visible.
  */
 // Left-boundary guard: `src`/`href` must not be immediately preceded by a word
 // character, `.`, or `-` — excludes `data-src="…"` (preceded by `-`) and JS
@@ -78,16 +79,11 @@ const RESOURCE_REFERENCE_RES: readonly RegExp[] = [
   /@import\s+(?:url\(\s*)?["']?\s*([^)"';\s]+)/gi
 ];
 
-// CSS-syntax patterns (url()/@import) have no attribute-name left-context to
-// boundary-guard against — a bare inline-JS call like `URL(base)` or a string
-// literal containing the text "@import" is indistinguishable from real CSS by
-// regex alone. Rather than chase unboundable false positives, these two
-// regexes are scoped to run only outside `<script>` element bodies.
-const CSS_SYNTAX_RES: ReadonlySet<RegExp> = new Set([RESOURCE_REFERENCE_RES[3]!, RESOURCE_REFERENCE_RES[4]!]);
-
 /**
- * A `<script>` element's byte-offset span within the HTML source, as derived
- * from a parse5 parse with `sourceCodeLocationInfo: true`.
+ * A `<script>` element's whole-element byte-offset span within the HTML
+ * source, as derived from a parse5 parse with `sourceCodeLocationInfo: true`:
+ * `startOffset`/`endOffset` of the element node, covering the start tag, the
+ * body, and the end tag.
  *
  * parse5 is not an SDK dependency (see {@link checkHtmlContent}), so callers
  * that already parse the document for the well-formedness gate (check 3) walk
@@ -95,6 +91,11 @@ const CSS_SYNTAX_RES: ReadonlySet<RegExp> = new Set([RESOURCE_REFERENCE_RES[3]!,
  * real parse is correct by construction against comments, attribute values,
  * and RCDATA text (`<title>`, `<textarea>`), where a raw-text regex for
  * `<script>` tokens is not.
+ *
+ * The span is deliberately the whole element rather than just the body: the
+ * start tag's own `src` attribute is a real resource reference the locality
+ * check must still see. {@link scriptBodyRange} narrows each span to its body
+ * before redaction.
  */
 export interface ScriptSpan {
   /** Offset (inclusive) of the `<script` element's opening `<` in `htmlSource`. */
@@ -104,20 +105,67 @@ export interface ScriptSpan {
 }
 
 /**
- * Blanks out `<script>…</script>` element bodies at the given spans
- * (preserving length/offsets and newlines, so unrelated regex behavior is
- * unaffected) so CSS-syntax patterns don't scan inline JavaScript.
+ * Narrows a whole-element {@link ScriptSpan} to the offsets of its body — the
+ * inline JavaScript between the start tag's `>` and the end tag's `<`.
+ *
+ * The start tag is located by scanning for its unquoted terminating `>` (an
+ * attribute value may legally contain `>`), and the end tag by the last
+ * `</script` within the span. A `<script>` with no body, or one whose start
+ * tag never terminates inside the span, yields `null`.
+ *
+ * @param htmlSource - HTML source the span refers to.
+ * @param span - Whole-element `<script>` span.
+ * @returns The body's `[start, end)` offsets, or `null` when there is no body.
+ */
+function scriptBodyRange(htmlSource: string, span: ScriptSpan): { start: number; end: number } | null {
+  const spanEnd = Math.min(span.end, htmlSource.length);
+  let quote: string | null = null;
+  let bodyStart = -1;
+  for (let i = span.start; i < spanEnd; i++) {
+    const ch = htmlSource[i]!;
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '>') {
+      bodyStart = i + 1;
+      break;
+    }
+  }
+  if (bodyStart === -1) return null;
+  // An unclosed `<script>` has no end tag; parse5 then runs the element span to
+  // EOF, and everything past the start tag is body. Matched case-insensitively
+  // by regex rather than `toLowerCase().lastIndexOf(…)`, whose case mapping can
+  // change string length (`İ` lowercases to two code units) and so would return
+  // an index that no longer refers to the same offset in `htmlSource`.
+  let closeAt = -1;
+  for (const match of htmlSource.slice(bodyStart, spanEnd).matchAll(/<\/script/gi)) closeAt = match.index;
+  const bodyEnd = closeAt === -1 ? spanEnd : bodyStart + closeAt;
+  return bodyEnd > bodyStart ? { start: bodyStart, end: bodyEnd } : null;
+}
+
+/**
+ * Blanks out the *bodies* of the `<script>` elements at the given whole-element
+ * spans (preserving length/offsets and newlines, so unrelated regex behavior is
+ * unaffected) so the resource-reference patterns never scan inline JavaScript.
+ *
+ * Start tags are left intact, so a `<script src="http://…">` reference is still
+ * matched by the attribute patterns; neither `url()` nor `@import` can legally
+ * appear in a start tag, so body-only redaction is equally correct for the
+ * CSS-syntax patterns.
  *
  * @param htmlSource - HTML source to redact.
- * @param scriptSpans - `<script>` element spans, as parsed by the caller.
- * @returns `htmlSource` with script element contents replaced with spaces.
+ * @param scriptSpans - Whole-element `<script>` spans, as parsed by the caller.
+ * @returns `htmlSource` with script element bodies replaced with spaces.
  */
-function blankScriptElements(htmlSource: string, scriptSpans: readonly ScriptSpan[]): string {
+function blankScriptBodies(htmlSource: string, scriptSpans: readonly ScriptSpan[]): string {
   if (scriptSpans.length === 0) return htmlSource;
   // Index by UTF-16 code unit (not code point) to match parse5's byte offsets.
   const chars = Array.from({ length: htmlSource.length }, (_, i) => htmlSource[i]!);
-  for (const { start, end } of scriptSpans) {
-    for (let i = start; i < end && i < chars.length; i++) {
+  for (const span of scriptSpans) {
+    const body = scriptBodyRange(htmlSource, span);
+    if (!body) continue;
+    for (let i = body.start; i < body.end; i++) {
       if (chars[i] !== '\n') chars[i] = ' ';
     }
   }
@@ -366,22 +414,22 @@ export function parseAspectRatio(value: string | number): number | null {
  * clear commit-time error naming the offending URL.
  *
  * @param htmlSource - HTML source to scan.
- * @param scriptSpans - `<script>` element spans (see {@link ScriptSpan}), used to
- *   exclude inline JavaScript from the CSS-syntax (`url()`/`@import`) patterns.
- *   Defaults to none, which is safe (just less precise) when the caller hasn't
- *   already parsed the document.
+ * @param scriptSpans - Whole-element `<script>` spans (see {@link ScriptSpan}),
+ *   whose bodies are redacted so inline JavaScript is excluded from every
+ *   pattern; `<script>` start tags stay visible so their `src` attributes are
+ *   still checked. Defaults to none, which is safe (just less precise) when the
+ *   caller hasn't already parsed the document.
  * @returns Array of offending resource references (empty when none are found).
  */
 export function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
   const urls: string[] = [];
-  const scriptRedactedSource = blankScriptElements(htmlSource, scriptSpans);
+  // Every pattern scans the body-redacted source: inline JS is neither markup
+  // nor CSS, so `var href = …` and `new URL(base)` alike must not be matched.
+  const source = blankScriptBodies(htmlSource, scriptSpans);
   for (const re of RESOURCE_REFERENCE_RES) {
     // Each regex is global; reset lastIndex defensively before iterating.
     re.lastIndex = 0;
     const isSrcset = re === SRCSET_RE;
-    // CSS-syntax patterns (url()/@import) scan the script-redacted source so
-    // inline JS like `new URL(base)` or `buildUrl(path)` isn't mistaken for CSS.
-    const source = CSS_SYNTAX_RES.has(re) ? scriptRedactedSource : htmlSource;
     for (const match of source.matchAll(re)) {
       const raw = match[1];
       if (!raw) continue;
@@ -456,9 +504,10 @@ export interface HtmlContentCheckResult {
  * @param params.htmlSource - HTML source text.
  * @param params.parsedMeta - Already-JSON-parsed sidecar value (unknown shape).
  * @param params.parseErrorCodes - parse5 error codes collected from `htmlSource`.
- * @param params.scriptSpans - `<script>` element spans from the same parse5 parse
- *   (with `sourceCodeLocationInfo: true`), used by check 4 to exclude inline
- *   JavaScript from the CSS-syntax (`url()`/`@import`) locality patterns.
+ * @param params.scriptSpans - Whole-element `<script>` spans from the same parse5
+ *   parse (with `sourceCodeLocationInfo: true`), used by check 4 to exclude
+ *   inline JavaScript bodies from every locality pattern while still checking
+ *   the `src` attribute on each `<script>` start tag.
  * @returns Aggregated result; `valid` is false on the first failing check.
  */
 export function checkHtmlContent(params: {
