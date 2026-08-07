@@ -26,17 +26,20 @@ const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 's
 
 /**
  * Detects any non-local resource reference in `src`/`href`/`srcset` attributes
- * and CSS `url()` / `@import` references — anything that isn't a `data:` URI
- * or a same-document fragment (`#id`).
+ * and CSS `url()` / `@import` references — anything that isn't a `data:` URI,
+ * a same-document fragment (`#id`), or an `https:` URL.
  *
  * This is a defense-in-depth, commit-time author convenience that catches the
  * common ways a resource reference silently fails to render. It is NOT the
- * security boundary: the real runtime enforcement is the per-panel CSP
- * (`default-src 'none'; connect-src 'none'; img-src data:`) injected at render
- * time. Because that CSP only allows `img-src data:`, a relative path (e.g.
+ * security boundary: the real runtime enforcement is the per-panel CSP, which
+ * permits `https:` alongside `data:`/`'unsafe-inline'`/nonces on the
+ * directives this check governs (`script-src`, `style-src`, `img-src`,
+ * `font-src`, `connect-src`). Because that CSP has no token for `http:`,
+ * protocol-relative URLs, or relative paths, a relative path (e.g.
  * `./logo.png`) passes commit-time syntax but silently fails to load in the
  * sandboxed iframe with no surfaced error — so relative paths are rejected
- * here too, not just absolute/protocol-relative URLs.
+ * here too, not just absolute/protocol-relative URLs using a disallowed
+ * scheme.
  *
  * Matched vectors (any scheme/path, not just `https:`/`http:`/`//`):
  * - quoted/unquoted `src=`/`href=` attributes (with a left-boundary guard so
@@ -165,16 +168,17 @@ function splitSrcsetCandidates(raw: string): string[] {
 }
 
 /**
- * Whether a single resource reference value is permitted: a `data:` URI or a
- * same-document fragment (`#id`). Anything else — absolute URLs, protocol-relative
- * URLs, and relative paths alike — is rejected (see {@link RESOURCE_REFERENCE_RES}).
+ * Whether a single resource reference value is permitted: a `data:` URI, a
+ * same-document fragment (`#id`), or an `https:` URL. Anything else —
+ * `http:` URLs, protocol-relative URLs, and relative paths alike — is
+ * rejected (see {@link RESOURCE_REFERENCE_RES}).
  *
  * @param value - A single captured `src`/`href`/`url()` reference value.
- * @returns `true` when the value is a `data:` URI or a `#fragment`.
+ * @returns `true` when the value is a `data:` URI, a `#fragment`, or an `https:` URL.
  */
 function isAllowedResourceReference(value: string): boolean {
   const trimmed = value.trim();
-  return trimmed.startsWith('data:') || trimmed.startsWith('#');
+  return trimmed.startsWith('data:') || trimmed.startsWith('#') || trimmed.startsWith('https:');
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -488,7 +492,7 @@ export function checkHtmlContent(params: {
     return {
       valid: false,
       errors: [
-        `${htmlPath}: non-local resource reference(s) are not permitted (src/href/srcset/CSS url() must be a data: URI or a #fragment): ${externalUrls.join(', ')}`
+        `${htmlPath}: non-local resource reference(s) are not permitted (src/href/srcset/CSS url() must be a data: URI, a #fragment, or an https: URL): ${externalUrls.join(', ')}`
       ]
     };
   }

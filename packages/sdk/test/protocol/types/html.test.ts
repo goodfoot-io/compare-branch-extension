@@ -60,15 +60,25 @@ describe('validateHtmlInfo — aspect rejection', () => {
 
 describe('findExternalResources — hardened locality', () => {
   it.each([
-    ['quoted src', '<img src="https://cdn.example.com/a.png">'],
-    ['unquoted src', '<img src=https://cdn.example.com/a.png>'],
-    ['srcset', '<img srcset="https://cdn.example.com/a.png 1x">'],
-    ['CSS url()', '<div style="background:url(https://cdn.example.com/bg.png)"></div>'],
-    ['CSS @import', '<style>@import "https://cdn.example.com/x.css";</style>'],
+    ['quoted src', '<img src="http://cdn.example.com/a.png">'],
+    ['unquoted src', '<img src=http://cdn.example.com/a.png>'],
+    ['srcset', '<img srcset="http://cdn.example.com/a.png 1x">'],
+    ['CSS url()', '<div style="background:url(http://cdn.example.com/bg.png)"></div>'],
+    ['CSS @import', '<style>@import "http://cdn.example.com/x.css";</style>'],
     ['protocol-relative', '<script src="//cdn.example.com/lib.js"></script>']
   ])('flags external resource in %s', (_label, html) => {
     const urls = findExternalResources(html);
     expect(urls.some((u) => u.includes('cdn.example.com'))).toBe(true);
+  });
+
+  it.each([
+    ['quoted src', '<img src="https://cdn.example.com/a.png">'],
+    ['unquoted src', '<img src=https://cdn.example.com/a.png>'],
+    ['srcset', '<img srcset="https://cdn.example.com/a.png 1x">'],
+    ['CSS url()', '<div style="background:url(https://cdn.example.com/bg.png)"></div>'],
+    ['CSS @import', '<style>@import "https://cdn.example.com/x.css";</style>']
+  ])('does not flag an https: resource in %s', (_label, html) => {
+    expect(findExternalResources(html)).toEqual([]);
   });
 
   it('does not flag a data: URI or a same-document fragment', () => {
@@ -123,28 +133,28 @@ describe('findExternalResources — hardened locality', () => {
   });
 
   it('still flags an external CSS url() inside a <style> block', () => {
-    const html = '<style>body { background: url(https://evil.example/x.png); }</style>';
-    expect(findExternalResources(html)).toEqual(['https://evil.example/x.png']);
+    const html = '<style>body { background: url(http://evil.example/x.png); }</style>';
+    expect(findExternalResources(html)).toEqual(['http://evil.example/x.png']);
   });
 
   it('still flags an external CSS @import inside a <style> block', () => {
-    const html = '<style>@import "https://evil.example/x.css";</style>';
-    expect(findExternalResources(html)).toEqual(['https://evil.example/x.css']);
+    const html = '<style>@import "http://evil.example/x.css";</style>';
+    expect(findExternalResources(html)).toEqual(['http://evil.example/x.css']);
   });
 
   it('still flags an external url() sitting between an inert "<script" text token and a later real <script> element, when given only the real span', () => {
     const html =
-      '<div title="<script>"></div><style>a{background:url(https://evil.example/y)}</style><script>init()</script>';
+      '<div title="<script>"></div><style>a{background:url(http://evil.example/y)}</style><script>init()</script>';
     // The real span, as a real parse5 parse would report it — deliberately NOT
     // `scriptSpanOf(html)`, whose naive first-`<script`-occurrence search would
     // find the inert token inside the `title` attribute instead.
     const realScriptSpan = { start: html.indexOf('<script>init()'), end: html.length };
-    expect(findExternalResources(html, [realScriptSpan])).toEqual(['https://evil.example/y']);
+    expect(findExternalResources(html, [realScriptSpan])).toEqual(['http://evil.example/y']);
   });
 
   it('dedupes a url() that is also captured by the @import pattern (e.g. @import url(X))', () => {
-    expect(findExternalResources('<style>@import url(https://evil.example/z.css);</style>')).toEqual([
-      'https://evil.example/z.css'
+    expect(findExternalResources('<style>@import url(http://evil.example/z.css);</style>')).toEqual([
+      'http://evil.example/z.css'
     ]);
   });
 });
@@ -184,12 +194,23 @@ describe('checkHtmlContent — orchestration', () => {
     const result = checkHtmlContent({
       htmlPath: 'html/p.html',
       metaPath: 'html/p.meta.json',
-      htmlSource: '<img srcset="https://cdn.example.com/a.png 1x">',
+      htmlSource: '<img srcset="http://cdn.example.com/a.png 1x">',
       parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
       parseErrorCodes: []
     });
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain('cdn.example.com');
+  });
+
+  it('passes an https: resource (check 4)', () => {
+    const result = checkHtmlContent({
+      htmlPath: 'html/p.html',
+      metaPath: 'html/p.meta.json',
+      htmlSource: '<img srcset="https://cdn.example.com/a.png 1x">',
+      parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+      parseErrorCodes: []
+    });
+    expect(result.valid).toBe(true);
   });
 
   it('passes a clean fragment', () => {
