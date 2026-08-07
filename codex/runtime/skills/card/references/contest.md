@@ -95,6 +95,12 @@ You can see every open revision from the reports you have collected; you do not 
 
 The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it reports a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.
 
+### Convergence Collapse (Instrumented)
+
+When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` reports plus matching mechanisms across plan files are the signal — the design fork is settled. As soon as any converged plan holds `APPROVED` for its current round, trigger Step 4 with `SELECT_WINNER (convergence collapse)` as the marker line; do not wait for the others to qualify.
+
+After the `WINNER:` report, before Step 5: `send_message` each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; report `CRITIQUE: ... for:[WINNING_PLANNER]` to the orchestrator for every real risk you find in the winning plan. Relay those critiques to the reviewer per §3; the reviewer verifies them, streams verified findings to the winner (relay them), and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and the red-teamers have finished reporting. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.
+
 **Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 4 — the reviewer's lone-survivor branch names the survivor without comparison.
 
 ### Other Outcomes from Step 3
@@ -120,7 +126,7 @@ If a question requires verification beyond what you know directly (e.g., "is pla
 
 ```
 SELECT_WINNER
-Every live plan is approved and nothing is in flight; please run the final retroactive pass and name a winner.
+Every live plan is approved and nothing is in flight; please confirm the field is closed and name a winner.
 ```
 
 Two responses are possible:

@@ -36,6 +36,8 @@ Distill from the card what the situation looks like when the work is done and wh
 
 Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure. When the plan writes to or depends on another system's files or protocol, read that system's source at the deployed version: check for a native mechanism first; record the invariants it enforces.
 
+When correctness depends on the shape of real-world data the plan will process (live payloads, environment-injected values, file formats), capture a real sample **now** and commit it as a fixture in the card repo's `notes/`.
+
 Follow the `<take-notes>` instructions from `$cards:notes` skill — write a note to the card repository for each architectural discovery made during research.
 
 #### Apply Markdown Guidelines
@@ -50,7 +52,9 @@ When the card introduces new behavior whose contract is worth validating ahead o
 
 #### Write and Store Plan
 
-Write the plan to `[PLAN_FILE]` in the card repository. Create a sidecar at `[PLAN_FILE].meta.json` with a `title` prefixed with `"Plan: "` followed by a description of at most ten words (e.g., `"title": "Plan: Three-phase migration starting with schema"`). Commit to the card repository:
+Write the plan to `[PLAN_FILE]` in the card repository. Before committing, re-verify every file, line, symbol, and behavior claim the plan makes against current source — read or grep each one.
+
+Create a sidecar at `[PLAN_FILE].meta.json` with a `title` prefixed with `"Plan: "` followed by a description of at most ten words (e.g., `"title": "Plan: Three-phase migration starting with schema"`). Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH

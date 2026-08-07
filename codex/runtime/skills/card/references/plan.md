@@ -12,7 +12,7 @@ Tier selection is driven by **unknowns**, not work volume. Parallel planners exi
 
 Read CARD.meta.json and assess the unknowns:
 
-- **How many reasonable approaches could a planner take?** One → tier 2. Two or three → tier 3. Four or more → tier 4.
+- **How many reasonable approaches could a planner take?** One → tier 2. Two or three → tier 3. Four or more → tier 4. Count only genuine architectural forks — approaches that differ in mechanism with real trade-offs. Variations of one mechanism are one approach and do not raise the tier.
 - **How contested are the trade-offs?** If competing approaches each optimize for a different axis (performance vs. simplicity, correctness vs. migration effort, consistency vs. incremental rollout), the space is worth exploring.
 - **How ambiguous is the card?** Acceptance criteria open to multiple user-experience interpretations favor more planners.
 - **How much unverified domain knowledge does planning require?** Unfamiliar libraries, concurrency primitives, external APIs, or legacy subsystems raise the unknowns count.

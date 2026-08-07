@@ -43,7 +43,7 @@ Peer plans are relayed to you by the orchestrator and are public within the cont
 
 ## 1. Create and Spike Your Plan
 
-Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plans/`; if a prior plan has been implemented and the card requests new work, treat it as established context.
+Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plans/`; if a prior plan has been implemented and the card requests new work, treat it as established context. Read the reviewer's failure-mode questions note in `notes/` when present and answer every applicable question inline in your plan.
 
 If `[PLAN_FILE]` already exists when you start — the orchestrator seeded it from a pre-existing un-approved plan — you are the **incumbent**. Your job is to defend and refine that plan through review, not to rewrite it from scratch. Round-1 is the inherited draft as-is (with any small corrections you already see); subsequent rounds revise in response to reviewer findings. You may still steal from peer plans and revise on real risks like any other planner — the incumbent role sets your starting point, not your ceiling.
 
@@ -114,6 +114,7 @@ The reviewer streams findings as it discovers them, before any verdict; the orch
 - Route empirically-testable uncertainties through the `$runtime:spike` skill before revising.
 - For each finding, decide which axis to attack: reduce **occurrence** (change the mechanism so the bet is no longer fragile), narrow **severity** (shrink the blast radius), or add **detection** (a test, assertion, or runtime check that surfaces the failure).
 - Revise `[PLAN_FILE]` directly and commit. Write the commit message as a single sentence per `<card-repo-commit-style>` that summarizes the change, prefixed with the axis you attacked: `occurrence:`, `severity:`, `detection:`, or `accepted:` (the last when you accept the finding without changing the plan and want the reviewer to see it on the record). The reviewer reads commits when re-reviewing — the axis label tells it where on the failure-mode triangle the revision landed.
+- A **class finding** (the reviewer names a flaw class with constructible siblings) closes only by construction over the whole class, witnessed by a committed PoC test, fixture, or exhaustive argument — patching the cited instance or claiming closure in prose reopens it next round. Commit fixture witnesses under `notes/` and PoC-test witnesses under `spike/` in the card repo.
 
 Do not re-report `PLAN: READY` after each streamed revision. That report is reserved for Step 4.2, so the reviewer re-evaluates against the finalized plan rather than an in-flight state. If the reviewer finishes analyzing and finds every concern already addressed, it issues `VERDICT: APPROVED for:[PLANNER_NAME]` directly (relayed by the orchestrator) and Step 4.2 never fires.
 
@@ -130,6 +131,8 @@ Three outcomes apply to you:
 ### 4.3 Relayed Peer Plans and Reviewer Cross-Cutting Findings
 
 Relayed peer `FINDING:` reports are workspace truth — use them as you would your own research.
+
+A relayed `QUESTION: <label> for:[PLANNER_NAME] round-K` from the reviewer is pre-verdict cross-examination. Answer by revising `[PLAN_FILE]` so the plan text itself answers, commit, then send the orchestrator a one-line pointer to the section for relay to the reviewer — a chat-only answer closes nothing.
 
 A `MONOCULTURE: [question]` message relayed from the reviewer means every live plan (including yours) gave the same load-bearing answer to a failure-mode question. Treat it like a streamed finding: consider whether your plan can answer the question differently — a different mechanism, a different ordering, a different fallback. If you have a real alternative, revise; if you genuinely believe your answer is best, address it in your next reviewer interaction.
 
@@ -166,9 +169,13 @@ A peer's `PLAN: BLOCKED` or a `VERDICT: BLOCKED for:peer_N` ruling removes that 
 
 ### 4.6 After Reporting or Receiving `PLAN: BLOCKED`
 
-If you self-declared `PLAN: BLOCKED` at Step 3, or the reviewer ruled `VERDICT: BLOCKED for:[PLANNER_NAME]` at §4.2, you have dropped out of contention. Stop revising your plan and stop reporting critiques of peer plans. Continue to read messages the orchestrator sends, but do not act on them — there is no path back into contention from `BLOCKED`. Idle until the orchestrator signals the contest has ended (§4.7).
+If you self-declared `PLAN: BLOCKED` at Step 3, or the reviewer ruled `VERDICT: BLOCKED for:[PLANNER_NAME]` at §4.2, you have dropped out of contention. Stop revising your plan and stop reporting critiques of peer plans. Continue to read messages the orchestrator sends, but do not act on them — there is no path back into contention from `BLOCKED`. Idle until the orchestrator signals the contest has ended (§4.8).
 
-### 4.7 Contest End
+### 4.7 Red-Team Re-Role
+
+After a convergence-collapse loss, the orchestrator may send you a red-team assignment naming the winner. Stop revising `[PLAN_FILE]` — your plan is out. Attack the winning plan instead: for every real risk you find, report `CRITIQUE: [label] for:[WINNER]` to the orchestrator per §4.3, hardest-to-detect risks first. Your former plan's mechanisms are legitimate ammunition — anywhere the winner made a different bet, ask which bet survives. When you have nothing further, tell the orchestrator you are done red-teaming and idle until the contest ends (§4.8).
+
+### 4.8 Contest End
 
 When the orchestrator tells you the contest has ended (you have dropped out, or a winner has been selected), stop any in-flight revision or critique work, commit nothing further, and finish your task cleanly. Your task completes and control returns to the orchestrator.
 
