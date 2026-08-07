@@ -31,9 +31,11 @@ const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 's
  *
  * This is a defense-in-depth, commit-time author convenience that catches the
  * common ways a resource reference silently fails to render. It is NOT the
- * security boundary: the real runtime enforcement is the per-panel CSP, which
- * permits `https:` alongside `data:`/`'unsafe-inline'`/nonces on the
- * directives this check governs (`script-src`, `style-src`, `img-src`,
+ * security boundary: the real runtime enforcement is the render-time CSP — the
+ * per-panel policy injected into the srcdoc document intersected with the
+ * card-detail webview policy that an `about:srcdoc` document inherits from its
+ * embedder — which permits `https:` alongside `data:`/`'unsafe-inline'`/nonces
+ * on the directives this check governs (`script-src`, `style-src`, `img-src`,
  * `font-src`, `connect-src`). Because that CSP has no token for `http:`,
  * protocol-relative URLs, or relative paths, a relative path (e.g.
  * `./logo.png`) passes commit-time syntax but silently fails to load in the

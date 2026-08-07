@@ -79,7 +79,7 @@ to keep serving what you expect.
 The iframe runs under a real Content-Security-Policy injected at render time:
 
 ```
-default-src 'none'; script-src 'nonce-<nonce>' https:; style-src 'unsafe-inline' https:; img-src data: https:; font-src data: https:; connect-src https:; base-uri 'none'; form-action 'none'
+default-src 'none'; script-src 'nonce-<nonce>' https:; style-src 'unsafe-inline' data: https:; img-src data: https:; font-src data: https:; connect-src https:; base-uri 'none'; form-action 'none'
 ```
 
 The CSP is a genuine runtime boundary — but it confines the network, not the
