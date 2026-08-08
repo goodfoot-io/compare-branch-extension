@@ -144,9 +144,39 @@ function makeChildFrame(): Frame {
 }
 
 function makePageWithChildFrame(childFrame: Frame): Page[] {
+  return makePageWithChildFrames([childFrame]);
+}
+
+/**
+ * A childFrame whose `evaluate` swaps in its own `document` stub for the
+ * duration of the call, rather than relying on a single `vi.stubGlobal`
+ * shared across every frame. This lets a fixture model multiple frames with
+ * *different* DOM content open at once — e.g. a competing marked panel
+ * alongside the sidebar — which a single global `document` stub cannot.
+ *
+ * @param selectors - Map of CSS selector to the element that should match it for this frame only.
+ * @returns A fake `Frame` whose `evaluate` sees only this frame's document.
+ */
+function makeChildFrameWithDocument(
+  selectors: Record<string, { getAttribute(name: string): string | null } | true>
+): Frame {
+  return {
+    evaluate: (fn: () => unknown) => {
+      const previous = (globalThis as { document?: unknown }).document;
+      (globalThis as { document?: unknown }).document = makeDocument(selectors);
+      try {
+        return Promise.resolve(fn());
+      } finally {
+        (globalThis as { document?: unknown }).document = previous;
+      }
+    }
+  } as unknown as Frame;
+}
+
+function makePageWithChildFrames(childFrames: Frame[]): Page[] {
   const topFrame = {
     url: () => 'https://vscode-webview.example/abc',
-    childFrames: () => [childFrame]
+    childFrames: () => childFrames
   };
   return [{ frames: () => [topFrame] } as unknown as Page];
 }
@@ -216,5 +246,47 @@ describe('findWebviewFrame — list target', () => {
     await expect(findWebviewFrame(makePageWithChildFrame(makeChildFrame()), 'list')).rejects.toThrow(
       'Could not find Cards list webview frame'
     );
+  });
+
+  // Every `<html>` emitter now carries a `cards-webview-kind` marker with its
+  // own distinct value (see `webviewKindMetaTag`), so a frame that isn't the
+  // sidebar identifies itself as such and the legacy `vscode-textfield`
+  // predicate becomes unreachable for it. Before that, a Create Card or
+  // Editor panel — which also renders an unconditional `vscode-textfield`
+  // with no `[data-timeline-kind]` — could satisfy the legacy predicate and
+  // be mistaken for the sidebar list, depending purely on frame iteration
+  // order. These fixtures model a second Cards panel genuinely being open
+  // alongside the sidebar, which the single-frame fixtures above cannot.
+  it('selects the sidebar over a competing marked create-card frame, regardless of iteration order', async () => {
+    const createCardFrame = makeChildFrameWithDocument({
+      'meta[name="cards-webview-kind"]': metaTag('create-card'),
+      'vscode-textfield': true
+    });
+    const listFrame = makeChildFrameWithDocument({
+      'meta[name="cards-webview-kind"]': metaTag('list')
+    });
+
+    // Worst-case order: the competing frame is iterated first.
+    const frame = await findWebviewFrame(makePageWithChildFrames([createCardFrame, listFrame]), 'list');
+    expect(frame).toBe(listFrame);
+
+    // And the reverse order, to show the result doesn't depend on which
+    // frame the loop happens to see first.
+    const frameReversed = await findWebviewFrame(makePageWithChildFrames([listFrame, createCardFrame]), 'list');
+    expect(frameReversed).toBe(listFrame);
+  });
+
+  it('falls back to the legacy predicate only for a pre-this-card unmarked frame, even with a marked competing frame present', async () => {
+    const createCardFrame = makeChildFrameWithDocument({
+      'meta[name="cards-webview-kind"]': metaTag('create-card'),
+      'vscode-textfield': true
+    });
+    // Pre-this-card build: no cards-webview-kind meta tag at all, so it can
+    // only be identified via the legacy vscode-textfield predicate.
+    const legacySidebarFrame = makeChildFrameWithDocument({ 'vscode-textfield': true });
+
+    const frame = await findWebviewFrame(makePageWithChildFrames([createCardFrame, legacySidebarFrame]), 'list');
+
+    expect(frame).toBe(legacySidebarFrame);
   });
 });
