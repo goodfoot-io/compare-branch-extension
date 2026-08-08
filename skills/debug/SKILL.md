@@ -112,7 +112,44 @@ echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}${HOOKS_LOG_OVERRIDE_SET:+ (com
 [ -n "$HOOKS_LOG_UNREADABLE" ] && echo "HOOKS_LOG_ANCHOR is INCONCLUSIVE — jq could not parse:$HOOKS_LOG_UNREADABLE"
 ```
 
-Compare the disk artifact above against two other, independent provenance surfaces before concluding anything is stale. For the running extension host's own compiled-in identity, invoke `cards.debug.getBuildInfo` — but only treat a difference from the disk read as a signal after confirming an *extension-source* change (not a webview-or-CSS-only edit) was actually rebuilt: a webview/CSS-only edit legitimately advances the disk stamp while the host `define` legitimately does not, since `bundle.cjs` was never rebuilt, and reloading the window will not converge them either, because it re-activates that same unchanged `bundle.cjs`. For a specific already-open panel under suspicion, read what it actually loaded with `cards-dev read --target detail --card <id> --selector 'meta[name="cards-build-info"]' --attribute content`, `JSON.parse` the result, and diff it against the disk read above — a mismatch means "reload that panel," no feature-internals knowledge required. Before trusting a match, also read `meta[name="cards-html-generation-failed"]`: if present, the panel is showing the shared error fallback, so the `cards-build-info` tag next to it describes a build that never actually rendered, and the real defect is in the error text (`document.querySelector('code')`'s content), not staleness. This CLI's coverage is honest, not complete: it reaches the card-detail panel and the sidebar list only, both independent of whether either panel's own script executed; the other five panels (editor, create-card, stream, license, setup-wizard) carry the same `cards-build-info` tag by construction but have no CLI readout today, and need a manual CDP read instead. A matching SHA only establishes that the commit was *available* to the build (`git merge-base --is-ancestor <commit> <sha>`), not that its code survived bundling/tree-shaking into the artifact under inspection — for that narrower question, grepping the running bundle for a literal string the feature must emit is still the right tool; this provenance stamp does not replace it. For a stream/HTML-file panel specifically, a CDP read must target the panel's own top-level frame — never the `srcdoc` iframe's separate document, which is a different, unrelated document and will never carry this tag.
+### Build provenance — three surfaces of one payload
+
+Disk (`dist/build-target.json`, printed above), the running host, and every open panel each carry the same five keys — `{target, sha, branch, dirty, buildTime}`, `buildTime` an epoch-millisecond **number** — all derived from one identity sampled at build start. On a healthy build the three are identical field for field, so **any** difference is real signal (stale bundle, stale stamp, stale panel). There is no benign difference to discount; in particular a webview/CSS-only rebuild does *not* advance the disk stamp past the host, because the watch loop restamps with the identity of the host bundle actually on disk.
+
+Read the host (one line of bare JSON on stdout):
+
+```bash
+cards-extension execute-command cards.debug.getBuildInfo
+```
+
+A human at the keyboard runs **Cards: Show Running Build Info** from the command palette instead; it toasts the same values.
+
+Read a specific open panel. `read --attribute content` returns the value two levels down inside `{"elements":[{"text":…,"tag":…,"attributes":{…}}]}`, so extract before comparing — diffing the raw `read` output against the disk stamp mismatches 100% of the time, including on a perfectly current panel:
+
+```bash
+cards-dev read --target detail --card <id> --selector 'meta[name="cards-build-info"]' --attribute content \
+  | jq -r '.elements[0].text' | jq -S . > /tmp/panel-provenance.json
+jq -S . "$EXTENSION_PATH/dist/build-target.json" > /tmp/disk-provenance.json
+diff /tmp/disk-provenance.json /tmp/panel-provenance.json && echo "panel matches disk"
+```
+
+Empty `diff` output means the panel is current. A difference means "reload that panel."
+
+**First establish that the installed build even has this feature** — every reader's first contact with it is against a build that predates it, and no amount of reloading adds a stamp the build never emitted. The remedy there is rebuild and reinstall the extension, then reload the window.
+
+| Surface | Pre-feature signature | Feature present |
+|---------|----------------------|-----------------|
+| Disk | `{"target":"development"}` — `sha`/`branch`/`dirty`/`buildTime` keys **absent** | All five keys present |
+| Host | `cards-extension execute-command: command not found: cards.debug.getBuildInfo` on stderr, exit 1 | One line of JSON with all five keys |
+| Panel | `{"elements": []}` — but see below, this is ambiguous | One element whose `content` parses to the five keys |
+
+Keys **absent** is the pre-feature signature; keys **present and all-`null`** is not. The writer enforces that `sha`/`branch`/`dirty` go `null` together, and only when git was unavailable at build time — a stamped build with no git still emits the keys. On the panel surface, a `target` of `null` alongside them means that panel could not read `dist/build-target.json` at HTML-generation time, which is a different fault from git being absent.
+
+`{"elements": []}` from the panel read has two causes: a pre-feature panel, and a current panel whose document genuinely lacks the tag. Settle it with the disk and host reads — if those carry the keys, the build has the feature and the empty panel read is a real defect, not staleness. `cards-dev read --target detail --card <id> --selector meta --attribute name` lists what the document does carry.
+
+Before trusting a match, also read `meta[name="cards-html-generation-failed"]`: if present, the panel is showing the shared error fallback, so the `cards-build-info` tag next to it describes a build that never actually rendered, and the real defect is in the error text (`document.querySelector('code')`'s content), not staleness.
+
+This CLI's coverage is honest, not complete: it reaches the card-detail panel and the sidebar list only. On a current build both are found from inert `<meta>` markup — `cards-webview-kind` for the list, `cards-panel-card-id` for a detail panel whose `window.__INIT_DATA__` never got set — so neither depends on the panel's own script having executed. On a pre-feature frame carrying no such markup, both fall back to script-dependent DOM probes and a frozen panel is simply not found; so is a card that is not already open, since opening one clicks through the rendered list. The other five panels (editor, create-card, stream, license, setup-wizard) carry the same `cards-build-info` tag by construction but have no CLI readout today, and need a manual CDP read instead. A matching SHA only establishes that the commit was *available* to the build (`git merge-base --is-ancestor <commit> <sha>`), not that its code survived bundling/tree-shaking into the artifact under inspection — for that narrower question, grepping the running bundle for a literal string the feature must emit is still the right tool; this provenance stamp does not replace it. For a stream/HTML-file panel specifically, a CDP read must target the panel's own top-level frame — never the `srcdoc` iframe's separate document, which is a different, unrelated document and will never carry this tag.
 
 `CARDS_CONFIG_DIR` is the root for discovery, databases, sessions, and worktrees. `WORKSPACE`, `MAIN_REPO_ROOT`, and `HOOKS_LOG_ANCHOR` are referenced by diagnostic commands throughout the reference files; `find-logs.md` names which one each log uses.
 
