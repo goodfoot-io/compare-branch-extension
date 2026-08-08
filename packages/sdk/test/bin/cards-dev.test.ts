@@ -11,8 +11,9 @@
 
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
-import { defaultScreenshotPath, parseFlags } from '../../src/bin/cards-dev.js';
+import type { Frame, Page } from 'puppeteer-core';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { defaultScreenshotPath, findAllDetailFrames, findWebviewFrame, parseFlags } from '../../src/bin/cards-dev.js';
 
 // Wrap os.tmpdir with a spy that defaults to the real implementation, so the
 // "real temp dir" test below still observes the genuine platform temp dir while
@@ -102,5 +103,118 @@ describe('defaultScreenshotPath', () => {
     // including Linux where os.tmpdir() coincidentally equals '/tmp'.
     vi.mocked(tmpdir).mockReturnValueOnce(join('/sentinel', 'custom-tmp'));
     expect(defaultScreenshotPath()).toBe(join('/sentinel', 'custom-tmp', 'screenshot.png'));
+  });
+});
+
+// ─── Frame/Page fixtures ───────────────────────────────────────────────────
+//
+// `findAllDetailFrames`/`findWebviewFrame` call `childFrame.evaluate(fn)` with
+// a zero-argument callback that reads the browser-global `window`/`document`.
+// Rather than re-implement that logic in the fixture, `evaluate` here just
+// invokes the real callback against `vi.stubGlobal`-provided fakes — this
+// exercises the exact merge/fallback logic in the source, not a re-description
+// of it.
+
+/**
+ * A `document.querySelector` stub: maps selector -> element (or `true` for
+ * "exists, no attributes needed"); an absent key resolves to `null`.
+ *
+ * @param selectors - Map of CSS selector to the element that should match it.
+ * @returns A fake `document`-like object exposing `querySelector`.
+ */
+function makeDocument(selectors: Record<string, { getAttribute(name: string): string | null } | true>) {
+  return {
+    querySelector: (selector: string) => {
+      const entry = selectors[selector];
+      if (entry === undefined) return null;
+      if (entry === true) return {};
+      return entry;
+    }
+  };
+}
+
+function metaTag(content: string): { getAttribute(name: string): string | null } {
+  return { getAttribute: (name: string) => (name === 'content' ? content : null) };
+}
+
+function makeChildFrame(): Frame {
+  return {
+    evaluate: (fn: () => unknown) => Promise.resolve(fn())
+  } as unknown as Frame;
+}
+
+function makePageWithChildFrame(childFrame: Frame): Page[] {
+  const topFrame = {
+    url: () => 'https://vscode-webview.example/abc',
+    childFrames: () => [childFrame]
+  };
+  return [{ frames: () => [topFrame] } as unknown as Page];
+}
+
+describe('findAllDetailFrames', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('falls back to the cards-panel-card-id meta tag when __INIT_DATA__ is absent (frozen panel)', async () => {
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('document', makeDocument({ 'meta[name="cards-panel-card-id"]': metaTag('main-777') }));
+
+    const childFrame = makeChildFrame();
+    const results = await findAllDetailFrames(makePageWithChildFrame(childFrame));
+
+    expect(results).toEqual([{ frame: childFrame, cardId: 'main-777' }]);
+  });
+
+  it('prefers __INIT_DATA__.cardId over the meta tag when both are present (healthy panel)', async () => {
+    vi.stubGlobal('window', { __INIT_DATA__: { cardId: 'main-1' } });
+    vi.stubGlobal('document', makeDocument({ 'meta[name="cards-panel-card-id"]': metaTag('main-2') }));
+
+    const childFrame = makeChildFrame();
+    const results = await findAllDetailFrames(makePageWithChildFrame(childFrame));
+
+    expect(results).toEqual([{ frame: childFrame, cardId: 'main-1' }]);
+  });
+
+  it('returns no match when neither __INIT_DATA__ nor the meta tag is present', async () => {
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('document', makeDocument({}));
+
+    const childFrame = makeChildFrame();
+    const results = await findAllDetailFrames(makePageWithChildFrame(childFrame));
+
+    expect(results).toEqual([]);
+  });
+});
+
+describe('findWebviewFrame — list target', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('matches a frozen sidebar via the cards-webview-kind meta tag (vscode-textfield absent)', async () => {
+    vi.stubGlobal('document', makeDocument({ 'meta[name="cards-webview-kind"]': metaTag('list') }));
+
+    const childFrame = makeChildFrame();
+    const frame = await findWebviewFrame(makePageWithChildFrame(childFrame), 'list');
+
+    expect(frame).toBe(childFrame);
+  });
+
+  it('falls back to the vscode-textfield predicate for a pre-feature build with no meta tag', async () => {
+    vi.stubGlobal('document', makeDocument({ 'vscode-textfield': true }));
+
+    const childFrame = makeChildFrame();
+    const frame = await findWebviewFrame(makePageWithChildFrame(childFrame), 'list');
+
+    expect(frame).toBe(childFrame);
+  });
+
+  it('throws when neither signal is present and the frame is genuinely not a list', async () => {
+    vi.stubGlobal('document', makeDocument({ '[data-timeline-kind]': true }));
+
+    await expect(findWebviewFrame(makePageWithChildFrame(makeChildFrame()), 'list')).rejects.toThrow(
+      'Could not find Cards list webview frame'
+    );
   });
 });

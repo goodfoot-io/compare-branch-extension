@@ -46,6 +46,10 @@ echo "EXTENSION_PATH=${EXTENSION_PATH:-unset}"
 if [ -n "$EXTENSION_PATH" ] && [ -f "$EXTENSION_PATH/package.json" ]; then
   jq '{name,version}' "$EXTENSION_PATH/package.json"
 fi
+if [ -n "$EXTENSION_PATH" ] && [ -f "$EXTENSION_PATH/dist/build-target.json" ]; then
+  echo "--- Build provenance (on-disk artifact) ---"
+  jq '.' "$EXTENSION_PATH/dist/build-target.json"
+fi
 command -v cards >/dev/null && echo "cards=available" || echo "cards=unavailable"
 command -v cards-extension >/dev/null && echo "cards-extension=available" || echo "cards-extension=unavailable"
 # Claude API hook log destination. An operator override outranks the computed
@@ -107,6 +111,8 @@ fi
 echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}${HOOKS_LOG_OVERRIDE_SET:+ (computed default — NOT in use, override set)}"
 [ -n "$HOOKS_LOG_UNREADABLE" ] && echo "HOOKS_LOG_ANCHOR is INCONCLUSIVE — jq could not parse:$HOOKS_LOG_UNREADABLE"
 ```
+
+Compare the disk artifact above against two other, independent provenance surfaces before concluding anything is stale. For the running extension host's own compiled-in identity, invoke `cards.debug.getBuildInfo` — but only treat a difference from the disk read as a signal after confirming an *extension-source* change (not a webview-or-CSS-only edit) was actually rebuilt: a webview/CSS-only edit legitimately advances the disk stamp while the host `define` legitimately does not, since `bundle.cjs` was never rebuilt, and reloading the window will not converge them either, because it re-activates that same unchanged `bundle.cjs`. For a specific already-open panel under suspicion, read what it actually loaded with `cards-dev read --target detail --card <id> --selector 'meta[name="cards-build-info"]' --attribute content`, `JSON.parse` the result, and diff it against the disk read above — a mismatch means "reload that panel," no feature-internals knowledge required. Before trusting a match, also read `meta[name="cards-html-generation-failed"]`: if present, the panel is showing the shared error fallback, so the `cards-build-info` tag next to it describes a build that never actually rendered, and the real defect is in the error text (`document.querySelector('code')`'s content), not staleness. This CLI's coverage is honest, not complete: it reaches the card-detail panel and the sidebar list only, both independent of whether either panel's own script executed; the other five panels (editor, create-card, stream, license, setup-wizard) carry the same `cards-build-info` tag by construction but have no CLI readout today, and need a manual CDP read instead. A matching SHA only establishes that the commit was *available* to the build (`git merge-base --is-ancestor <commit> <sha>`), not that its code survived bundling/tree-shaking into the artifact under inspection — for that narrower question, grepping the running bundle for a literal string the feature must emit is still the right tool; this provenance stamp does not replace it. For a stream/HTML-file panel specifically, a CDP read must target the panel's own top-level frame — never the `srcdoc` iframe's separate document, which is a different, unrelated document and will never carry this tag.
 
 `CARDS_CONFIG_DIR` is the root for discovery, databases, sessions, and worktrees. `WORKSPACE`, `MAIN_REPO_ROOT`, and `HOOKS_LOG_ANCHOR` are referenced by diagnostic commands throughout the reference files; `find-logs.md` names which one each log uses.
 

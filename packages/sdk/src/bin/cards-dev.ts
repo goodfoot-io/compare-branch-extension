@@ -250,9 +250,12 @@ export async function disconnectBrowser(browser: Browser): Promise<void> {
 /**
  * Finds all open Cards detail webview frames and reads the card ID from each.
  *
- * A detail frame is identified by `window.__INIT_DATA__.cardId` — the host
- * injects this into the webview HTML before React boots. Any webview child
- * frame that carries a non-empty `cardId` in `__INIT_DATA__` is a detail panel.
+ * A detail frame is identified primarily by `window.__INIT_DATA__.cardId` —
+ * the host injects this into the webview HTML before React boots. When that
+ * script-set global is unavailable (e.g. a frozen panel whose inline script
+ * never ran, such as a missing/mismatched CSP nonce), this falls back to the
+ * static `<meta name="cards-panel-card-id">` tag the host also stamps into
+ * the panel's HTML, which requires no script execution to read.
  *
  * @param pages - All browser pages to search across.
  * @returns Array of `{ frame, cardId }` pairs for every open detail panel.
@@ -266,7 +269,11 @@ export async function findAllDetailFrames(pages: Page[]): Promise<Array<{ frame:
         try {
           const cardId = await childFrame.evaluate(() => {
             const init = (window as unknown as { __INIT_DATA__?: { cardId?: string } }).__INIT_DATA__;
-            return init?.cardId ?? null;
+            return (
+              init?.cardId ??
+              document.querySelector('meta[name="cards-panel-card-id"]')?.getAttribute('content') ??
+              null
+            );
           });
           if (cardId) results.push({ frame: childFrame, cardId });
         } catch (error) {
@@ -358,7 +365,9 @@ export async function openCardViaList(pages: Page[], cardId: string): Promise<vo
  * containing `vscode-webview`, then searches child frames using content-based
  * matching:
  *
- * - `list`: child frame with a `vscode-textfield` but no `[data-timeline-kind]`
+ * - `list`: child frame whose `<meta name="cards-webview-kind">` tag reads
+ *   `"list"`, or — for a pre-feature build with no such tag — a frame with a
+ *   `vscode-textfield` but no `[data-timeline-kind]`
  * - `detail` without `cardId`: single open detail frame; throws if zero or many
  * - `detail` with `cardId`: frame whose `window.__INIT_DATA__.cardId` matches;
  *   if not found, opens the card via {@link openCardViaCommandPalette} and polls
@@ -377,9 +386,11 @@ export async function findWebviewFrame(pages: Page[], target: WebviewTarget, car
         if (!frame.url().includes('vscode-webview')) continue;
         for (const childFrame of frame.childFrames()) {
           try {
-            const isList = await childFrame.evaluate(
-              () => !document.querySelector('[data-timeline-kind]') && !!document.querySelector('vscode-textfield')
-            );
+            const isList = await childFrame.evaluate(() => {
+              const kindTag = document.querySelector('meta[name="cards-webview-kind"]')?.getAttribute('content');
+              if (kindTag !== null && kindTag !== undefined) return kindTag === 'list';
+              return !document.querySelector('[data-timeline-kind]') && !!document.querySelector('vscode-textfield');
+            });
             if (isList) return childFrame;
           } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
