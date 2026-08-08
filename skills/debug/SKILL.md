@@ -116,36 +116,63 @@ echo "HOOKS_LOG_ANCHOR=${HOOKS_LOG_ANCHOR:-unset}${HOOKS_LOG_OVERRIDE_SET:+ (com
 
 Disk (`dist/build-target.json`, printed above), the running host, and every open panel each carry the same five keys — `{target, sha, branch, dirty, buildTime}`, `buildTime` an epoch-millisecond **number** — all derived from one identity sampled at build start. On a healthy build the three are identical field for field, so **any** difference is real signal (stale bundle, stale stamp, stale panel). There is no benign difference to discount; in particular a webview/CSS-only rebuild does *not* advance the disk stamp past the host, because the watch loop restamps with the identity of the host bundle actually on disk.
 
-Read the host (one line of bare JSON on stdout):
+**Establish that the installed build has this feature before comparing anything.** Every reader's first contact is against a build that predates it, and no amount of reloading adds a stamp the build never emitted; the remedy there is rebuild and reinstall the extension, then reload the window. Read the disk and the host first:
 
 ```bash
+jq '.' "$EXTENSION_PATH/dist/build-target.json"
 cards-extension execute-command cards.debug.getBuildInfo
 ```
 
 A human at the keyboard runs **Cards: Show Running Build Info** from the command palette instead; it toasts the same values.
 
-Read a specific open panel. `read --attribute content` returns the value two levels down inside `{"elements":[{"text":…,"tag":…,"attributes":{…}}]}`, so extract before comparing — diffing the raw `read` output against the disk stamp mismatches 100% of the time, including on a perfectly current panel:
-
-```bash
-cards-dev read --target detail --card <id> --selector 'meta[name="cards-build-info"]' --attribute content \
-  | jq -r '.elements[0].text' | jq -S . > /tmp/panel-provenance.json
-jq -S . "$EXTENSION_PATH/dist/build-target.json" > /tmp/disk-provenance.json
-diff /tmp/disk-provenance.json /tmp/panel-provenance.json && echo "panel matches disk"
-```
-
-Empty `diff` output means the panel is current. A difference means "reload that panel."
-
-**First establish that the installed build even has this feature** — every reader's first contact with it is against a build that predates it, and no amount of reloading adds a stamp the build never emitted. The remedy there is rebuild and reinstall the extension, then reload the window.
-
 | Surface | Pre-feature signature | Feature present |
 |---------|----------------------|-----------------|
 | Disk | `{"target":"development"}` — `sha`/`branch`/`dirty`/`buildTime` keys **absent** | All five keys present |
 | Host | `cards-extension execute-command: command not found: cards.debug.getBuildInfo` on stderr, exit 1 | One line of JSON with all five keys |
-| Panel | `{"elements": []}` — but see below, this is ambiguous | One element whose `content` parses to the five keys |
 
-Keys **absent** is the pre-feature signature; keys **present and all-`null`** is not. The writer enforces that `sha`/`branch`/`dirty` go `null` together, and only when git was unavailable at build time — a stamped build with no git still emits the keys. On the panel surface, a `target` of `null` alongside them means that panel could not read `dist/build-target.json` at HTML-generation time, which is a different fault from git being absent.
+Any *other* non-zero host exit is not a pre-feature signature — `workspace not registered "<path>" with the active VS Code window` means no host was reached at all, so that surface yields no evidence either way. Keys **absent** is the pre-feature signature; keys **present and all-`null`** is not. The writer enforces that `sha`/`branch`/`dirty` go `null` together, and only when git was unavailable at build time — a stamped build with no git still emits the keys. On the panel surface, a `target` of `null` alongside them means that panel could not read `dist/build-target.json` at HTML-generation time, which is a different fault from git being absent.
 
-`{"elements": []}` from the panel read has two causes: a pre-feature panel, and a current panel whose document genuinely lacks the tag. Settle it with the disk and host reads — if those carry the keys, the build has the feature and the empty panel read is a real defect, not staleness. `cards-dev read --target detail --card <id> --selector meta --attribute name` lists what the document does carry.
+Only once the disk is stamped is comparing a panel meaningful. `read --attribute content` returns the value two levels down inside `{"elements":[{"text":…,"tag":…,"attributes":{…}}]}`, so extract before comparing — diffing the raw `read` output against the disk stamp mismatches 100% of the time, including on a perfectly current panel. This block re-checks the disk precondition itself and refuses to diff on any path where no panel was actually read:
+
+```bash
+DISK="$EXTENSION_PATH/dist/build-target.json"
+if ! jq -e 'has("sha") and has("buildTime")' "$DISK" >/dev/null 2>&1; then
+  echo "NO STAMP ON DISK ($DISK) — the installed build predates this feature."
+  echo "Remedy: rebuild and reinstall the extension, then reload the window. Nothing was compared."
+else
+  PANEL=$(cards-dev read --target detail --card <id> \
+    --selector 'meta[name="cards-build-info"]' --attribute content 2>&1); READ_STATUS=$?
+  STAMP=$(printf '%s' "$PANEL" | jq -r '.elements[0].text // empty' 2>/dev/null)
+  if [ "$READ_STATUS" -ne 0 ]; then
+    echo "NO PANEL READ — cards-dev exited $READ_STATUS: $PANEL"
+    echo "Remedy: fix the connection. Nothing was compared."
+  elif [ -z "$STAMP" ]; then
+    echo "PANEL CARRIES NO TAG — cards-dev returned: $PANEL"
+    echo "Remedy: reload the window, then rerun. Nothing was compared."
+  elif ! printf '%s' "$STAMP" | jq -e . >/dev/null 2>&1; then
+    echo "TAG IS NOT JSON: $STAMP"
+    echo "Remedy: the stamp is corrupt at generation time. Nothing was compared."
+  else
+    printf '%s' "$STAMP" | jq -S . > /tmp/panel-provenance.json
+    jq -S . "$DISK" > /tmp/disk-provenance.json
+    diff /tmp/disk-provenance.json /tmp/panel-provenance.json \
+      && echo "panel matches disk" \
+      || echo "PANEL DIFFERS FROM DISK — reload that panel."
+  fi
+fi
+```
+
+Exactly one line of verdict tells you which state you are in, and only the last of them is about staleness:
+
+| Printed verdict | What it means | Remedy |
+|---|---|---|
+| `panel matches disk` | panel read, provenance identical | nothing |
+| `PANEL DIFFERS FROM DISK` | panel read, provenance disagrees | reload that panel |
+| `NO STAMP ON DISK` | build predates the feature (or `dist/` is missing) | rebuild, reinstall, reload the window |
+| `NO PANEL READ` | `cards-dev` could not reach a panel — e.g. `cards-dev exited 1: cards-dev: fetch failed` when VS Code is not listening on a remote debugging port | fix the connection |
+| `PANEL CARRIES NO TAG` | read succeeded and returned `{"elements": []}` | reload the window |
+
+The last row is the one ambiguous case: on a stamped disk, an empty `elements` array is either a panel still rendered by the pre-install host (a reload fixes it) or a current panel whose document genuinely lacks the tag — a real defect, not staleness. Rerun after the reload to tell them apart; `cards-dev read --target detail --card <id> --selector meta --attribute name` lists what the document does carry.
 
 Before trusting a match, also read `meta[name="cards-html-generation-failed"]`: if present, the panel is showing the shared error fallback, so the `cards-build-info` tag next to it describes a build that never actually rendered, and the real defect is in the error text (`document.querySelector('code')`'s content), not staleness.
 
