@@ -35,7 +35,7 @@ Based on comments and prior clarification requests:
 
 ### 2.1 Research Workspace
 
-Investigate the workspace to gather file paths, component names, and patterns relevant to the card.
+Investigate the workspace to gather file paths, component names, and patterns relevant to the card. Fork subagents if the card touches areas you would otherwise sweep serially.
 
 ### 2.2 Enrich Card
 

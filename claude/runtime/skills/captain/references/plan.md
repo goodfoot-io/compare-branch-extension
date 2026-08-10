@@ -34,7 +34,7 @@ Distill from the card what the situation looks like when the work is done and wh
 
 #### Research
 
-Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure. When the plan writes to or depends on another system's files or protocol, read that system's source at the deployed version: check for a native mechanism first; record the invariants it enforces.
+Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure. If the research spans several independent threads — consumer sweeps, external-system source reads, fixture capture — consider forking a subagent per thread. When the plan writes to or depends on another system's files or protocol, read that system's source at the deployed version: check for a native mechanism first; record the invariants it enforces.
 
 When correctness depends on the shape of real-world data the plan will process (live payloads, environment-injected values, file formats), capture a real sample **now** and commit it as a fixture in the card repo's `notes/`.
 
@@ -66,13 +66,15 @@ git commit -m "[single sentence summarizing the approach and key decisions]"
 
 Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source — including CARD.md claims about third-party behavior). Any assumption that affects a planned implementation step warrants investigation; spike it per the procedure below. Load-bearing assumptions are work items for this step, not questions to surface to the user as a choice — converting a spike into an (a)/(b) prompt is a protocol violation. Skip only when no load-bearing assumptions exist.
 
-For each testable uncertainty, load the `runtime:spike` skill and follow its instructions.
+For each testable uncertainty, load the `runtime:spike` skill and follow its instructions. With several independent uncertainties, they can run as concurrent subagents rather than in sequence.
 
 After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spike that disproves a load-bearing assumption invalidates the plan from intent through approach, so rewrite rather than patch.
 
 ## 3. Evaluate the Plan
 
 Build the failure-mode question set for the card — from `CARD.md`, the plan, your notes, adjacent cards, and similar workspace code: what must hold at runtime for the plan to work? Verify each answer against workspace source, not the plan's own assertions; a question the plan cannot answer is a finding.
+
+If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff.
 
 Evaluate from the angles below and list every finding — do not stop at the first one:
 

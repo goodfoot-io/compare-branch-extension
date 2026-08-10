@@ -70,6 +70,8 @@ On divert: write a comment naming the disqualifier and why no outcome-level test
 
 ### 1.5 Write Reproduction Tests
 
+With several viable hypotheses, consider a subagent per hypothesis, each returning its trace verdict and any committed failing test.
+
 For each viable hypothesis, in turn:
 1. Trace code and data-flow paths in the workspace to assess whether the hypothesis is viable.
 2. If viable: write a minimal reproduction test that MUST FAIL against the current unfixed code. Do not modify existing tests. Follow existing test patterns. Do not fix the bug yet.

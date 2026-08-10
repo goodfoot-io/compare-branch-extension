@@ -24,7 +24,9 @@ Run validation per the plan's validation commands (or the workspace validation c
 
 ## 3. Review
 
-Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes, then read the card (and plan, if one exists) again with that diff in hand. Evaluate from both angles below and list every finding — do not stop at the first one:
+Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes, then read the card (and plan, if one exists) again with that diff in hand. If you implemented this yourself or the diff is large, a fresh-eyes subagent per angle will find what a re-read will not.
+
+Evaluate from both angles below and list every finding — do not stop at the first one:
 
 **Failure modes.** Perform a failure mode and effects analysis on the implementation. Trace consumers, data flow, and error paths for each change. Where could this break at runtime that the validation suite wouldn't catch — new API boundaries, async/error-path logic, shared state, silently drifting contracts?
 
@@ -35,7 +37,7 @@ Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes, then
 
 ## 4. Apply Fixes
 
-Fix every finding. Keep changes minimal and focused on the findings — do not use this pass to make unrelated improvements.
+Fix every finding. Keep changes minimal and focused on the findings — do not use this pass to make unrelated improvements. With many findings, consider a subagent per group that shares files, validating and committing their work yourself.
 
 ## 5. Validate and Commit
 

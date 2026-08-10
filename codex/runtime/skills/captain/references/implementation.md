@@ -25,6 +25,8 @@ Work proceeds in **logical units**. A logical unit is a coherent change that lea
 3. Pass the `<per-unit-gate>`.
 4. Commit, then tag the rollback point: `git tag -f "implement/$CARD_ID/step-N" HEAD`.
 
+When units are numerous or touch disjoint files, consider a subagent per unit — you still own the gate, commit, and tag.
+
 When all units are complete, pass the `<final-validation-gate>` before proceeding to Step 3.
 
 Every commit in this flow follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.
@@ -100,7 +102,7 @@ After all logical units are complete, run validation per the workspace validatio
 
 <pre-existing-diagnosis>
 
-Reproduce the failing command against the baseline instead of guessing. Use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
+Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, a subagent keeps it out of your context. Use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
 
 ```bash
 create-worktree "implement/$CARD_ID/baseline"

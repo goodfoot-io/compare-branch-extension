@@ -65,7 +65,7 @@ If you choose not to bail out, continue to Step 4.
 
 ## 4. Review
 
-Weight completeness against the card's acceptance criteria alongside the usual failure-mode questions — this is a re-check of already-committed work, not first-pass evaluation. Diff `implement/$CARD_ID/baseline..HEAD`, read the card, and evaluate:
+Weight completeness against the card's acceptance criteria alongside the usual failure-mode questions — this is a re-check of already-committed work, not first-pass evaluation. Diff `implement/$CARD_ID/baseline..HEAD`, read the card, and evaluate. You did not write this code, but if the diff is substantial a fresh-eyes subagent per angle still beats a re-read.
 
 **Failure modes.** Where could this break at runtime that the validation suite wouldn't catch?
 

@@ -5,7 +5,7 @@
 
 Read the most recent user comment in the card repository to identify the question.
 
-Investigate the workspace to find information relevant to the question.
+Investigate the workspace to find information relevant to the question. If the question opens several lines of inquiry, fork a subagent per line.
 
 ## 2. Write Comment and Commit
 
