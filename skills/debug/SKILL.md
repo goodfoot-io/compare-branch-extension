@@ -177,13 +177,24 @@ report_incoherent_build() {
     # refreshes the extension bundle alone) leaves nothing to fix and no terminal
     # to look at, and needs a full build instead. Only the producer knows which.
     marker_note=$(jq -r 'if (.note | type) == "string" and (.note | length) > 0 then .note else empty end' "$marker" 2>/dev/null)
-    if [ -z "$marker_pending" ] || [ -z "$marker_since" ] || [ -z "$marker_note" ]; then
-      echo "BUILD MARKER UNREADABLE — $label ($dir) holds a build-incomplete.json that does not carry a non-empty .pending array, a numeric .since, and a non-empty .note. Its directory cannot be called clean."
+    # The reason decides the DIAGNOSIS as well as the remedy, because the two
+    # states have opposite topologies. Withheld: the stamp is the last build that
+    # completed and the pending target's bundle is the one from it — what the
+    # stamp fails to describe is everything that has rebuilt since. Partial: the
+    # stamp is fresh and the pending targets are the stale ones. One sentence
+    # cannot be true of both, and the wrong one names the wrong artifact.
+    marker_reason=$(jq -r 'if .reason == "withheld" or .reason == "partial" then .reason else empty end' "$marker" 2>/dev/null)
+    if [ -z "$marker_pending" ] || [ -z "$marker_since" ] || [ -z "$marker_note" ] || [ -z "$marker_reason" ]; then
+      echo "BUILD MARKER UNREADABLE — $label ($dir) holds a build-incomplete.json that does not carry a non-empty .pending array, a numeric .since, a .reason of \"withheld\" or \"partial\", and a non-empty .note. Its directory cannot be called clean."
       echo "Remedy: read $marker by hand. Only a build writes this file and only a build covering every target removes it, so a shape no reader recognises means a truncated write, something else writing that name, or no jq on PATH — all of which leave the build state unknown."
       return 0
     fi
-    echo "BUILD INCOMPLETE — $label ($dir) has no bundle from the build it is stamped with for: $marker_pending (since $marker_since)"
-    [ -f "$stamp" ] || echo "  (and no build-target.json beside it: this session has never completed a build, so there is no identity to compare anything against.)"
+    if [ "$marker_reason" = withheld ]; then
+      echo "BUILD INCOMPLETE — $label ($dir) has produced no successful bundle this session for: $marker_pending (since $marker_since). Any build-target.json beside it describes the last build that COMPLETED; the artifacts that have rebuilt since are the ones it does not describe."
+    else
+      echo "BUILD INCOMPLETE — $label ($dir) has no bundle from the build it was stamped with for: $marker_pending (since $marker_since). Those targets hold whatever an earlier build left beside a stamp that does not describe them."
+    fi
+    [ -f "$stamp" ] || echo "  (there is no build-target.json beside it: this session has never completed a build, so there is no identity to compare anything against.)"
     echo "Remedy: $marker_note"
     return 0
   fi
@@ -331,8 +342,8 @@ rm -rf "$PROV"
 |---|---|---|
 | `ALL THREE AGREE` | host read and matched disk; panel read and matched host; no examined build directory is mid-failure; every examined stamp ordered newest | nothing |
 | `ALL THREE AGREE, COVERAGE INCOMPLETE` | the same, except a directory went unexamined or its mtimes could not be ordered — the surfaces agree, the artifact question is open | check the unnamed directory or rerun after a touch of activity; treat as unproven, not clean |
-| `BUILD INCOMPLETE` | the named targets have no bundle from the build the stamp describes — either a build failed on them or a partial build never attempted them | printed with the verdict, from the marker's own `.note`; never reload or reinstall |
-| `BUILD MARKER UNREADABLE` | `build-incomplete.json` is present but does not carry a non-empty `.pending` array, numeric `.since`, and non-empty `.note` — a shape no build writes | read the file by hand; the build state is unknown, not clean |
+| `BUILD INCOMPLETE` | the named targets have produced no successful bundle. Read the reason off the headline: a **withheld** stamp means the stamp still describes the last build that completed and everything rebuilt since is what it fails to describe; a **partial** build stamped a fresh identity over targets it never attempted, so those targets are the stale ones | printed with the verdict, from the marker's own `.note`; never reload or reinstall |
+| `BUILD MARKER UNREADABLE` | `build-incomplete.json` is present but does not carry a non-empty `.pending` array, numeric `.since`, a `.reason` of `withheld` or `partial`, and non-empty `.note` — a shape no build writes | read the file by hand; the build state is unknown, not clean |
 | `STAMP OLDER THAN ARTIFACT` | a top-level artifact was written after the stamp, with no marker to explain it | check the build terminal, then rebuild |
 | `COULD NOT ORDER` | a top-level artifact shares the stamp's mtime, or there was nothing to compare | not a failure and not an all-clear; the marker is the surface to trust here |
 | `NOT CHECKED` | a build directory was skipped — no stamp and no marker in it, or `WORKSPACE` unset | examine that directory by hand; nothing there was compared |
