@@ -202,11 +202,28 @@ export function parseFlags(args: string[]): Record<string, string[]> {
 export const ALLOW_MULTIPLE_WINDOWS_ENV = 'CARDS_DEV_ALLOW_MULTIPLE_WINDOWS';
 
 /**
+ * The one address this CLI can see VS Code at.
+ *
+ * Named once because it is also the *limit* of what {@link assertSingleWindow}
+ * can observe, and both the guard's message and its success note have to state
+ * that limit in the same terms the launch flag uses.
+ */
+export const CDP_ORIGIN = 'http://127.0.0.1:19222';
+
+/**
  * The workbench pages among a browser's pages — one per open VS Code window.
  *
- * Webviews render on their own Electron pages, so a window contributes exactly
- * one `workbench.html` page plus a page per open webview. Counting workbench
- * pages therefore counts windows.
+ * A webview is **not** a page: it is a `vscode-webview://` iframe nested inside
+ * the window's own `workbench.html` page, which is why every frame walk in this
+ * file ({@link findAllDetailFrames}, {@link openCardViaList}) reaches a panel by
+ * descending `page.frames()` and then `frame.childFrames()` rather than by
+ * looking for a page of its own. So a window contributes one workbench page
+ * however many panels it has open, and counting workbench pages counts windows
+ * without needing to discount anything.
+ *
+ * The filter is still not `pages.length`, because a CDP connection can carry
+ * non-workbench pages that belong to no window — devtools documents, the shared
+ * process, an issue-reporter or process-explorer window.
  *
  * @param pages - All browser pages from the CDP connection.
  * @returns The subset whose URL is a workbench document.
@@ -228,22 +245,36 @@ export function workbenchPages<T extends { url(): string }>(pages: T[]): T[] {
  * the verdict. A worktree-per-card workflow makes two windows ordinary.
  *
  * Nothing in a page's URL or title carries the workspace it belongs to, so the
- * ambiguity cannot be resolved after the fact by filtering — a webview page
- * cannot be attributed to a window at all. Failing closed at the connection is
- * therefore the only honest option, and it covers every subcommand rather than
- * the one check that happened to notice: a `click` delivered to the wrong
- * window is a worse outcome than a refused read.
+ * ambiguity cannot be resolved after the fact by filtering — a page cannot be
+ * attributed to a window at all. Failing closed at the connection is therefore
+ * the only honest option, and it covers every subcommand rather than the one
+ * check that happened to notice: a `click` delivered to the wrong window is a
+ * worse outcome than a refused read.
+ *
+ * **What a clean result does and does not establish.** The count's universe is
+ * the pages on {@link CDP_ORIGIN}, and only a VS Code instance launched with
+ * `--remote-debugging-port=19222` contributes any. A second instance started
+ * without that flag is invisible here while remaining perfectly addressable by
+ * `cards-extension`'s workspace-path route, so "one window" means *one window
+ * on the debug port* — a necessary condition for attributing a panel read and a
+ * host read to one process, never a sufficient one. That is why the success
+ * path returns a sentence naming its own universe instead of returning `void`
+ * and letting a caller read silence as proof: the guard can rule out the
+ * ambiguity it can see, and it says so in exactly those terms.
  *
  * @param pages - All browser pages from the CDP connection.
  * @param env - Environment to read the waiver from; defaults to the process environment.
+ * @returns A note stating what was verified and over which universe, for the caller to surface.
  * @throws Error naming the window count when more than one window is visible and no waiver is set.
  */
 export function assertSingleWindow<T extends { url(): string }>(
   pages: T[],
   env: Record<string, string | undefined> = process.env
-): void {
-  if (env[ALLOW_MULTIPLE_WINDOWS_ENV] === '1') return;
+): string {
   const windows = workbenchPages(pages);
+  if (env[ALLOW_MULTIPLE_WINDOWS_ENV] === '1') {
+    return `window attribution WAIVED (${ALLOW_MULTIPLE_WINDOWS_ENV}=1) — ${windows.length} window(s) visible on ${CDP_ORIGIN}; this result names no window.`;
+  }
   if (windows.length > 1) {
     throw new Error(
       `MULTIPLE VS CODE WINDOWS — ${windows.length} windows are visible on the debug port, and a page cannot be attributed to one of them. ` +
@@ -251,6 +282,11 @@ export function assertSingleWindow<T extends { url(): string }>(
         `Close all but one window and rerun, or set ${ALLOW_MULTIPLE_WINDOWS_ENV}=1 to proceed knowing the result names no window.`
     );
   }
+  return (
+    `window attribution: ${windows.length} VS Code window visible on ${CDP_ORIGIN}, so this result comes from that one. ` +
+    'Not checked: an instance started without --remote-debugging-port=19222 is invisible here and is still reachable by cards-extension via workspace path, ' +
+    'so comparing this result against a host read assumes only one VS Code instance is running.'
+  );
 }
 
 /**
@@ -265,6 +301,11 @@ export function assertSingleWindow<T extends { url(): string }>(
  * Refuses the connection when {@link assertSingleWindow} finds more than one
  * window on the port, disconnecting first — an unattributable page is worse
  * than no page for every subcommand, not just the ones that compare surfaces.
+ * On the path where it does *not* refuse, the guard's scope note goes to stderr
+ * rather than being dropped: a check whose only observable output is silence
+ * cannot distinguish "verified one window" from "verified nothing", and the
+ * note states which universe was counted. It goes to stderr precisely so it
+ * cannot contaminate the JSON on stdout that callers parse.
  *
  * @returns A {@link BrowserConnection} with the connected browser and workbench page.
  * @throws Error if CDP is not reachable, no page is found, or more than one VS Code window is visible.
@@ -272,7 +313,7 @@ export function assertSingleWindow<T extends { url(): string }>(
 export async function connectBrowser(): Promise<BrowserConnection> {
   let webSocketDebuggerUrl: string;
   try {
-    const response = await fetch('http://127.0.0.1:19222/json/version');
+    const response = await fetch(`${CDP_ORIGIN}/json/version`);
     if (!response.ok) {
       throw new Error(`CDP responded with status ${response.status}`);
     }
@@ -284,7 +325,7 @@ export async function connectBrowser(): Promise<BrowserConnection> {
   } catch (error) {
     if (error instanceof Error && error.message.includes('ECONNREFUSED')) {
       throw new Error(
-        'Cannot connect to CDP at http://127.0.0.1:19222 — ensure VS Code is running with --remote-debugging-port=19222'
+        `Cannot connect to CDP at ${CDP_ORIGIN} — ensure VS Code is running with --remote-debugging-port=19222`
       );
     }
     throw error;
@@ -301,7 +342,7 @@ export async function connectBrowser(): Promise<BrowserConnection> {
     throw new Error('No browser pages found — is VS Code running?');
   }
   try {
-    assertSingleWindow(pages);
+    process.stderr.write(`cards-dev: ${assertSingleWindow(pages)}\n`);
   } catch (error) {
     await browser.disconnect();
     throw error;

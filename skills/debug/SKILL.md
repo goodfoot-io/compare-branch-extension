@@ -131,8 +131,8 @@ A stale host is invisible to the panel-vs-disk pair alone, which is why the host
 
 Two conditions make all three agree while the artifact under investigation has moved, so the block checks both before it will print an all-clear:
 
-- **An artifact newer than the stamp describing it.** A blocked `yarn watch` session withholds `build-target.json` while every save rewrites `dist/bundle.cjs` beside it. No surface here is derived from that file — panel and host both carry compile-time `define`s — so all three agree at the last *complete* build, which is the strongest all-clear this instrument can print handed to the developer whose change is missing. The build session therefore leaves `dist/build-incomplete.json` naming the failing targets — the authoritative signal, because its universe is the gate's own target list and it is written on the way *into* the blocked state rather than inferred afterwards. The block also compares mtimes as a backstop — a `stat`, not a read, so artifact contents stay out of scope: **the stamp should be the newest thing in its directory.** Both the installed `dist/` and the workspace's `packages/extension/dist` are checked, since a watch session writes only the latter.
-- **More than one open window.** `cards-extension` addresses VS Code by workspace path; `cards-dev` addresses it by whoever holds the debug port. With two windows open those are different windows, each stamping its panels from its own host, and the difference would be reported as a stale panel that reloading can never clear. `cards-dev` refuses to operate at all when it sees more than one workbench page (`MULTIPLE VS CODE WINDOWS`), which is what makes the panel read attributable to the window the host read reached. Never set `CARDS_DEV_ALLOW_MULTIPLE_WINDOWS=1` for this check — it waives exactly the attribution the comparison depends on.
+- **An artifact newer than the stamp describing it.** A blocked `yarn watch` session withholds `build-target.json` while every save rewrites `dist/bundle.cjs` beside it. No surface here is derived from that file — panel and host both carry compile-time `define`s — so all three agree at the last *complete* build, which is the strongest all-clear this instrument can print handed to the developer whose change is missing. The build session therefore leaves `dist/build-incomplete.json` naming the failing targets — the authoritative signal, because its universe is the gate's own target list and it is written on the way *into* the blocked state rather than inferred afterwards. The block also compares mtimes as a backstop — a `stat`, not a read, so artifact contents stay out of scope: **the stamp should be the newest thing in its directory.** Both the installed `dist/` and the workspace's `packages/extension/dist` are checked — before anything else and independently of each other, since the marker is readable with no stamp, no host and no `EXTENSION_PATH`, and a session blocked before it ever stamped leaves exactly that state. A directory that is skipped says so (`NOT CHECKED`) instead of counting as clean, and the block names the directories it examined: a watch session in a *different* checkout marks a `dist/` nothing here reads.
+- **More than one open window.** `cards-extension` addresses VS Code by workspace path; `cards-dev` addresses it by whoever holds the debug port. With two windows open those are different windows, each stamping its panels from its own host, and the difference would be reported as a stale panel that reloading can never clear. `cards-dev` refuses to operate at all when it sees more than one workbench page (`MULTIPLE VS CODE WINDOWS`), and on the path where it does not refuse it prints on stderr what it counted and over what universe. **That universe is the debug port only.** A VS Code instance started without `--remote-debugging-port=19222` contributes no page for the guard to count while remaining fully addressable by `cards-extension`'s workspace-path route, so a clean guard is a *necessary* condition for attributing the panel and the host to one process, never a sufficient one. When more than one VS Code instance may be running on this machine, confirm that yourself before believing a `PANEL DIFFERS FROM HOST` verdict; the guard cannot. Never set `CARDS_DEV_ALLOW_MULTIPLE_WINDOWS=1` for this check — it waives even the part of the attribution the guard can establish.
 
 **Establish that the installed build has this feature before comparing anything.** Every reader's first contact is against a build that predates it, and no amount of reloading adds a stamp the build never emitted.
 
@@ -149,23 +149,32 @@ Keys **absent** is the pre-feature signature; keys **present and all-`null`** is
 PANEL_CARD=main-445   # a card whose detail panel is currently open
 PROV=$(mktemp -d)
 STALE=0
-UNORDERED=0
+INCONCLUSIVE=0
 
 # Refuse an all-clear while a build directory holds an artifact newer than the
-# stamp describing it. Returns 0 when incoherent, 2 when the mtimes could not be
-# ordered, 1 when clean; a directory with no stamp is not this check's business
-# (the caller handles it). Only regular files DIRECTLY in $dir are compared — see
-# the coverage note below the block for why subdirectories are excluded.
+# stamp describing it. Returns 0 when incoherent, 2 when nothing could be
+# concluded (no stamp to compare against, or mtimes that cannot be ordered), 1
+# when clean. Only regular files DIRECTLY in $dir are compared — see the coverage
+# note below the block for why subdirectories are excluded.
 report_incoherent_build() {
   dir=$1; label=$2; stamp="$dir/build-target.json"; marker="$dir/build-incomplete.json"
-  [ -f "$stamp" ] || return 1
+  # The marker is examined first and independently of the stamp. A session that
+  # is blocked before it has ever stamped — a fresh checkout whose first
+  # `yarn watch` fails — leaves a marker with no build-target.json beside it,
+  # and gating on the stamp made that directory return "clean" and the block go
+  # on to print an all-clear for the loudest possible mid-failure.
   if [ -f "$marker" ]; then
-    if [ "$marker" -nt "$stamp" ]; then
+    if [ ! -f "$stamp" ] || [ "$marker" -nt "$stamp" ]; then
       echo "BUILD INCOMPLETE — $label ($dir) has no successful bundle for: $(jq -r '.pending // [] | join(", ")' "$marker" 2>/dev/null) (since $(jq -r '.since // "unknown"' "$marker" 2>/dev/null))"
-      echo "Remedy: fix the errors in that build terminal — nothing else. build-target.json still describes the last COMPLETE build, so panel, host, and disk can all agree about a build your change was never in. Reloading and reinstalling change nothing. If no build session is running, this marker is the exit note of one that ended while blocked: the state it describes is still true, and only a successful build retires it (writing the stamp deletes it). Never delete it by hand."
+      [ -f "$stamp" ] || echo "  (and no build-target.json beside it: this session has never completed a build, so there is no identity to compare anything against.)"
+      echo "Remedy: fix the errors in that build terminal — nothing else. Any build-target.json beside this marker still describes the last COMPLETE build, so panel, host, and disk can all agree about a build your change was never in. Reloading and reinstalling change nothing. If no build session is running, this marker is the exit note of one that ended while blocked: the state it describes is still true, and only a successful build retires it (writing the stamp deletes it). Never delete it by hand."
       return 0
     fi
     echo "note: $label ($dir) holds a superseded build-incomplete.json — a later stamp already replaced it; ignoring."
+  fi
+  if [ ! -f "$stamp" ]; then
+    echo "NOT CHECKED — $label ($dir) holds no build-target.json and no marker, so nothing in it was examined."
+    return 2
   fi
   newer=; tied=; compared=0
   for f in "$dir"/*; do
@@ -192,21 +201,39 @@ report_incoherent_build() {
   return 1
 }
 
+# Build-directory coherence runs first and unconditionally. A marker needs no
+# stamp, no EXTENSION_PATH and no host to be readable, so gating it behind any
+# of those hid a blocked session on exactly the paths where one is likeliest —
+# a fresh checkout that has never stamped, or a pre-feature installed build.
+EXAMINED=
 if [ -z "${EXTENSION_PATH:-}" ]; then
-  echo "EXTENSION_PATH UNSET — §1 found no EXTENSION_PATH file, so no artifact was located. Nothing was compared."
+  INCONCLUSIVE=1
+  echo "NOT CHECKED — EXTENSION_PATH is unset, so no installed build directory was examined."
+else
+  EXAMINED="$EXTENSION_PATH/dist"
+  report_incoherent_build "$EXTENSION_PATH/dist" "installed build"
+  case $? in 0) STALE=1 ;; 2) INCONCLUSIVE=1 ;; esac
+fi
+WS_DIST="${WORKSPACE:-}/packages/extension/dist"
+if [ -z "${WORKSPACE:-}" ]; then
+  INCONCLUSIVE=1
+  echo "NOT CHECKED — WORKSPACE is unset, so no workspace build directory was examined."
+  echo "Remedy: resolve WORKSPACE per §1 and rerun. A yarn watch session stamps and marks the WORKSPACE dist, not the installed one, so this is the directory most likely to be mid-failure."
+elif [ "$WS_DIST" != "${EXTENSION_PATH:-}/dist" ]; then
+  EXAMINED="${EXAMINED:+$EXAMINED, }$WS_DIST"
+  report_incoherent_build "$WS_DIST" "workspace build"
+  case $? in 0) STALE=1 ;; 2) INCONCLUSIVE=1 ;; esac
+fi
+echo "build directories examined: ${EXAMINED:-none}. A yarn watch session running in any OTHER checkout — the worktree-per-card norm — marks that checkout's dist, which nothing here reads; check it by hand at <that-checkout>/packages/extension/dist/build-incomplete.json."
+
+if [ -z "${EXTENSION_PATH:-}" ]; then
+  echo "EXTENSION_PATH UNSET — §1 found no EXTENSION_PATH file, so no installed artifact was located. No surface was compared."
   echo "Remedy: install the extension (it records the path), then rerun §1."
 elif ! jq -e 'has("sha") and has("buildTime")' "$EXTENSION_PATH/dist/build-target.json" >/dev/null 2>&1; then
-  echo "NO STAMP ON DISK ($EXTENSION_PATH/dist/build-target.json) — the installed build predates this feature. Nothing was compared."
+  echo "NO STAMP ON DISK ($EXTENSION_PATH/dist/build-target.json) — the installed build predates this feature. No surface was compared."
   echo "Remedy: rebuild and reinstall the extension, then reload the window."
 else
   jq -S '{target,sha,branch,dirty,buildTime}' "$EXTENSION_PATH/dist/build-target.json" > "$PROV/disk.json"
-  report_incoherent_build "$EXTENSION_PATH/dist" "installed build"
-  case $? in 0) STALE=1 ;; 2) UNORDERED=1 ;; esac
-  WS_DIST="${WORKSPACE:-}/packages/extension/dist"
-  if [ -n "${WORKSPACE:-}" ] && [ "$WS_DIST" != "$EXTENSION_PATH/dist" ]; then
-    report_incoherent_build "$WS_DIST" "workspace build"
-    case $? in 0) STALE=1 ;; 2) UNORDERED=1 ;; esac
-  fi
   HOST=$(cards-extension execute-command cards.debug.getBuildInfo 2>&1); HOST_STATUS=$?
   if [ "$HOST_STATUS" -ne 0 ]; then
     echo "NO HOST READ — cards-extension exited $HOST_STATUS: $HOST"
@@ -224,20 +251,24 @@ else
       echo "Remedy: reload the window — unless the host is NEWER than disk, which means something else (see below)."
     fi
 
+    # stderr is captured separately, not folded into stdout: cards-dev prints
+    # its window-attribution scope there on every successful connection, and
+    # merging it would break the jq parse of the JSON on stdout.
     PANEL=$(cards-dev read --target detail --card "$PANEL_CARD" \
-      --selector 'meta[name="cards-build-info"]' --attribute content 2>&1); PANEL_STATUS=$?
+      --selector 'meta[name="cards-build-info"]' --attribute content 2>"$PROV/panel.err"); PANEL_STATUS=$?
+    PANEL_ERR=$(cat "$PROV/panel.err")
     STAMP=$(printf '%s' "$PANEL" | jq -r '.elements[0].text // empty' 2>/dev/null)
     FAILED=$(cards-dev read --target detail --card "$PANEL_CARD" \
       --selector 'meta[name="cards-html-generation-failed"]' --attribute content 2>/dev/null |
       jq -r '.elements[0].text // empty' 2>/dev/null)
 
-    if printf '%s' "$PANEL" | grep -q 'MULTIPLE VS CODE WINDOWS'; then
+    if printf '%s' "$PANEL_ERR" | grep -q 'MULTIPLE VS CODE WINDOWS'; then
       STALE=1
-      echo "MORE THAN ONE WINDOW — $PANEL"
+      echo "MORE THAN ONE WINDOW — $PANEL_ERR"
       echo "Remedy: close all but one VS Code window and rerun. The host was read by workspace path and the panel by debug port; with two windows open those are different windows, and any difference between them would look like a stale panel no reload could clear. The panel surface was not compared."
     elif [ "$PANEL_STATUS" -ne 0 ]; then
       STALE=1
-      echo "NO PANEL READ — cards-dev exited $PANEL_STATUS: $PANEL"
+      echo "NO PANEL READ — cards-dev exited $PANEL_STATUS: $PANEL_ERR"
       echo "Remedy: fix the connection. The panel surface was not compared."
     elif [ -z "$STAMP" ]; then
       STALE=1
@@ -257,15 +288,16 @@ else
         echo "panel matches host — this document was generated by the host now running."
       else
         STALE=1; cat "$PROV/panel-vs-host.diff"
-        echo "PANEL DIFFERS FROM HOST — this document was generated by an older host."
-        echo "Remedy: reload that panel."
+        echo "PANEL DIFFERS FROM HOST — this document was generated by an older host, IF both reads reached the same VS Code instance."
+        echo "cards-dev reported its attribution scope: $PANEL_ERR"
+        echo "Remedy: reload that panel. If a second VS Code instance is running WITHOUT --remote-debugging-port=19222, establish that first — it is invisible to the window guard and still reachable by cards-extension's workspace-path route, and two instances compared as one produce this exact verdict with a remedy that never converges."
       fi
     fi
 
-    if [ "$STALE" -eq 0 ] && [ "$UNORDERED" -eq 0 ]; then
-      echo "ALL THREE AGREE — panel, running host, and installed build are one revision, read from one window, no build directory is mid-failure, and every stamp is the newest top-level file beside it."
+    if [ "$STALE" -eq 0 ] && [ "$INCONCLUSIVE" -eq 0 ]; then
+      echo "ALL THREE AGREE — panel, running host, and installed build are one revision, read from the one window visible on the debug port, no EXAMINED build directory is mid-failure, and every examined stamp is the newest top-level file beside it."
     elif [ "$STALE" -eq 0 ]; then
-      echo "ALL THREE AGREE, ARTIFACTS UNORDERED — panel, running host, and installed build are one revision, read from one window, and no build directory is mid-failure; but a COULD NOT ORDER line printed above, so this all-clear does NOT cover whether an artifact postdates its stamp."
+      echo "ALL THREE AGREE, COVERAGE INCOMPLETE — panel, running host, and installed build are one revision and no examined build directory is mid-failure; but a NOT CHECKED or COULD NOT ORDER line printed above, so this all-clear does NOT cover every build directory or whether an artifact postdates its stamp."
     fi
   fi
 fi
@@ -278,18 +310,19 @@ rm -rf "$PROV"
 - **Direction.** It sees an artifact moving ahead of a stalled stamp. It cannot see a stamp moving ahead of a stalled artifact — a failed build emits nothing, so the artifact simply stops changing while a later successful build restamps around it. That direction is the completion gate's job, which is why the gate registers *every* build outcome and not only the startup pass.
 - **Resolution.** mtime ticks at about a millisecond here and a small target can write its bundle and its stamp inside one tick, so equal mtimes are a state a healthy build reaches. `-nt` reports a tie as "not newer", which would silently read as clean, so the loop tests both directions and calls a tie `COULD NOT ORDER` — reported as an absence of evidence, in the same register as the `Nothing was compared` branches, and it downgrades the all-clear rather than raising an alarm. (The atomic stamp write is not a confound: `rename` carries the temp file's mtime through unchanged, so the stamp is dated when its content was written.)
 
-`ALL THREE AGREE` is the only unqualified all-clear, and it is unreachable unless the host was read and matched, the panel came from the only open window, and every build directory's stamp was ordered and came out newest. The two `matches` lines are scoped claims about one pair, not verdicts on currency:
+`ALL THREE AGREE` is the only unqualified all-clear, and it is unreachable unless the host was read and matched, the panel came from the only window visible on the debug port, and every examined build directory's stamp was ordered and came out newest. Its scope is the two directories the block names on its `build directories examined:` line and the instances the debug port can see — a watch session in another checkout, or a second VS Code instance started without the debug port, is outside it in every verdict below. The two `matches` lines are scoped claims about one pair, not verdicts on currency:
 
 | Printed verdict | What it means | Remedy |
 |---|---|---|
-| `ALL THREE AGREE` | host read and matched disk; panel read and matched host; no build directory is mid-failure; every stamp ordered newest | nothing |
-| `ALL THREE AGREE, ARTIFACTS UNORDERED` | the same, except one directory's mtimes could not be ordered — the surfaces agree, the artifact question is open | rerun after a touch of activity, or read the marker; treat as unproven, not clean |
+| `ALL THREE AGREE` | host read and matched disk; panel read and matched host; no examined build directory is mid-failure; every examined stamp ordered newest | nothing |
+| `ALL THREE AGREE, COVERAGE INCOMPLETE` | the same, except a directory went unexamined or its mtimes could not be ordered — the surfaces agree, the artifact question is open | check the unnamed directory or rerun after a touch of activity; treat as unproven, not clean |
 | `BUILD INCOMPLETE` | a build session had no successful bundle for the named targets; the stamp is being withheld | fix the build errors in that terminal — never reload or reinstall |
 | `STAMP OLDER THAN ARTIFACT` | a top-level artifact was written after the stamp, with no marker to explain it | check the build terminal, then rebuild |
 | `COULD NOT ORDER` | a top-level artifact shares the stamp's mtime, or there was nothing to compare | not a failure and not an all-clear; the marker is the surface to trust here |
-| `MORE THAN ONE WINDOW` | `cards-dev` refused: the panel could not be attributed to the window the host was read from | close all but one window; nothing was compared |
+| `NOT CHECKED` | a build directory was skipped — no stamp and no marker in it, or `WORKSPACE` unset | examine that directory by hand; nothing there was compared |
+| `MORE THAN ONE WINDOW` | `cards-dev` refused: two windows are on the debug port, so the panel could not be attributed to the window the host was read from | close all but one window; nothing was compared |
 | `HOST DIFFERS FROM DISK` | the window is executing a different build than the one installed | reload the window (but see *host newer than disk* below) |
-| `PANEL DIFFERS FROM HOST` | this document predates the running host — and, because `MORE THAN ONE WINDOW` did not print, it is the same window's earlier host | reload that panel |
+| `PANEL DIFFERS FROM HOST` | this document predates the running host, *provided* both reads reached one VS Code instance — `MORE THAN ONE WINDOW` rules out only a second window on the debug port, not an instance started without it | reload that panel; first establish that only one VS Code instance is running |
 | `NO STAMP ON DISK` | build predates the feature (or `dist/` is missing) | rebuild, reinstall, reload the window |
 | `EXTENSION_PATH UNSET` | §1 located no installed extension — **not** a pre-feature build | resolve `EXTENSION_PATH` first; nothing was compared |
 | `NO HOST READ` | host predates the feature, or no host was reached | reload the window, or fix the connection |

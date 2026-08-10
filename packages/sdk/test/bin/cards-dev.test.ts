@@ -311,19 +311,30 @@ function pageAt(url: string): { url(): string } {
   return { url: () => url };
 }
 
-/** The two-window state a worktree-per-card workflow produces routinely. */
+/**
+ * The two-window state a worktree-per-card workflow produces routinely.
+ *
+ * No webview page appears here because a webview is not a page: it is a
+ * `vscode-webview://` iframe nested inside its window's own workbench page,
+ * which is why every frame walk in the CLI descends `page.frames()` and then
+ * `frame.childFrames()` to reach one. The non-workbench page in this fixture is
+ * a devtools document — the kind of page a CDP connection really can carry
+ * alongside the windows.
+ */
 const TWO_WINDOWS = [
   pageAt('vscode-file://vscode-app/.../workbench.html'),
-  pageAt('vscode-webview://a1/index.html'),
-  pageAt('vscode-file://vscode-app/.../workbench.html'),
-  pageAt('vscode-webview://b2/index.html')
+  pageAt('devtools://devtools/bundled/devtools_app.html'),
+  pageAt('vscode-file://vscode-app/.../workbench.html')
 ];
 
 describe('assertSingleWindow', () => {
-  it('allows a single window with its webview pages', () => {
+  it('allows a single window alongside the other pages a connection carries', () => {
     expect(() =>
       assertSingleWindow(
-        [pageAt('vscode-file://vscode-app/.../workbench.html'), pageAt('vscode-webview://a1/index.html')],
+        [
+          pageAt('vscode-file://vscode-app/.../workbench.html'),
+          pageAt('devtools://devtools/bundled/devtools_app.html')
+        ],
         {}
       )
     ).not.toThrow();
@@ -356,18 +367,42 @@ describe('assertSingleWindow', () => {
     }
   });
 
-  it('does not count webview pages as windows', () => {
+  it('does not count non-workbench pages as windows', () => {
+    // A window contributes exactly one page however many panels it has open,
+    // so anything else on the connection — devtools, an issue reporter — must
+    // not read as a second window and refuse an attributable read.
     expect(() =>
       assertSingleWindow(
         [
           pageAt('vscode-file://vscode-app/.../workbench.html'),
-          pageAt('vscode-webview://a1/index.html'),
-          pageAt('vscode-webview://a2/index.html'),
-          pageAt('vscode-webview://a3/index.html')
+          pageAt('devtools://devtools/bundled/devtools_app.html'),
+          pageAt('vscode-file://vscode-app/.../issue-reporter.html')
         ],
         {}
       )
     ).not.toThrow();
+  });
+
+  it('reports what it verified, over the universe it could see', () => {
+    // The guard's success used to be silence, which reads as "these two reads
+    // came from one process" — a claim it cannot make. Its universe is the
+    // pages on the debug port, and an instance launched without
+    // --remote-debugging-port=19222 contributes none while staying reachable by
+    // cards-extension's workspace-path route. The note has to carry both halves
+    // or the caller supplies the missing one by assumption.
+    const note = assertSingleWindow([pageAt('vscode-file://vscode-app/.../workbench.html')], {});
+
+    expect(note).toContain('1 VS Code window visible on http://127.0.0.1:19222');
+    expect(note).toContain('Not checked');
+    expect(note).toContain('--remote-debugging-port=19222');
+    expect(note).toContain('cards-extension');
+  });
+
+  it('says the attribution was waived rather than verified under the waiver', () => {
+    const note = assertSingleWindow(TWO_WINDOWS, { [ALLOW_MULTIPLE_WINDOWS_ENV]: '1' });
+
+    expect(note).toContain('WAIVED');
+    expect(note).toContain('names no window');
   });
 
   it('refuses a third window too, reporting the real count', () => {
@@ -380,5 +415,17 @@ describe('assertSingleWindow', () => {
 describe('workbenchPages', () => {
   it('selects exactly the workbench documents', () => {
     expect(workbenchPages(TWO_WINDOWS)).toHaveLength(2);
+  });
+
+  it('counts one page per window however many webviews that window has open', () => {
+    // Webview documents are iframes inside the workbench page, so a window with
+    // six panels open still contributes exactly one page. This is what makes
+    // the count a window count without any discounting.
+    expect(
+      workbenchPages([
+        pageAt('vscode-file://vscode-app/.../workbench.html'),
+        pageAt('devtools://devtools/bundled/devtools_app.html')
+      ])
+    ).toHaveLength(1);
   });
 });
