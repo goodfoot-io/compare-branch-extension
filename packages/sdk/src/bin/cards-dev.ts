@@ -137,6 +137,10 @@ SUBCOMMANDS
 PREREQUISITES
   VS Code must be running with --remote-debugging-port=19222
   CDP endpoint: http://127.0.0.1:19222
+  Exactly one VS Code window: this CLI addresses VS Code by debug port, not by
+  workspace, so with two windows open no result can be attributed to a window.
+  Every subcommand refuses; set CARDS_DEV_ALLOW_MULTIPLE_WINDOWS=1 to proceed
+  knowing the result names no window.
 `;
 
 // ─── Boolean flags (no value argument) ───────────────────────────────────────
@@ -189,6 +193,67 @@ export function parseFlags(args: string[]): Record<string, string[]> {
 // ─── CDP Connection Helpers ───────────────────────────────────────────────────
 
 /**
+ * Environment variable that waives the single-window requirement.
+ *
+ * Set to `1` only when the caller genuinely does not care which window it
+ * reached — an acknowledgement, not a workaround, because nothing downstream
+ * can recover the attribution once it is waived.
+ */
+export const ALLOW_MULTIPLE_WINDOWS_ENV = 'CARDS_DEV_ALLOW_MULTIPLE_WINDOWS';
+
+/**
+ * The workbench pages among a browser's pages — one per open VS Code window.
+ *
+ * Webviews render on their own Electron pages, so a window contributes exactly
+ * one `workbench.html` page plus a page per open webview. Counting workbench
+ * pages therefore counts windows.
+ *
+ * @param pages - All browser pages from the CDP connection.
+ * @returns The subset whose URL is a workbench document.
+ */
+export function workbenchPages<T extends { url(): string }>(pages: T[]): T[] {
+  return pages.filter((p) => p.url().includes('workbench.html'));
+}
+
+/**
+ * Refuses to operate when more than one VS Code window is on the debug port.
+ *
+ * This CLI addresses VS Code by *whoever holds the debug port*, while its
+ * sibling `cards-extension` addresses it by *workspace path*. The two schemes
+ * share no identifier, so with two windows open a caller can read one window's
+ * panel and another window's host and compare them as though they came from one
+ * process — the `cards:debug` provenance check did exactly that, and reported
+ * the resulting difference as a stale panel with a remedy (reload the panel)
+ * that regenerates it from its own window's host and therefore can never clear
+ * the verdict. A worktree-per-card workflow makes two windows ordinary.
+ *
+ * Nothing in a page's URL or title carries the workspace it belongs to, so the
+ * ambiguity cannot be resolved after the fact by filtering — a webview page
+ * cannot be attributed to a window at all. Failing closed at the connection is
+ * therefore the only honest option, and it covers every subcommand rather than
+ * the one check that happened to notice: a `click` delivered to the wrong
+ * window is a worse outcome than a refused read.
+ *
+ * @param pages - All browser pages from the CDP connection.
+ * @param env - Environment to read the waiver from; defaults to the process environment.
+ * @throws Error naming the window count when more than one window is visible and no waiver is set.
+ */
+export function assertSingleWindow<T extends { url(): string }>(
+  pages: T[],
+  env: Record<string, string | undefined> = process.env
+): void {
+  if (env[ALLOW_MULTIPLE_WINDOWS_ENV] === '1') return;
+  const windows = workbenchPages(pages);
+  if (windows.length > 1) {
+    throw new Error(
+      `MULTIPLE VS CODE WINDOWS — ${windows.length} windows are visible on the debug port, and a page cannot be attributed to one of them. ` +
+        'Whatever this command read or clicked could belong to a different window than the one cards-extension addresses by workspace path, so the two cannot be compared as one process. ' +
+        `Close all but one window and rerun, or set ${ALLOW_MULTIPLE_WINDOWS_ENV}=1 to proceed knowing the result names no window.`
+    );
+  }
+}
+
+/**
  * Connects to the running VS Code Electron process via CDP and finds the
  * workbench page.
  *
@@ -197,8 +262,12 @@ export function parseFlags(args: string[]): Record<string, string[]> {
  * returns the browser and the workbench page. Throws on any failure — there is
  * no silent fallback.
  *
+ * Refuses the connection when {@link assertSingleWindow} finds more than one
+ * window on the port, disconnecting first — an unattributable page is worse
+ * than no page for every subcommand, not just the ones that compare surfaces.
+ *
  * @returns A {@link BrowserConnection} with the connected browser and workbench page.
- * @throws Error if CDP is not reachable or the workbench page is not found.
+ * @throws Error if CDP is not reachable, no page is found, or more than one VS Code window is visible.
  */
 export async function connectBrowser(): Promise<BrowserConnection> {
   let webSocketDebuggerUrl: string;
@@ -230,6 +299,12 @@ export async function connectBrowser(): Promise<BrowserConnection> {
   if (pages.length === 0) {
     await browser.disconnect();
     throw new Error('No browser pages found — is VS Code running?');
+  }
+  try {
+    assertSingleWindow(pages);
+  } catch (error) {
+    await browser.disconnect();
+    throw error;
   }
 
   return { browser, pages };

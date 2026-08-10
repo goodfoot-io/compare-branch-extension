@@ -129,6 +129,11 @@ All three derive from one identity sampled at build start, so on a healthy build
 
 A stale host is invisible to the panel-vs-disk pair alone, which is why the host read is not optional and no verdict below reaches an all-clear without it.
 
+Two conditions make all three agree while the artifact under investigation has moved, so the block checks both before it will print an all-clear:
+
+- **An artifact newer than the stamp describing it.** A blocked `yarn watch` session withholds `build-target.json` while every save rewrites `dist/bundle.cjs` beside it. No surface here is derived from that file — panel and host both carry compile-time `define`s — so all three agree at the last *complete* build, which is the strongest all-clear this instrument can print handed to the developer whose change is missing. The build session therefore leaves `dist/build-incomplete.json` naming the failing targets — the authoritative signal, because its universe is the gate's own target list and it is written on the way *into* the blocked state rather than inferred afterwards. The block also compares mtimes as a backstop — a `stat`, not a read, so artifact contents stay out of scope: **the stamp should be the newest thing in its directory.** Both the installed `dist/` and the workspace's `packages/extension/dist` are checked, since a watch session writes only the latter.
+- **More than one open window.** `cards-extension` addresses VS Code by workspace path; `cards-dev` addresses it by whoever holds the debug port. With two windows open those are different windows, each stamping its panels from its own host, and the difference would be reported as a stale panel that reloading can never clear. `cards-dev` refuses to operate at all when it sees more than one workbench page (`MULTIPLE VS CODE WINDOWS`), which is what makes the panel read attributable to the window the host read reached. Never set `CARDS_DEV_ALLOW_MULTIPLE_WINDOWS=1` for this check — it waives exactly the attribution the comparison depends on.
+
 **Establish that the installed build has this feature before comparing anything.** Every reader's first contact is against a build that predates it, and no amount of reloading adds a stamp the build never emitted.
 
 | Surface | Pre-feature signature | Feature present |
@@ -144,6 +149,48 @@ Keys **absent** is the pre-feature signature; keys **present and all-`null`** is
 PANEL_CARD=main-445   # a card whose detail panel is currently open
 PROV=$(mktemp -d)
 STALE=0
+UNORDERED=0
+
+# Refuse an all-clear while a build directory holds an artifact newer than the
+# stamp describing it. Returns 0 when incoherent, 2 when the mtimes could not be
+# ordered, 1 when clean; a directory with no stamp is not this check's business
+# (the caller handles it). Only regular files DIRECTLY in $dir are compared — see
+# the coverage note below the block for why subdirectories are excluded.
+report_incoherent_build() {
+  dir=$1; label=$2; stamp="$dir/build-target.json"; marker="$dir/build-incomplete.json"
+  [ -f "$stamp" ] || return 1
+  if [ -f "$marker" ]; then
+    if [ "$marker" -nt "$stamp" ]; then
+      echo "BUILD INCOMPLETE — $label ($dir) has no successful bundle for: $(jq -r '.pending // [] | join(", ")' "$marker" 2>/dev/null) (since $(jq -r '.since // "unknown"' "$marker" 2>/dev/null))"
+      echo "Remedy: fix the errors in that build terminal — nothing else. build-target.json still describes the last COMPLETE build, so panel, host, and disk can all agree about a build your change was never in. Reloading and reinstalling change nothing. If no build session is running, this marker is the exit note of one that ended while blocked: the state it describes is still true, and only a successful build retires it (writing the stamp deletes it). Never delete it by hand."
+      return 0
+    fi
+    echo "note: $label ($dir) holds a superseded build-incomplete.json — a later stamp already replaced it; ignoring."
+  fi
+  newer=; tied=; compared=0
+  for f in "$dir"/*; do
+    [ -f "$f" ] || continue
+    case "${f##*/}" in build-target.json|build-incomplete.json) continue ;; esac
+    compared=$((compared + 1))
+    if [ "$f" -nt "$stamp" ]; then newer="${f##*/}"; break; fi
+    [ "$stamp" -nt "$f" ] || tied="${f##*/}"
+  done
+  if [ -n "$newer" ]; then
+    echo "STAMP OLDER THAN ARTIFACT — $label ($dir): $newer was written after build-target.json, so the stamp does not describe the artifacts beside it."
+    echo "Remedy: a build wrote an artifact without stamping — check the build terminal for errors, then rebuild. Every surface below reports the stamped (older) identity."
+    return 0
+  fi
+  if [ "$compared" -eq 0 ]; then
+    echo "COULD NOT ORDER — $label ($dir) holds a stamp and no other top-level artifact, so nothing was compared against it."
+    return 2
+  fi
+  if [ -n "$tied" ]; then
+    echo "COULD NOT ORDER — $label ($dir): $tied carries the same mtime as build-target.json (this filesystem ticks at ~1ms and a build can write both inside one tick), so their order is unknown. Not a clean result."
+    return 2
+  fi
+  echo "stamp is the newest of $compared top-level artifacts in $label ($dir)."
+  return 1
+}
 
 if [ -z "${EXTENSION_PATH:-}" ]; then
   echo "EXTENSION_PATH UNSET — §1 found no EXTENSION_PATH file, so no artifact was located. Nothing was compared."
@@ -153,6 +200,13 @@ elif ! jq -e 'has("sha") and has("buildTime")' "$EXTENSION_PATH/dist/build-targe
   echo "Remedy: rebuild and reinstall the extension, then reload the window."
 else
   jq -S '{target,sha,branch,dirty,buildTime}' "$EXTENSION_PATH/dist/build-target.json" > "$PROV/disk.json"
+  report_incoherent_build "$EXTENSION_PATH/dist" "installed build"
+  case $? in 0) STALE=1 ;; 2) UNORDERED=1 ;; esac
+  WS_DIST="${WORKSPACE:-}/packages/extension/dist"
+  if [ -n "${WORKSPACE:-}" ] && [ "$WS_DIST" != "$EXTENSION_PATH/dist" ]; then
+    report_incoherent_build "$WS_DIST" "workspace build"
+    case $? in 0) STALE=1 ;; 2) UNORDERED=1 ;; esac
+  fi
   HOST=$(cards-extension execute-command cards.debug.getBuildInfo 2>&1); HOST_STATUS=$?
   if [ "$HOST_STATUS" -ne 0 ]; then
     echo "NO HOST READ — cards-extension exited $HOST_STATUS: $HOST"
@@ -177,7 +231,11 @@ else
       --selector 'meta[name="cards-html-generation-failed"]' --attribute content 2>/dev/null |
       jq -r '.elements[0].text // empty' 2>/dev/null)
 
-    if [ "$PANEL_STATUS" -ne 0 ]; then
+    if printf '%s' "$PANEL" | grep -q 'MULTIPLE VS CODE WINDOWS'; then
+      STALE=1
+      echo "MORE THAN ONE WINDOW — $PANEL"
+      echo "Remedy: close all but one VS Code window and rerun. The host was read by workspace path and the panel by debug port; with two windows open those are different windows, and any difference between them would look like a stale panel no reload could clear. The panel surface was not compared."
+    elif [ "$PANEL_STATUS" -ne 0 ]; then
       STALE=1
       echo "NO PANEL READ — cards-dev exited $PANEL_STATUS: $PANEL"
       echo "Remedy: fix the connection. The panel surface was not compared."
@@ -204,19 +262,34 @@ else
       fi
     fi
 
-    [ "$STALE" -eq 0 ] && echo "ALL THREE AGREE — panel, running host, and installed build are one revision."
+    if [ "$STALE" -eq 0 ] && [ "$UNORDERED" -eq 0 ]; then
+      echo "ALL THREE AGREE — panel, running host, and installed build are one revision, read from one window, no build directory is mid-failure, and every stamp is the newest top-level file beside it."
+    elif [ "$STALE" -eq 0 ]; then
+      echo "ALL THREE AGREE, ARTIFACTS UNORDERED — panel, running host, and installed build are one revision, read from one window, and no build directory is mid-failure; but a COULD NOT ORDER line printed above, so this all-clear does NOT cover whether an artifact postdates its stamp."
+    fi
   fi
 fi
 rm -rf "$PROV"
 ```
 
-`ALL THREE AGREE` is the only all-clear, and it is unreachable unless the host was read and matched. The two `matches` lines are scoped claims about one pair, not verdicts on currency:
+**The mtime backstop is narrower than the marker, and knowing where it stops is part of using it.** A filesystem timestamp is standing in for build identity, which buys three limits worth stating outright:
+
+- **Coverage.** The gate's universe is `buildTargetKeys(WEBVIEW_CONFIGS)` in [completion-gate.js](./packages/extension/scripts/build/completion-gate.js) — the extension plus six webviews. The loop compares every regular file directly in the build directory, which reaches six of those seven: `bundle.cjs` and the five webview bundles that land at the top level. The seventh, `webview:cardsDetail`, writes into `dist/webview/cards-detail/` and is **not** compared, and neither is anything else in a subdirectory. That is a measured boundary, not laziness: in an installed copy the whole `dist/webview/**` and `dist/marketplace/**` trees postdate `build-target.json` by fractions of a second purely because a vsix extracts in archive order, so recursing would fire on every healthy installation. Top-level-only is the widest scan that is clean on both a workspace `dist/` and an installed one. The marker, not the mtime, is what covers all seven.
+- **Direction.** It sees an artifact moving ahead of a stalled stamp. It cannot see a stamp moving ahead of a stalled artifact — a failed build emits nothing, so the artifact simply stops changing while a later successful build restamps around it. That direction is the completion gate's job, which is why the gate registers *every* build outcome and not only the startup pass.
+- **Resolution.** mtime ticks at about a millisecond here and a small target can write its bundle and its stamp inside one tick, so equal mtimes are a state a healthy build reaches. `-nt` reports a tie as "not newer", which would silently read as clean, so the loop tests both directions and calls a tie `COULD NOT ORDER` — reported as an absence of evidence, in the same register as the `Nothing was compared` branches, and it downgrades the all-clear rather than raising an alarm. (The atomic stamp write is not a confound: `rename` carries the temp file's mtime through unchanged, so the stamp is dated when its content was written.)
+
+`ALL THREE AGREE` is the only unqualified all-clear, and it is unreachable unless the host was read and matched, the panel came from the only open window, and every build directory's stamp was ordered and came out newest. The two `matches` lines are scoped claims about one pair, not verdicts on currency:
 
 | Printed verdict | What it means | Remedy |
 |---|---|---|
-| `ALL THREE AGREE` | host read and matched disk; panel read and matched host | nothing |
+| `ALL THREE AGREE` | host read and matched disk; panel read and matched host; no build directory is mid-failure; every stamp ordered newest | nothing |
+| `ALL THREE AGREE, ARTIFACTS UNORDERED` | the same, except one directory's mtimes could not be ordered — the surfaces agree, the artifact question is open | rerun after a touch of activity, or read the marker; treat as unproven, not clean |
+| `BUILD INCOMPLETE` | a build session had no successful bundle for the named targets; the stamp is being withheld | fix the build errors in that terminal — never reload or reinstall |
+| `STAMP OLDER THAN ARTIFACT` | a top-level artifact was written after the stamp, with no marker to explain it | check the build terminal, then rebuild |
+| `COULD NOT ORDER` | a top-level artifact shares the stamp's mtime, or there was nothing to compare | not a failure and not an all-clear; the marker is the surface to trust here |
+| `MORE THAN ONE WINDOW` | `cards-dev` refused: the panel could not be attributed to the window the host was read from | close all but one window; nothing was compared |
 | `HOST DIFFERS FROM DISK` | the window is executing a different build than the one installed | reload the window (but see *host newer than disk* below) |
-| `PANEL DIFFERS FROM HOST` | this document predates the running host | reload that panel |
+| `PANEL DIFFERS FROM HOST` | this document predates the running host — and, because `MORE THAN ONE WINDOW` did not print, it is the same window's earlier host | reload that panel |
 | `NO STAMP ON DISK` | build predates the feature (or `dist/` is missing) | rebuild, reinstall, reload the window |
 | `EXTENSION_PATH UNSET` | §1 located no installed extension — **not** a pre-feature build | resolve `EXTENSION_PATH` first; nothing was compared |
 | `NO HOST READ` | host predates the feature, or no host was reached | reload the window, or fix the connection |
@@ -226,7 +299,7 @@ rm -rf "$PROV"
 
 `PANEL CARRIES NO TAG` is the one ambiguous row: it is either a document generated by a pre-feature host (a reload fixes it) or a current document that genuinely lacks the tag — a real defect. Rerunning after the reload tells them apart; `cards-dev read --target detail --card "$PANEL_CARD" --selector meta --attribute name` lists what the document does carry.
 
-**Host newer than disk** is the one difference that is not staleness: a `yarn watch` session is withholding its stamp because some build target has not produced a successful bundle this session, so `build-target.json` still describes the last complete build while `dist/bundle.cjs` has been rebuilt from every save since. Do not reload and do not reinstall — that watch terminal prints `Build incomplete — no successful bundle this session for: <targets>` on every rebuild, and fixing those targets restamps on the next one. (A webview- or CSS-only rebuild does *not* produce this: the watch loop restamps with the identity of the host bundle actually on disk, not a freshly sampled one.)
+**A withheld stamp is the one state where every surface can be current and the answer still wrong**, because the artifact it moves — `dist/bundle.cjs` — is the one thing no surface reads. `BUILD INCOMPLETE` is that state named: a `yarn watch` session has a target with no successful bundle this session, so `build-target.json` still describes the last complete build while every save since has rebuilt the bundle beside it. Do not reload and do not reinstall; that terminal prints `Build incomplete — no successful bundle this session for: <targets>` on every rebuild, and fixing those targets restamps and clears the marker on the next one. `HOST DIFFERS FROM DISK` with the **host newer** is the same cause seen from a window that outlived the last complete build, and has the same remedy. (A webview- or CSS-only rebuild does *not* produce a mismatch: the watch loop restamps with the identity of the host bundle actually on disk, not a freshly sampled one.)
 
 This CLI's coverage is honest, not complete: it reaches the card-detail panel and the sidebar list only. On a current build both are found from inert `<meta>` markup — `cards-webview-kind` for the list, `cards-panel-card-id` for a detail panel whose `window.__INIT_DATA__` never got set — so neither depends on the panel's own script having executed. On a pre-feature frame carrying no such markup, both fall back to script-dependent DOM probes and a frozen panel is simply not found; so is a card that is not already open, since opening one clicks through the rendered list. The other five panels (editor, create-card, stream, license, setup-wizard) carry the same `cards-build-info` tag by construction but have no CLI readout today, and need a manual CDP read instead. A matching SHA only establishes that the commit was *available* to the build (`git merge-base --is-ancestor <commit> <sha>`), not that its code survived bundling/tree-shaking into the artifact under inspection — for that narrower question, grepping the running bundle for a literal string the feature must emit is still the right tool; this provenance stamp does not replace it. For a stream/HTML-file panel specifically, a CDP read must target the panel's own top-level frame — never the `srcdoc` iframe's separate document, which is a different, unrelated document and will never carry this tag.
 

@@ -13,7 +13,15 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import type { Frame, Page } from 'puppeteer-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaultScreenshotPath, findAllDetailFrames, findWebviewFrame, parseFlags } from '../../src/bin/cards-dev.js';
+import {
+  ALLOW_MULTIPLE_WINDOWS_ENV,
+  assertSingleWindow,
+  defaultScreenshotPath,
+  findAllDetailFrames,
+  findWebviewFrame,
+  parseFlags,
+  workbenchPages
+} from '../../src/bin/cards-dev.js';
 
 // Wrap os.tmpdir with a spy that defaults to the real implementation, so the
 // "real temp dir" test below still observes the genuine platform temp dir while
@@ -288,5 +296,89 @@ describe('findWebviewFrame — list target', () => {
     const frame = await findWebviewFrame(makePageWithChildFrames([createCardFrame, legacySidebarFrame]), 'list');
 
     expect(frame).toBe(legacySidebarFrame);
+  });
+});
+
+// ─── Window attribution ──────────────────────────────────────────────────────
+
+/**
+ * A page fixture that reports only its URL — all `assertSingleWindow` reads.
+ *
+ * @param url - URL the fake page reports.
+ * @returns A structural stand-in for a Puppeteer page.
+ */
+function pageAt(url: string): { url(): string } {
+  return { url: () => url };
+}
+
+/** The two-window state a worktree-per-card workflow produces routinely. */
+const TWO_WINDOWS = [
+  pageAt('vscode-file://vscode-app/.../workbench.html'),
+  pageAt('vscode-webview://a1/index.html'),
+  pageAt('vscode-file://vscode-app/.../workbench.html'),
+  pageAt('vscode-webview://b2/index.html')
+];
+
+describe('assertSingleWindow', () => {
+  it('allows a single window with its webview pages', () => {
+    expect(() =>
+      assertSingleWindow(
+        [pageAt('vscode-file://vscode-app/.../workbench.html'), pageAt('vscode-webview://a1/index.html')],
+        {}
+      )
+    ).not.toThrow();
+  });
+
+  it('refuses when two windows are visible on the debug port', () => {
+    // The defect this closes: with two windows, this CLI (addressed by debug
+    // port) can read window B's panel while cards-extension (addressed by
+    // workspace path) reads window A's host, and the difference gets reported
+    // as a stale panel whose remedy — reload the panel — regenerates it from
+    // window B's host and leaves both compared values exactly where they were.
+    expect(() => assertSingleWindow(TWO_WINDOWS, {})).toThrow(/MULTIPLE VS CODE WINDOWS — 2 windows/);
+  });
+
+  it('names the waiver in the refusal so the message is actionable', () => {
+    expect(() => assertSingleWindow(TWO_WINDOWS, {})).toThrow(/CARDS_DEV_ALLOW_MULTIPLE_WINDOWS=1/);
+  });
+
+  it('proceeds under an explicit waiver', () => {
+    expect(() => assertSingleWindow(TWO_WINDOWS, { [ALLOW_MULTIPLE_WINDOWS_ENV]: '1' })).not.toThrow();
+  });
+
+  it('treats any value other than 1 as no waiver at all', () => {
+    // A fail-open waiver is worse than none: `=0` or `=false` reads as "off" to
+    // whoever exported it, and would silently restore the unattributable read.
+    for (const value of ['0', 'false', '', 'yes']) {
+      expect(() => assertSingleWindow(TWO_WINDOWS, { [ALLOW_MULTIPLE_WINDOWS_ENV]: value })).toThrow(
+        /MULTIPLE VS CODE WINDOWS/
+      );
+    }
+  });
+
+  it('does not count webview pages as windows', () => {
+    expect(() =>
+      assertSingleWindow(
+        [
+          pageAt('vscode-file://vscode-app/.../workbench.html'),
+          pageAt('vscode-webview://a1/index.html'),
+          pageAt('vscode-webview://a2/index.html'),
+          pageAt('vscode-webview://a3/index.html')
+        ],
+        {}
+      )
+    ).not.toThrow();
+  });
+
+  it('refuses a third window too, reporting the real count', () => {
+    expect(() =>
+      assertSingleWindow([...TWO_WINDOWS, pageAt('vscode-file://vscode-app/.../workbench.html')], {})
+    ).toThrow(/MULTIPLE VS CODE WINDOWS — 3 windows/);
+  });
+});
+
+describe('workbenchPages', () => {
+  it('selects exactly the workbench documents', () => {
+    expect(workbenchPages(TWO_WINDOWS)).toHaveLength(2);
   });
 });
