@@ -151,26 +151,35 @@ PROV=$(mktemp -d)
 STALE=0
 INCONCLUSIVE=0
 
-# Refuse an all-clear while a build directory holds an artifact newer than the
-# stamp describing it. Returns 0 when incoherent, 2 when nothing could be
-# concluded (no stamp to compare against, or mtimes that cannot be ordered), 1
-# when clean. Only regular files DIRECTLY in $dir are compared — see the coverage
-# note below the block for why subdirectories are excluded.
+# Refuse an all-clear while a build directory carries an incomplete-build marker
+# or holds an artifact newer than the stamp describing it. Returns 0 when
+# incoherent, 2 when nothing could be concluded (no stamp to compare against, or
+# mtimes that cannot be ordered), 1 when clean. The marker is read; only the
+# artifacts are dated. Only regular files DIRECTLY in $dir are compared — see the
+# coverage note below the block for why subdirectories are excluded.
 report_incoherent_build() {
   dir=$1; label=$2; stamp="$dir/build-target.json"; marker="$dir/build-incomplete.json"
-  # The marker is examined first and independently of the stamp. A session that
-  # is blocked before it has ever stamped — a fresh checkout whose first
-  # `yarn watch` fails — leaves a marker with no build-target.json beside it,
-  # and gating on the stamp made that directory return "clean" and the block go
-  # on to print an all-clear for the loudest possible mid-failure.
+  # The marker is examined first, independently of the stamp, and judged by its
+  # CONTENT — never by its mtime against the stamp. A session that is blocked
+  # before it has ever stamped leaves a marker with no build-target.json beside
+  # it, and gating on the stamp made that directory return "clean". Ordering the
+  # two by mtime failed the same way from the other side: the stamp write and the
+  # re-mark that follows it land in one filesystem tick, `-nt` is false on a tie,
+  # and the marker read as superseded. A marker only ever exists while some
+  # target has no successful bundle, so its presence is the verdict; only a
+  # successful build removes it, and nothing here needs to date it.
   if [ -f "$marker" ]; then
-    if [ ! -f "$stamp" ] || [ "$marker" -nt "$stamp" ]; then
-      echo "BUILD INCOMPLETE — $label ($dir) has no successful bundle for: $(jq -r '.pending // [] | join(", ")' "$marker" 2>/dev/null) (since $(jq -r '.since // "unknown"' "$marker" 2>/dev/null))"
-      [ -f "$stamp" ] || echo "  (and no build-target.json beside it: this session has never completed a build, so there is no identity to compare anything against.)"
-      echo "Remedy: fix the errors in that build terminal — nothing else. Any build-target.json beside this marker still describes the last COMPLETE build, so panel, host, and disk can all agree about a build your change was never in. Reloading and reinstalling change nothing. If no build session is running, this marker is the exit note of one that ended while blocked: the state it describes is still true, and only a successful build retires it (writing the stamp deletes it). Never delete it by hand."
+    marker_pending=$(jq -r 'if (.pending | type) == "array" and (.pending | length) > 0 then (.pending | join(", ")) else empty end' "$marker" 2>/dev/null)
+    marker_since=$(jq -r 'if (.since | type) == "number" then (.since | tostring) else empty end' "$marker" 2>/dev/null)
+    if [ -z "$marker_pending" ] || [ -z "$marker_since" ]; then
+      echo "BUILD MARKER UNREADABLE — $label ($dir) holds a build-incomplete.json that does not carry a non-empty .pending array and a numeric .since. Its directory cannot be called clean."
+      echo "Remedy: read $marker by hand. Only a build session writes this file and only a successful build removes it, so a shape no reader recognises means either a truncated write or something else writing that name — both leave the build state unknown."
       return 0
     fi
-    echo "note: $label ($dir) holds a superseded build-incomplete.json — a later stamp already replaced it; ignoring."
+    echo "BUILD INCOMPLETE — $label ($dir) has no successful bundle for: $marker_pending (since $marker_since)"
+    [ -f "$stamp" ] || echo "  (and no build-target.json beside it: this session has never completed a build, so there is no identity to compare anything against.)"
+    echo "Remedy: fix the errors in that build terminal — nothing else. Any build-target.json beside this marker still describes the last COMPLETE build, so panel, host, and disk can all agree about a build your change was never in. Reloading and reinstalling change nothing. If no build session is running, this marker is the exit note of one that ended while blocked: the state it describes is still true, and only a successful build retires it. Never delete it by hand."
+    return 0
   fi
   if [ ! -f "$stamp" ]; then
     echo "NOT CHECKED — $label ($dir) holds no build-target.json and no marker, so nothing in it was examined."
@@ -308,7 +317,7 @@ rm -rf "$PROV"
 
 - **Coverage.** The gate's universe is `buildTargetKeys(WEBVIEW_CONFIGS)` in [completion-gate.js](./packages/extension/scripts/build/completion-gate.js) — the extension plus six webviews. The loop compares every regular file directly in the build directory, which reaches six of those seven: `bundle.cjs` and the five webview bundles that land at the top level. The seventh, `webview:cardsDetail`, writes into `dist/webview/cards-detail/` and is **not** compared, and neither is anything else in a subdirectory. That is a measured boundary, not laziness: in an installed copy the whole `dist/webview/**` and `dist/marketplace/**` trees postdate `build-target.json` by fractions of a second purely because a vsix extracts in archive order, so recursing would fire on every healthy installation. Top-level-only is the widest scan that is clean on both a workspace `dist/` and an installed one. The marker, not the mtime, is what covers all seven.
 - **Direction.** It sees an artifact moving ahead of a stalled stamp. It cannot see a stamp moving ahead of a stalled artifact — a failed build emits nothing, so the artifact simply stops changing while a later successful build restamps around it. That direction is the completion gate's job, which is why the gate registers *every* build outcome and not only the startup pass.
-- **Resolution.** mtime ticks at about a millisecond here and a small target can write its bundle and its stamp inside one tick, so equal mtimes are a state a healthy build reaches. `-nt` reports a tie as "not newer", which would silently read as clean, so the loop tests both directions and calls a tie `COULD NOT ORDER` — reported as an absence of evidence, in the same register as the `Nothing was compared` branches, and it downgrades the all-clear rather than raising an alarm. (The atomic stamp write is not a confound: `rename` carries the temp file's mtime through unchanged, so the stamp is dated when its content was written.)
+- **Resolution.** mtime ticks at about a millisecond here and a small target can write its bundle and its stamp inside one tick, so equal mtimes are a state a healthy build reaches. `-nt` reports a tie as "not newer", which would silently read as clean, so the loop tests both directions and calls a tie `COULD NOT ORDER` — reported as an absence of evidence, in the same register as the `Nothing was compared` branches, and it downgrades the all-clear rather than raising an alarm. (The atomic stamp write is not a confound: `rename` carries the temp file's mtime through unchanged, so the stamp is dated when its content was written.) **The marker is exempt from all of this**: it is read, not dated. It was once ordered against the stamp too, and a tie there was the one place a tie read as *clean* rather than as an absence of evidence — a stamp and the re-mark that followed it inside one tick made a blocked session print `ALL THREE AGREE`.
 
 `ALL THREE AGREE` is the only unqualified all-clear, and it is unreachable unless the host was read and matched, the panel came from the only window visible on the debug port, and every examined build directory's stamp was ordered and came out newest. Its scope is the two directories the block names on its `build directories examined:` line and the instances the debug port can see — a watch session in another checkout, or a second VS Code instance started without the debug port, is outside it in every verdict below. The two `matches` lines are scoped claims about one pair, not verdicts on currency:
 
@@ -317,6 +326,7 @@ rm -rf "$PROV"
 | `ALL THREE AGREE` | host read and matched disk; panel read and matched host; no examined build directory is mid-failure; every examined stamp ordered newest | nothing |
 | `ALL THREE AGREE, COVERAGE INCOMPLETE` | the same, except a directory went unexamined or its mtimes could not be ordered — the surfaces agree, the artifact question is open | check the unnamed directory or rerun after a touch of activity; treat as unproven, not clean |
 | `BUILD INCOMPLETE` | a build session had no successful bundle for the named targets; the stamp is being withheld | fix the build errors in that terminal — never reload or reinstall |
+| `BUILD MARKER UNREADABLE` | `build-incomplete.json` is present but does not carry a non-empty `.pending` array and numeric `.since` — a shape no build session writes | read the file by hand; the build state is unknown, not clean |
 | `STAMP OLDER THAN ARTIFACT` | a top-level artifact was written after the stamp, with no marker to explain it | check the build terminal, then rebuild |
 | `COULD NOT ORDER` | a top-level artifact shares the stamp's mtime, or there was nothing to compare | not a failure and not an all-clear; the marker is the surface to trust here |
 | `NOT CHECKED` | a build directory was skipped — no stamp and no marker in it, or `WORKSPACE` unset | examine that directory by hand; nothing there was compared |
