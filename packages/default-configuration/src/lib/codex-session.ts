@@ -20,7 +20,13 @@ import { CARDS_ENV_VARS } from '@cards.management/sdk/config';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { applyCodexConfig } from './applyCodexConfig.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
-import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
+import {
+  errorMessage,
+  resolveBaseBranch,
+  resolveMarketplacePath,
+  resolveOrCreateWorktree,
+  settleCardStatusForCleanup
+} from './claude-session.js';
 import { buildPluginHooksState, type HooksJson, type HookTrustEntry } from './codex-hook-trust.js';
 import { spawnAgentCli } from './spawn-cli.js';
 
@@ -968,6 +974,12 @@ export async function spawnCodexSession(
   });
 
   context.logger.info(`${input.actionName} action completed`, { exitCode });
+
+  // Settle the card's status (active → needs_review) before the watcher can
+  // read it: the sweep's first gate is the on-disk status, which otherwise
+  // races this exit path from a separate process. See
+  // {@link settleCardStatusForCleanup}.
+  await settleCardStatusForCleanup(input.cardRepoPath, context.logger);
 
   try {
     await spawnBranchCleanupWatcher(

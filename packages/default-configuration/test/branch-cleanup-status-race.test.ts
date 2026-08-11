@@ -140,7 +140,7 @@ beforeEach(() => {
   // wild) plus the branches/ record pointing at the real worktree.
   git(cardRepo, ['init', '-b', 'main']);
   configUser(cardRepo);
-  fsSyncNs.writeFileSync(path.join(cardRepo, 'CARD.meta.json'), JSON.stringify({ status: 'active' }, null, 2) + '\n');
+  fsSyncNs.writeFileSync(path.join(cardRepo, 'CARD.meta.json'), `${JSON.stringify({ status: 'active' }, null, 2)}\n`);
   const branchesDir = path.join(cardRepo, 'branches');
   fsSyncNs.mkdirSync(branchesDir, { recursive: true });
   branchesEntryPath = path.join(branchesDir, `${encodeURIComponent('cards/card-123/1')}.json`);
