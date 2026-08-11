@@ -179,6 +179,7 @@ export type {
 export {
   ATTACHMENT_ID_PATTERN,
   BRANCHES_DIR,
+  buildHtmlFileCspPolicy,
   CARD_RELATION_TYPES,
   COMMITS_DIR,
   checkHtmlContent,

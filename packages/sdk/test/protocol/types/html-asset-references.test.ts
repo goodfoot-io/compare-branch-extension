@@ -203,6 +203,100 @@ describe('classifyResourceReference — segments the asset server will refuse', 
   });
 });
 
+describe.skip('classifyResourceReference — mappable-extension rule', () => {
+  // An asset whose extension `mime-types` cannot map is refused: the asset
+  // route would serve it as `application/octet-stream`, and render is
+  // sniff-dependent from there — the same gate/render-agreement argument as
+  // the dot-segment rule above. `mime-types` is the mapping authority, so the
+  // acceptance/rejection split below is whatever it says it is.
+  it.each([
+    ['a PNG', 'assets/diagram.png'],
+    ['a stylesheet', 'assets/theme.css'],
+    ['a script', 'assets/app.js'],
+    ['a WOFF2 font', 'assets/inter.woff2'],
+    ['an EOT font', 'assets/inter.eot'],
+    ['a video', 'assets/demo.mp4'],
+    ['an audio file', 'assets/loop.mp3'],
+    ['a WebM video', 'assets/demo.webm'],
+    ['an SVG', 'assets/logo.svg'],
+    ['a WebP image', 'assets/pic.webp'],
+    ['an AVIF image', 'assets/pic.avif'],
+    ['an ICO favicon', 'assets/favicon.ico'],
+    ['a JSON data file', 'assets/data.json'],
+    ['a gzip archive', 'assets/archive.tar.gz']
+  ])('accepts %s', (_label, reference) => {
+    expect(classifyResourceReference(reference, ROOT_PAGE).kind).toBe('asset');
+  });
+
+  it.each([
+    ['an unmapped extension', 'assets/blob.dat'],
+    ['an extensionless file', 'assets/blob'],
+    ['a made-up extension', 'assets/thing.unknown']
+  ])('rejects a reference with %s', (_label, reference) => {
+    const result = classifyResourceReference(reference, ROOT_PAGE);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toMatch(/extension/i);
+  });
+
+  it('strips a query string before deciding the extension', () => {
+    expect(classifyResourceReference('assets/blob.dat?v=2', ROOT_PAGE).kind).toBe('rejected');
+  });
+
+  it('names the failing extension in the rejection reason', () => {
+    const result = classifyResourceReference('assets/blob.dat', ROOT_PAGE);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toContain('.dat');
+  });
+});
+
+describe.skip('checkHtmlContent — check 4 rework: rejected references fail with their reason', () => {
+  // Check 4 moves onto classifications: every rejected reference fails with
+  // its own error naming the reference as written and the classifier's
+  // author-facing reason, instead of one combined line listing every URL.
+  const PAGE = {
+    htmlPath: 'walkthrough.html',
+    metaPath: 'walkthrough.meta.json',
+    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parseErrorCodes: [] as string[],
+    scriptSpans: []
+  };
+
+  it('reports a rejected reference naming the reference as written', () => {
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource: '<img src="http://cdn.example.com/a.png">',
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('http://cdn.example.com/a.png');
+  });
+
+  it('reports two distinct rejected references as two errors, not one combined line', () => {
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource: '<img src="http://a.example/x.png"><img src="assets/.hidden.png">',
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(2);
+  });
+
+  it('never asks about existence for a reference the classifier refuses', () => {
+    const seen: string[] = [];
+    checkHtmlContent({
+      ...PAGE,
+      htmlSource: '<img src="assets/.hidden.png">',
+      assetExists: (assetPath) => {
+        seen.push(assetPath);
+        return true;
+      }
+    });
+    expect(seen).toEqual([]);
+  });
+});
+
 describe('assets/ is not part of the timeline', () => {
   it.each([
     ['a page under assets/', 'assets/fragment.html'],
