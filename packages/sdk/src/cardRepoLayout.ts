@@ -1,10 +1,10 @@
 /**
  * Single source of truth for card-repository document directory names.
  *
- * This module defines the canonical names of the three card-repository document
+ * This module defines the canonical names of the card-repository document
  * directories. Every other occurrence in the codebase derives from these
- * constants — no caller should hardcode `'plans'`, `'comments'`, or
- * `'attachments'` (or their trailing-slash prefix forms) as a literal.
+ * constants — no caller should hardcode `'plans'`, `'comments'`, `'attachments'`,
+ * or `'assets'` (or their trailing-slash prefix forms) as a literal.
  *
  * Two constant shapes are exported for each directory:
  *
@@ -28,6 +28,18 @@ export const PLANS_DIR = 'plans';
 export const COMMENTS_DIR = 'comments';
 export const ATTACHMENTS_DIR = 'attachments';
 
+/**
+ * Reserved directory holding files served to HTML card documents.
+ *
+ * Unlike {@link ATTACHMENTS_DIR}, which is recognized as a directory segment at
+ * any depth, this name is meaningful **only at the repository root**. The
+ * asymmetry is deliberate: the set of files hidden from the timeline and the set
+ * of files served to pages must be identical, or a nested `docs/assets/` would be
+ * invisible *and* unservable — a trap with nothing in the path to explain it.
+ */
+export const ASSETS_DIR = 'assets';
+
 export const PLANS_PREFIX = `${PLANS_DIR}/`;
 export const COMMENTS_PREFIX = `${COMMENTS_DIR}/`;
 export const ATTACHMENTS_PREFIX = `${ATTACHMENTS_DIR}/`;
+export const ASSETS_PREFIX = `${ASSETS_DIR}/`;

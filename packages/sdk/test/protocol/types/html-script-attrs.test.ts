@@ -21,8 +21,8 @@ import { findExternalResources } from '../../../src/protocol/index.js';
  * Locates every `<script>` element's whole-element span in an HTML fixture,
  * matching what the real producers emit — parse5's `startOffset`/`endOffset`
  * for the element node, which covers the start tag, the body, and the end tag
- * (see `collectScriptSpans` in the extension and git-hooks packages, which
- * have the parse5 dependency the SDK does not).
+ * (see `collectScriptSpans` in `@cards.management/html-spans`, which has the
+ * parse5 dependency the SDK does not).
  *
  * @param html - HTML fixture to locate `<script>` element spans in.
  * @returns Whole-element spans for every `<script>` element, in source order.

@@ -11,7 +11,7 @@
  * @module types/html
  */
 
-import { ATTACHMENTS_DIR } from '../../cardRepoLayout.js';
+import { ASSETS_DIR, ASSETS_PREFIX, ATTACHMENTS_DIR } from '../../cardRepoLayout.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -276,8 +276,12 @@ export interface HtmlInfoFile {
   /**
    * Whether the iframe sandbox permits scripts.
    *
-   * When `true` (default), the iframe is sandboxed with `allow-scripts allow-same-origin`.
-   * When `false`, scripts are fully disabled: `allow-same-origin` only.
+   * When `true` (default), the iframe's sandbox is `allow-scripts`. When
+   * `false`, the sandbox attribute is empty and scripts are fully disabled.
+   *
+   * `allow-same-origin` is never granted in either case — combined with
+   * `allow-scripts` on a `srcdoc` iframe it would let framed scripts reach the
+   * parent webview's origin.
    */
   scripts?: boolean;
 }
@@ -303,11 +307,18 @@ function pathSegments(repoRelativePath: string): string[] {
  *
  * Single source of truth for the discovery rule shared by the panel builder,
  * the `cards html check` CLI, the pre-commit hook, the search indexer, and the
- * timeline: any `*.html` file anywhere in a card repository qualifies, except
- * one living under an `attachments/` directory at any depth (those belong to
- * the attachment feature). A file merely *named* like the directory —
- * `attachments.html`, `attachments-report.html` — is eligible; only a real
- * `attachments` path segment excludes.
+ * timeline: any `*.html` file anywhere in a card repository qualifies, with two
+ * exclusions. One living under an `attachments/` directory at any depth belongs
+ * to the attachment feature; one under the repository-root `assets/` directory
+ * is a fragment or template served to other pages, so it produces no timeline
+ * row and is exempt from the sidecar-pairing rule. A file merely *named* like
+ * either directory — `attachments.html`, `assets-report.html` — is eligible;
+ * only a real path segment excludes.
+ *
+ * The two exclusions differ in depth on purpose: `attachments` excludes at any
+ * depth, `assets` only at the root. That mirrors where each name is reserved —
+ * a nested `docs/assets/` is an ordinary directory, and treating it as reserved
+ * would hide its pages from the timeline while leaving them unservable.
  *
  * @param repoRelativePath - Repo-relative path (POSIX or Windows separators).
  * @returns `true` when the path is a renderable HTML card document.
@@ -315,7 +326,9 @@ function pathSegments(repoRelativePath: string): string[] {
 export function isHtmlCardDocPath(repoRelativePath: string): boolean {
   if (!repoRelativePath.endsWith(HTML_EXTENSION)) return false;
   const segments = pathSegments(repoRelativePath);
-  return !segments.slice(0, -1).includes(ATTACHMENTS_DIR);
+  const directorySegments = segments.slice(0, -1);
+  if (directorySegments.includes(ATTACHMENTS_DIR)) return false;
+  return directorySegments[0] !== ASSETS_DIR;
 }
 
 /**
@@ -407,6 +420,144 @@ export function parseAspectRatio(value: string | number): number | null {
 }
 
 // ─── Resource locality ──────────────────────────────────────────────────────────
+
+/**
+ * What a single resource reference in an HTML card document resolves to.
+ *
+ * The three cases are exhaustive and mutually exclusive, and each one has a
+ * distinct downstream consequence: `allowed` references are passed through
+ * untouched, `asset` references are rewritten at render time to a served URL,
+ * and `rejected` references fail the commit-time gate.
+ *
+ * @summary Classification of one resource reference
+ */
+export type ResourceReferenceClass =
+  /** A `data:` URI, a same-document `#fragment`, or an `https:` URL. */
+  | { kind: 'allowed' }
+  /**
+   * A relative reference resolving to a file under the repository-root
+   * `assets/` directory. `assetPath` is the normalized repo-relative path
+   * (always beginning `assets/`), with any query string and fragment stripped
+   * and percent-escapes decoded.
+   */
+  | { kind: 'asset'; assetPath: string }
+  /** Anything else. `reason` is author-facing and names the specific failure. */
+  | { kind: 'rejected'; reason: string };
+
+/**
+ * Classifies one resource reference taken from an HTML card document.
+ *
+ * Pure: existence of the referenced file is deliberately not consulted, because
+ * "exists" means different things to the CLI (working tree) and the pre-commit
+ * hook (git index). Callers combine this classification with their own
+ * existence predicate — see {@link checkHtmlContent}'s `assetExists`.
+ *
+ * Resolution is performed relative to the **directory containing the HTML
+ * file**, so `docs/overview.html` reaches a root-level asset as
+ * `../assets/logo.png`. `assets/` is recognized only at the repository root.
+ *
+ * @param reference - The raw attribute or CSS value, exactly as it appears in
+ *   the source (leading and trailing whitespace tolerated).
+ * @param htmlRepoRelativePath - Repo-relative path of the HTML file the
+ *   reference was found in.
+ * @returns The reference's classification.
+ */
+export function classifyResourceReference(reference: string, htmlRepoRelativePath: string): ResourceReferenceClass {
+  const trimmed = reference.trim();
+  if (isAllowedResourceReference(trimmed)) return { kind: 'allowed' };
+
+  // Anything carrying a scheme or an authority is a network reference, and the
+  // only network scheme this feature permits was already accepted above.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    return {
+      kind: 'rejected',
+      reason: `only https: URLs and data: URIs may be referenced by scheme: ${trimmed}`
+    };
+  }
+  if (trimmed.startsWith('//')) {
+    return { kind: 'rejected', reason: `protocol-relative references are not permitted: ${trimmed}` };
+  }
+  if (trimmed.startsWith('/')) {
+    return {
+      kind: 'rejected',
+      reason: `root-absolute references are not permitted — write a path relative to the page instead: ${trimmed}`
+    };
+  }
+  if (trimmed.includes('\\')) {
+    return { kind: 'rejected', reason: `use '/' as the path separator, not '\\': ${trimmed}` };
+  }
+
+  // A query string and a fragment are ordinary font and cache-busting syntax
+  // (`?v=2`, the `#iefix` idiom) rather than part of the path — strip both
+  // before anything else looks at segments.
+  const pathPart = trimmed.split('#')[0]!.split('?')[0]!;
+  if (pathPart.length === 0) {
+    return { kind: 'rejected', reason: `resource reference has no path: ${trimmed}` };
+  }
+
+  // Decode BEFORE segmenting: `assets/%2e%2e%2fx.png` decodes to `assets/../x.png`,
+  // so a segment check run on the raw string sees one opaque segment and lets the
+  // escape through. `decodeURIComponent` throws URIError on a lone `%` — which a
+  // filename like `100%.png` legitimately contains — so a failed decode falls back
+  // to the raw text rather than propagating out of a commit-time check.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathPart);
+  } catch {
+    decoded = pathPart;
+  }
+
+  const htmlDirSegments = pathSegments(htmlRepoRelativePath).slice(0, -1);
+  const resolved: string[] = [...htmlDirSegments];
+  for (const segment of decoded.split('/')) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') {
+      if (resolved.length === 0) {
+        return {
+          kind: 'rejected',
+          reason: `'${trimmed}' resolves outside the repository root — '..' may not leave the repository`
+        };
+      }
+      resolved.pop();
+      continue;
+    }
+    resolved.push(segment);
+  }
+
+  const assetPath = resolved.join('/');
+  if (resolved[0] !== ASSETS_DIR || resolved.length < 2) {
+    // Overwhelmingly the first-attempt mistake for a page in a subdirectory, and
+    // the direct cost of reserving `assets/` at the repository root only. The
+    // message has to name where the reference actually landed and what to write
+    // instead, or the rule is indistinguishable from a bug.
+    const suggestion =
+      htmlDirSegments.length > 0 && !decoded.startsWith('.')
+        ? ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${decoded}`
+        : '';
+    return {
+      kind: 'rejected',
+      reason: `'${trimmed}' resolves to '${assetPath}', which is not under the repository-root ${ASSETS_PREFIX} directory${suggestion}`
+    };
+  }
+
+  // The serving route runs `send` with `dotfiles: 'deny'`, so a dot-leading
+  // segment is answered with 403 at render time. Without this rule the reference
+  // passes the gate (the file genuinely exists under `assets/`) and then fails to
+  // load — a gate/render inversion of the same shape as the `media-src` and
+  // `octet-stream` cases, and the invariant this design is built on. Rejecting
+  // here rather than loosening the route keeps `dotfiles: 'deny'` doing its real
+  // work: it is also what stops `assets/.git/config` being served should a card
+  // repository ever grow a nested git directory beneath `assets/`.
+  const dotSegment = resolved.find((segment) => segment.startsWith('.'));
+  if (dotSegment !== undefined) {
+    return {
+      kind: 'rejected',
+      reason: `'${trimmed}' contains the dot-leading path segment '${dotSegment}', which the asset server refuses — rename it without the leading dot`
+    };
+  }
+
+  return { kind: 'asset', assetPath };
+}
 
 /**
  * Scans HTML source for external (non-local) resource references.
@@ -510,6 +661,12 @@ export interface HtmlContentCheckResult {
  *   parse (with `sourceCodeLocationInfo: true`), used by check 4 to exclude
  *   inline JavaScript bodies from every locality pattern while still checking
  *   the `src` attribute on each `<script>` start tag.
+ * @param params.assetExists - Whether a repo-relative path under `assets/`
+ *   exists. Required rather than optional: it is the one check standing between
+ *   an author and a page that renders as an error, so no caller may fail open by
+ *   omitting it. The CLI supplies a working-tree `existsSync`; the pre-commit
+ *   hook supplies an index-based predicate, so an asset added but not staged
+ *   fails the commit that references it.
  * @returns Aggregated result; `valid` is false on the first failing check.
  */
 export function checkHtmlContent(params: {
@@ -519,6 +676,7 @@ export function checkHtmlContent(params: {
   parsedMeta: unknown;
   parseErrorCodes: readonly string[];
   scriptSpans?: readonly ScriptSpan[];
+  assetExists: (repoRelativeAssetPath: string) => boolean;
 }): HtmlContentCheckResult {
   const { htmlPath, metaPath, htmlSource, parsedMeta, parseErrorCodes, scriptSpans = [] } = params;
 

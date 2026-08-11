@@ -110,8 +110,8 @@ describe('findExternalResources — hardened locality', () => {
   /**
    * Locates the `<script>…</script>` span in a single-script test fixture, the
    * same shape a real caller derives from a parse5 parse with
-   * `sourceCodeLocationInfo: true` (see `collectScriptSpans` in the git-hooks
-   * and extension packages, which have the parse5 dependency the SDK does not).
+   * `sourceCodeLocationInfo: true` (see `collectScriptSpans` in
+   * `@cards.management/html-spans`, which has the parse5 dependency the SDK does not).
    *
    * @param html - Single-script HTML fixture to locate the `<script>` span in.
    * @returns The `<script>…</script>` span, as `{ start, end }` character offsets.
@@ -172,7 +172,8 @@ describe('checkHtmlContent — orchestration', () => {
       metaPath: 'html/p.meta.json',
       htmlSource: '<p>ok</p>',
       parsedMeta: { title: 'T', summary: 'S', aspect: '1.6' },
-      parseErrorCodes: []
+      parseErrorCodes: [],
+      assetExists: () => true
     });
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain('html/p.meta.json');
@@ -184,7 +185,8 @@ describe('checkHtmlContent — orchestration', () => {
       metaPath: 'html/p.meta.json',
       htmlSource: '<div',
       parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
-      parseErrorCodes: ['eof-in-tag']
+      parseErrorCodes: ['eof-in-tag'],
+      assetExists: () => true
     });
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain('well-formedness');
@@ -196,7 +198,8 @@ describe('checkHtmlContent — orchestration', () => {
       metaPath: 'html/p.meta.json',
       htmlSource: '<img srcset="http://cdn.example.com/a.png 1x">',
       parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
-      parseErrorCodes: []
+      parseErrorCodes: [],
+      assetExists: () => true
     });
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain('cdn.example.com');
@@ -208,7 +211,8 @@ describe('checkHtmlContent — orchestration', () => {
       metaPath: 'html/p.meta.json',
       htmlSource: '<img srcset="https://cdn.example.com/a.png 1x">',
       parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
-      parseErrorCodes: []
+      parseErrorCodes: [],
+      assetExists: () => true
     });
     expect(result.valid).toBe(true);
   });
@@ -219,7 +223,8 @@ describe('checkHtmlContent — orchestration', () => {
       metaPath: 'html/p.meta.json',
       htmlSource: '<p class="text-base">ok</p>',
       parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
-      parseErrorCodes: ['missing-doctype']
+      parseErrorCodes: ['missing-doctype'],
+      assetExists: () => true
     });
     expect(result.valid).toBe(true);
   });
