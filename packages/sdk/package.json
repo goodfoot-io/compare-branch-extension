@@ -74,6 +74,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
     "@cards.management/test-utils": "workspace:*",
+    "@types/mime-types": "^3.0.1",
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",
     "jsdom": "^29.1.1",

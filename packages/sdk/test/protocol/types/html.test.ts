@@ -87,10 +87,13 @@ describe('findExternalResources — hardened locality', () => {
 
   it.each([
     ['relative path', '<img src="./page.html">'],
-    ['bare relative path', '<a href="assets/logo.png">x</a>'],
     ['parent-relative path', '<img src="../images/a.png">']
-  ])('flags a %s — render-time CSP only allows img-src data:', (_label, html) => {
+  ])('flags a %s — it resolves outside the repository-root assets/ URL space', (_label, html) => {
     expect(findExternalResources(html)).not.toEqual([]);
+  });
+
+  it('does not flag a relative reference resolving under assets/ — the served-document model serves it', () => {
+    expect(findExternalResources('<a href="assets/logo.png">x</a>')).toEqual([]);
   });
 
   it('does not flag a data: URI srcset with multiple candidates (base64 comma must not split it)', () => {

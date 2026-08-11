@@ -44,7 +44,7 @@ function grants(): Map<string, Set<string>> {
 
 const grant = (directive: string): Set<string> => grants().get(directive) ?? new Set<string>();
 
-describe.skip('gate ↔ CSP agreement', () => {
+describe('gate ↔ CSP agreement', () => {
   it.each([
     [
       'script-src',

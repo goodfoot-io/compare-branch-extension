@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { isSafeCssValue } from '../../../src/theme/cssValue.js';
 import { THEME_VARS_CORPUS } from '../../fixtures/theme-vars-corpus.js';
 
-describe.skip('theme-variable parity — the shared filter’s entry-for-entry verdicts', () => {
+describe('theme-variable parity — the shared filter’s entry-for-entry verdicts', () => {
   it('judges every corpus entry exactly as its expected verdict says', () => {
     const disagreements = THEME_VARS_CORPUS.filter(({ value, safe }) => isSafeCssValue(value) !== safe);
     expect(disagreements).toEqual([]);

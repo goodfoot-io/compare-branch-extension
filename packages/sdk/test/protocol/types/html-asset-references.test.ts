@@ -203,7 +203,7 @@ describe('classifyResourceReference — segments the asset server will refuse', 
   });
 });
 
-describe.skip('classifyResourceReference — mappable-extension rule', () => {
+describe('classifyResourceReference — mappable-extension rule', () => {
   // An asset whose extension `mime-types` cannot map is refused: the asset
   // route would serve it as `application/octet-stream`, and render is
   // sniff-dependent from there — the same gate/render-agreement argument as
@@ -251,7 +251,7 @@ describe.skip('classifyResourceReference — mappable-extension rule', () => {
   });
 });
 
-describe.skip('checkHtmlContent — check 4 rework: rejected references fail with their reason', () => {
+describe('checkHtmlContent — check 4 rework: rejected references fail with their reason', () => {
   // Check 4 moves onto classifications: every rejected reference fails with
   // its own error naming the reference as written and the classifier's
   // author-facing reason, instead of one combined line listing every URL.
@@ -318,7 +318,7 @@ describe('assets/ is not part of the timeline', () => {
   });
 });
 
-describe.skip('checkHtmlContent — asset existence is the caller’s answer', () => {
+describe('checkHtmlContent — asset existence is the caller’s answer', () => {
   const PAGE = {
     htmlPath: 'walkthrough.html',
     metaPath: 'walkthrough.meta.json',

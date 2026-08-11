@@ -36,7 +36,26 @@ function assetRouteUrl(assetPath: string): string {
   return `/cards/${CARD_ID}/html-files/${assetPath}`;
 }
 
-describe.skip('gate ↔ URL-space agreement', () => {
+/**
+ * Resolves a URL pathname the way the route set does before it refuses
+ * anything: percent-decoded, then `.`/`..` segments collapsed (Express and
+ * `send` resolve paths; a percent-encoded `..` that survived URL parsing is
+ * still a dot segment to a filesystem resolver).
+ *
+ * @param pathname - A URL pathname as the browser resolved it.
+ * @returns The resolved path, percent-decoded with dot segments collapsed.
+ */
+function resolvedPath(pathname: string): string {
+  const segments: string[] = [];
+  for (const segment of decodeURIComponent(pathname).split('/')) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') segments.pop();
+    else segments.push(segment);
+  }
+  return `/${segments.join('/')}`;
+}
+
+describe('gate ↔ URL-space agreement', () => {
   it.each([
     ['a root-page reference', 'assets/diagram.png', 'walkthrough.html'],
     ['a nested page reaching the root', '../assets/diagram.png', 'docs/overview.html'],
@@ -49,10 +68,10 @@ describe.skip('gate ↔ URL-space agreement', () => {
     const cls = classifyResourceReference(reference, page);
     expect(cls.kind).toBe('asset');
     if (cls.kind !== 'asset') return;
-    // The route set serves decoded paths (Express percent-decodes before the
-    // route sees them), so the browser's escaped pathname must decode to the
-    // route's path for the classifier's assetPath exactly.
-    const pathname = decodeURIComponent(new URL(reference, documentUrl(page)).pathname);
+    // The route set serves resolved paths (percent-decoded, dot segments
+    // collapsed), so the browser's pathname must resolve to the route's path
+    // for the classifier's assetPath exactly.
+    const pathname = resolvedPath(new URL(reference, documentUrl(page)).pathname);
     expect(pathname).toBe(assetRouteUrl(cls.assetPath));
   });
 
@@ -68,8 +87,11 @@ describe.skip('gate ↔ URL-space agreement', () => {
     if (cls.kind !== 'rejected') return;
     // The route set serves only /cards/:id/html-files/assets/* for assets; a
     // reference the gate refuses must not land there, or the browser would
-    // serve bytes the gate said could not exist.
-    const pathname = decodeURIComponent(new URL(reference, documentUrl(page)).pathname);
+    // serve bytes the gate said could not exist. (The encoded-escape row is
+    // the point of resolvedPath: `%2e%2e%2f` survives URL parsing as an opaque
+    // segment, but the serve side decodes it into a `..` that containment
+    // refuses.)
+    const pathname = resolvedPath(new URL(reference, documentUrl(page)).pathname);
     expect(pathname.startsWith(`/cards/${CARD_ID}/html-files/assets/`)).toBe(false);
   });
 
@@ -80,7 +102,7 @@ describe.skip('gate ↔ URL-space agreement', () => {
     // was never mounted.
     const cls = classifyResourceReference('assets/.hidden.png', 'walkthrough.html');
     expect(cls.kind).toBe('rejected');
-    const pathname = decodeURIComponent(new URL('assets/.hidden.png', documentUrl('walkthrough.html')).pathname);
+    const pathname = resolvedPath(new URL('assets/.hidden.png', documentUrl('walkthrough.html')).pathname);
     expect(pathname).toBe(assetRouteUrl('assets/.hidden.png'));
   });
 });

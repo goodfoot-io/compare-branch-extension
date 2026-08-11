@@ -27,11 +27,30 @@
  * extension/webview boundary — it exists only inside the served bytes and this
  * header.
  *
+ * `'self'` appears on every fetch directive because relative references resolve
+ * to the server's own origin; `media-src` is named because falling back to
+ * `default-src 'none'` would silently block relative `<video>`/`<audio>`
+ * assets. `base-uri` and `form-action` are closed; `frame-src` and
+ * `object-src` are absent, so they fall back to `default-src 'none'` — no
+ * embedded frames, matching the srcdoc pipeline this model replaces.
+ *
+ * `data:` is deliberately absent from `script-src`: the classifier accepts
+ * `data:` references in any attribute position, but a `data:` script is an
+ * execution primitive with full page trust, not a subresource.
+ *
  * @param nonce - The per-build CSP nonce stamped onto the document's scripts.
  * @returns The policy string for the `Content-Security-Policy` response header.
- * @throws {Error} Not Implemented — contract stub awaiting implementation.
  */
 export function buildHtmlFileCspPolicy(nonce: string): string {
-  void nonce;
-  throw new Error('Not Implemented');
+  return [
+    "default-src 'none'",
+    `script-src 'nonce-${nonce}' 'self' https:`,
+    "style-src 'unsafe-inline' 'self' data: https:",
+    "img-src 'self' data: https:",
+    "font-src 'self' data: https:",
+    "media-src 'self' data: https:",
+    "connect-src 'self' https:",
+    "base-uri 'none'",
+    "form-action 'none'"
+  ].join('; ');
 }

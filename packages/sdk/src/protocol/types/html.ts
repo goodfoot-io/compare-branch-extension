@@ -11,6 +11,7 @@
  * @module types/html
  */
 
+import mime from 'mime-types';
 import { ASSETS_DIR, ASSETS_PREFIX, ATTACHMENTS_DIR } from '../../cardRepoLayout.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,17 +32,16 @@ const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 's
  *
  * This is a defense-in-depth, commit-time author convenience that catches the
  * common ways a resource reference silently fails to render. It is NOT the
- * security boundary: the real runtime enforcement is the render-time CSP — the
- * per-panel policy injected into the srcdoc document intersected with the
- * card-detail webview policy that an `about:srcdoc` document inherits from its
- * embedder — which permits `https:` alongside `data:`/`'unsafe-inline'`/nonces
- * on the directives this check governs (`script-src`, `style-src`, `img-src`,
- * `font-src`, `connect-src`). Because that CSP has no token for `http:`,
- * protocol-relative URLs, or relative paths, a relative path (e.g.
- * `./logo.png`) passes commit-time syntax but silently fails to load in the
- * sandboxed iframe with no surfaced error — so relative paths are rejected
- * here too, not just absolute/protocol-relative URLs using a disallowed
- * scheme.
+ * security boundary: the real runtime enforcement is the served-document CSP —
+ * the response header [buildHtmlFileCspPolicy()](./csp.ts) produces — which
+ * grants `'self'` (relative references resolve to the server's own origin),
+ * `data:`, and `https:` on the fetch directives this check governs, plus a
+ * per-build nonce on `script-src`. Because that CSP has no token for `http:`
+ * or protocol-relative URLs, and the asset route refuses everything outside
+ * the repository-root `assets/` URL space, the references rejected here are
+ * exactly the ones that would fail to render — with the author-facing reason
+ * from {@link classifyResourceReference} at commit time instead of a silent
+ * broken page.
  *
  * Matched vectors (any scheme/path, not just `https:`/`http:`/`//`):
  * - quoted/unquoted `src=`/`href=` attributes (with a left-boundary guard so
@@ -557,6 +557,22 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
     };
   }
 
+  // The serving route answers through `send`, whose Content-Type comes from a
+  // mime map; a reference whose extension `mime-types` cannot map is served as
+  // `application/octet-stream`, and render is sniff-dependent from there — the
+  // same gate/render-agreement argument as the dot-segment rule above.
+  // `mime-types` is the mapping authority so the gate and the route cannot
+  // drift, and the rule lives here in the classifier so the CLI, the
+  // pre-commit hook, and the deletion sweep share one map.
+  const extension = assetPath.slice(assetPath.lastIndexOf('.') + 1).toLowerCase();
+  if (mime.lookup(assetPath) === false) {
+    const what = extension === '' ? 'no file extension' : `the extension '.${extension}'`;
+    return {
+      kind: 'rejected',
+      reason: `'${trimmed}' resolves to '${assetPath}', which has ${what} the asset server cannot map to a content type — it would be served as application/octet-stream and rendering would be sniff-dependent`
+    };
+  }
+
   return { kind: 'asset', assetPath };
 }
 
@@ -600,39 +616,17 @@ export interface CollectedResourceReference {
  *   still checked. Defaults to none, which is safe (just less precise) when the
  *   caller hasn't already parsed the document.
  * @returns Every reference with its classification, in source order, deduplicated.
- * @throws {Error} Not Implemented — contract stub awaiting implementation.
  */
 export function collectResourceReferences(
   htmlSource: string,
   htmlRepoRelativePath: string,
   scriptSpans: readonly ScriptSpan[] = []
 ): CollectedResourceReference[] {
-  void htmlSource;
-  void htmlRepoRelativePath;
-  void scriptSpans;
-  throw new Error('Not Implemented');
-}
-
-/**
- * Scans HTML source for external (non-local) resource references.
- *
- * Defense-in-depth only — see {@link EXTERNAL_RESOURCE_RES}. The CSP injected at
- * render time is the enforcement layer; this exists so an author gets an early,
- * clear commit-time error naming the offending URL.
- *
- * @param htmlSource - HTML source to scan.
- * @param scriptSpans - Whole-element `<script>` spans (see {@link ScriptSpan}),
- *   whose bodies are redacted so inline JavaScript is excluded from every
- *   pattern; `<script>` start tags stay visible so their `src` attributes are
- *   still checked. Defaults to none, which is safe (just less precise) when the
- *   caller hasn't already parsed the document.
- * @returns Array of offending resource references (empty when none are found).
- */
-export function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
-  const urls: string[] = [];
   // Every pattern scans the body-redacted source: inline JS is neither markup
   // nor CSS, so `var href = …` and `new URL(base)` alike must not be matched.
   const source = blankScriptBodies(htmlSource, scriptSpans);
+  const collected: CollectedResourceReference[] = [];
+  const seen = new Set<string>();
   for (const re of RESOURCE_REFERENCE_RES) {
     // Each regex is global; reset lastIndex defensively before iterating.
     re.lastIndex = 0;
@@ -644,13 +638,70 @@ export function findExternalResources(htmlSource: string, scriptSpans: readonly 
       // just the URL from each data-URI-aware candidate segment.
       const candidates = isSrcset ? splitSrcsetCandidates(raw).map((c) => c.split(/\s+/)[0]) : [raw];
       for (const candidate of candidates) {
-        if (candidate && !isAllowedResourceReference(candidate)) urls.push(candidate);
+        if (!candidate) continue;
+        const reference = candidate.trim();
+        const classification = classifyResourceReference(reference, htmlRepoRelativePath);
+        // Dedupe by classification identity: the same file referenced two ways
+        // (`assets/x.png` and `./assets/x.png`) is one `asset` entry, and the
+        // same offending reference in an attribute and a CSS `url()` is one
+        // `rejected` entry.
+        const identity = classificationIdentity(classification);
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        collected.push({ reference, classification });
       }
     }
   }
-  // `@import url(X)` matches both the url() and @import patterns above;
-  // dedupe so the offending reference is only reported once.
-  return [...new Set(urls)];
+  return collected;
+}
+
+/**
+ * Stable deduplication identity for a classification: the resolved asset path
+ * for `asset` references, the full reason for `rejected` ones (which already
+ * names the reference), and the kind alone for `allowed`.
+ *
+ * @param classification - The classification to derive an identity for.
+ * @returns A string that is equal exactly when two classifications should be
+ *   reported once.
+ */
+function classificationIdentity(classification: ResourceReferenceClass): string {
+  switch (classification.kind) {
+    case 'allowed':
+      return 'allowed';
+    case 'asset':
+      return `asset:${classification.assetPath}`;
+    case 'rejected':
+      return `rejected:${classification.reason}`;
+  }
+}
+
+/**
+ * Scans HTML source for resource references the gate rejects.
+ *
+ * Defense-in-depth only — the served-document CSP header is the enforcement
+ * layer; this exists so an author gets an early, clear commit-time error
+ * naming the offending reference. Under the served-document model the
+ * "external" references are exactly the rejected classifications: relative
+ * references resolving under the repository-root `assets/` are served, not
+ * external, so this reworks onto {@link collectResourceReferences}.
+ *
+ * The reference list carries no page path, so classification is judged as it
+ * would be from the repository root — fine for the scheme/host refs this
+ * function's contract is about, and the reason callers that already know the
+ * page path use {@link checkHtmlContent} instead.
+ *
+ * @param htmlSource - HTML source to scan.
+ * @param scriptSpans - Whole-element `<script>` spans (see {@link ScriptSpan}),
+ *   whose bodies are redacted so inline JavaScript is excluded from every
+ *   pattern; `<script>` start tags stay visible so their `src` attributes are
+ *   still checked. Defaults to none, which is safe (just less precise) when the
+ *   caller hasn't already parsed the document.
+ * @returns Array of rejected resource references, deduplicated (empty when none).
+ */
+export function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
+  return collectResourceReferences(htmlSource, '', scriptSpans)
+    .filter((entry) => entry.classification.kind === 'rejected')
+    .map((entry) => entry.reference);
 }
 
 // ─── Well-formedness ────────────────────────────────────────────────────────────
@@ -699,7 +750,10 @@ export interface HtmlContentCheckResult {
  * 2. Closed-schema sidecar — via {@link validateHtmlInfo} (includes aspect parse).
  * 3. HTML well-formedness — the caller's parse5 error codes, filtered through
  *    {@link filterStructuralParseErrors}.
- * 4. Resource locality — via {@link findExternalResources}.
+ * 4. Resource locality — every reference classified via
+ *    {@link collectResourceReferences}: `rejected` references fail with their
+ *    author-facing reason, and `asset` references must pass the caller's
+ *    `assetExists` predicate.
  *
  * parse5 is not an SDK dependency, so the raw parse happens in each caller; the
  * informational-code filtering rule lives here so the two gates cannot drift.
@@ -732,7 +786,7 @@ export function checkHtmlContent(params: {
   scriptSpans?: readonly ScriptSpan[];
   assetExists: (repoRelativeAssetPath: string) => boolean;
 }): HtmlContentCheckResult {
-  const { htmlPath, metaPath, htmlSource, parsedMeta, parseErrorCodes, scriptSpans = [] } = params;
+  const { htmlPath, metaPath, htmlSource, parsedMeta, parseErrorCodes, scriptSpans = [], assetExists } = params;
 
   // ── Check 2: Closed-schema sidecar (includes aspect parse) ──
   const schemaResult = validateHtmlInfo(parsedMeta);
@@ -749,15 +803,27 @@ export function checkHtmlContent(params: {
     };
   }
 
-  // ── Check 4: Resource locality ──
-  const externalUrls = findExternalResources(htmlSource, scriptSpans);
-  if (externalUrls.length > 0) {
-    return {
-      valid: false,
-      errors: [
-        `${htmlPath}: non-local resource reference(s) are not permitted (src/href/srcset/CSS url() must be a data: URI, a #fragment, or an https: URL): ${externalUrls.join(', ')}`
-      ]
-    };
+  // ── Check 4: Resource locality — classify every reference ──
+  const collected = collectResourceReferences(htmlSource, htmlPath, scriptSpans);
+  const errors: string[] = [];
+  for (const { reference, classification } of collected) {
+    switch (classification.kind) {
+      case 'allowed':
+        break;
+      case 'asset':
+        if (!assetExists(classification.assetPath)) {
+          errors.push(
+            `${htmlPath}: references '${reference}', but the asset '${classification.assetPath}' is not present in the caller's view — stage it, or fix the reference`
+          );
+        }
+        break;
+      case 'rejected':
+        errors.push(`${htmlPath}: ${classification.reason}`);
+        break;
+    }
+  }
+  if (errors.length > 0) {
+    return { valid: false, errors };
   }
 
   return { valid: true, errors: [] };
