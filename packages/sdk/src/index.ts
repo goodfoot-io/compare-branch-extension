@@ -106,6 +106,8 @@ export { resolveScaffoldDir, resolveScaffoldDirFromSource } from './scaffold-dir
 export { resolveSessionId } from './session-resolver.js';
 // --- Symlink Capability ---
 export { canCreateSymlinks, invalidateSymlinkCapability } from './symlink-capability.js';
+// --- Theme CSS value safety ---
+export { isSafeCssValue, KNOWN_VALUE_SHAPES } from './theme/cssValue.js';
 // --- Timer Utilities ---
 export {
   type CreateDebounceOptions,

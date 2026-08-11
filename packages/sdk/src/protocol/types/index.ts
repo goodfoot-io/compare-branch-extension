@@ -77,6 +77,8 @@ export {
   MAX_TITLE_LENGTH,
   TAG_PATTERN
 } from './constraints.js';
+// --- HTML File CSP ---
+export { buildHtmlFileCspPolicy } from './csp.js';
 // --- WebSocket Event Types ---
 export type {
   AttachmentAddedEvent,
@@ -118,6 +120,7 @@ export type {
 export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 // --- HTML File Types ---
 export type {
+  CollectedResourceReference,
   HtmlContentCheckResult,
   HtmlInfoFile,
   HtmlInfoValidationResult,
@@ -127,6 +130,7 @@ export type {
 export {
   checkHtmlContent,
   classifyResourceReference,
+  collectResourceReferences,
   filterStructuralParseErrors,
   findExternalResources,
   htmlCardDocPathForSidecar,

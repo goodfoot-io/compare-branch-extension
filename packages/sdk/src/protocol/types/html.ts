@@ -426,8 +426,9 @@ export function parseAspectRatio(value: string | number): number | null {
  *
  * The three cases are exhaustive and mutually exclusive, and each one has a
  * distinct downstream consequence: `allowed` references are passed through
- * untouched, `asset` references are rewritten at render time to a served URL,
- * and `rejected` references fail the commit-time gate.
+ * untouched, `asset` references are served as written — the browser resolves
+ * them natively against the served document's real URL, landing on the asset
+ * route's URL space — and `rejected` references fail the commit-time gate.
  *
  * @summary Classification of one resource reference
  */
@@ -557,6 +558,59 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
   }
 
   return { kind: 'asset', assetPath };
+}
+
+/**
+ * One resource reference found in an HTML card document, paired with its
+ * classification.
+ *
+ * @summary A scanned reference and what the gate makes of it
+ */
+export interface CollectedResourceReference {
+  /** The raw reference exactly as it appears in the source (whitespace-trimmed). */
+  reference: string;
+  /** The reference's classification. */
+  classification: ResourceReferenceClass;
+}
+
+/**
+ * Collects every resource reference in an HTML card document and classifies
+ * each one against the gate's rules.
+ *
+ * The classification-based engine behind {@link checkHtmlContent}'s resource
+ * check and the deletion sweep: `allowed` references are passed through
+ * untouched, `asset` references are subject to the caller's `assetExists`
+ * predicate, and `rejected` references fail the gate with their author-facing
+ * reason. Resolution is relative to the directory containing the HTML file,
+ * hence the required `htmlRepoRelativePath` — the same resolution
+ * {@link classifyResourceReference} performs.
+ *
+ * The list is deduplicated by classification identity (the resolved asset path
+ * for `asset` references, the rejection reason for `rejected` ones), so the
+ * same file referenced two ways — `assets/x.png` and `./assets/x.png` — is
+ * checked once, and an offending reference named in both an attribute and a
+ * CSS `url()` is reported once.
+ *
+ * @param htmlSource - HTML source to scan.
+ * @param htmlRepoRelativePath - Repo-relative path of the HTML file the
+ *   references were found in (for `../` resolution).
+ * @param scriptSpans - Whole-element `<script>` spans (see {@link ScriptSpan}),
+ *   whose bodies are redacted so inline JavaScript is excluded from every
+ *   pattern; `<script>` start tags stay visible so their `src` attributes are
+ *   still checked. Defaults to none, which is safe (just less precise) when the
+ *   caller hasn't already parsed the document.
+ * @returns Every reference with its classification, in source order, deduplicated.
+ * @throws {Error} Not Implemented — contract stub awaiting implementation.
+ */
+export function collectResourceReferences(
+  htmlSource: string,
+  htmlRepoRelativePath: string,
+  scriptSpans: readonly ScriptSpan[] = []
+): CollectedResourceReference[] {
+  void htmlSource;
+  void htmlRepoRelativePath;
+  void scriptSpans;
+  throw new Error('Not Implemented');
 }
 
 /**
