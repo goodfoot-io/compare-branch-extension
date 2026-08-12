@@ -34,9 +34,11 @@
  * `object-src` are absent, so they fall back to `default-src 'none'` — no
  * embedded frames, matching the srcdoc pipeline this model replaces.
  *
- * `data:` is deliberately absent from `script-src`: the classifier accepts
- * `data:` references in any attribute position, but a `data:` script is an
- * execution primitive with full page trust, not a subresource.
+ * `data:` is deliberately absent from `script-src`. A `data:` script would be
+ * an execution primitive with full page trust, not a subresource, so two
+ * layers refuse it: the gate's position rule turns down a `data:` reference in
+ * a `<script>` start tag at commit time, and this policy grants no `data:`
+ * token as the runtime boundary behind it.
  *
  * @param nonce - The per-build CSP nonce stamped onto the document's scripts.
  * @returns The policy string for the `Content-Security-Policy` response header.

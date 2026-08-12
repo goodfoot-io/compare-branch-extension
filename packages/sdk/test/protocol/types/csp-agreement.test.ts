@@ -73,11 +73,12 @@ describe('gate ↔ CSP agreement', () => {
   });
 
   it('deliberately withholds data: from script-src — a data: script is an execution primitive, not a subresource', () => {
-    // The classifier accepts data: references in any attribute position, so a
-    // `<script src="data:…">` passes the gate. The served policy refuses it:
-    // data: scripts execute with full page trust and CSP has no grant for them.
-    // The corner predates the served-document pivot (the srcdoc CSP had the
-    // same shape) and is pinned here so it cannot be "fixed" by accident.
+    // A data: script would execute with full page trust, so it is refused at
+    // two independent layers: the gate's position rule turns down a `data:`
+    // reference in a `<script>` start tag at commit time, and this policy
+    // carries no `data:` grant as the runtime boundary behind it. Either
+    // layer alone would be enough — both are pinned so neither can be
+    // "fixed" by accident.
     expect(grant('script-src').has('data:')).toBe(false);
   });
 
