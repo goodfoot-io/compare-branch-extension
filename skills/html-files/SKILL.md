@@ -1,6 +1,6 @@
 ---
 name: html-files
-description: Author HTML files in a card repository — two-file pairing, sidecar schema, inline CSS styling, and the cards html check gate.
+description: Author HTML files in a card repository — two-file pairing, sidecar schema, relative assets/ references, inline CSS styling, and the cards html check gate.
 ---
 
 <placeholder-variables>
@@ -9,7 +9,7 @@ description: Author HTML files in a card repository — two-file pairing, sideca
 
 # HTML Files in a Card
 
-Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline, rendered in sandboxed iframes at the declared aspect ratio.
+Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline, rendered in sandboxed iframes at the declared aspect ratio. The Cards server serves each page as a real document at a real URL — `/cards/<cardId>/html-files/<path>` — and the iframe loads it by `src`. Author markup is never rewritten, only surrounded at serve time, so relative references resolve natively in the browser.
 
 ## Two-file pairing
 
@@ -21,6 +21,19 @@ docs/architecture-overview.meta.json
 ```
 
 An orphan `.html` without its `.meta.json`, or a `.meta.json` without its `.html`, is rejected by the pre-commit hook.
+
+## Relative `assets/` references
+
+A page may load files from the card repository's **root-level `assets/` directory** with an ordinary relative path. The document is served at a URL that mirrors its repo path, so the reference resolves in the browser exactly as written — no rewriting, no token:
+
+```html
+<!-- docs/overview.html → the repo-root assets/logo.png -->
+<img src="../assets/logo.png" alt="Architecture diagram">
+```
+
+Any relative path that normalizes into root `assets/` (so `../assets/…` from `docs/`, `assets/…` from the repo root) is an *asset* reference; every other relative path is rejected. The asset is served at `/cards/<cardId>/html-files/assets/…` on the document's own origin — a same-origin subresource load, which needs no credential, no CORS, and works in `@font-face` and `fetch()` just as in `img`/`srcset`/`link`.
+
+The asset must be committed **together with the page**: the pre-commit hook rejects a reference whose asset is not staged, naming the page and the asset (`stage it, or fix the reference`). It likewise rejects a staged deletion or rename of an asset a committed page references, and refuses symlinks under `assets/` — the server resolves served paths against real repository bytes, so a link's containment is a render-time property the commit gate cannot judge.
 
 ## Sidecar schema
 
@@ -62,11 +75,13 @@ relative path or `http://` link is rejected (see *Inline or `https://` assets*).
 ## Inline or `https://` assets
 
 `src`/`href`/`srcset`/CSS `url()`/`@import` values may be a `data:` URI, a
-same-document fragment (`#id`), or an `https://` URL. Relative paths, `http://`
-(unencrypted), and every other scheme (`javascript:`, `file:`, protocol-relative
-`//`, etc.) are rejected — the render-time CSP has no token for them, so they'd
-fail to load silently in the iframe even if the commit-time check let them
-through. There is no host allowlist: any `https://` origin is usable.
+same-document fragment (`#id`), an `https://` URL, or a relative path that
+normalizes into the repository-root `assets/` directory (see *Relative
+`assets/` references*). Every other relative path, `http://` (unencrypted), and
+every other scheme (`javascript:`, `file:`, protocol-relative `//`, etc.) are
+rejected — the served-document CSP has no token for them, so they'd fail to
+load silently in the iframe even if the commit-time check let them through.
+There is no host allowlist: any `https://` origin is usable.
 
 An `https://` reference is a live third-party dependency, not an inlined
 `data:` asset: the resource is fetched from whatever that host serves at
@@ -76,36 +91,44 @@ to keep serving what you expect.
 
 ## Scripts, nonces, and the CSP
 
-The iframe runs under a real Content-Security-Policy injected at render time:
+The served document runs under a real Content-Security-Policy delivered as an HTTP response header by the Cards server — the document itself carries no CSP `<meta>`. At serve time the server mints a per-request nonce, stamps it onto every static `<script>` in the document, and builds the header from that same nonce:
 
 ```
-default-src 'none'; script-src 'nonce-<nonce>' https:; style-src 'unsafe-inline' data: https:; img-src data: https:; font-src data: https:; connect-src https:; base-uri 'none'; form-action 'none'
+default-src 'none'; script-src 'nonce-<nonce>' 'self' https:; style-src 'unsafe-inline' 'self' data: https:; img-src 'self' data: https:; font-src 'self' data: https:; media-src 'self' data: https:; connect-src 'self' https:; base-uri 'none'; form-action 'none'
 ```
+
+The `'self'` tokens are what the page's own references load under: the document and the root `assets/` files share the server's origin.
 
 The CSP is a genuine runtime boundary — but it confines the network, not the
 page's own scripts:
 
 - **All JavaScript in the file you commit runs, and the page is trusted.** With
-  `scripts` omitted or `true`, the builder stamps the per-panel nonce onto
-  **every** static `<script>` in the file — there is no "builder vs. author"
-  distinction, so whatever script you write *or paste* executes. The sandbox is
-  `allow-scripts` only — `allow-same-origin` is deliberately withheld, so that
-  script cannot reach the parent webview's origin even though it runs. Do
-  **not** paste untrusted third-party `<script>` you don't intend to run.
+  `scripts` omitted or `true`, the server stamps its per-request nonce onto
+  **every** static `<script>` in the file at serve time — there is no
+  "builder vs. author" distinction, so whatever script you write *or paste*
+  executes. The iframe sandbox is `allow-scripts allow-same-origin`, and the
+  page is same-origin with the Cards server — the grant it needs to load its
+  own relative `assets/` subresources and reach the server's API. The parent
+  webview's origin (`vscode-webview://`) is a different origin entirely, so the
+  page still cannot reach the parent even though it runs. Do **not** paste
+  untrusted third-party `<script>` you don't intend to run.
 - **An external `<script src="https://…">` runs on scheme, not nonce.** It
-  can't carry the pipeline-issued nonce, so `script-src`'s `https:` token
+  can't carry the server-issued nonce, so `script-src`'s `https:` token
   authorizes it instead — treat a referenced external script with the same
   trust posture as a pasted one: it executes with full page trust the moment
   the card renders.
-- **The CSP scopes the network to `https:`, not off entirely.** `connect-src
-  https:` permits `fetch`/XHR/beacon to any `https://` origin from scripts
-  running in the iframe (nonce'd inline or `https:`-loaded external); non-`https:`
-  egress is still blocked, and a runtime-injected script
-  (e.g. `document.createElement('script')`) still carries no nonce or scheme
-  match and is blocked, as are inline event handlers and `eval`.
+- **The CSP scopes the network to the server's origin and `https:`, not off
+  entirely.** `connect-src 'self' https:` permits `fetch`/XHR/beacon to the
+  Cards server (the page's own origin, the same one its `assets/` files load
+  from) and to any `https://` origin from scripts running in the iframe
+  (nonce'd inline or `https:`-loaded external); non-`https:` egress is still
+  blocked, and a runtime-injected script (e.g.
+  `document.createElement('script')`) still carries no nonce or scheme match
+  and is blocked, as are inline event handlers and `eval`.
 - **`"scripts": false` is the only way to disable JavaScript.** It drops
-  `allow-scripts` from the sandbox entirely — no script runs at all. Use it for
-  any page that should not execute JavaScript.
+  `allow-scripts`, leaving `allow-same-origin` alone — enough for the page's
+  same-origin `assets/` subresources and fonts, with no script grant to relax.
+  Use it for any page that should not execute JavaScript.
 
 External resources are enforced by the same CSP at runtime (see *Inline or
 `https://` assets* above); the commit-time URL check is an early author
@@ -132,7 +155,7 @@ Exit codes:
 | `0` | All checks passed |
 | `1` | Content failure — fix the HTML or sidecar |
 
-The pre-commit hook runs the same checks automatically on every staged HTML file and sidecar.
+The pre-commit hook runs the same checks automatically on every staged HTML file and sidecar. It also enforces the *asset* half of the contract (see *Relative `assets/` references*): a reference into root `assets/` must name a staged file — otherwise the commit fails naming the page and the asset — and a staged deletion or rename of an asset a committed page references fails the same way.
 
 ## Well-formedness check — what it catches
 

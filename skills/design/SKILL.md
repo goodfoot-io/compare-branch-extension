@@ -9,7 +9,7 @@ description: The single, authoritative design system for themable VSCode UI in t
 
 ## 1. What this design is
 
-Flat, compact, theme-transparent UI that reads as native VS Code chrome. Separation comes from hairline borders and background steps, never elevation; type is small and quiet; motion is nearly absent. Two contexts consume the same rules — HTML embedded in cards (sandboxed srcdoc iframes) and the extension's own webviews — differing only in delivery mechanics (`contexts.md`).
+Flat, compact, theme-transparent UI that reads as native VS Code chrome. Separation comes from hairline borders and background steps, never elevation; type is small and quiet; motion is nearly absent. Two contexts consume the same rules — HTML embedded in cards (documents served by the Cards server, loaded by `src` in sandboxed iframes) and the extension's own webviews — differing only in delivery mechanics (`contexts.md`).
 
 ### Signature traits — non-negotiable
 
