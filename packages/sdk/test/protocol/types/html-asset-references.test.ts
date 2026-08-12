@@ -16,10 +16,62 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { ElementSpan } from '../../../src/protocol/index.js';
 import { checkHtmlContent, classifyResourceReference, isHtmlCardDocPath } from '../../../src/protocol/index.js';
 
 const ROOT_PAGE = 'walkthrough.html';
 const NESTED_PAGE = 'docs/overview.html';
+
+/**
+ * Locates whole-element spans for the given tag in an HTML fixture, matching
+ * what the real producers emit — parse5's `startOffset`/`endOffset` for the
+ * element node (see `collectScriptSpans`/`collectElementSpans` in
+ * `@cards.management/html-spans`). The SDK deliberately carries no parse5
+ * dependency, so the tests hand-roll the same shape for controlled fixtures;
+ * an element without a close tag ends at its start tag's `>`, as parse5
+ * reports for void elements.
+ *
+ * @param html - HTML fixture to locate spans in.
+ * @param tagName - Lowercase tag name to find.
+ * @returns Whole-element spans for every matching element, in source order.
+ */
+function elementSpans(html: string, tagName: 'script' | 'iframe' | 'frame' | 'embed'): ElementSpan[] {
+  const spans: ElementSpan[] = [];
+  const OPEN = `<${tagName}`;
+  const CLOSE = `</${tagName}>`;
+  let cursor = 0;
+  while (cursor < html.length) {
+    const start = html.indexOf(OPEN, cursor);
+    if (start === -1) break;
+    // The start tag ends at its first *unquoted* `>` — a `>` inside a quoted
+    // attribute value (a data: URI can contain `<svg/>`) is not the tag's end,
+    // mirroring the SDK's own quote-tracking scan.
+    let openEnd = -1;
+    let quote: string | null = null;
+    for (let i = start; i < html.length; i++) {
+      const ch = html[i]!;
+      if (quote !== null) {
+        if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === '>') {
+        openEnd = i;
+        break;
+      }
+    }
+    if (openEnd === -1) break;
+    const closeAt = html.indexOf(CLOSE, openEnd);
+    if (closeAt === -1) {
+      spans.push({ start, end: openEnd + 1 });
+      cursor = openEnd + 1;
+      continue;
+    }
+    const end = closeAt + CLOSE.length;
+    spans.push({ start, end });
+    cursor = end;
+  }
+  return spans;
+}
 
 describe('classifyResourceReference — references that stay allowed', () => {
   it.each([
@@ -147,6 +199,55 @@ describe('classifyResourceReference — references that stay rejected', () => {
   });
 });
 
+describe('classifyResourceReference — directory-style trailing slashes', () => {
+  // `assets/logo.png/` normalizes to `assets/logo.png` — the empty trailing
+  // segment is skipped — so the raw segment rules let it through, but the asset
+  // route serves files only: a request to `<asset>/` is answered with 404, and
+  // the page would silently fail to load. The refusal happens before
+  // segmentation, so no normalization can un-skip it.
+  it.each([
+    ['a literal trailing slash', 'assets/logo.png/', ROOT_PAGE],
+    ['an encoded trailing slash', 'assets/logo.png%2F', ROOT_PAGE],
+    ['from a nested page', '../assets/logo.png/', NESTED_PAGE]
+  ])('rejects %s', (_label, reference, page) => {
+    const result = classifyResourceReference(reference, page);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toMatch(/ends with a '\/'/);
+  });
+
+  it('keeps a trailing query string accepted, which is ordinary font syntax', () => {
+    expect(classifyResourceReference('assets/logo.png?v=2', ROOT_PAGE).kind).toBe('asset');
+  });
+});
+
+describe('classifyResourceReference — the rejection suggestion cannot dead-end', () => {
+  // The suggestion is a path the author can write next that actually resolves
+  // into root `assets/`. The replay form prefixes the page's `../` depth onto a
+  // clean root-relative `assets/` reference; every other shape re-anchors at
+  // the resolved asset path. A formula that replayed the raw reference with the
+  // depth prefix would send a `../`-carrying (or plain-name) author straight
+  // back out of `assets/` — the same rejection, looped.
+  it.each([
+    ['a plain name from a nested page', 'logo.png', NESTED_PAGE, '../assets/logo.png'],
+    ['a dot-relative reference from a nested page', '../logo.png', NESTED_PAGE, '../assets/logo.png'],
+    ['a plain name from a root page', 'logo.png', ROOT_PAGE, 'assets/logo.png'],
+    ['a dot-relative reference from a root page', './logo.png', ROOT_PAGE, 'assets/logo.png']
+  ])('suggests the assets/ path for %s', (_label, reference, page, suggested) => {
+    const result = classifyResourceReference(reference, page);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toContain(suggested);
+  });
+
+  it('replays a clean root-relative assets/ reference with the page depth prefix', () => {
+    const result = classifyResourceReference('assets/logo.png', NESTED_PAGE);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toContain('../assets/logo.png');
+  });
+});
+
 describe('classifyResourceReference — rejection reasons are author-facing', () => {
   it('names the resolved path and the corrected reference for a nested page', () => {
     const result = classifyResourceReference('assets/logo.png', NESTED_PAGE);
@@ -245,6 +346,31 @@ describe('classifyResourceReference — mappable-extension rule', () => {
 
   it('names the failing extension in the rejection reason', () => {
     const result = classifyResourceReference('assets/blob.dat', ROOT_PAGE);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toContain('.dat');
+  });
+});
+
+describe('classifyResourceReference — extension naming comes from the basename', () => {
+  // The extension is taken from the *filename*, never from a directory segment
+  // — `assets/blob` must be reported as extensionless, not as "the extension
+  // `.assets/blob`" (the segment before the final dot). The old form cut at the
+  // last dot of the whole path, which misnamed the failure and sent the author
+  // hunting for a dot in the wrong place.
+  it.each([
+    ['assets/blob', /no file extension/],
+    ['assets/dir.dotted/blob', /no file extension/]
+  ])('reports %s as extensionless', (reference, pattern) => {
+    const result = classifyResourceReference(reference, ROOT_PAGE);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toMatch(pattern);
+    expect(result.reason).not.toContain(`.${reference.replace(/.*\//, '')}`);
+  });
+
+  it('still names the extension of a dotted basename', () => {
+    const result = classifyResourceReference('assets/dir.dotted/blob.dat', ROOT_PAGE);
     expect(result.kind).toBe('rejected');
     if (result.kind !== 'rejected') return;
     expect(result.reason).toContain('.dat');
@@ -407,5 +533,161 @@ describe('checkHtmlContent — asset existence is the caller’s answer', () => 
     });
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(1);
+  });
+});
+
+describe('checkHtmlContent — frame-element start-tag references are refused', () => {
+  // The served-document CSP carries no frame-src or object-src token, so every
+  // frame and object load falls back to `default-src 'none'` — nothing an
+  // `<iframe>`, `<frame>`, or `<embed>` points at can ever render, whatever the
+  // reference is. Committing one would bless a page that silently renders
+  // nothing, so the position rule refuses the whole class at commit time.
+  const PAGE = {
+    htmlPath: 'walkthrough.html',
+    metaPath: 'walkthrough.meta.json',
+    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parseErrorCodes: [] as string[],
+    scriptSpans: []
+  };
+
+  it.each([
+    ['iframe', '<iframe src="assets/frame.svg"></iframe>'],
+    ['frame', '<frame src="assets/frame.svg">'],
+    ['embed', '<embed src="assets/frame.svg">']
+  ])('refuses an assets/ reference in a %s start tag', (tag, htmlSource) => {
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, tag as 'iframe' | 'frame' | 'embed'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toMatch(/embedded frame/);
+  });
+
+  it('refuses an https: reference in an iframe start tag — no scheme can render under the CSP', () => {
+    const htmlSource = '<iframe src="https://cdn.example.com/embed.html"></iframe>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'iframe'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toContain('https://cdn.example.com/embed.html');
+  });
+
+  it('refuses a data: reference in an embed start tag', () => {
+    const htmlSource = '<embed src="data:image/svg+xml,<svg/>">';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'embed'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it('refuses an assets/ reference in an unterminated iframe start tag', () => {
+    // A frame element with no close tag is legal HTML; parse5 reports it as a
+    // zero-width span (start === end), which the position rules extend to the
+    // source end so the start tag's own references stay refused — otherwise
+    // `<div><iframe src="assets/x.png">` would pass the gate and render a
+    // CSP-blocked blank frame.
+    const htmlSource = '<div><iframe src="assets/frame.svg">';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: [{ start: 5, end: 5 }],
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toMatch(/embedded frame/);
+  });
+
+  it('keeps the same reference allowed on an ordinary element', () => {
+    const htmlSource = '<img src="assets/frame.svg">';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'iframe'),
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('ignores an inert <iframe token inside a comment — spans come from a real parse', () => {
+    // A parse5 span collection finds no iframe element here, so the token
+    // stays inert text; the fixture hands over the same empty collection.
+    const htmlSource = '<!-- <iframe src="assets/frame.svg"></iframe> -->';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: [],
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('ignores an iframe token inside a script body, which the span redaction blanks', () => {
+    const htmlSource = '<script>var s = "<iframe src=\'assets/frame.svg\'>";</script>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: [],
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+});
+
+describe('checkHtmlContent — data: references in a <script> src are refused', () => {
+  // script-src carries only the nonce and `https:` — a `data:` script src can
+  // never load under the served CSP, so the position rule refuses it at commit
+  // time; the same data: reference on any other element stays allowed.
+  const PAGE = {
+    htmlPath: 'walkthrough.html',
+    metaPath: 'walkthrough.meta.json',
+    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parseErrorCodes: [] as string[],
+    scriptSpans: []
+  };
+
+  it('refuses a data: URI in a script src', () => {
+    const htmlSource = '<script src="data:text/javascript,alert(1)"></script>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      scriptSpans: elementSpans(htmlSource, 'script'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toMatch(/script-src/);
+  });
+
+  it('keeps a data: URI on a non-script element allowed', () => {
+    const htmlSource = '<img src="data:image/png;base64,AAAA">';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      scriptSpans: [],
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('keeps an https: script src allowed', () => {
+    const htmlSource = '<script src="https://cdn.example.com/a.js"></script>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      scriptSpans: elementSpans(htmlSource, 'script'),
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
   });
 });

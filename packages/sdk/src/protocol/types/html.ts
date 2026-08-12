@@ -107,6 +107,55 @@ export interface ScriptSpan {
 }
 
 /**
+ * A whole-element byte-offset span in HTML source, as derived from a parse5
+ * parse with `sourceCodeLocationInfo: true` — the generic shape behind
+ * {@link ScriptSpan}, reused for the frame-like elements whose `src` loads are
+ * refused by the served-document CSP.
+ */
+export interface ElementSpan {
+  /** Offset (inclusive) of the element's opening `<` in the source. */
+  start: number;
+  /** Offset (exclusive) just past the element's closing tag. */
+  end: number;
+}
+
+/**
+ * Tag names whose `src` attribute is a frame or embedded-object load. The
+ * served-document CSP carries `frame-src 'none'` and `object-src 'none'`, so
+ * whatever a page points such an element at can never render —
+ * {@link collectResourceReferences} refuses relative `assets/` references found
+ * in these elements' start tags, and the span producers in
+ * `@cards.management/html-spans` walk for the same names, so the gate and its
+ * span source cannot drift.
+ */
+export const FRAME_ELEMENT_TAG_NAMES = ['iframe', 'frame', 'embed'] as const;
+
+/**
+ * Offset of the first unquoted `>` in `htmlSource` at or after `from`, scanning
+ * to at most `to` — the terminator of a start tag, whose attribute values may
+ * legally contain `>` inside quotes.
+ *
+ * @param htmlSource - HTML source to scan.
+ * @param from - Offset to start scanning at (inclusive).
+ * @param to - Exclusive scan bound.
+ * @returns The offset of the terminating `>`, or `-1` when none exists.
+ */
+function findUnquotedTagEnd(htmlSource: string, from: number, to: number): number {
+  let quote: string | null = null;
+  for (let i = from; i < to; i++) {
+    const ch = htmlSource[i]!;
+    if (quote !== null) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '>') {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * Narrows a whole-element {@link ScriptSpan} to the offsets of its body — the
  * inline JavaScript between the start tag's `>` and the end tag's `<`.
  *
@@ -121,20 +170,9 @@ export interface ScriptSpan {
  */
 function scriptBodyRange(htmlSource: string, span: ScriptSpan): { start: number; end: number } | null {
   const spanEnd = Math.min(span.end, htmlSource.length);
-  let quote: string | null = null;
-  let bodyStart = -1;
-  for (let i = span.start; i < spanEnd; i++) {
-    const ch = htmlSource[i]!;
-    if (quote) {
-      if (ch === quote) quote = null;
-    } else if (ch === '"' || ch === "'") {
-      quote = ch;
-    } else if (ch === '>') {
-      bodyStart = i + 1;
-      break;
-    }
-  }
-  if (bodyStart === -1) return null;
+  const tagEnd = findUnquotedTagEnd(htmlSource, span.start, spanEnd);
+  if (tagEnd === -1) return null;
+  const bodyStart = tagEnd + 1;
   // An unclosed `<script>` has no end tag; parse5 then runs the element span to
   // EOF, and everything past the start tag is body. Matched case-insensitively
   // by regex rather than `toLowerCase().lastIndexOf(…)`, whose case mapping can
@@ -508,6 +546,18 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
     decoded = pathPart;
   }
 
+  // A trailing `/` (literal or `%2F`) is a directory-style path, and the asset
+  // route serves files only — a request to `<asset>/` is answered with 404,
+  // so a reference like `assets/logo.png/` would pass the gate and then fail
+  // to load. The segment loop below would skip the trailing empty segment and
+  // approve it; the refusal has to happen before segmentation.
+  if (decoded.endsWith('/')) {
+    return {
+      kind: 'rejected',
+      reason: `'${trimmed}' ends with a '/' — a directory-style path, and the asset server serves files, not directory paths; name the file itself`
+    };
+  }
+
   const htmlDirSegments = pathSegments(htmlRepoRelativePath).slice(0, -1);
   const resolved: string[] = [...htmlDirSegments];
   for (const segment of decoded.split('/')) {
@@ -531,10 +581,25 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
     // the direct cost of reserving `assets/` at the repository root only. The
     // message has to name where the reference actually landed and what to write
     // instead, or the rule is indistinguishable from a bug.
+    //
+    // The suggested path can never dead-end: a reference already written in the
+    // clean root-relative `assets/` form is replayed with the page's `../`
+    // depth prefix (`assets/logo.png` from `docs/` → `../assets/logo.png`), and
+    // anything else is re-anchored under `assets/` at the page's own level —
+    // the parts of the resolution beyond the page's own directory (`logo.png`
+    // from `docs/` resolves to `docs/logo.png`, so the suggestion is
+    // `../assets/logo.png`), or the whole resolution when a leading `../`
+    // already popped the page's directory (`../logo.png` from `docs/` resolves
+    // to `logo.png`, so the suggestion is `../assets/logo.png`). The earlier
+    // re-anchor form used the entire resolved path, which for a page-local
+    // reference produced `../assets/docs/logo.png` — a path resolving right
+    // back out of `assets/`, looping the author through the same rejection.
+    const hasDotSegment = decoded.split('/').some((segment) => segment.startsWith('.'));
+    const reAnchor = resolved.length > htmlDirSegments.length ? resolved.slice(htmlDirSegments.length) : resolved;
     const suggestion =
-      htmlDirSegments.length > 0 && !decoded.startsWith('.')
+      decoded.startsWith(`${ASSETS_DIR}/`) && !hasDotSegment
         ? ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${decoded}`
-        : '';
+        : ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${ASSETS_DIR}/${reAnchor.join('/')}`;
     return {
       kind: 'rejected',
       reason: `'${trimmed}' resolves to '${assetPath}', which is not under the repository-root ${ASSETS_PREFIX} directory${suggestion}`
@@ -580,7 +645,15 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
   // `mime-types` is the mapping authority so the gate and the route cannot
   // drift, and the rule lives here in the classifier so the CLI, the
   // pre-commit hook, and the deletion sweep share one map.
-  const extension = assetPath.slice(assetPath.lastIndexOf('.') + 1).toLowerCase();
+  //
+  // The extension name in the message is derived from the filename, not the
+  // whole path: a dotless path like `assets/code` would report a bogus
+  // extension (`.assets/code` — `lastIndexOf('.')` is -1 and the `+ 1` makes
+  // `slice` yield the entire path), so the basename is carved out first and
+  // the no-dot case falls through to the `extension === ''` branch below.
+  const fileName = assetPath.slice(assetPath.lastIndexOf('/') + 1);
+  const dotIndex = fileName.lastIndexOf('.');
+  const extension = dotIndex === -1 ? '' : fileName.slice(dotIndex + 1).toLowerCase();
   if (mime.lookup(assetPath) === false) {
     const what = extension === '' ? 'no file extension' : `the extension '.${extension}'`;
     return {
@@ -623,6 +696,22 @@ export interface CollectedResourceReference {
  * checked once, and an offending reference named in both an attribute and a
  * CSS `url()` is reported once.
  *
+ * Two element-position rules are applied on top of the plain classification,
+ * each closing a gate-accepts-but-render-breaks class against the served
+ * document's CSP:
+ *
+ * - Any reference in the start tag of an `<iframe>`, `<frame>`, or `<embed>`
+ *   is refused — the CSP has no `frame-src`/`object-src` token, so they fall
+ *   back to `default-src 'none'` and block every frame and object load
+ *   whatever the reference is, `https:` and `data:` included. The classifier
+ *   would bless a `https:` iframe src as a normal network reference; this
+ *   rule is what stops that class. `frameElementSpans` are the whole-element
+ *   spans of those elements from the caller's parse5 parse (see
+ *   {@link FRAME_ELEMENT_TAG_NAMES}).
+ * - A `data:` reference in a `<script>` start tag is refused — `script-src`
+ *   deliberately carries no `data:` token, so the URI would be blocked before
+ *   it ever loaded. `https:` and `#fragment` script references are unchanged.
+ *
  * @param htmlSource - HTML source to scan.
  * @param htmlRepoRelativePath - Repo-relative path of the HTML file the
  *   references were found in (for `../` resolution).
@@ -631,12 +720,17 @@ export interface CollectedResourceReference {
  *   pattern; `<script>` start tags stay visible so their `src` attributes are
  *   still checked. Defaults to none, which is safe (just less precise) when the
  *   caller hasn't already parsed the document.
+ * @param frameElementSpans - Whole-element spans of the frame-like elements
+ *   (`<iframe>`/`<frame>`/`<embed>`, see {@link FRAME_ELEMENT_TAG_NAMES}) whose
+ *   start-tag references the served CSP refuses. Defaults to none — safe in the
+ *   same sense as `scriptSpans` (the rule is skipped, not loosened).
  * @returns Every reference with its classification, in source order, deduplicated.
  */
 export function collectResourceReferences(
   htmlSource: string,
   htmlRepoRelativePath: string,
-  scriptSpans: readonly ScriptSpan[] = []
+  scriptSpans: readonly ScriptSpan[] = [],
+  frameElementSpans: readonly ElementSpan[] = []
 ): CollectedResourceReference[] {
   // Every pattern scans the body-redacted source: inline JS is neither markup
   // nor CSS, so `var href = …` and `new URL(base)` alike must not be matched.
@@ -656,7 +750,28 @@ export function collectResourceReferences(
       for (const candidate of candidates) {
         if (!candidate) continue;
         const reference = candidate.trim();
-        const classification = classifyResourceReference(reference, htmlRepoRelativePath);
+        let classification = classifyResourceReference(reference, htmlRepoRelativePath);
+        if (isInsideStartTag(match.index, htmlSource, frameElementSpans)) {
+          // A frame element can never render anything under the served CSP:
+          // frame-src and object-src carry no token, so they fall back to
+          // `default-src 'none'` and block every frame and object load
+          // whatever the reference is — https:, data:, and assets/ alike.
+          // Accepting any of them would break the accepts-exactly-what-renders
+          // agreement, so the whole class is refused here at commit time.
+          classification = {
+            kind: 'rejected',
+            reason: `'${reference}' is the src of an embedded frame (iframe/frame/embed), which the served-document CSP refuses — frame-src and object-src fall back to default-src 'none', so nothing such an element points at can ever render; put the content in the page instead`
+          };
+        } else if (
+          classification.kind === 'allowed' &&
+          reference.startsWith('data:') &&
+          isInsideStartTag(match.index, htmlSource, scriptSpans)
+        ) {
+          classification = {
+            kind: 'rejected',
+            reason: `'${reference}' is a data: URI in a <script> src, which the served-document CSP refuses — script-src carries no data: token; put the code in a <script> body instead`
+          };
+        }
         // Dedupe by classification identity: the same file referenced two ways
         // (`assets/x.png` and `./assets/x.png`) is one `asset` entry, and the
         // same offending reference in an attribute and a CSS `url()` is one
@@ -669,6 +784,39 @@ export function collectResourceReferences(
     }
   }
   return collected;
+}
+
+/**
+ * Whether a pattern-match offset falls inside the *start tag* of one of the
+ * given whole-element spans.
+ *
+ * Position rules like the frame and script-start-tag refusals are scoped to
+ * the start tag because that is where the element's resource-loading
+ * attributes live; a reference inside the element's body is scanned by the
+ * generic patterns like any other content. The start tag is narrowed from the
+ * whole-element span by its first unquoted `>` — a `>` inside a quoted
+ * attribute value is not the tag's end.
+ *
+ * @param offset - Offset of a pattern match in the source.
+ * @param htmlSource - HTML source the spans refer to (same offsets).
+ * @param spans - Whole-element spans to test against.
+ * @returns `true` when the offset falls within some span's start tag.
+ */
+function isInsideStartTag(offset: number, htmlSource: string, spans: readonly ElementSpan[]): boolean {
+  for (const span of spans) {
+    if (offset < span.start) continue;
+    // An unterminated frame element — no close tag, which is legal HTML — is
+    // reported by parse5 as a zero-width span (the element never closes, so
+    // its location collapses onto its start). Its start tag did terminate, so
+    // the unquoted-`>` scan extends to the end of the source for such a span;
+    // a reference inside that start tag must still be refused, or an
+    // unterminated `<iframe src="assets/x.png">` would pass the gate and
+    // render a CSP-blocked blank frame.
+    const spanEnd = span.end > span.start ? Math.min(span.end, htmlSource.length) : htmlSource.length;
+    const tagEnd = findUnquotedTagEnd(htmlSource, span.start, spanEnd);
+    if (tagEnd !== -1 && offset < tagEnd) return true;
+  }
+  return false;
 }
 
 /**
@@ -712,10 +860,17 @@ function classificationIdentity(classification: ResourceReferenceClass): string 
  *   pattern; `<script>` start tags stay visible so their `src` attributes are
  *   still checked. Defaults to none, which is safe (just less precise) when the
  *   caller hasn't already parsed the document.
+ * @param frameElementSpans - Whole-element spans of the frame-like elements
+ *   whose start-tag references are refused (see
+ *   {@link collectResourceReferences}).
  * @returns Array of rejected resource references, deduplicated (empty when none).
  */
-export function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
-  return collectResourceReferences(htmlSource, '', scriptSpans)
+export function findExternalResources(
+  htmlSource: string,
+  scriptSpans: readonly ScriptSpan[] = [],
+  frameElementSpans: readonly ElementSpan[] = []
+): string[] {
+  return collectResourceReferences(htmlSource, '', scriptSpans, frameElementSpans)
     .filter((entry) => entry.classification.kind === 'rejected')
     .map((entry) => entry.reference);
 }
@@ -785,6 +940,10 @@ export interface HtmlContentCheckResult {
  *   parse (with `sourceCodeLocationInfo: true`), used by check 4 to exclude
  *   inline JavaScript bodies from every locality pattern while still checking
  *   the `src` attribute on each `<script>` start tag.
+ * @param params.frameElementSpans - Whole-element spans of the frame-like
+ *   elements (`<iframe>`/`<frame>`/`<embed>`) from the same parse, used by
+ *   check 4 to refuse relative references the served CSP would block (see
+ *   {@link collectResourceReferences}).
  * @param params.assetExists - Whether a repo-relative path under `assets/`
  *   exists. Required rather than optional: it is the one check standing between
  *   an author and a page that renders as an error, so no caller may fail open by
@@ -800,9 +959,19 @@ export function checkHtmlContent(params: {
   parsedMeta: unknown;
   parseErrorCodes: readonly string[];
   scriptSpans?: readonly ScriptSpan[];
+  frameElementSpans?: readonly ElementSpan[];
   assetExists: (repoRelativeAssetPath: string) => boolean;
 }): HtmlContentCheckResult {
-  const { htmlPath, metaPath, htmlSource, parsedMeta, parseErrorCodes, scriptSpans = [], assetExists } = params;
+  const {
+    htmlPath,
+    metaPath,
+    htmlSource,
+    parsedMeta,
+    parseErrorCodes,
+    scriptSpans = [],
+    frameElementSpans = [],
+    assetExists
+  } = params;
 
   // ── Check 2: Closed-schema sidecar (includes aspect parse) ──
   const schemaResult = validateHtmlInfo(parsedMeta);
@@ -820,7 +989,7 @@ export function checkHtmlContent(params: {
   }
 
   // ── Check 4: Resource locality — classify every reference ──
-  const collected = collectResourceReferences(htmlSource, htmlPath, scriptSpans);
+  const collected = collectResourceReferences(htmlSource, htmlPath, scriptSpans, frameElementSpans);
   const errors: string[] = [];
   for (const { reference, classification } of collected) {
     switch (classification.kind) {

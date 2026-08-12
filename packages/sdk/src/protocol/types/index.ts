@@ -121,6 +121,7 @@ export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 // --- HTML File Types ---
 export type {
   CollectedResourceReference,
+  ElementSpan,
   HtmlContentCheckResult,
   HtmlInfoFile,
   HtmlInfoValidationResult,
@@ -131,6 +132,7 @@ export {
   checkHtmlContent,
   classifyResourceReference,
   collectResourceReferences,
+  FRAME_ELEMENT_TAG_NAMES,
   filterStructuralParseErrors,
   findExternalResources,
   htmlCardDocPathForSidecar,
