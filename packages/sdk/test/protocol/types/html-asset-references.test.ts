@@ -35,7 +35,7 @@ const NESTED_PAGE = 'docs/overview.html';
  * @param tagName - Lowercase tag name to find.
  * @returns Whole-element spans for every matching element, in source order.
  */
-function elementSpans(html: string, tagName: 'script' | 'iframe' | 'frame' | 'embed'): ElementSpan[] {
+function elementSpans(html: string, tagName: 'script' | 'iframe' | 'frame' | 'embed' | 'object'): ElementSpan[] {
   const spans: ElementSpan[] = [];
   const OPEN = `<${tagName}`;
   const CLOSE = `</${tagName}>`;
@@ -245,6 +245,46 @@ describe('classifyResourceReference — the rejection suggestion cannot dead-end
     expect(result.kind).toBe('rejected');
     if (result.kind !== 'rejected') return;
     expect(result.reason).toContain('../assets/logo.png');
+  });
+
+  it.each([
+    ['a dot-relative assets/ reference from a nested page', './assets/logo.png', NESTED_PAGE],
+    ['a path that walks into and out of assets/ from a nested page', 'assets/../assets/logo.png', NESTED_PAGE],
+    ['a path that walks through a subdirectory into assets/ from a nested page', 'sub/../assets/logo.png', NESTED_PAGE]
+  ])('replays the resolution, not the raw reference, for %s', (_label, reference, page) => {
+    // These dot-forms resolve to the clean root-relative path, so the
+    // suggestion is the depth-prefixed resolution — replaying the raw
+    // reference would write `../assets/assets/…`, a second assets/ segment
+    // the classifier would refuse again: a suggestion that dead-ends.
+    const result = classifyResourceReference(reference, page);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    const expected = page === ROOT_PAGE ? 'assets/logo.png' : '../assets/logo.png';
+    expect(result.reason).toContain(`write ${expected}`);
+    expect(result.reason).not.toContain('assets/assets');
+  });
+
+  it('prefixes the full page depth for a reference into assets/ from a deeper page', () => {
+    const result = classifyResourceReference('../assets/logo.png', 'docs/guide/overview.html');
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toContain('write ../../assets/logo.png');
+  });
+
+  it.each([
+    ['a page-relative html link from a nested page', 'other.html', NESTED_PAGE],
+    ['a dot-relative html link from a root page', './other.html', ROOT_PAGE],
+    ['an html link that pops a directory', '../other.html', 'docs/guide/overview.html']
+  ])('does not suggest an assets/ re-anchor for %s — the html-asset rule would refuse it again', (_label, reference, page) => {
+    // An `.html` resolution is a page-link attempt. Re-anchoring it under
+    // `assets/` would be re-rejected by the HTML-file rule (assets/ is not a
+    // card-document directory), so the message must name the real link paths
+    // instead of looping the author through a second rejection.
+    const result = classifyResourceReference(reference, page);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toMatch(/https:|#fragment/);
+    expect(result.reason).not.toContain('write ');
   });
 });
 
@@ -553,12 +593,16 @@ describe('checkHtmlContent — frame-element start-tag references are refused', 
   it.each([
     ['iframe', '<iframe src="assets/frame.svg"></iframe>'],
     ['frame', '<frame src="assets/frame.svg">'],
-    ['embed', '<embed src="assets/frame.svg">']
+    ['embed', '<embed src="assets/frame.svg">'],
+    // `<object>` carries its load on `data`, not `src` — the vector this rule
+    // exists for: without it, `<object data="assets/doc.pdf">` would pass the
+    // gate and then render nothing (object-src falls back to default-src 'none').
+    ['object', '<object data="assets/frame.svg"></object>']
   ])('refuses an assets/ reference in a %s start tag', (tag, htmlSource) => {
     const result = checkHtmlContent({
       ...PAGE,
       htmlSource,
-      frameElementSpans: elementSpans(htmlSource, tag as 'iframe' | 'frame' | 'embed'),
+      frameElementSpans: elementSpans(htmlSource, tag as 'iframe' | 'frame' | 'embed' | 'object'),
       assetExists: () => true
     });
     expect(result.valid).toBe(false);
@@ -588,6 +632,81 @@ describe('checkHtmlContent — frame-element start-tag references are refused', 
       assetExists: () => true
     });
     expect(result.valid).toBe(false);
+  });
+
+  it('refuses an https: reference in an object data attribute — no scheme can render under object-src', () => {
+    const htmlSource = '<object data="https://cdn.example.com/doc.pdf"></object>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'object'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toContain('https://cdn.example.com/doc.pdf');
+  });
+
+  it('refuses a data: reference in an object data attribute', () => {
+    const htmlSource = '<object data="data:application/pdf;base64,AAAA"></object>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'object'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toMatch(/embedded frame/);
+  });
+
+  it('refuses an assets/ reference in an unterminated object start tag', () => {
+    const htmlSource = '<div><object data="assets/doc.pdf">';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: [{ start: 5, end: 5 }],
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toMatch(/embedded frame/);
+  });
+
+  it('does not scan a data= attribute on an ordinary element — it is author data, not a load', () => {
+    // `data=` is a reference vector only on `<object>`; on a `<div>` it is a
+    // state/selector payload and must not be collected (a false positive would
+    // reject pages that merely carry data attributes).
+    const htmlSource = '<div data="assets/not-a-load.png"></div>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'object'),
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('does not scan a data= attribute inside an object body — only the object start tag is a vector', () => {
+    const htmlSource = '<object><div data="assets/not-a-load.png"></div></object>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'object'),
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('does not mistake a data-id attribute for the data reference vector', () => {
+    const htmlSource = '<object data-id="assets/not-a-load.png"></object>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      frameElementSpans: elementSpans(htmlSource, 'object'),
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
   });
 
   it('refuses an assets/ reference in an unterminated iframe start tag', () => {

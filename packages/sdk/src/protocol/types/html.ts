@@ -69,12 +69,25 @@ const ATTR_BOUNDARY = String.raw`(?<![\w.-])`;
 // a data: URI's own comma (the base64 separator) must not be split like a srcset list.
 const SRCSET_RE = new RegExp(`${ATTR_BOUNDARY}srcset\\s*=\\s*["']([^"']+)["']`, 'gi');
 
+// `data=` is a reference vector only on `<object>` — the one element whose
+// load the served CSP's `object-src` (falling back to `default-src 'none'`)
+// blocks — so the collection loop scans it only inside an object start tag
+// (see {@link collectResourceReferences}); on any other element `data=` is
+// author data (state, selectors), never a load, and must not be scanned.
+// Named separately so the loop can scope them by regex identity, like
+// {@link SRCSET_RE}.
+const DATA_QUOTED_RE = new RegExp(`${ATTR_BOUNDARY}data\\s*=\\s*["']\\s*([^"']+)["']`, 'gi');
+const DATA_UNQUOTED_RE = new RegExp(`${ATTR_BOUNDARY}data\\s*=\\s*([^\\s"'>]+)`, 'gi');
+
 const RESOURCE_REFERENCE_RES: readonly RegExp[] = [
   // Quoted src/href: src="…" / href='…'
   new RegExp(`${ATTR_BOUNDARY}(?:src|href)\\s*=\\s*["']\\s*([^"']+)["']`, 'gi'),
   // Unquoted src/href: src=… (terminated by whitespace or '>')
   new RegExp(`${ATTR_BOUNDARY}(?:src|href)\\s*=\\s*([^\\s"'>]+)`, 'gi'),
   SRCSET_RE,
+  // Quoted/unquoted object data: data="…" / data='…' / data=…
+  DATA_QUOTED_RE,
+  DATA_UNQUOTED_RE,
   // CSS url(...) — quoted or unquoted
   /url\(\s*["']?\s*([^)"']+)["']?\s*\)/gi,
   // CSS @import "url" or @import url(...)
@@ -120,15 +133,15 @@ export interface ElementSpan {
 }
 
 /**
- * Tag names whose `src` attribute is a frame or embedded-object load. The
- * served-document CSP carries `frame-src 'none'` and `object-src 'none'`, so
- * whatever a page points such an element at can never render —
- * {@link collectResourceReferences} refuses relative `assets/` references found
- * in these elements' start tags, and the span producers in
- * `@cards.management/html-spans` walk for the same names, so the gate and its
- * span source cannot drift.
+ * Tag names whose start tag carries a frame or embedded-object load — `src` on
+ * `<iframe>`/`<frame>`/`<embed>`, `data` on `<object>`. The served-document CSP
+ * carries `frame-src 'none'` and `object-src 'none'`, so whatever a page points
+ * such an element at can never render — {@link collectResourceReferences}
+ * refuses references found in these elements' start tags, and the span
+ * producers in `@cards.management/html-spans` walk for the same names, so the
+ * gate and its span source cannot drift.
  */
-export const FRAME_ELEMENT_TAG_NAMES = ['iframe', 'frame', 'embed'] as const;
+export const FRAME_ELEMENT_TAG_NAMES = ['iframe', 'frame', 'embed', 'object'] as const;
 
 /**
  * Offset of the first unquoted `>` in `htmlSource` at or after `from`, scanning
@@ -582,23 +595,44 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
     // message has to name where the reference actually landed and what to write
     // instead, or the rule is indistinguishable from a bug.
     //
-    // The suggested path can never dead-end: a reference already written in the
-    // clean root-relative `assets/` form is replayed with the page's `../`
-    // depth prefix (`assets/logo.png` from `docs/` → `../assets/logo.png`), and
-    // anything else is re-anchored under `assets/` at the page's own level —
-    // the parts of the resolution beyond the page's own directory (`logo.png`
-    // from `docs/` resolves to `docs/logo.png`, so the suggestion is
-    // `../assets/logo.png`), or the whole resolution when a leading `../`
-    // already popped the page's directory (`../logo.png` from `docs/` resolves
-    // to `logo.png`, so the suggestion is `../assets/logo.png`). The earlier
+    // The suggested path can never dead-end. A resolution that already lands
+    // under root `assets/` is replayed with the page's `../` depth prefix — the
+    // clean `assets/logo.png` form (from a root page) and the dot-forms that
+    // resolve to the same place (`./assets/logo.png` from a root page,
+    // `../assets/logo.png` from `docs/`, `assets/../assets/logo.png` from
+    // `docs/`) all resolve to `['assets', 'logo.png']`, so the suggestion is
+    // the depth-prefixed resolution, never the raw reference. Anything else is
+    // re-anchored under `assets/` at the page's own level:
+    // `beyondPageDir` is what the author actually wrote — the parts of the
+    // resolution past the page's own directory (`logo.png` from `docs/`
+    // resolves to `docs/logo.png`, so the suggestion is `../assets/logo.png`)
+    // — and the re-anchor varies by its shape: an author who wrote `assets/…`
+    // without the depth prefix (`./assets/logo.png` from `docs/` resolves to
+    // `docs/assets/logo.png`) has already supplied the `assets/` segment the
+    // re-anchor would add, so it is dropped — otherwise the suggestion would
+    // be `../assets/assets/logo.png`, a second `assets/` the classifier would
+    // refuse again; a leading `../` that popped the page's own directory
+    // (`../logo.png` from `docs/` resolves to `logo.png`) leaves an empty
+    // `beyondPageDir`, so the whole resolution is re-anchored. The earlier
     // re-anchor form used the entire resolved path, which for a page-local
     // reference produced `../assets/docs/logo.png` — a path resolving right
     // back out of `assets/`, looping the author through the same rejection.
-    const hasDotSegment = decoded.split('/').some((segment) => segment.startsWith('.'));
-    const reAnchor = resolved.length > htmlDirSegments.length ? resolved.slice(htmlDirSegments.length) : resolved;
+    const beyondPageDir = resolved.slice(htmlDirSegments.length);
+    const reAnchor =
+      beyondPageDir[0] === ASSETS_DIR ? beyondPageDir.slice(1) : beyondPageDir.length > 0 ? beyondPageDir : resolved;
+    if (assetPath.split('?')[0]!.toLowerCase().endsWith(HTML_EXTENSION)) {
+      // An `.html` resolution is a page-link attempt, not an asset move — no
+      // re-anchor exists for it, because `../assets/other.html` would be
+      // re-rejected by the HTML-file rule below. Saying so beats suggesting
+      // a path the next rule turns down again.
+      return {
+        kind: 'rejected',
+        reason: `'${trimmed}' resolves to '${assetPath}', which is not under the repository-root ${ASSETS_PREFIX} directory and is an HTML page — pages link over https:, with a data: URI, or to a #fragment, never with a relative path to a committed page`
+      };
+    }
     const suggestion =
-      decoded.startsWith(`${ASSETS_DIR}/`) && !hasDotSegment
-        ? ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${decoded}`
+      resolved[0] === ASSETS_DIR
+        ? ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${resolved.join('/')}`
         : ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${ASSETS_DIR}/${reAnchor.join('/')}`;
     return {
       kind: 'rejected',
@@ -700,14 +734,17 @@ export interface CollectedResourceReference {
  * each closing a gate-accepts-but-render-breaks class against the served
  * document's CSP:
  *
- * - Any reference in the start tag of an `<iframe>`, `<frame>`, or `<embed>`
- *   is refused — the CSP has no `frame-src`/`object-src` token, so they fall
- *   back to `default-src 'none'` and block every frame and object load
- *   whatever the reference is, `https:` and `data:` included. The classifier
- *   would bless a `https:` iframe src as a normal network reference; this
- *   rule is what stops that class. `frameElementSpans` are the whole-element
- *   spans of those elements from the caller's parse5 parse (see
- *   {@link FRAME_ELEMENT_TAG_NAMES}).
+ * - Any reference in the start tag of a frame-like element — `<iframe>`,
+ *   `<frame>`, `<embed>`, and `<object>` — is refused: the CSP carries no
+ *   `frame-src`/`object-src` token, so they fall back to `default-src 'none'`
+ *   and block every frame and object load whatever the reference is, `https:`
+ *   and `data:` included. The classifier would bless a `https:` iframe src as
+ *   a normal network reference; this rule is what stops that class.
+ *   `frameElementSpans` are the whole-element spans of those elements from
+ *   the caller's parse5 parse (see {@link FRAME_ELEMENT_TAG_NAMES}).
+ *   `<object>`'s reference is its `data` attribute, which is scanned only
+ *   inside an object start tag — elsewhere `data=` is author data, never a
+ *   load, so it is not a reference at all.
  * - A `data:` reference in a `<script>` start tag is refused — `script-src`
  *   deliberately carries no `data:` token, so the URI would be blocked before
  *   it ever loaded. `https:` and `#fragment` script references are unchanged.
@@ -718,12 +755,16 @@ export interface CollectedResourceReference {
  * @param scriptSpans - Whole-element `<script>` spans (see {@link ScriptSpan}),
  *   whose bodies are redacted so inline JavaScript is excluded from every
  *   pattern; `<script>` start tags stay visible so their `src` attributes are
- *   still checked. Defaults to none, which is safe (just less precise) when the
- *   caller hasn't already parsed the document.
+ *   still checked. Defaults to none — omitting spans skips the position rules
+ *   and widens the gate toward the very gate-accepts/CSP-blocks class they
+ *   close, so every caller that runs the gate parses the document and passes
+ *   them.
  * @param frameElementSpans - Whole-element spans of the frame-like elements
- *   (`<iframe>`/`<frame>`/`<embed>`, see {@link FRAME_ELEMENT_TAG_NAMES}) whose
- *   start-tag references the served CSP refuses. Defaults to none — safe in the
- *   same sense as `scriptSpans` (the rule is skipped, not loosened).
+ *   (`<iframe>`/`<frame>`/`<embed>`/`<object>`, see
+ *   {@link FRAME_ELEMENT_TAG_NAMES}) whose start-tag references the served CSP
+ *   refuses. Defaults to none — omitting them skips the frame refusal (and the
+ *   `data=` scan it gates, since object spans are its only authority) and
+ *   widens the gate; same caveat as `scriptSpans`.
  * @returns Every reference with its classification, in source order, deduplicated.
  */
 export function collectResourceReferences(
@@ -741,9 +782,17 @@ export function collectResourceReferences(
     // Each regex is global; reset lastIndex defensively before iterating.
     re.lastIndex = 0;
     const isSrcset = re === SRCSET_RE;
+    const isDataAttr = re === DATA_QUOTED_RE || re === DATA_UNQUOTED_RE;
     for (const match of source.matchAll(re)) {
       const raw = match[1];
       if (!raw) continue;
+      // `data=` is a resource reference only on `<object>` — anywhere else it
+      // is author data (state, selectors), never a load, and scanning it would
+      // invent references the author never wrote. The frame-element spans are
+      // the only authority for where an object's start tag is, so a `data=`
+      // match outside one is skipped; with no spans at all nothing is scanned
+      // (the documented widened-gate consequence of omitting them).
+      if (isDataAttr && !isInsideStartTag(match.index, htmlSource, frameElementSpans)) continue;
       // srcset is a comma-separated "url descriptor" candidate list; extract
       // just the URL from each data-URI-aware candidate segment.
       const candidates = isSrcset ? splitSrcsetCandidates(raw).map((c) => c.split(/\s+/)[0]) : [raw];
@@ -752,15 +801,16 @@ export function collectResourceReferences(
         const reference = candidate.trim();
         let classification = classifyResourceReference(reference, htmlRepoRelativePath);
         if (isInsideStartTag(match.index, htmlSource, frameElementSpans)) {
-          // A frame element can never render anything under the served CSP:
-          // frame-src and object-src carry no token, so they fall back to
-          // `default-src 'none'` and block every frame and object load
-          // whatever the reference is — https:, data:, and assets/ alike.
+          // A frame or object element can never render anything under the
+          // served CSP: frame-src and object-src carry no token, so they fall
+          // back to `default-src 'none'` and block every frame and object load
+          // whatever the reference is — https:, data:, and assets/ alike
+          // (`<object>`'s reference rides its `data` attribute, `src`-less).
           // Accepting any of them would break the accepts-exactly-what-renders
           // agreement, so the whole class is refused here at commit time.
           classification = {
             kind: 'rejected',
-            reason: `'${reference}' is the src of an embedded frame (iframe/frame/embed), which the served-document CSP refuses — frame-src and object-src fall back to default-src 'none', so nothing such an element points at can ever render; put the content in the page instead`
+            reason: `'${reference}' is the load target of an embedded frame or object element (iframe/frame/embed/object), which the served-document CSP refuses — frame-src and object-src fall back to default-src 'none', so nothing such an element points at can ever render; put the content in the page instead`
           };
         } else if (
           classification.kind === 'allowed' &&
