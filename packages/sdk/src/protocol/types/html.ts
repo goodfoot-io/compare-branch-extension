@@ -557,6 +557,22 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
     };
   }
 
+  // An `.html` file under root `assets/` is not a card document — the timeline
+  // exclusion, the document route's refusal, and this rule are one decision:
+  // "a page stored under it is not a card document", so the asset route serves
+  // none of the document contract (base target, theme bake, nonce stamp) that
+  // committed pages render under. Approving the reference here would break the
+  // gate/render agreement the other way from the rules above — the gate would
+  // bless a render that runs without the machinery it promises. Inline it as a
+  // `data:` URI or load it over `https://` instead, like any page-like
+  // reference.
+  if (assetPath.split('?')[0]!.toLowerCase().endsWith(HTML_EXTENSION)) {
+    return {
+      kind: 'rejected',
+      reason: `'${trimmed}' resolves to '${assetPath}', which is an HTML file — assets/ is a fragment and template space, not a card-document directory, so the served-document contract (base target, theme, nonce) would not apply to it; inline it as a data: URI, load it over https:, or use a non-HTML asset`
+    };
+  }
+
   // The serving route answers through `send`, whose Content-Type comes from a
   // mime map; a reference whose extension `mime-types` cannot map is served as
   // `application/octet-stream`, and render is sniff-dependent from there — the

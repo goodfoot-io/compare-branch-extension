@@ -251,6 +251,31 @@ describe('classifyResourceReference — mappable-extension rule', () => {
   });
 });
 
+describe('classifyResourceReference — html files are not assets', () => {
+  // `isHtmlCardDocPath` keeps `.html` files under root `assets/` out of the
+  // timeline — "a page stored under it is not a card document" — and the gate's
+  // accepts-exactly-what-renders promise demands the same refusal here: the
+  // asset route serves none of the document contract (base target, theme bake,
+  // nonce stamp) that committed pages render under.
+  it.each([
+    ['a root page', 'assets/fragment.html'],
+    ['a nested page', 'assets/templates/row.html'],
+    ['from a nested page', '../assets/fragment.html'],
+    ['with a query string', 'assets/fragment.html?v=2'],
+    ['a case-variant extension', 'assets/PAGE.HTML']
+  ])('rejects an html reference — %s', (_label, reference) => {
+    const page = reference.startsWith('..') ? NESTED_PAGE : ROOT_PAGE;
+    const result = classifyResourceReference(reference, page);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toMatch(/HTML file|card document/);
+  });
+
+  it('still accepts a non-html file in the same directory', () => {
+    expect(classifyResourceReference('assets/fragment.css', ROOT_PAGE).kind).toBe('asset');
+  });
+});
+
 describe('checkHtmlContent — check 4 rework: rejected references fail with their reason', () => {
   // Check 4 moves onto classifications: every rejected reference fails with
   // its own error naming the reference as written and the classifier's

@@ -33,6 +33,8 @@ A page may load files from the card repository's **root-level `assets/` director
 
 Any relative path that normalizes into root `assets/` (so `../assets/…` from `docs/`, `assets/…` from the repo root) is an *asset* reference; every other relative path is rejected. The asset is served at `/cards/<cardId>/html-files/assets/…` on the document's own origin — a same-origin subresource load, which needs no credential, no CORS, and works in `@font-face` and `fetch()` just as in `img`/`srcset`/`link`.
 
+An `.html` file under root `assets/` is **not** a valid asset reference. That directory is a fragment and template space — "a page stored under it is not a card document" — so the served-document contract (base target, theme bake, nonce stamp) never applies to it, and the checker rejects any reference resolving to an `.html` file there. Reference a page-like thing by inlining it as a `data:` URI or loading it over `https://`, like any other page.
+
 The asset must be committed **together with the page**: the pre-commit hook rejects a reference whose asset is not staged, naming the page and the asset (`stage it, or fix the reference`). It likewise rejects a staged deletion or rename of an asset a committed page references, and refuses symlinks under `assets/` — the server resolves served paths against real repository bytes, so a link's containment is a render-time property the commit gate cannot judge.
 
 ## Sidecar schema
@@ -91,7 +93,7 @@ to keep serving what you expect.
 
 ## Scripts, nonces, and the CSP
 
-The served document runs under a real Content-Security-Policy delivered as an HTTP response header by the Cards server — the document itself carries no CSP `<meta>`. At serve time the server mints a per-request nonce, stamps it onto every static `<script>` in the document, and builds the header from that same nonce:
+The served document runs under a real Content-Security-Policy delivered as an HTTP response header by the Cards server — the document itself carries no CSP `<meta>`. The server mints a nonce per built document, stamps it onto every static `<script>` in the document, and builds the header from that same nonce — a cached build re-serves its nonce and header together, so the pair can never diverge:
 
 ```
 default-src 'none'; script-src 'nonce-<nonce>' 'self' https:; style-src 'unsafe-inline' 'self' data: https:; img-src 'self' data: https:; font-src 'self' data: https:; media-src 'self' data: https:; connect-src 'self' https:; base-uri 'none'; form-action 'none'
