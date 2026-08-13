@@ -11,6 +11,7 @@ import type {
   Card,
   CompareRequest,
   CompareState,
+  EnvironmentsResponse,
   ExecuteActionRequest,
   ExecutionMode,
   HttpClient,
@@ -881,9 +882,11 @@ export class CardsClient {
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async getEnvironments(): Promise<Array<{ name: string; description?: string }>> {
-    const url = this.buildUrl('/environments');
-    return this.request(() => this.getHttpClient().get<Array<{ name: string; description?: string }>>(url));
+  async getEnvironments(): Promise<EnvironmentsResponse> {
+    const url = this.buildUrl('/environments', {
+      workspacePath: this.options.workspacePath
+    });
+    return this.request(() => this.getHttpClient().get<EnvironmentsResponse>(url));
   }
 
   // --- Type Schema Operations ---
