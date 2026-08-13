@@ -302,7 +302,17 @@ export function formatOutput(value: unknown, jsonPath?: string): string {
 export async function getCard(cardId: string, jsonPath?: string): Promise<void> {
   const client = await connectClient();
   const card = await client.getCard(cardId);
-  console.log(formatOutput(card, jsonPath));
+  const environments = await client.getEnvironments();
+  const actions =
+    environments
+      .find((environment) => environment.name === card.environment)
+      ?.actions.map(({ id, name, description, supportsBackgroundMode }) => ({
+        id,
+        name,
+        description,
+        supportsBackgroundMode
+      })) ?? [];
+  console.log(formatOutput({ ...card, actions }, jsonPath));
 }
 
 /**

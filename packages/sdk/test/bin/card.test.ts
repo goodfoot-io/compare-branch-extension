@@ -446,7 +446,7 @@ describe('card binary', () => {
   });
 
   describe('getCard', () => {
-    it.skip('adds invocation-ready actions from the card environment', async () => {
+    it('adds invocation-ready actions from the card environment', async () => {
       const card = { id: 'card-actions', title: 'Action Card', status: 'active', environment: 'staging' };
       cards.set('card-actions', card);
       environments = [
@@ -491,7 +491,7 @@ describe('card binary', () => {
       }
     });
 
-    it.skip('returns an empty actions array when the card environment is unresolved', async () => {
+    it('returns an empty actions array when the card environment is unresolved', async () => {
       const card = { id: 'card-missing-env', title: 'Orphaned Card', status: 'active', environment: 'removed' };
       cards.set('card-missing-env', card);
       environments = [{ name: 'default', actions: [] }];
@@ -506,7 +506,7 @@ describe('card binary', () => {
       }
     });
 
-    it.skip('applies JSONPath after enriching the card with actions', async () => {
+    it('applies JSONPath after enriching the card with actions', async () => {
       cards.set('card-action-path', {
         id: 'card-action-path',
         title: 'Path Card',
@@ -533,7 +533,7 @@ describe('card binary', () => {
       try {
         const { getCard: getCardFn } = await import('../../src/bin/cards.js');
         await getCardFn('card-1');
-        expect(logSpy).toHaveBeenCalledWith(JSON.stringify(card, null, 2));
+        expect(logSpy).toHaveBeenCalledWith(JSON.stringify({ ...card, actions: [] }, null, 2));
       } finally {
         logSpy.mockRestore();
       }
