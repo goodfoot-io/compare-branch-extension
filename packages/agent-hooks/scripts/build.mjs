@@ -154,6 +154,13 @@ export { EXECUTABLE, targets };
 // `node -e 'import(...)'`) leaves it undefined, and pathToFileURL(undefined)
 // would throw at evaluation time before the importer receives the exports.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // Wipe the package-local dist first: it holds only the completion manifest
+  // that the build-unchanged gate (see package.json `build`) writes after a
+  // successful run, so removing it now is what invalidates a stale manifest
+  // when a new build starts — an interrupted build must never leave
+  // yesterday's proof of completion on disk.
+  rmSync(path.resolve(packageRoot, 'dist'), { recursive: true, force: true });
+
   for (const target of targets) {
     console.log(`\n[agent-hooks] building ${target.name}`);
     buildTarget(target);

@@ -11,7 +11,7 @@
     "./lib/codex-session": "./src/lib/codex-session.ts"
   },
   "scripts": {
-    "build": "build-unchanged --input src --input scripts --input package.json --input settings.config.ts --input ../sdk/src --input ../claude-code-sessions/src --input ../../../packages/cards/web/src --output dist --output ../../../.cards/settings.json --output ../../../.cards/bin --output ../../../.cards/www -- node scripts/build.mjs",
+    "build": "build-unchanged --input src --input scripts --input package.json --input settings.config.ts --input ../sdk/src --input ../sdk/dist/cli.js --input ../claude-code-sessions/src --input ../../../packages/cards/web/src --output dist --output ../../../.cards/settings.json --output ../../../.cards/bin --output ../../../.cards/www --manifest dist/.build-unchanged.json -- node scripts/build.mjs",
     "build:www": "bun run src/streams/claude-code-session/www/build.ts && bun run src/streams/codex-session/www/build.ts",
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
     "watch:www": "bun build --watch ./src/streams/claude-code-session/www/index.html --outdir=dist/www/claude-code-session",
