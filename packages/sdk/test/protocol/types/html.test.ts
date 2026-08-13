@@ -53,6 +53,17 @@ describe('checkIntrinsicHtmlLayout', () => {
     expect(result.errors).toEqual([]);
   });
 
+  it('applies root ownership only when the selector directly targets the root', () => {
+    expect(
+      checkIntrinsicHtmlLayout({
+        cssSources: [{ css: 'body .panel { min-height: 12rem } :root .card { height: 20px }', source: '<style>' }]
+      }).errors
+    ).toEqual([]);
+    expect(
+      checkIntrinsicHtmlLayout({ cssSources: [{ css: 'body { display: flex }', source: '<style>' }] }).errors.join('\n')
+    ).toContain('root/body');
+  });
+
   it('rejects inline event handlers and decodes data:text/css stylesheets', () => {
     const result = checkIntrinsicHtmlLayout({
       inlineEventHandlers: [{ tagName: 'button', attributeName: 'onclick' }],

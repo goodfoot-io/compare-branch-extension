@@ -1011,9 +1011,32 @@ export interface HtmlIntrinsicLayoutCheckResult {
 }
 
 const CSS_DECLARATION_RE = /([\w-]+)\s*:\s*([^;{}]+)/g;
-const ROOT_SELECTOR_RE = /(?:^|[\s>+~,])(?::root|html|body)(?=$|[\s>+~,.#:[\]])/i;
 const PSEUDO_ELEMENT_SELECTOR_RE = /::(?:before|after)\b/i;
-const ROOT_OWNED_PROPERTIES = new Set(['height', 'min-height', 'max-height', 'overflow', 'overflow-x', 'overflow-y']);
+const ROOT_OWNED_PROPERTIES = new Set([
+  'display',
+  'height',
+  'min-height',
+  'max-height',
+  'overflow',
+  'overflow-x',
+  'overflow-y'
+]);
+
+/**
+ * Whether a selector list directly targets a Cards-owned root element.
+ *
+ * @param selectorList - Comma-delimited authored selectors.
+ * @returns Whether at least one selector directly targets html, body, or :root.
+ */
+function directlyTargetsIntrinsicRoot(selectorList: string): boolean {
+  return selectorList.split(',').some((rawSelector) => {
+    const selector = rawSelector.trim();
+    const match = selector.match(/^(?::root|html|body)(.*)$/i);
+    if (!match) return false;
+    const suffix = match[1] ?? '';
+    return suffix === '' || (!/[\s>+~]/.test(suffix) && /^[.#:[\]-]/.test(suffix));
+  });
+}
 
 /**
  * Checks parsed author CSS and attributes against the intrinsic normal-flow contract.
@@ -1072,7 +1095,7 @@ export function checkIntrinsicHtmlLayout(inputs: HtmlIntrinsicLayoutInputs): Htm
         const value = declaration[2]?.trim().toLowerCase() ?? '';
         const detail = `${source.source}: selector "${selector}" sets ${property}: ${value}`;
 
-        if (ROOT_SELECTOR_RE.test(selector) && ROOT_OWNED_PROPERTIES.has(property)) {
+        if (directlyTargetsIntrinsicRoot(selector) && ROOT_OWNED_PROPERTIES.has(property)) {
           errors.push(`${detail}; Cards owns root/body height and overflow for intrinsic sizing`);
         }
         if (property === 'position' && (value === 'fixed' || value === 'absolute')) {
