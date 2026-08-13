@@ -50,6 +50,10 @@ vi.mock('@cards.management/sdk/unbound-worktree-candidates', () => ({
   addUnboundCandidate: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock('../../../src/shared/default-log-file.js', () => ({
+  applyDefaultLogFile: vi.fn()
+}));
+
 vi.mock('@cards.management/sdk', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards.management/sdk')>();
   return {

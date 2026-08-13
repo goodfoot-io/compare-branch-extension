@@ -20,7 +20,12 @@ vi.mock('@cards.management/sdk/adhoc-attribution', () => ({
   resolveWorktreeCardId: vi.fn()
 }));
 
-vi.mock('node:fs', () => ({
+vi.mock('../../../src/shared/default-log-file.js', () => ({
+  applyDefaultLogFile: vi.fn()
+}));
+
+vi.mock('node:fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
   existsSync: vi.fn()
 }));
 
