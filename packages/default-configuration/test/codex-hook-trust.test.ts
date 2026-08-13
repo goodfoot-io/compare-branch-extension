@@ -74,6 +74,9 @@ describe('codex-hook-trust', () => {
       },
       'runtime@local:hooks/hooks.json:stop:0:0': {
         trusted_hash: 'sha256:295405e4ed87f8b94dbe4959dd53247b1f0de243566a5926292fd56de2ba4f23'
+      },
+      'runtime@local:hooks/hooks.json:stop:0:1': {
+        trusted_hash: 'sha256:902d29aba108bdf1301b3c0d7abd5f2e90bb1e90fcbe3ce49b64b8c2c4010bc0'
       }
     });
   });
