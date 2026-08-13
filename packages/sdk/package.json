@@ -53,7 +53,7 @@
     "cards-sdk": "./dist/cli.js"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "build-unchanged --input src --input scripts --input package.json --input ../claude-code-sessions/src --output dist --output ../../claude/cards/scaffold -- node scripts/build.mjs",
     "typecheck": "tsgo --noEmit",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l",
     "test": "vitest-unchanged"
