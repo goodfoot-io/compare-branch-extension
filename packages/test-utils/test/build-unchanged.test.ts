@@ -17,7 +17,7 @@
  * @module test-utils/test/build-unchanged.test
  */
 import { spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, symlink, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,7 +73,7 @@ const MARKER_COMMAND = "node -e \"require('node:fs').writeFileSync('marker.txt',
 
 describe('build-unchanged', () => {
   describe('collectFiles()', () => {
-    it('walks a symlinked output root (the real dist → /workspace shape)', async () => {
+    it('walks a symlinked output root', async () => {
       const dir = await makeTmpDir();
       const realDir = join(dir, 'real-output');
       const linkPath = join(dir, 'output-link');
@@ -359,6 +359,186 @@ describe('build-unchanged', () => {
 
       expect(status).toBe(1);
       expect(stderr).toContain('command');
+    });
+  });
+
+  describe('completion manifest', () => {
+    /**
+     * Build dirs in a state the manifest tests share: fresh inputs and outputs.
+     *
+     * @returns The fixture directory and the manifest path inside it.
+     */
+    async function makeManifestFixture(): Promise<{ dir: string; manifestPath: string }> {
+      const dir = await makeTmpDir();
+      await mkdir(join(dir, 'src'));
+      await mkdir(join(dir, 'out'));
+      await writeFileAt(join(dir, 'src', 'a.ts'), 1000);
+      await writeFileAt(join(dir, 'out', 'a.js'), 2000);
+      return { dir, manifestPath: join(dir, 'manifest.json') };
+    }
+
+    it('rebuilds when the completion manifest is missing', async () => {
+      const { dir, manifestPath } = await makeManifestFixture();
+
+      const result = await isFresh(
+        { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath },
+        dir
+      );
+
+      expect(result.fresh).toBe(false);
+      expect(result.reason).toContain('manifest');
+    });
+
+    it('rebuilds when an input recorded in the manifest was deleted', async () => {
+      const { dir, manifestPath } = await makeManifestFixture();
+      await writeFile(
+        manifestPath,
+        JSON.stringify({ inputFiles: ['src/a.ts', 'src/gone.ts'], outputFiles: ['out/a.js'] })
+      );
+
+      const result = await isFresh(
+        { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath },
+        dir
+      );
+
+      expect(result.fresh).toBe(false);
+      expect(result.reason).toContain('src/gone.ts');
+    });
+
+    it('rebuilds when an output recorded in the manifest was deleted', async () => {
+      const { dir, manifestPath } = await makeManifestFixture();
+      await writeFile(
+        manifestPath,
+        JSON.stringify({ inputFiles: ['src/a.ts'], outputFiles: ['out/a.js', 'out/gone.js'] })
+      );
+
+      const result = await isFresh(
+        { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath },
+        dir
+      );
+
+      expect(result.fresh).toBe(false);
+      expect(result.reason).toContain('out/gone.js');
+    });
+
+    it('skips when the manifest matches and outputs are fresh', async () => {
+      const { dir, manifestPath } = await makeManifestFixture();
+      await writeFile(manifestPath, JSON.stringify({ inputFiles: ['src/a.ts'], outputFiles: ['out/a.js'] }));
+
+      const result = await isFresh(
+        { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath },
+        dir
+      );
+
+      expect(result).toEqual({ fresh: true, reason: null });
+    });
+
+    it('ignores the manifest file itself when it lives inside an output root', async () => {
+      const { dir } = await makeManifestFixture();
+      const innerManifest = join(dir, 'out', '.build-unchanged.json');
+      await writeFile(innerManifest, JSON.stringify({ inputFiles: ['src/a.ts'], outputFiles: ['out/a.js'] }));
+
+      const result = await isFresh(
+        { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath: innerManifest },
+        dir
+      );
+
+      expect(result).toEqual({ fresh: true, reason: null });
+    });
+
+    it('writes the manifest after a successful build and skips the next run', async () => {
+      const dir = await makeTmpDir();
+      await mkdir(join(dir, 'src'));
+      await mkdir(join(dir, 'out'));
+      await writeFileAt(join(dir, 'src', 'a.ts'), 3000);
+      await writeFileAt(join(dir, 'out', 'a.js'), 2000);
+      const manifestPath = join(dir, 'manifest.json');
+
+      const first = runBin(dir, [
+        '--input',
+        join(dir, 'src'),
+        '--output',
+        join(dir, 'out'),
+        '--manifest',
+        manifestPath,
+        '--',
+        MARKER_COMMAND
+      ]);
+      expect(first.status).toBe(0);
+      expect(first.stdout).toContain('rebuilding');
+      const record = JSON.parse(await readFile(manifestPath, 'utf8')) as {
+        inputFiles: string[];
+        outputFiles: string[];
+      };
+      expect(record.inputFiles).toEqual(['src/a.ts']);
+      expect(record.outputFiles).toEqual(['out/a.js']);
+
+      // The marker command does not really rebuild; pin the output newer as a
+      // real build would, then the unchanged second run must skip.
+      await utimes(join(dir, 'out', 'a.js'), new Date(4000), new Date(4000));
+      await rm(join(dir, 'marker.txt'));
+      const second = runBin(dir, [
+        '--input',
+        join(dir, 'src'),
+        '--output',
+        join(dir, 'out'),
+        '--manifest',
+        manifestPath,
+        '--',
+        MARKER_COMMAND
+      ]);
+      expect(second.status).toBe(0);
+      expect(second.stdout).toContain('skipping build');
+      await expect(readFile(join(dir, 'marker.txt'))).rejects.toThrow();
+    });
+
+    it('leaves no manifest after a failed build, so the next run rebuilds', async () => {
+      const dir = await makeTmpDir();
+      await mkdir(join(dir, 'src'));
+      await mkdir(join(dir, 'out'));
+      await writeFileAt(join(dir, 'src', 'a.ts'), 3000);
+      await writeFileAt(join(dir, 'out', 'a.js'), 2000);
+      const manifestPath = join(dir, 'manifest.json');
+      const partialFail = "node -e \"require('node:fs').writeFileSync('out/partial.js','x'); process.exit(7)\"";
+
+      const first = runBin(dir, [
+        '--input',
+        join(dir, 'src'),
+        '--output',
+        join(dir, 'out'),
+        '--manifest',
+        manifestPath,
+        '--',
+        partialFail
+      ]);
+      expect(first.status).toBe(7);
+      await expect(readFile(manifestPath)).rejects.toThrow();
+
+      // The partial output is newer than the inputs, but without a manifest
+      // the gate must not bless it.
+      const second = runBin(dir, [
+        '--input',
+        join(dir, 'src'),
+        '--output',
+        join(dir, 'out'),
+        '--manifest',
+        manifestPath,
+        '--',
+        MARKER_COMMAND
+      ]);
+      expect(second.status).toBe(0);
+      expect(second.stdout).toContain('rebuilding');
+      expect(second.stdout).toContain('manifest');
+      await expect(readFile(join(dir, 'marker.txt'))).resolves.toBeDefined();
+    });
+
+    it('exits 1 when --manifest has no value', async () => {
+      const dir = await makeTmpDir();
+
+      const { status, stderr } = runBin(dir, ['--input', join(dir, 'src'), '--output', join(dir, 'out'), '--manifest']);
+
+      expect(status).toBe(1);
+      expect(stderr).toContain('--manifest');
     });
   });
 });

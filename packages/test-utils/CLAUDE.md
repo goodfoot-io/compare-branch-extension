@@ -13,7 +13,7 @@ This package provides consolidated test infrastructure:
 It also hosts the workspace's dev-loop freshness bins (see `bin` in package.json):
 
 - `vitest-unchanged` - skips a test run whose inputs are unchanged (content-hash cache)
-- `build-unchanged` - skips a package build whose outputs are at least as new as its inputs (fail-closed mtime gate)
+- `build-unchanged` - skips a package build whose outputs are at least as new as its inputs and whose `--manifest` completion record still matches (fail-closed mtime gate plus depfile-style completion manifest)
 
 ## Usage Guidelines
 
