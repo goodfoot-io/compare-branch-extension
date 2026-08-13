@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "bin": {
+    "build-unchanged": "./src/bin/build-unchanged.ts",
     "vitest-unchanged": "./src/bin/vitest-unchanged.ts"
   },
   "scripts": {

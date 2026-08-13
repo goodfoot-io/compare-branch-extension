@@ -1,6 +1,6 @@
 # @cards.management/test-utils
 
-Shared test utilities for Issues V2 packages.
+Shared test utilities for Issues V2 packages, plus the workspace's dev-loop freshness bins.
 
 ## Overview
 
@@ -9,6 +9,11 @@ This package provides consolidated test infrastructure:
 - `TestIssueRepository` - Real Git repositories with issue layout for integration testing
 - `TestWebSocketServer` - Real WebSocket server for testing event subscriptions
 - Fixture factories for domain entities
+
+It also hosts the workspace's dev-loop freshness bins (see `bin` in package.json):
+
+- `vitest-unchanged` - skips a test run whose inputs are unchanged (content-hash cache)
+- `build-unchanged` - skips a package build whose outputs are at least as new as its inputs (fail-closed mtime gate)
 
 ## Usage Guidelines
 
