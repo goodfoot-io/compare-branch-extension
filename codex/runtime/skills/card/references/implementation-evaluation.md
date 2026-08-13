@@ -38,7 +38,7 @@ Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes. Sele
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
-The evaluator children form an ephemeral spawn tree under you. There is no team to create — you spawn the evaluators directly in Step 4, and they return their results to you when their tasks complete. Across revision rounds you re-engage the same lanes by spawning fresh evaluators with the prior findings inlined, or by sending a follow-up message to an evaluator that is still live (Step 8: Trigger Re-Evaluation).
+The evaluator children form an ephemeral spawn tree under you. There is no team to create — you spawn the evaluators directly in Step 4, and they return their results to you when their tasks complete. Across revision rounds you re-engage the same lanes: `send_message` a live evaluator, `resume_agent` a completed one (it restores with its findings in context), and spawn a fresh evaluator with prior findings inlined only when resumption fails (Step 8: Trigger Re-Evaluation).
 
 ## 4. Spawn Evaluators
 
@@ -93,17 +93,17 @@ All validation has passed. Focus on what a user would experience as broken, wron
 Each evaluator child returns a structured final report to you when its task completes, and on a live re-evaluation reports a fresh verdict via the same channel. Each report carries two kinds of content:
 
 - **`FINDING:` entries**: Record each finding (short label and body) so you can route it into a developer wave in Step 6 and, after fixes land, brief the evaluators on what changed. Keep what you need to do those two things — not a cross-referenced ledger.
-- **`VERDICT:` line**: Record the verdict for this round.
+- **`VERDICT:` line**: Record the verdict for this round. From an `APPROVED` body, capture the open sub-blocking list (label + witness) — it is the pre-finalize sweep's only input.
 
-On Deep depth you mediate cross-evaluator critique: relay each evaluator's `FINDING:` entries to the peer evaluator (via `send_message` if the peer is still live, or inlined into the peer's next spawn message), and relay any `CRITIQUE: <label>` an evaluator includes back to the evaluator it targets. If an evaluator verifies a relayed critique and folds it into its own findings, it returns that as a fresh `FINDING:` in its report. Treat each `FINDING:` as a record from its sender — do not deduplicate across evaluators. Two evaluators may legitimately raise the same underlying issue from different angles; the developer wave's message will inline both labels.
+On Deep depth you mediate cross-evaluator critique: relay each evaluator's `FINDING:` entries to the peer evaluator (via `send_message` if the peer is still live, or inlined into the peer's next resume or spawn message), and relay any `CRITIQUE: <label>` an evaluator includes back to the evaluator it targets. If an evaluator verifies a relayed critique and folds it into its own findings, it returns that as a fresh `FINDING:` in its report. Treat each `FINDING:` as a record from its sender — do not deduplicate across evaluators. Two evaluators may legitimately raise the same underlying issue from different angles; the developer wave's message will inline both labels.
 
-Continue until every spawned evaluator has reported a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
+Continue until every spawned evaluator has reported a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, re-engage the evaluator to publish the note and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` routes immediately; if its note is missing at round 1, add "publish your questions note before your next verdict" to that lane's Step 8 re-evaluation message. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
 An evaluator that reported dirty paths instead of a verdict is the exception. Commit or revert the outstanding changes, then re-engage that lane with the new HEAD SHA — never spawn a fresh replacement, which would re-open findings already accepted.
 
-Otherwise, an evaluator that finished its task without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run.
+Otherwise, an evaluator that finished its task without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run. Re-engage the lane first — `send_message` if live, `resume_agent` if completed — never spawn a replacement without a failed re-engagement attempt on record.
 
-A fresh replacement is a new child with no prior context. Spawn it through Step 4, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Point it at its lane's questions note in the card repository's `notes/` (`failure-mode-questions` or `user-outcome-questions`) and inline the known prior-round findings for its lane into its spawn message so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
+A fresh replacement is a new child with no prior context. Spawn it through Step 4, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Point it at its lane's questions note in the card repository's `notes/` (`failure-mode-questions` or `user-outcome-questions`) and inline the known prior-round findings for its lane into its spawn message so it does not have to rediscover them. It evaluates HEAD from scratch but **inherits the replaced evaluator's round number** — question-gating and the blocking threshold count per evaluation, not per agent instance; state that round number in its spawn message. The normal Step 8 re-evaluation loop then covers it like any other evaluator.
 
 A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
 
@@ -120,6 +120,8 @@ Group the findings by coherence, using the same routing principle as `./implemen
 - **Dependent + varied + substantial with clear gates**: Sequential — ordered developers with a validate-and-commit gate between phases.
 
 When uncertain between Coherent and Sequential, choose **Sequential**.
+
+Trivial findings (stale prose, wrong figures, comment drift) never justify their own group — batch each into whichever developer already owns the file.
 
 Choose [EFFORT] per the same tiering as `./implementation-with-plan.md`'s `<effort-selection>`.
 
@@ -154,6 +156,7 @@ This work owns: [absolute paths the findings touch — do not modify files outsi
 - Apply the fix for every finding above
 - Keep changes minimal and focused on the findings
 - Follow existing patterns
+- A fix introducing a new mechanism lands with a regression test for it and an end-to-end exercise of the mechanism composed with what it touches; report each such witness (mechanism → test/command) when you return
 
 ## Success Criteria
 - [ ] Every finding addressed
@@ -165,7 +168,7 @@ This work owns: [absolute paths the findings touch — do not modify files outsi
 
 Wait for every developer child in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
 
-Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
+Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation. Confirm every new mechanism the wave introduced carries its regression test and composed exercise (the Step 6 guideline); one without them is an implementation error — re-dispatch per the bullet below.
 
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.
@@ -191,15 +194,16 @@ git clean -fd
 
 ## 8. Trigger Re-Evaluation
 
-Re-engage every evaluator lane against the revised implementation. If an evaluator is still live, `send_message` it the re-evaluation context by its task path; if its task already completed, `spawn_agent` a fresh child for that lane (per its skill's "When Resuming" path) and inline its prior findings plus the re-evaluation context into the spawn `message`. On Standard depth this is one lane (`failure_mode`); on Deep depth, re-engage both lanes.
+Re-engage every evaluator lane against the revised implementation. If an evaluator is still live, `send_message` it the re-evaluation context by its task path; if its task already completed, `resume_agent` it and send the same context — it resumes per its skill's "When Resuming" path with its findings in context. Only if resumption fails, `spawn_agent` a fresh child for that lane and inline its prior findings plus the re-evaluation context into the spawn `message`. On Standard depth this is one lane (`failure_mode`); on Deep depth, re-engage both lanes.
 
-The evaluator holds its own findings in context (when live) or receives them inlined (when re-spawned). Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The evaluator re-checks against the new HEAD on its own judgment. The message:
+The evaluator holds its own findings in context (live or resumed) or receives them inlined (spawned replacement). Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The evaluator re-checks against the new HEAD on its own judgment. The message:
 
 ```
 The implementation has been updated to address the prior round's findings. Re-evaluate against commit [HEAD_SHA]; the tree is clean at that commit.
 
 Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
 What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
+New witnesses: [mechanism → test/command, for each new mechanism the wave introduced — omit if none]
 Not fixed: [any finding the wave could not address, and why — omit if none]
 
 RE_EVALUATE
@@ -211,7 +215,9 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 ## 9. Finalize
 
-Do not enter this step unless every spawned evaluator has reported `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path — including after applying fixes yourself — return to Step 5 and collect the remaining verdicts.
+Do not enter this step unless every spawned evaluator has reported `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path, including after applying fixes yourself (the pre-finalize sweep excepted), return to Step 5 and collect the remaining verdicts.
+
+**Pre-finalize sweep.** If sub-blocking findings or witness repairs remain open (the lists from the `APPROVED` bodies), spawn one final developer wave for them per Step 6, scoped to the listed findings' own files — no discretionary refactoring; group by file ownership as usual. Validate per Step 7's lint/typecheck paragraph and commit with its commit block — do **not** follow Step 7's routing into Step 8 — then re-run each repaired witness yourself and confirm the expected result, and run Step 2's validation commands — not its routing — before finalizing. If a witness re-run fails or validation cannot pass, fall back to Step 8 — that is the only path from the sweep into a re-evaluation round. Skip the sweep when nothing is open.
 
 The evaluator children auto-terminate when their tasks complete; there is no team to tear down. Wait for any still-live evaluator to finish, and do not spawn new ones.
 

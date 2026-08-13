@@ -87,6 +87,10 @@ reviewer's `VERDICT: BLOCKED for:planner_N` ruling.
 
 `APPROVED` is sticky-but-revocable: a question raised later by a peer's plan can drop an approved planner back into the revision loop. A planner that holds approval and is not revising has nothing more to send — that is what "done" looks like.
 
+A reviewer that finishes its task with a `PLAN: READY` unanswered is a stall, never an implied verdict — re-engage it naming the planner and round.
+
+A `VERDICT:` missing its `for:planner_N` or round tag updates no state — require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.
+
 ### Closure — Judgment, Not a Handshake
 
 Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. A planner that revises after approval does not announce it — it just revises and later reports a new `PLAN: READY round-K+1`. So "approved and silent" is indistinguishable from "approved and quietly revising," and you do not need to tell them apart: closing is safe even if a planner was mid-revision, because its next `PLAN: READY` reopens the field before any winner is finalized (Step 4). When several reports share the same subject, the latest supersedes earlier ones — that is how revocation works.
@@ -97,7 +101,7 @@ The only things that legitimately reopen a closeable field: a planner choosing t
 
 ### Convergence Collapse (Instrumented)
 
-When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` reports plus matching mechanisms across plan files are the signal — the design fork is settled. As soon as any converged plan holds `APPROVED` for its current round, trigger Step 4 with `SELECT_WINNER (convergence collapse)` as the marker line; do not wait for the others to qualify.
+When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` reports plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` as the marker line — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.
 
 After the `WINNER:` report, before Step 5: `send_message` each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; report `CRITIQUE: ... for:[WINNING_PLANNER]` to the orchestrator for every real risk you find in the winning plan. Relay those critiques to the reviewer per §3; the reviewer verifies them, streams verified findings to the winner (relay them), and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and the red-teamers have finished reporting. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.
 
@@ -121,6 +125,8 @@ A planner may ask you a plain-language question about contest state — peer rou
 If a question requires verification beyond what you know directly (e.g., "is planner_2 about to emit a new round?"), message that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.
 
 ## 4. Trigger Selection
+
+Before sending, confirm the reviewer's `plan-failure-mode-questions` note and `review-ledger` note exist in the card repo's `notes/` — if either is missing, require it first.
 
 `send_message` the reviewer requesting selection. Lead the message with the `SELECT_WINNER` marker; the body is empty or notes the closure-condition state for context:
 

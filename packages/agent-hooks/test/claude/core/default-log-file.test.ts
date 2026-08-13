@@ -382,7 +382,11 @@ describe('resolveDefaultApiHooksLogPath — no recorded install', () => {
   });
 
   it('returns null for a nonexistent directory rather than throwing', () => {
-    expect(resolveDefaultApiHooksLogPath(path.join(scratchDir, 'does-not-exist'))).toBeNull();
+    const captured = captureStderr(() => {
+      expect(resolveDefaultApiHooksLogPath(path.join(scratchDir, 'does-not-exist'))).toBeNull();
+    });
+
+    expect(captured).toContain('git rev-parse ENOENT');
   });
 
   it('returns null for a process cwd outside any repository', () => {

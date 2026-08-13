@@ -115,6 +115,7 @@ The reviewer streams findings as it discovers them, before any verdict; the orch
 - For each finding, decide which axis to attack: reduce **occurrence** (change the mechanism so the bet is no longer fragile), narrow **severity** (shrink the blast radius), or add **detection** (a test, assertion, or runtime check that surfaces the failure).
 - Revise `[PLAN_FILE]` directly and commit. Write the commit message as a single sentence per `<card-repo-commit-style>` that summarizes the change, prefixed with the axis you attacked: `occurrence:`, `severity:`, `detection:`, or `accepted:` (the last when you accept the finding without changing the plan and want the reviewer to see it on the record). The reviewer reads commits when re-reviewing — the axis label tells it where on the failure-mode triangle the revision landed.
 - A **class finding** (the reviewer names a flaw class with constructible siblings) closes only by construction over the whole class, witnessed by a committed PoC test, fixture, or exhaustive argument — patching the cited instance or claiming closure in prose reopens it next round. Commit fixture witnesses under `notes/` and PoC-test witnesses under `spike/` in the card repo.
+- A revision introducing a **new mechanism** commits a witness exercising it together with the mechanism it composes with — a per-half witness does not close the finding.
 
 Do not re-report `PLAN: READY` after each streamed revision. That report is reserved for Step 4.2, so the reviewer re-evaluates against the finalized plan rather than an in-flight state. If the reviewer finishes analyzing and finds every concern already addressed, it issues `VERDICT: APPROVED for:[PLANNER_NAME]` directly (relayed by the orchestrator) and Step 4.2 never fires.
 
@@ -156,6 +157,8 @@ After the reviewer's `VERDICT: APPROVED for:[PLANNER_NAME] round-K` reaches you,
 
 - **Yes — revise.** A consumer you missed, a load-bearing assumption you should harden, a critique angle the reviewer is likely to weaponize. Revise, commit, return to Step 3, and report `PLAN: READY for:[PLANNER_NAME] round-K+1`. Your prior approval is implicitly superseded (the reviewer issues a fresh verdict against round-K+1).
 - **No — stay put.** If you have read the peer's plan and it does not change your answer to any real risk, do nothing. Send no message. Your silence is the signal that you are done — the contest closes when every live plan is approved and nobody is revising. Cosmetic peer changes your plan already handles (a renamed path, a clarified anchor) are not grounds to revise.
+
+Findings the reviewer marks `non-blocking` are fixed and committed **without** a new `PLAN: READY` — the reviewer confirms them at your next round or at selection.
 
 There is no settlement message, no `against:` list, no re-confirmation when a peer moves again. Do not track which peer round you have read or report it to anyone. If a later peer round genuinely changes your risk picture, revise then; otherwise there is nothing to do.
 

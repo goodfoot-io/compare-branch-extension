@@ -11,6 +11,10 @@
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/shared/default-log-file.js', () => ({
+  applyDefaultLogFile: vi.fn()
+}));
+
 describe('session-start hook', () => {
   const mockPersistEnvVar = vi.fn();
   const mockPersistEnvVars = vi.fn();

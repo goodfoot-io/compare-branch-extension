@@ -113,21 +113,21 @@ All validation has passed. Focus on what a user would experience as broken, wron
 Monitor inbound DMs from each evaluator. Each evaluator emits two kinds of DM addressed to you:
 
 - **`FINDING:` DM**: Record the finding (short label and body) so you can route it into a developer wave in Step 5 and, after fixes land, brief the evaluators on what changed. Keep what you need to do those two things — not a cross-referenced ledger.
-- **`VERDICT:` DM**: Record the verdict for this round.
+- **`VERDICT:` DM**: Record the verdict for this round. From an `APPROVED` body, capture the open sub-blocking list (label + witness) — it is the pre-finalize sweep's only input.
 
 Cross-evaluator critiques are exchanged as DMs between the evaluators (`CRITIQUE: <label>` from `failure-mode` to `experience-evaluator` and vice versa) and do not reach you. On Deep depth, evaluators also DM each other their `FINDING:` markers directly so they can critique each other's findings; you receive your own copy from each evaluator.
 
 A verified peer CRITIQUE arrives as a fresh `FINDING:` DM from the verifying evaluator. Do not deduplicate across evaluators — two evaluators may legitimately raise the same underlying issue from different angles, and the developer wave's prompt inlines both labels.
 
-Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
+Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, DM the evaluator to publish the note and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` routes immediately; if its note is missing at round 1, add "publish your questions note before your next verdict" to that evaluator's Step 7 re-evaluation DM. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
 An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state. Idle **without** it, the evaluator will never act again on its own — wake it with a DM that inlines whatever it is waiting on; task-notifications for work it delegated may be delivered to you, not to it, so forward those results in the wake-up DM.
 
 An evaluator that yielded on a dirty tree is the exception. Commit or revert the outstanding changes, then wake it with the new HEAD SHA — never re-dispatch, which would re-open findings already accepted.
 
-Otherwise, if it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below).
+Otherwise, if it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below). Never re-dispatch without a failed wake attempt on record.
 
-A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Point it at its lane's questions note in the card repository's `notes/` (`failure-mode-questions` or `user-outcome-questions`) and inline the known prior-round findings for its lane into its dispatch prompt; it produces its own round-1 verdict, after which the normal Step 7 re-evaluation loop covers it like any other evaluator.
+A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 3 under the same name as the evaluator it replaces, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Point it at its lane's questions note in the card repository's `notes/` (`failure-mode-questions` or `user-outcome-questions`) and inline the known prior-round findings for its lane into its dispatch prompt. It evaluates HEAD from scratch but **inherits the replaced evaluator's round number** — question-gating and the blocking threshold count per evaluation, not per agent instance; state that round number in its dispatch prompt. The normal Step 7 re-evaluation loop then covers it like any other evaluator.
 
 A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 5.
 
@@ -144,6 +144,8 @@ Group the findings by coherence, using the same routing principle as `./implemen
 - **Dependent + varied + substantial with clear gates**: Sequential — ordered developers with a validate-and-commit gate between phases.
 
 When uncertain between Coherent and Sequential, choose **Sequential**.
+
+Trivial findings (stale prose, wrong figures, comment drift) never justify their own group — batch each into whichever developer already owns the file.
 
 Choose [MODEL] per the same tiering as `./implementation-with-plan.md`'s `<model-selection>`.
 
@@ -182,6 +184,7 @@ This work owns: [absolute paths the findings touch — do not modify files outsi
 - Apply the fix for every finding above
 - Keep changes minimal and focused on the findings
 - Follow existing patterns
+- A fix introducing a new mechanism lands with a regression test for it and an end-to-end exercise of the mechanism composed with what it touches; report each such witness (mechanism → test/command) when you return
 
 ## Success Criteria
 - [ ] Every finding addressed
@@ -197,7 +200,7 @@ Wait for every developer in the current group (Parallel, Coherent, or current Se
 
 Developers do not commit — record the group's pre-dispatch HEAD SHA before delegating in Step 5, and on return compare it to current HEAD. If HEAD moved, a developer committed despite the constraint: `git reset --soft <pre-dispatch-SHA>` before validating, so the group's work folds into the single commit this step produces rather than leaving a stray commit ahead of it.
 
-Lint and typecheck per the project's CLAUDE.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation.
+Lint and typecheck per the project's CLAUDE.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation. Confirm every new mechanism the wave introduced carries its regression test and composed exercise (the Step 5 guideline); one without them is an implementation error — re-dispatch per the bullet below.
 
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 7: Trigger Re-Evaluation.
@@ -238,6 +241,7 @@ The implementation has been updated to address the prior round's findings. Re-ev
 
 Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
 What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
+New witnesses: [mechanism → test/command, for each new mechanism the wave introduced — omit if none]
 Not fixed: [any finding the wave could not address, and why — omit if none]
   </parameter>
 </invoke>
@@ -249,7 +253,9 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 ## 8. Finalize
 
-Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 4. If you arrived here through any other path — including after applying fixes yourself — return to Step 4 and collect the remaining verdicts.
+Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 4. If you arrived here through any other path, including after applying fixes yourself (the pre-finalize sweep excepted), return to Step 4 and collect the remaining verdicts.
+
+**Pre-finalize sweep.** If sub-blocking findings or witness repairs remain open (the lists from the `APPROVED` bodies), dispatch one final developer wave for them per Step 5, scoped to the listed findings' own files — no discretionary refactoring; group by file ownership as usual. Validate per Step 6's lint/typecheck paragraph and commit with its commit block — do **not** follow Step 6's routing into Step 7 — then re-run each repaired witness yourself and confirm the expected result, and run Step 2's validation commands — not its routing — before finalizing. If a witness re-run fails or validation cannot pass, fall back to Step 7 — that is the only path from the sweep into a re-evaluation round. Skip the sweep when nothing is open.
 
 Every evaluator that DM'd `VERDICT: APPROVED` for this round has already gone idle — proceed directly. Only if an evaluator is still actively working and you want to stop it early, DM it `{"type": "shutdown_request"}` (this wakes it if already idle, then it exits). On Standard depth there is one evaluator (`failure-mode`); on Deep depth, send the request to both `failure-mode` and `experience-evaluator` in a single message:
 

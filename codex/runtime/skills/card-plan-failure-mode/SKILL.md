@@ -48,7 +48,7 @@ The failure-mode questions are the lens for every plan you review — a set of q
 
 The published set is a floor, never a ceiling — every §2 sweep goes beyond the note.
 
-Some research steps below (web searches, exploratory research over transcript history) take time. If the orchestrator relays a `PLAN: READY` report during this step, do not block it — commit the note with what you have and start §2 review for the arriving plan in parallel. Continue extending the question set as you learn more (per §2.2); the questions you add later apply retroactively to plans already reviewed.
+Some research steps below (web searches, exploratory research over transcript history) take time. If the orchestrator relays a `PLAN: READY` report during this step, do not block it — commit the note with what you have and start §2 review for the arriving plan in parallel. Continue extending the question set as you learn more (per §2.2); the questions you add later apply to plans already reviewed under §2.2's gating test.
 
 Start from the outcomes the card must deliver. Each acceptance criterion is an outcome; `<card>` metadata and the orchestrator's spawn context will surface additional behaviors the card implies but does not enumerate. For every outcome, ask what a working result looks like ("what does the user do, and what do they observe?") and what plausible plans could produce instead.
 
@@ -70,7 +70,7 @@ A question invites the plan to answer or the workspace to adjudicate; a checklis
 - **User intent** — What does the user actually need, and could a plan satisfy this card verbatim without delivering it? Which acceptance criteria are easy to narrow or reframe into something the card would accept but the user would not? Which scenarios does the card imply but not enumerate (edge cases, empty states, loading states, adjacent regressions)?
 - **Model-generated-code bias** — Which of these is this card especially exposed to: multi-file impact blindness (3+ files implies at least one missed consumer), default-value bias, type-safety escape hatches, insecure defaults, resource and performance hazards, happy-path-only design?
 
-Save the questions as a note to the card repository per the `<take-notes>` instructions.
+Save the questions as a note to the card repository per the `<take-notes>` instructions — slug `plan-failure-mode-questions`.
 
 ## 2. Evaluate Each Plan Against the Questions and Beyond
 
@@ -78,7 +78,7 @@ For each plan under review, read `plans/[PLANNER].md`. Other plan files in `plan
 
 Your scope is all code the plan interacts with, not just code the plan directly modifies. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced risks.
 
-A consumer the plan does not account for is a failure mode the planner doesn't know about. Apply this rule symmetrically: every finding that asserts what the workspace does or does not contain ("the plan is missing X," "feature Y is not shipped," "no caller handles Z") must be verified by reading or grepping the workspace, not inferred from the plan's silence about the topic.
+A consumer the plan does not account for is a failure mode the planner doesn't know about. Apply this rule symmetrically: every finding that asserts what the workspace does or does not contain ("the plan is missing X," "feature Y is not shipped," "no caller handles Z") must be verified by reading or grepping the workspace, not inferred from the plan's silence about the topic. The bar is symmetric for clearing: a load-bearing claim clears only on workspace evidence or execution — a claim you cleared by argument alone stays an open question.
 
 **Out-of-scope issues**: If you discover an issue in code the plan does not interact with, do not include it in your findings. Instead, load the `$cards:cards` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
@@ -95,7 +95,12 @@ For every failure-mode question, determine how the plan answers it:
 
 Your pre-plan questions were built from the card alone. The plan will introduce specifics — concrete mechanisms, concrete file sets, concrete ordering — that expose failure angles the pre-plan lens could not see. Treat this as an extension of the question set, not a separate hunt for findings: as you read the plan and trace the workspace, add new questions the plan surfaces, then answer each new question — across every plan currently under review, not only the one that surfaced it — using the §2.1 triage (Answered / Unanswered / Worsened / Uncontested across plans).
 
-A new question applies retroactively to every plan you have already touched, including ones you have already approved. When a new question invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER]` per §5 (report it to the orchestrator, which relays it to the targeted planner) — that revokes the prior approval. Stream the new finding to the originating planner per §4 so it can revise. The contest reopens until that plan is re-approved.
+Before a plan's first verdict, new questions apply to it freely. After it, a new question **gates** that plan only when one of these holds:
+
+- It names an artifact that did not exist at that plan's first verdict — typically the revision commit that introduced the mechanism it targets; otherwise a spike result or captured fixture. "I had not yet read/traced/run it" is not unaskability — it is a review defect per §2.4.
+- It targets a mechanism a peer introduced in a revision commit not reachable from that plan's first-verdict ledger SHA (§5) — name that commit; it then gates every live plan it applies to. A sibling present in the peer's round-1 text is a review defect per §2.4 and non-gating.
+
+A non-gating question is still recorded in the note but never gates approval or triggers revocation. When a gating question invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER]` per §5 (report it to the orchestrator, which relays it to the targeted planner) to revoke, and stream the finding per §4; the contest reopens until that plan is re-approved.
 
 Prompts for generating plan-revealed questions:
 
@@ -105,7 +110,7 @@ Prompts for generating plan-revealed questions:
 - **Step dependencies and failure paths** — For each step that can fail, what question does the plan answer about what happens when it does? Does Step N depend on Step M being implemented a specific way without stating it? Each unstated dependency is a question.
 - **New failure categories the plan introduces** — If the plan chooses an approach (a new daemon, a new cache, a new error-handling strategy) that brings its own failure modes, what questions does that approach now invite? Add them.
 
-Append new questions to the failure-mode-questions note as you discover them. Plans are only meaningfully compared when evaluated against the same set: do not report `APPROVED` for any plan until every current question has been answered against it. Follow the `<take-notes>` instructions for any separate architectural discovery that doesn't fit as a question.
+Append new questions to the failure-mode-questions note as you discover them. Plans are only meaningfully compared when evaluated against the same set: do not report `APPROVED` for any plan until every question that gates it has been answered against it. Follow the `<take-notes>` instructions for any separate architectural discovery that doesn't fit as a question.
 
 ### 2.3. Handle Peer-Submitted Critiques
 
@@ -114,6 +119,16 @@ Competing planners report critiques of each other's plans, which the orchestrato
 - Verify the claim against the workspace before weighting it. The rule from Step 2 applies: any assertion about what the workspace does or does not contain must be grepped or read, not reasoned. Peer-submitted claims are no exception.
 - If verified, fold it into your own findings for the target plan using the Step 3 format and stream it per Step 4. The finding is yours; the submitter receives no credit and no reply.
 - If the claim does not verify, drop it.
+
+### 2.4. Round 1 Is the Exhaustive Round
+
+Before a plan's first verdict:
+
+- **Generalize at filing time.** File every finding at its class per §3, checked against every other live plan before sending.
+- **Exercise compositions.** Where the plan's mechanisms can be run or constructed (spikes, fixtures, workspace code), exercise interacting mechanisms together — a defect visible only in composition is a round-1 finding.
+- **Audit the witnesses.** A verification step — the plan's or your own — that passes under both the working and the broken hypothesis is itself a round-1 finding, never a selection-time one.
+
+A finding filed in round N whose evidence existed at round N−1 is a review defect. File it regardless — the defect is the delay, not the finding — and record it in the review-ledger note with the round delta.
 
 ## 3. Describe Failure Modes Concretely
 
@@ -127,19 +142,23 @@ Generic failures fail the detail bar. "Something could go wrong with cleanup" na
 
 Then tag the finding on three axes so the planner can see where a revision could attack it:
 
-- **Severity** — the harm when the failure fires. Data corruption vs. stale UI. Every user vs. unusual trigger. Silent wrong result vs. visible error.
+- **Severity** — the harm when the failure fires. Data corruption vs. stale UI. Every user vs. unusual trigger. Silent wrong result vs. visible error. **High**: the shipped mechanism corrupts or loses data, breaks an acceptance criterion, produces a silent wrong result, or fails its main path; recoverable degradation, narrow triggers, and prose or evidence-quality issues sit below high.
 - **Occurrence** — the conditions under which it fires, and how often. Any run, specific inputs, a race window, a rare environmental state.
 - **Detection** — how likely the failure slips past tests, types, and review unseen. "No existing test covers this path" and "the type system can't see this shape" are first-class detection concerns, not side notes.
 
 A revision can attack any of the three: narrow severity (shrink the blast radius), reduce occurrence (change the mechanism so the bet is no longer fragile), or add detection (a test, assertion, or runtime check that surfaces the failure). Leave all three paths visible; do not prescribe which the planner takes.
 
+**Blocking** (governs verdicts, §5): before your third verdict for a plan, any open non-trivial finding; from the third on, only severity high or above **for the shipped outcome**, with a witness. Trivial findings never block at any round.
+
 **Compound failures.** When two findings interact — failure A raises the occurrence or severity of failure B — document the dependency. Compound failures are higher severity than their components suggest.
 
-**Class findings.** When a finding has constructible siblings — other instances of the same underlying flaw (further escapes past the same delimiter or sink, further untracked failure paths of the same kind) — file it once as a class: name the class, enumerate the siblings you can construct, and require closure by construction over the whole class. In later rounds, reject an instance-level patch of a class finding; the class stays open until the plan's mechanism forecloses every member.
+**Trivial findings.** Stale prose, wrong figures, comment drift: tag `severity: trivial`; on re-review confirm by witness re-run only — never re-open surrounding analysis.
+
+**Class findings.** When a finding has constructible siblings — other instances of the same underlying flaw (further escapes past the same delimiter or sink, further untracked failure paths of the same kind) — file it once as a class: name the class, enumerate the siblings you can construct, and require closure by construction over the whole class. Generalization is your job at filing time, per §2.4 — including siblings in other live plans, filed against each affected plan in the same round. In later rounds, reject an instance-level patch of a class finding; the class stays open until the plan's mechanism forecloses every member.
 
 ## 4. Stream Findings to the Originating Planner
 
-As soon as a finding meets the Step 3 detail bar, report it to the orchestrator for relay to the originating planner. Name the planner the finding is about. Do not wait for the rest of your analysis. Do not batch.
+As soon as a finding meets the Step 3 detail bar, report it to the orchestrator for relay to the originating planner. Name the planner the finding is about. Do not wait for the rest of your analysis. Do not batch. Immediately before reporting, re-read the plan sections the finding cites — drop it unreported if already fixed at HEAD. End the body with `checked against:` naming every live plan you checked for siblings, plus `non-blocking` when the finding is not blocking per §3.
 
 The marker `FINDING: [short label] for:[PLANNER] round-K` opens the report (round-tagged from the planner's most recent `PLAN: READY` round, so the planner can match each finding to a specific round under sticky-but-revocable approval). The body carries the finding with all three Step 3 components, plus the plan section or file it applies to.
 
@@ -164,9 +183,13 @@ Report the verdict to the orchestrator, which relays it to the targeted planner:
 
 - The marker `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` opens the report. The round number comes from the planner's most recent `PLAN: READY for:[PLANNER] round-K` report you are responding to.
 - The body carries a concise summary plus any final thoughts that emerged after the last streamed finding — not a repeat of every finding. The planner has the full findings via §4 streaming; this body gives the planner the round-level synthesis it needs to revise.
-- After each verdict, append one line (`VERDICT ... for:[PLANNER] round-K` plus open finding labels) to the `review-ledger` note per `<take-notes>` — the durable record follow-on sessions read instead of transcripts.
+- After each verdict, append one line (`VERDICT ... for:[PLANNER] round-K @ <HEAD sha> — open finding labels`) to the `review-ledger` note per `<take-notes>` — the durable record follow-on sessions read instead of transcripts.
 
-Use `APPROVED` only when you have no blocking findings to raise against that plan. `APPROVED` is the qualifying bar, not the finish line — the contest stays open and a later question may force you to revoke this approval per §2.2 by issuing `CHANGES_REQUESTED for:[PLANNER] round-K` against the round you previously approved.
+Use `APPROVED` only when you have no blocking findings (§3) against that plan; list any open sub-blocking findings (label + witness) in the body. `APPROVED` is the qualifying bar, not the finish line — the contest stays open and a later gating question may force you to revoke this approval per §2.2 by issuing `CHANGES_REQUESTED for:[PLANNER] round-K` against the round you previously approved. Revocation of an `APPROVED` requires a blocking finding.
+
+Non-blocking findings, including defects in the plan's own verification or soak evidence, still stream per §4: the planner fixes and commits without a new `PLAN: READY`, and you confirm by witness re-run at its next round or at selection — they neither block `APPROVED` nor open a round.
+
+**Re-read at send time.** Immediately before reporting a verdict, re-read the plan file at its current commit — this includes a superseded *file* under an unchanged round number. §4 applies the same rule per finding.
 
 **Round-tag race.** Before issuing a verdict for round-K, check whether the orchestrator has since relayed `PLAN: READY for:[PLANNER] round-K+1`. If it has, your round-K analysis is stale — discard the verdict (do not report it), re-open your tracking per §7, and evaluate round-K+1 instead. Findings you reported during round-K analysis stay on the record as inputs to your §7.2 triage: each gets re-classified as Addressed / Partially Addressed / Unaddressed against round-K+1's content. They are inputs to the round-K+1 verdict, not constraints on it. Never issue a verdict for a round that the planner has already superseded.
 
@@ -200,7 +223,7 @@ The orchestrator sends you `SELECT_WINNER` once every live (non-`BLOCKED`) plann
 
 ### 6.1. Confirm the Field Is Closed
 
-Approvals were earned against the full current question set (§2.2 applies retroactively as questions arrive), so this is not a scheduled re-read. Confirm only that no question raised since each approval remains untriaged against that plan. Reopen a qualified plan solely on new evidence — a new question with a workspace-verified witness the plan fails: issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5 (report it to the orchestrator for relay to the targeted planner), stream the finding per §4, and do not select a winner until that plan re-qualifies. Re-reading alone, without a new witnessed finding, does not revoke.
+Approvals were earned against the full current gating set (§2.2), so this is not a scheduled re-read. Confirm that no gating question raised since each approval remains untriaged against that plan, and re-run the witness of each sub-blocking finding fixed since that plan's approval. Reopen a qualified plan solely on new evidence — a new gating question with a workspace-verified witness the plan fails, blocking per §3: issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5 (report it to the orchestrator for relay to the targeted planner), stream the finding per §4, and do not select a winner until that plan re-qualifies. Re-reading alone, without a new witnessed finding, does not revoke.
 
 ### 6.2. Lone Survivor
 
@@ -219,7 +242,7 @@ For each question, rate each plan's answer on the §3 axes (severity, occurrence
 
 ### 6.4. Report the Winner to the Orchestrator
 
-Report the winner to the orchestrator. The marker `WINNER: [PLANNER]` opens the report; the body carries a comparative rationale — name the questions that decided the contest, not a generic summary of each plan. The orchestrator routes implementation on this report — it does not override your selection. The `WINNER:` report supersedes any prior `CHANGES_REQUESTED` for the named planner.
+Report the winner to the orchestrator. The marker `WINNER: [PLANNER]` opens the report; the body carries a comparative rationale — name the questions that decided the contest, not a generic summary of each plan — and lists any still-open sub-blocking findings against the winner (label + witness); implementation inherits them. The orchestrator routes implementation on this report — it does not override your selection. The `WINNER:` report supersedes any prior `CHANGES_REQUESTED` for the named planner.
 
 ```
 WINNER: [PLANNER]
@@ -234,20 +257,22 @@ When the orchestrator relays `PLAN: READY for:[PLANNER] round-K+1` after a `CHAN
 
 ### 7.1. Identify What Changed
 
-Run `git log` on the plan file to see its full revision history. Use them to identify what was addressed since the previous round, then `git show <sha>` any commit of interest for the full diff:
+Run `git log` to see what changed since your last verdict. Use it to identify what was addressed since the previous round, then `git show <sha>` any commit of interest for the full diff:
 
 ```bash
 cd $CARD_REPO_PATH
-git log plans/[PLANNER].md
+git log <last-verdict-sha>..HEAD -- plans/[PLANNER].md spike/ notes/
 ```
 
 Changed sections are your primary focus, but do not abandon prior concerns that remain open.
+
+**Empty round.** No commit in that range beyond your own `plan-failure-mode-questions` and `review-ledger` commits means there is nothing to re-review: answer the `PLAN: READY` by re-issuing the standing verdict for the new round in one report — no sweep — and note the empty round in the ledger line. A re-issued verdict does not advance the §3 blocking count. A planner's report describing work already credited does not reopen it.
 
 ### 7.2. Triage Each Prior Finding
 
 For each concern you raised in the previous round, determine its current status:
 
-- **Addressed**: The plan now accounts for it. Verify the fix is correct in the workspace — confirm it by reading the referenced code, not by accepting the plan's description of it. A planner correction that is incomplete or introduces a new risk becomes a new finding. A §3 class finding is addressed only with a witness — the plan commits a PoC test, fixture, or exhaustive construction argument covering the class; a prose closure claim stays open. A revision responding to your own requested change gets the same scrutiny as any other.
+- **Addressed**: The plan now accounts for it. Verify the fix is correct in the workspace — confirm it by reading the referenced code, not by accepting the plan's description of it. A planner correction that is incomplete or introduces a new risk becomes a new finding. A §3 class finding is addressed only with a witness — the plan commits a PoC test, fixture, or exhaustive construction argument covering the class; a prose closure claim stays open. A revision introducing a new mechanism is addressed only with a committed witness exercising it composed with what it touches — per-half witnesses leave it open. A revision responding to your own requested change gets the same scrutiny as any other.
 - **Partially addressed**: The plan acknowledged the concern but the fix is incomplete or shifts the risk rather than resolving it. State what remains and why it still matters.
 - **Unaddressed**: The concern still applies to the revised plan. Re-state it with the same weight, noting it was not resolved.
 
@@ -269,7 +294,7 @@ When a new finding in the revised plan relates to a prior concern — whether it
 
 Use the report format from Step 5: Issue Verdict (report to the orchestrator; it relays to the targeted planner). Lead the body with unresolved prior concerns, then new findings from this revision, then any approach-level risks that survive. Note resolved findings as closed — do not repeat them. Keep the body concise; the planner has the full detail via streaming.
 
-The marker `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` opens the report, where `round-K` is the round you are responding to. Use `APPROVED` only when every prior concern has been resolved at the root and the revised plan introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
+The marker `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` opens the report, where `round-K` is the round you are responding to. Use `APPROVED` only when no blocking finding (§3) remains open against the plan. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved: restate it; while blocking, it forces `CHANGES_REQUESTED`.
 
 When successive rounds revise the plan without resolving the same finding, consider whether the planner has stopped making progress. The §5.1 disqualification authority is yours to apply when the evidence supports it.
 

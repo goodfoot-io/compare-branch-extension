@@ -84,6 +84,10 @@ vi.mock('@cards.management/sdk/unbound-worktree-candidates', () => ({
   addUnboundCandidate: vi.fn()
 }));
 
+vi.mock('../../../src/shared/default-log-file.js', () => ({
+  applyDefaultLogFile: vi.fn()
+}));
+
 vi.mock('@cards.management/sdk/adhoc-attribution', () => ({
   resolveWorktreeCardId: vi.fn()
 }));

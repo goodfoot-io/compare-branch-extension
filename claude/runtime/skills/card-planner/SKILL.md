@@ -120,6 +120,7 @@ The reviewer DMs `FINDING: <label> for:[AGENT_NAME] round-K` as it discovers the
 - Decide which axis to attack: reduce **occurrence** (change the mechanism so the bet is no longer fragile), narrow **severity** (shrink the blast radius), or add **detection** (a test, assertion, or runtime check that surfaces the failure).
 - Revise `[PLAN_FILE]` directly and commit. Write a single-sentence message per `<card-repo-commit-style>` prefixed with the axis you attacked: `occurrence:`, `severity:`, `detection:`, or `accepted:` (the last when you accept the finding without changing the plan and want it on the record). The axis label tells the reviewer where on the failure-mode triangle the revision landed.
 - A **class finding** (the reviewer names a flaw class with constructible siblings) closes only by construction over the whole class, witnessed by a committed PoC test, fixture, or exhaustive argument — patching the cited instance or claiming closure in prose reopens it next round. Commit fixture witnesses under `notes/` and PoC-test witnesses under `spike/` in the card repo.
+- A revision introducing a **new mechanism** commits a witness exercising it together with the mechanism it composes with — a per-half witness does not close the finding.
 
 Do not re-DM `PLAN: READY` after each streamed revision — that DM is reserved for §4.2, so the reviewer evaluates a finalized plan rather than an in-flight state. If the reviewer finds every concern already addressed it DMs `VERDICT: APPROVED` directly and §4.2 never fires.
 
@@ -152,6 +153,8 @@ After `VERDICT: APPROVED for:[AGENT_NAME] round-K`, every peer `PLAN: READY roun
 
 - **Yes — revise.** A consumer you missed, a load-bearing assumption to harden, a critique angle the reviewer is likely to weaponize. Revise, commit, return to Step 3, DM `PLAN: READY round-K+1`. Your prior approval is implicitly superseded.
 - **No — stay put.** Send nothing. Silence is the signal that you are done; the contest closes when every live plan is approved and nobody is revising. Cosmetic peer changes your plan already handles — a renamed path, a clarified anchor — are not grounds to revise.
+
+Findings the reviewer marks `non-blocking` are fixed and committed **without** a new `PLAN: READY` — the reviewer confirms them at your next round or at selection.
 
 Do not track or report which peer round you have read. There is no settlement DM, no `against:` list, and no re-confirmation owed when a peer moves again.
 

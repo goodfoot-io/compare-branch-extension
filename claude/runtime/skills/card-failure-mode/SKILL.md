@@ -70,6 +70,8 @@ Read every changed file in full. Then trace outward: for every exported symbol, 
 
 Your scope is all code the change interacts with, not just code it introduced. Pre-existing issues in adjacent code are first-class findings.
 
+The verification bar is symmetric for clearing: a load-bearing claim clears only on execution or workspace evidence — a claim you cleared by argument alone stays an open question.
+
 **Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings. Instead, load the `cards:cards` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
 Run the code where possible — runtime paths reveal failures static analysis misses.
@@ -95,7 +97,22 @@ Prompts for generating diff-revealed questions:
 - **Step dependencies and failure paths** — For each branch that can fail, what question does the implementation answer about what happens when it does? Each unhandled failure path is a question.
 - **New failure categories the diff introduces** — If the implementation chooses an approach (a new daemon, a new cache, a new error-handling strategy) that brings its own failure modes, what questions does that approach now invite? Add them.
 
-Append new questions to the `failure-mode-questions` note as you discover them and commit the update. Approval is gated on every current question being answered against the implementation.
+Append new questions to the `failure-mode-questions` note as you discover them and commit the update. After your first verdict:
+
+- A new question **gates** approval only when it names the fix commit that introduced the mechanism it targets, or names an artifact that did not exist at round 1 (a commit, a generated file, a runtime observation from a path the fix created). "I had not yet read/traced/run it" is not unaskability — it is a review defect per §3.3.
+- A non-gating question is still recorded in the note and answered as you go; it never gates approval.
+
+Approval is gated on every gating question being answered against the implementation.
+
+### 3.3 Round 1 Is the Exhaustive Round
+
+Before your first verdict:
+
+- **Generalize at filing time.** File every finding at its class (Step 4) — enumerate the constructible siblings across all changed and adjacent files before sending.
+- **Exercise compositions.** Run every mechanism you can, including every pair of interacting mechanisms end-to-end — a defect visible only in composition is a round-1 finding.
+- **Audit the witnesses.** A check — the implementation's or your own — that passes under both the working and the broken hypothesis is itself a finding, filed now.
+
+A finding filed in round N whose evidence existed at round N−1 is a review defect. File it regardless — the defect is the delay, not the finding — and note the round delta in this round's verdict body.
 
 ## 4. Describe Failure Modes Concretely
 
@@ -109,15 +126,19 @@ Generic failures fail the detail bar. "Something could go wrong with cleanup" na
 
 Then tag the finding on three axes so the developer's revision can target the right one:
 
-- **Severity** — the harm when the failure fires. Data corruption vs. stale UI. Every user vs. unusual trigger. Silent wrong result vs. visible error.
+- **Severity** — the harm when the failure fires. Data corruption vs. stale UI. Every user vs. unusual trigger. Silent wrong result vs. visible error. **High**: the shipped outcome corrupts or loses data, breaks an acceptance criterion, produces a silent wrong result, or fails its main path; recoverable degradation, narrow triggers, and prose or evidence-quality issues sit below high.
 - **Occurrence** — the conditions under which it fires, and how often. Any run, specific inputs, a race window, a rare environmental state.
 - **Detection** — how likely the failure slips past tests, types, and review unseen. "No existing test covers this path" and "the type system can't see this shape" are first-class detection concerns, not side notes.
 
 A revision can attack any of the three: narrow severity (shrink the blast radius), reduce occurrence (change the mechanism so the bet is no longer fragile), or add detection (a test, assertion, or runtime check that surfaces the failure). Leave all three paths visible.
 
+**Blocking** (governs verdicts): before round 3, any open non-trivial finding; from round 3 on, only severity high or above **for the shipped outcome**, with a witness. Trivial findings never block at any round.
+
 **Class findings.** When a finding is one instance of a family — the same hazard repeated across sites, inputs, or variants — file the class: name the family's defining property and every instance you found. The class closes only by construction (a mechanism that removes every instance), never by enumerating patched sites.
 
 **Witness.** Where you exercised the path, the finding carries the exact command, input, and observed vs. expected output. Where you could not, say so and give the static evidence — file and line plus the reasoning chain. Do not commit failing tests; the tree stays clean.
+
+**Trivial findings.** Stale prose, wrong figures, comment drift: tag `severity: trivial`. On resume, verify by re-running the witness only — never re-open surrounding analysis.
 
 **Compound failures.** When two findings interact — failure A raises the occurrence or severity of failure B — document the dependency.
 
@@ -164,7 +185,7 @@ The orchestrator has every finding via your `FINDING:` DMs. DM a concise summary
 
 Three markers are valid:
 
-- `VERDICT: APPROVED` — every current failure-mode question is answered against the implementation and you have no blocking findings.
+- `VERDICT: APPROVED` — every gating failure-mode question (§3.2) is answered against the implementation and no blocking finding (Step 4) is open.
 - `VERDICT: CHANGES_REQUESTED` — at least one finding requires implementation changes.
 - `VERDICT: BLOCKED` — an external constraint prevents the fix (unreachable service, missing system tools or credentials, hardware constraint, unresolved upstream bug). State the constraint in the body. Do not use BLOCKED for findings the developer should fix; use CHANGES_REQUESTED.
 
@@ -192,7 +213,7 @@ For each concern you raised in the previous round, determine its current status 
 
 ### 3. Apply Full §3 Scrutiny to Fix Code
 
-Fix commits are new implementation. Apply every check from §3 to the fix code as if it were part of the original change — the same failure patterns that appear in first-pass implementations appear in fixes. Extend the question set if the fix introduces new mechanisms or surfaces. Approval still requires every current question answered.
+Fix commits are new implementation. Apply every check from §3 to the fix code as if it were part of the original change — the same failure patterns that appear in first-pass implementations appear in fixes. Extend the question set if the fix introduces new mechanisms or surfaces. Approval still requires every gating question answered.
 
 ### 4. Run the Fixed Paths
 
@@ -202,6 +223,8 @@ Where possible, execute the code paths the fix touches. Runtime behavior is the 
 
 Use the SendMessage format from Step 7: DM Verdict. Lead with unresolved prior concerns, then new findings the fix code introduced, then approach-level risks that survive the revision. Note resolved findings as closed — do not repeat them.
 
-Marker: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every current question has been answered, every prior concern has been resolved at the cause, and the fix code introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
+Marker: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every gating question has been answered and no blocking finding (Step 4) is open. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved: restate it; while blocking, it forces `CHANGES_REQUESTED`.
+
+Non-blocking findings and repairs to test or verification evidence still get DM'd: the orchestrator batches them into its pre-finalize sweep and re-runs their witnesses — they do not force another evaluation round. An `APPROVED` with open sub-blocking findings lists each (label + witness) in the body; the sweep runs on that list.
 
 </instructions>

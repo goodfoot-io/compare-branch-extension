@@ -11,7 +11,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { addActiveSubagent, removeActiveSubagent } from '@cards.management/sessions/card-repo';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isSessionIdle } from '../../src/shared/session-idle.js';
 
 /** Directory where per-session subagent files are stored (documented contract). */
@@ -108,7 +108,13 @@ describe('isSessionIdle', () => {
       // isSessionIdle catches it and returns true.
       mkdirSync(subagentsPath(sessionId), { recursive: true });
 
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       expect(isSessionIdle(sessionId)).toBe(true);
+      expect(warn).toHaveBeenCalledWith(
+        'isSessionIdle: error reading subagent state, treating as idle:',
+        expect.objectContaining({ code: 'EISDIR' })
+      );
+      warn.mockRestore();
     });
 
     it('returns true when the subagents file contains malformed JSON', () => {

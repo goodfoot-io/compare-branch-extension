@@ -81,7 +81,22 @@ Prompts for generating exercise-revealed questions:
 - **Cross-feature interactions** — When the user uses this feature alongside an adjacent one, does behavior the user expects still hold?
 - **Recovery paths** — When something goes wrong, can the user recover, or are they stuck?
 
-Append new questions to the `user-outcome-questions` note as you discover them and commit the update. Approval is gated on every current question being answered.
+Append new questions to the `user-outcome-questions` note as you discover them and commit the update. After your first verdict:
+
+- A new question **gates** approval only when it names the fix commit that introduced the behavior it targets, or names an artifact that did not exist at round 1 (a commit, a new surface, a runtime observation from a path the fix created). "I had not yet exercised it" is not unaskability — it is a review defect per §3.3.
+- A non-gating question is still recorded in the note and answered as you go; it never gates approval.
+
+Approval is gated on every gating question being answered.
+
+### 3.3 Round 1 Is the Exhaustive Round
+
+Before your first verdict:
+
+- **Generalize at filing time.** File every failure at its class (Step 4) — enumerate the sibling surfaces, flows, and inputs before sending.
+- **Exercise interactions.** Exercise every entry point you can, including flows that compose this feature with what it touches — a failure visible only when features interact is a round-1 finding.
+- **Audit the witnesses.** A user-path check that observes the same thing whether the feature works or not is itself a finding, filed now.
+
+A finding filed in round N whose evidence existed at round N−1 is a review defect. File it regardless — the defect is the delay, not the finding — and note the round delta in this round's verdict body.
 
 ## 4. Describe Failures Concretely
 
@@ -95,11 +110,13 @@ Generic failures fail the detail bar. "The delete feature may have issues" names
 
 Then tag the finding on three axes so the developer's revision can target the right one:
 
-- **Severity** — the harm to the user. Wrong result vs. missing feature. Every user vs. specific trigger. Permanent until reload vs. recoverable.
+- **Severity** — the harm to the user. Wrong result vs. missing feature. Every user vs. specific trigger. Permanent until reload vs. recoverable. **High**: the user cannot complete a required outcome, observes a wrong result, or is stuck without recovery; recoverable degradation, narrow triggers, and cosmetic or copy issues sit below high.
 - **Occurrence** — the user conditions under which it fires. Any session, specific user actions, a particular sequence, a rare flow.
 - **Detection** — how likely the failure escapes notice. "No existing test exercises this entry point" and "QA would only see this with specific data" are first-class detection concerns.
 
 A revision can attack any of the three: narrow severity (shrink the user impact), reduce occurrence (fix the cause), or add detection (a test exercising the user path).
+
+**Blocking** (governs verdicts): before round 3, any open non-trivial failure; from round 3 on, only severity high or above **for what ships to the user**, with a witness. Cosmetic and copy failures are tagged `severity: trivial` and never block at any round; on resume, verify them by witness re-run only.
 
 **Class findings.** When a failure is one instance of a family — the same broken outcome repeated across surfaces, flows, or inputs — file the class: name the family's defining property and every instance you found. The class closes only by construction (a mechanism that removes every instance), never by enumerating patched surfaces.
 
@@ -150,7 +167,7 @@ The orchestrator has every finding via your `FINDING:` DMs. DM a concise summary
 
 Three markers are valid:
 
-- `VERDICT: APPROVED` — every current user-outcome question is answered against the implementation.
+- `VERDICT: APPROVED` — every gating user-outcome question (§3.2) is answered against the implementation.
 - `VERDICT: CHANGES_REQUESTED` — at least one user-facing failure requires implementation changes.
 - `VERDICT: BLOCKED` — an external constraint prevents exercising the user entry points (unreachable service, missing credentials, hardware constraint). State the constraint in the body. Do not use BLOCKED for failures the developer should fix; use CHANGES_REQUESTED.
 
@@ -178,12 +195,14 @@ For every failure you raised in the previous round, determine its current status
 
 ### 3. Extend Questions and Check for New Failures
 
-Fix code may introduce new user-facing failures adjacent to the original. Re-exercise any user paths the fix touches, not only the paths directly targeted. Extend the question set with anything the fix reveals; approval still requires every current question answered.
+Fix code may introduce new user-facing failures adjacent to the original. Re-exercise any user paths the fix touches, not only the paths directly targeted. Extend the question set with anything the fix reveals; approval still requires every gating question answered.
 
 ### 4. DM Verdict for This Round
 
 Use the SendMessage format from Step 7. Lead with unresolved prior failures, then new failures the fix introduced. Note closed findings explicitly — do not repeat them.
 
-Marker: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every current question has been answered, every prior failure is gone at the user's entry point, and the fix introduced no new user-facing failure.
+Marker: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every gating question has been answered and no blocking failure (Step 4) is open at the user's entry point.
+
+Non-blocking failures still get DM'd: the orchestrator batches them into its pre-finalize sweep and re-runs their witnesses — they do not force another evaluation round. An `APPROVED` with open sub-blocking failures lists each (label + witness) in the body; the sweep runs on that list.
 
 </instructions>

@@ -98,6 +98,10 @@ reviewer's `VERDICT: BLOCKED for:planner-N` ruling.
 
 The ⇄ is revocation: a question raised later by a peer's plan can drop an approved planner back into the revision loop.
 
+A reviewer idle with a `PLAN: READY` unanswered is a stall, never an implied verdict — wake it naming the planner and round.
+
+A `VERDICT:` missing its `for:planner-N` or round tag updates no state — require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.
+
 ### Closure — Judgment, Not a Handshake
 
 Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. Planners do not announce post-approval revisions, so closing is safe even mid-revision — the next `PLAN: READY` reopens the field before any winner is finalized (Step 4).
@@ -108,7 +112,7 @@ The only things that legitimately reopen a closeable field: a planner choosing t
 
 ### Convergence Collapse (Instrumented)
 
-When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` DMs plus matching mechanisms across plan files are the signal — the design fork is settled. As soon as any converged plan holds `APPROVED` for its current round, trigger Step 4 with `SELECT_WINNER (convergence collapse)` in the DM body; do not wait for the others to qualify.
+When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` DMs plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` in the DM body — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.
 
 After the `WINNER:` DM, before Step 5: DM each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; DM `CRITIQUE: ... for:[WINNING_PLANNER]` for every real risk you find in the winning plan. The reviewer verifies critiques, streams verified findings to the winner, and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and the red-teamers have settled — settling is silence, as in Step 3 closure. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.
 
@@ -132,6 +136,8 @@ Teammates may DM you with plain-language questions about contest state — peer 
 If a question requires verification beyond what you know directly (e.g., "is planner-2 about to emit a new round?"), DM that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.
 
 ## 4. Trigger Selection
+
+Before sending, confirm the reviewer's `plan-failure-mode-questions` note and `review-ledger` note exist in the card repo's `notes/` — if either is missing, require it first.
 
 Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary` and as the first line of the `message` body.
 

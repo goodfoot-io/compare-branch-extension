@@ -38,6 +38,10 @@ vi.mock('@cards.management/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 
+vi.mock('../../../src/shared/default-log-file.js', () => ({
+  applyDefaultLogFile: vi.fn()
+}));
+
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import { removeWorktree, WorktreeScopeError } from '@cards.management/sdk/worktree';
 import { BranchUnregisterError, removeWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
