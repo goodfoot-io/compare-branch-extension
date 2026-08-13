@@ -3,7 +3,7 @@ import { TestHttpClient } from '@cards.management/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CardsClient } from '../../src/client/cardsClient.js';
 import { ApiError } from '../../src/client/types/errors.js';
-import type { StreamMeta } from '../../src/protocol/index.js';
+import type { EnvironmentsResponse, StreamMeta } from '../../src/protocol/index.js';
 
 /**
  * Exercises cards client behavior in the client area through focused scenarios.
@@ -428,13 +428,34 @@ describe('CardsClient', () => {
       });
     });
 
-    it('should return array of environments with name and optional description', async () => {
+    it('should return complete action metadata for the configured workspace', async () => {
       const httpClient = new TestHttpClient();
-      const expectedEnvironments = [{ name: 'production' }, { name: 'staging' }, { name: 'development' }];
-      httpClient.responses.set('http://localhost:3000/environments', expectedEnvironments);
-      const client = new CardsClient(options, httpClient);
+      const expectedEnvironments: EnvironmentsResponse = [
+        {
+          name: 'production',
+          description: 'Production workflows',
+          actions: [
+            {
+              id: 'launch',
+              name: 'Launch',
+              description: 'Start an implementation agent',
+              icon: '/workspace/icons/launch.svg',
+              supportsBackgroundMode: true,
+              allowConcurrent: false
+            }
+          ]
+        }
+      ];
+      httpClient.responses.set(
+        'http://localhost:3000/environments?workspacePath=%2Fworkspace%2Fproject',
+        expectedEnvironments
+      );
+      const client = new CardsClient({ ...options, workspacePath: '/workspace/project' }, httpClient);
       const result = await client.getEnvironments();
       expect(result).toEqual(expectedEnvironments);
+      expect(httpClient.requests[0]?.url).toBe(
+        'http://localhost:3000/environments?workspacePath=%2Fworkspace%2Fproject'
+      );
     });
   });
 

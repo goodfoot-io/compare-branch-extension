@@ -114,6 +114,8 @@ describe('card binary', () => {
 
   /** Cards stored in the test server, keyed by ID. */
   let cards: Map<string, Record<string, unknown>>;
+  /** Environment action summaries returned by GET /environments. */
+  let environments: Array<Record<string, unknown>>;
   /** Branches registered via POST /cards/:id/branches. */
   let branches: Map<string, Array<{ name: string }>>;
   /** Commits registered via POST /cards/:id/commits. */
@@ -139,6 +141,7 @@ describe('card binary', () => {
 
   beforeEach(async () => {
     cards = new Map();
+    environments = [];
     branches = new Map();
     commits = new Map();
     files = new Map();
@@ -170,6 +173,13 @@ describe('card binary', () => {
     server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
       const url = new URL(req.url ?? '/', `http://localhost`);
       const method = req.method ?? 'GET';
+
+      // GET /environments
+      if (method === 'GET' && url.pathname === '/environments') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(environments));
+        return;
+      }
 
       // GET /cards (list)
       if (method === 'GET' && url.pathname === '/cards') {
@@ -436,6 +446,85 @@ describe('card binary', () => {
   });
 
   describe('getCard', () => {
+    it.skip('adds invocation-ready actions from the card environment', async () => {
+      const card = { id: 'card-actions', title: 'Action Card', status: 'active', environment: 'staging' };
+      cards.set('card-actions', card);
+      environments = [
+        {
+          name: 'staging',
+          actions: [
+            {
+              id: 'launch',
+              name: 'Launch',
+              description: 'Start an implementation agent',
+              icon: '/workspace/icons/launch.svg',
+              supportsBackgroundMode: true,
+              allowConcurrent: false
+            }
+          ]
+        }
+      ];
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const { getCard: getCardFn } = await import('../../src/bin/cards.js');
+        await getCardFn('card-actions');
+        expect(logSpy).toHaveBeenCalledWith(
+          JSON.stringify(
+            {
+              ...card,
+              actions: [
+                {
+                  id: 'launch',
+                  name: 'Launch',
+                  description: 'Start an implementation agent',
+                  supportsBackgroundMode: true
+                }
+              ]
+            },
+            null,
+            2
+          )
+        );
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it.skip('returns an empty actions array when the card environment is unresolved', async () => {
+      const card = { id: 'card-missing-env', title: 'Orphaned Card', status: 'active', environment: 'removed' };
+      cards.set('card-missing-env', card);
+      environments = [{ name: 'default', actions: [] }];
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const { getCard: getCardFn } = await import('../../src/bin/cards.js');
+        await getCardFn('card-missing-env');
+        expect(logSpy).toHaveBeenCalledWith(JSON.stringify({ ...card, actions: [] }, null, 2));
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it.skip('applies JSONPath after enriching the card with actions', async () => {
+      cards.set('card-action-path', {
+        id: 'card-action-path',
+        title: 'Path Card',
+        status: 'active',
+        environment: 'default'
+      });
+      environments = [{ name: 'default', actions: [{ id: 'review', name: 'Review' }] }];
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const { getCard: getCardFn } = await import('../../src/bin/cards.js');
+        await getCardFn('card-action-path', '$.actions');
+        expect(logSpy).toHaveBeenCalledWith(JSON.stringify([{ id: 'review', name: 'Review' }], null, 2));
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
     it('fetches and prints card JSON to stdout', async () => {
       const card = { id: 'card-1', title: 'Test Card', status: 'todo' };
       cards.set('card-1', card);
