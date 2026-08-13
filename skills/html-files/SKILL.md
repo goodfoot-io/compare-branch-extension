@@ -9,7 +9,7 @@ description: Author HTML files in a card repository — two-file pairing, sideca
 
 # HTML Files in a Card
 
-Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline, rendered in sandboxed iframes at the declared aspect ratio. The Cards server serves each page as a real document at a real URL — `/cards/<cardId>/html-files/<path>` — and the iframe loads it by `src`. Author markup is never rewritten, only surrounded at serve time, so relative references resolve natively in the browser.
+Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline and grow or shrink to their normal-flow content height. The card detail owns vertical scrolling; previews must not create their own scrolling region. The Cards server serves each page as a real document at `/cards/<cardId>/html-files/<path>`.
 
 ## Two-file pairing
 
@@ -47,8 +47,7 @@ The asset must be committed **together with the page**: the pre-commit hook reje
 |-------|------|----------|------------|
 | `title` | string | yes | ≤ 120 characters |
 | `summary` | string | yes | ≤ 280 characters |
-| `aspect` | string \| number | yes | `"<w>:<h>"` (e.g. `"16:9"`) or a positive finite number (e.g. `1.7778`) |
-| `scripts` | boolean | no | default `true`; `false` disables scripts entirely |
+| `scripts` | boolean | yes | Explicitly permits (`true`) or blocks (`false`) author JavaScript |
 
 Example:
 
@@ -56,9 +55,13 @@ Example:
 {
   "title": "Architecture Overview",
   "summary": "Interactive diagram of the service mesh.",
-  "aspect": "16:9"
+  "scripts": false
 }
 ```
+
+## Intrinsic layout contract
+
+Use a responsive normal-flow page. Cards owns the `html`/`body` canvas, margins, height, and overflow; place flex or grid application layouts beneath `body`. Do not use viewport or percentage-height root shells, root scrolling, deliberate horizontal overflow, fixed/absolute content that extends the canvas, or scripts whose height depends on the viewport. Static violations fail `cards html check`; dynamic or computed violations fail visibly at runtime.
 
 ## Styling
 
@@ -95,10 +98,10 @@ to keep serving what you expect.
 
 ## Scripts, nonces, and the CSP
 
-The served document runs under a real Content-Security-Policy delivered as an HTTP response header by the Cards server — the document itself carries no CSP `<meta>`. The server mints a nonce per built document, stamps it onto every static `<script>` in the document, and builds the header from that same nonce — a cached build re-serves its nonce and header together, so the pair can never diverge:
+The served document runs under a real Content-Security-Policy delivered as an HTTP response header by the Cards server. Each response uses separate fresh nonces for Cards platform code and permitted author code:
 
 ```
-default-src 'none'; script-src 'nonce-<nonce>' 'self' https:; style-src 'unsafe-inline' 'self' data: https:; img-src 'self' data: https:; font-src 'self' data: https:; media-src 'self' data: https:; connect-src 'self' https:; base-uri 'none'; form-action 'none'
+default-src 'none'; script-src 'nonce-<platform-nonce>' ['nonce-<author-nonce>' 'self' https:]; style-src 'unsafe-inline' 'self' data: https:; img-src 'self' data: https:; font-src 'self' data: https:; media-src 'self' data: https:; connect-src 'self' https:; base-uri 'none'; form-action 'none'
 ```
 
 The `'self'` tokens are what the page's own references load under: the document and the root `assets/` files share the server's origin.
@@ -108,11 +111,7 @@ Do not write a `<base>` element. The document's own URL is the base — that is 
 The CSP is a genuine runtime boundary — but it confines the network, not the
 page's own scripts:
 
-- **All JavaScript in the file you commit runs, and the page is trusted.** With
-  `scripts` omitted or `true`, the server stamps its per-request nonce onto
-  **every** static `<script>` in the file at serve time — there is no
-  "builder vs. author" distinction, so whatever script you write *or paste*
-  executes. The iframe sandbox is `allow-scripts allow-same-origin`, and the
+- **All JavaScript in the file you commit runs when `scripts` is `true`, and the page is trusted.** The server stamps author scripts with an author nonce distinct from the Cards platform runtime. The iframe sandbox is `allow-scripts allow-same-origin`, and the
   page is same-origin with the Cards server — the grant it needs to load its
   own relative `assets/` subresources and reach the server's API. The parent
   webview's origin (`vscode-webview://`) is a different origin entirely, so the
@@ -131,10 +130,7 @@ page's own scripts:
   blocked, and a runtime-injected script (e.g.
   `document.createElement('script')`) still carries no nonce or scheme match
   and is blocked, as are inline event handlers and `eval`.
-- **`"scripts": false` is the only way to disable JavaScript.** It drops
-  `allow-scripts`, leaving `allow-same-origin` alone — enough for the page's
-  same-origin `assets/` subresources and fonts, with no script grant to relax.
-  Use it for any page that should not execute JavaScript.
+- **`"scripts": false` disables author JavaScript while preserving Cards behavior.** The CSP grants only the platform nonce, so live theme and intrinsic sizing still run without author scripts or external script sources.
 
 External resources are enforced by the same CSP at runtime (see *Inline or
 `https://` assets* above); the commit-time URL check is an early author

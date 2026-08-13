@@ -40,13 +40,27 @@
  * a `<script>` start tag at commit time, and this policy grants no `data:`
  * token as the runtime boundary behind it.
  *
- * @param nonce - The per-build CSP nonce stamped onto the document's scripts.
+ * @summary CSP inputs with independently authorized platform and author code
+ */
+export interface HtmlFileCspPolicyOptions {
+  /** Nonce used only by the Cards-owned platform runtime. */
+  platformNonce: string;
+  /** Nonce used only by author scripts; omit to fail closed. */
+  authorNonce?: string;
+}
+
+/**
+ * Builds a served HTML document's split-nonce Content-Security-Policy.
+ *
+ * @param options - Platform nonce and optional author nonce. Omitting the
+ *   author nonce grants no author script sources.
  * @returns The policy string for the `Content-Security-Policy` response header.
  */
-export function buildHtmlFileCspPolicy(nonce: string): string {
+export function buildHtmlFileCspPolicy(options: HtmlFileCspPolicyOptions): string {
+  const authorGrants = options.authorNonce ? ` 'nonce-${options.authorNonce}' 'self' https:` : '';
   return [
     "default-src 'none'",
-    `script-src 'nonce-${nonce}' 'self' https:`,
+    `script-src 'nonce-${options.platformNonce}'${authorGrants}`,
     "style-src 'unsafe-inline' 'self' data: https:",
     "img-src 'self' data: https:",
     "font-src 'self' data: https:",

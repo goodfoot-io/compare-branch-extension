@@ -2,59 +2,72 @@
  * Unit tests for the shared HTML validation primitives — the single source of
  * truth that both the `card html check` CLI and the pre-commit hook delegate to.
  *
- * @summary Tests for parseAspectRatio, findExternalResources, and validateHtmlInfo aspect/locality rules
+ * @summary Tests for HTML metadata, resource locality, and intrinsic-layout rules
  * @module test/protocol/types/html
  */
 
 import { describe, expect, it } from 'vitest';
 import {
   checkHtmlContent,
+  checkIntrinsicHtmlLayout,
   filterStructuralParseErrors,
   findExternalResources,
   htmlCardDocPathForSidecar,
   htmlCardDocSidecarPath,
   isHtmlCardDocPath,
   isHtmlCardDocSidecarPath,
-  parseAspectRatio,
   validateHtmlInfo
 } from '../../../src/protocol/index.js';
 
-describe('parseAspectRatio', () => {
-  it('accepts "16:9" → 16/9', () => {
-    expect(parseAspectRatio('16:9')).toBeCloseTo(16 / 9);
-  });
-
-  it('accepts a positive finite number as-is', () => {
-    expect(parseAspectRatio(1.6)).toBe(1.6);
-  });
-
+describe('validateHtmlInfo — closed scripts policy', () => {
   it.each([
-    ['"0:0"', '0:0'],
-    ['"16:9:9" (three-part)', '16:9:9'],
-    ['zero denominator "4:0"', '4:0'],
-    ['quoted decimal "1.6"', '1.6'],
-    ['non-numeric "wide"', 'wide']
-  ])('rejects %s → null', (_label, value) => {
-    expect(parseAspectRatio(value as string)).toBeNull();
+    ['missing scripts', { title: 'T', summary: 'S' }],
+    ['non-boolean scripts', { title: 'T', summary: 'S', scripts: 'yes' }],
+    ['removed aspect key', { title: 'T', summary: 'S', scripts: false, aspect: '16:9' }]
+  ])('rejects %s', (_label, value) => {
+    expect(validateHtmlInfo(value).valid).toBe(false);
   });
 
-  it.each([
-    ['negative number', -3],
-    ['zero', 0]
-  ])('rejects %s → null', (_label, value) => {
-    expect(parseAspectRatio(value as number)).toBeNull();
+  it.each([true, false])('accepts explicit scripts: %s', (scripts) => {
+    expect(validateHtmlInfo({ title: 'T', summary: 'S', scripts }).valid).toBe(true);
   });
 });
 
-describe('validateHtmlInfo — aspect rejection', () => {
-  it('rejects an unparseable aspect with a path/value-naming message', () => {
-    const result = validateHtmlInfo({ title: 'T', summary: 'S', aspect: '0:0' });
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('aspect') && e.includes('0:0'))).toBe(true);
+describe('checkIntrinsicHtmlLayout', () => {
+  it.each([
+    ['root viewport sizing', 'html { min-height: 100vh }', 'root/body'],
+    ['root scrolling', 'body { overflow-y: auto }', 'root/body'],
+    ['fixed extents', '.banner { position: fixed }', 'fixed/absolute'],
+    ['absolute pseudo-element extents', '.card::after { position: absolute }', 'pseudo-element'],
+    ['transforms', '.card { transform: scale(1.1) }', 'transformed'],
+    ['horizontal overflow', '.wide { min-width: 120vw }', 'horizontal overflow']
+  ])('rejects %s', (_label, css, expected) => {
+    const result = checkIntrinsicHtmlLayout({ cssSources: [{ css, source: '<style> block' }] });
+    expect(result.errors.join('\n')).toContain(expected);
   });
 
-  it('accepts a valid "16:9" aspect', () => {
-    expect(validateHtmlInfo({ title: 'T', summary: 'S', aspect: '16:9' }).valid).toBe(true);
+  it('accepts normal-flow equivalents', () => {
+    const result = checkIntrinsicHtmlLayout({
+      cssSources: [{ css: '.page { display: grid; width: 100%; min-height: 12rem }', source: '<style> block' }]
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  it('rejects inline event handlers and decodes data:text/css stylesheets', () => {
+    const result = checkIntrinsicHtmlLayout({
+      inlineEventHandlers: [{ tagName: 'button', attributeName: 'onclick' }],
+      stylesheetReferences: [{ reference: 'data:text/css,body%20%7B%20height%3A%20100vh%20%7D', source: '<link>' }]
+    });
+    expect(result.errors.join('\n')).toContain('onclick');
+    expect(result.errors.join('\n')).toContain('root/body');
+  });
+
+  it('classifies unavailable HTTPS stylesheet bytes as runtime-audited', () => {
+    const result = checkIntrinsicHtmlLayout({
+      stylesheetReferences: [{ reference: 'https://example.com/page.css', source: '<link>' }]
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.runtimeAuditedStylesheets).toEqual(['https://example.com/page.css']);
   });
 });
 
@@ -169,12 +182,12 @@ describe('filterStructuralParseErrors', () => {
 });
 
 describe('checkHtmlContent — orchestration', () => {
-  it('fails on invalid aspect (check 2)', () => {
+  it('fails when scripts policy is missing (check 2)', () => {
     const result = checkHtmlContent({
       htmlPath: 'html/p.html',
       metaPath: 'html/p.meta.json',
       htmlSource: '<p>ok</p>',
-      parsedMeta: { title: 'T', summary: 'S', aspect: '1.6' },
+      parsedMeta: { title: 'T', summary: 'S' },
       parseErrorCodes: [],
       assetExists: () => true
     });
@@ -187,7 +200,7 @@ describe('checkHtmlContent — orchestration', () => {
       htmlPath: 'html/p.html',
       metaPath: 'html/p.meta.json',
       htmlSource: '<div',
-      parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: ['eof-in-tag'],
       assetExists: () => true
     });
@@ -200,7 +213,7 @@ describe('checkHtmlContent — orchestration', () => {
       htmlPath: 'html/p.html',
       metaPath: 'html/p.meta.json',
       htmlSource: '<img srcset="http://cdn.example.com/a.png 1x">',
-      parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: [],
       assetExists: () => true
     });
@@ -213,7 +226,7 @@ describe('checkHtmlContent — orchestration', () => {
       htmlPath: 'html/p.html',
       metaPath: 'html/p.meta.json',
       htmlSource: '<img srcset="https://cdn.example.com/a.png 1x">',
-      parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: [],
       assetExists: () => true
     });
@@ -225,7 +238,7 @@ describe('checkHtmlContent — orchestration', () => {
       htmlPath: 'html/p.html',
       metaPath: 'html/p.meta.json',
       htmlSource: '<p class="text-base">ok</p>',
-      parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: ['missing-doctype'],
       assetExists: () => true
     });

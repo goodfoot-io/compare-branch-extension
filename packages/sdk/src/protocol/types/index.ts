@@ -77,6 +77,7 @@ export {
   MAX_TITLE_LENGTH,
   TAG_PATTERN
 } from './constraints.js';
+export type { HtmlFileCspPolicyOptions } from './csp.js';
 // --- HTML File CSP ---
 export { buildHtmlFileCspPolicy } from './csp.js';
 // --- WebSocket Event Types ---
@@ -123,14 +124,20 @@ export type {
   CollectedResourceReference,
   ElementSpan,
   HtmlContentCheckResult,
+  HtmlCssSource,
   HtmlInfoFile,
   HtmlInfoValidationResult,
+  HtmlInlineEventHandler,
+  HtmlIntrinsicLayoutCheckResult,
+  HtmlIntrinsicLayoutInputs,
+  HtmlStylesheetReference,
   ResourceReferenceClass,
   ScriptSpan
 } from './html.js';
 export {
   BASE_ELEMENT_TAG_NAMES,
   checkHtmlContent,
+  checkIntrinsicHtmlLayout,
   classifyResourceReference,
   collectResourceReferences,
   FRAME_ELEMENT_TAG_NAMES,
@@ -141,7 +148,6 @@ export {
   INFORMATIONAL_PARSE5_CODES,
   isHtmlCardDocPath,
   isHtmlCardDocSidecarPath,
-  parseAspectRatio,
   validateHtmlInfo
 } from './html.js';
 // --- HTTP Client Types ---

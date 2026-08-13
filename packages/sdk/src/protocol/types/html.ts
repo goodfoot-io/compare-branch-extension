@@ -23,7 +23,7 @@ const MAX_HTML_TITLE_LENGTH = 120;
 const MAX_HTML_SUMMARY_LENGTH = 280;
 
 /** Exact set of keys allowed in an HtmlInfoFile. Any other key is rejected. */
-const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'aspect', 'scripts']);
+const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'scripts']);
 
 /**
  * Detects any non-local resource reference in `src`/`href`/`srcset` attributes
@@ -301,7 +301,7 @@ function isAllowedResourceReference(value: string): boolean {
  * File-persisted metadata for an HTML card file.
  *
  * Stored in `<dir>/<name>.meta.json` alongside `<dir>/<name>.html`.
- * The schema is closed: only the keys `title`, `summary`, `aspect`, and
+ * The schema is closed: only the keys `title`, `summary`, and
  * `scripts` are permitted — any unknown key causes validation to fail.
  *
  * @summary Sidecar metadata for an HTML file in a card repository
@@ -311,7 +311,6 @@ function isAllowedResourceReference(value: string): boolean {
  * {
  *   "title": "Architecture Overview",
  *   "summary": "Interactive diagram of the system architecture.",
- *   "aspect": "16:9",
  *   "scripts": true
  * }
  * ```
@@ -330,25 +329,10 @@ export interface HtmlInfoFile {
   summary: string;
 
   /**
-   * Aspect ratio for the rendered iframe.
-   *
-   * Accepts a `"<width>:<height>"` string (e.g. `"16:9"`) or a positive
-   * finite number representing the ratio directly (e.g. `1.7778`).
+   * Whether author scripts may execute. Cards-owned platform scripts are
+   * independently authorized and run in both modes.
    */
-  aspect: string | number;
-
-  /**
-   * Whether the iframe sandbox permits scripts.
-   *
-   * When `true` (default), the panel's sandbox is `allow-scripts
-   * allow-same-origin`; when `false`, it is `allow-same-origin` alone, so a
-   * scriptless page still loads its same-origin subresources and fonts.
-   * `allow-same-origin` is always present because the frame loads a real
-   * document from the cards server — the grant is the page's own server
-   * origin, never the parent webview's (`vscode-webview://`, unreachable from
-   * a page on the server's origin).
-   */
-  scripts?: boolean;
+  scripts: boolean;
 }
 
 // ─── Path eligibility ─────────────────────────────────────────────────────────
@@ -443,46 +427,6 @@ export function htmlCardDocPathForSidecar(sidecarPath: string): string {
 }
 
 // ─── Aspect ratio parsing ──────────────────────────────────────────────────────
-
-/**
- * Parses an aspect ratio value into its numeric ratio (width / height).
- *
- * This is the single source of truth for the aspect-parse rule. Both the
- * commit gate (`validateHtmlInfo`, called by the pre-commit hook and the
- * `card html check` CLI) and the extension's `parseAspect()` delegate here.
- *
- * Accepted inputs:
- * - `"<w>:<h>"` — both positive integers, exactly two colon-delimited parts
- *   (e.g. `"16:9"` → `16/9 ≈ 1.7778`).
- * - Positive finite number — returned as-is (e.g. `1.7778`).
- *
- * Rejected (returns `null`): `"0:0"`, three-part strings like `"16:9:9"`,
- * negatives, zero, non-numeric strings, and quoted decimals like `"1.6"`
- * (a colon-less string is only accepted in numeric `number` form, not as a
- * decimal string).
- *
- * @param value - Aspect ratio as a `"<width>:<height>"` string or numeric ratio.
- * @returns The ratio as a number, or `null` if `value` is invalid.
- */
-export function parseAspectRatio(value: string | number): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value > 0 ? value : null;
-  }
-
-  // String form: exactly "<w>:<h>" with both positive integers.
-  const parts = value.split(':');
-  if (parts.length !== 2) {
-    return null;
-  }
-
-  const w = Number(parts[0]);
-  const h = Number(parts[1]);
-  if (!Number.isInteger(w) || !Number.isInteger(h) || w <= 0 || h <= 0) {
-    return null;
-  }
-
-  return w / h;
-}
 
 // ─── Resource locality ──────────────────────────────────────────────────────────
 
@@ -1030,6 +974,139 @@ export function filterStructuralParseErrors(codes: readonly string[]): string[] 
   return codes.filter((code) => !INFORMATIONAL_PARSE5_CODES.has(code));
 }
 
+/** A parsed CSS source whose declarations participate in the static gate. */
+export interface HtmlCssSource {
+  /** CSS bytes, decoded by the caller when they came from a data URL or file. */
+  css: string;
+  /** Author-facing source description, such as `<style>` or `assets/page.css`. */
+  source: string;
+}
+
+/** A parsed inline event-handler attribute. */
+export interface HtmlInlineEventHandler {
+  tagName: string;
+  attributeName: string;
+  source?: string;
+}
+
+/** A parsed author stylesheet link. */
+export interface HtmlStylesheetReference {
+  reference: string;
+  source: string;
+}
+
+/** Parsed inputs for checks that cannot safely be inferred from raw HTML. */
+export interface HtmlIntrinsicLayoutInputs {
+  cssSources?: readonly HtmlCssSource[];
+  inlineEventHandlers?: readonly HtmlInlineEventHandler[];
+  stylesheetReferences?: readonly HtmlStylesheetReference[];
+  /** HTTPS stylesheet URLs whose live bytes are intentionally runtime-audited. */
+  runtimeAuditedStylesheets?: readonly string[];
+}
+
+/** Outcome of the pure intrinsic-layout check. */
+export interface HtmlIntrinsicLayoutCheckResult {
+  errors: string[];
+  runtimeAuditedStylesheets: string[];
+}
+
+const CSS_DECLARATION_RE = /([\w-]+)\s*:\s*([^;{}]+)/g;
+const ROOT_SELECTOR_RE = /(?:^|[\s>+~,])(?::root|html|body)(?=$|[\s>+~,.#:[\]])/i;
+const PSEUDO_ELEMENT_SELECTOR_RE = /::(?:before|after)\b/i;
+const ROOT_OWNED_PROPERTIES = new Set(['height', 'min-height', 'max-height', 'overflow', 'overflow-x', 'overflow-y']);
+
+/**
+ * Checks parsed author CSS and attributes against the intrinsic normal-flow contract.
+ *
+ * CSS extraction remains with the HTML-owning caller; policy lives here.
+ * Unavailable HTTPS stylesheet bytes are returned as runtime-audited instead
+ * of being silently treated as statically cleared.
+ *
+ * @param inputs - Parse-derived CSS sources, handler attributes, and stylesheet references.
+ * @returns Static errors plus the HTTPS stylesheets deferred to runtime audit.
+ */
+export function checkIntrinsicHtmlLayout(inputs: HtmlIntrinsicLayoutInputs): HtmlIntrinsicLayoutCheckResult {
+  const errors: string[] = [];
+  for (const handler of inputs.inlineEventHandlers ?? []) {
+    errors.push(
+      `${handler.source ?? `<${handler.tagName}>`}: inline event handler "${handler.attributeName}" is not allowed — use addEventListener in an author script when scripts are enabled`
+    );
+  }
+
+  const cssSources = [...(inputs.cssSources ?? [])];
+  const runtimeAuditedStylesheets = [...(inputs.runtimeAuditedStylesheets ?? [])];
+  for (const stylesheet of inputs.stylesheetReferences ?? []) {
+    const reference = stylesheet.reference.trim();
+    if (reference.startsWith('https:')) {
+      runtimeAuditedStylesheets.push(reference);
+      continue;
+    }
+    if (/^data:text\/css(?:[;,]|$)/i.test(reference)) {
+      const comma = reference.indexOf(',');
+      if (comma === -1) {
+        errors.push(`${stylesheet.source}: malformed data:text/css stylesheet URL`);
+        continue;
+      }
+      try {
+        const metadata = reference.slice(0, comma);
+        const payload = reference.slice(comma + 1);
+        const css = /;base64(?:;|$)/i.test(metadata)
+          ? new TextDecoder().decode(Uint8Array.from(atob(payload), (character) => character.charCodeAt(0)))
+          : decodeURIComponent(payload);
+        cssSources.push({ css, source: stylesheet.source });
+      } catch {
+        errors.push(`${stylesheet.source}: malformed data:text/css stylesheet payload`);
+      }
+    }
+  }
+
+  for (const source of cssSources) {
+    const css = source.css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    for (const rule of css.matchAll(ruleRe)) {
+      const selector = rule[1]?.trim() ?? '';
+      const declarations = rule[2] ?? '';
+      CSS_DECLARATION_RE.lastIndex = 0;
+      for (const declaration of declarations.matchAll(CSS_DECLARATION_RE)) {
+        const property = declaration[1]?.toLowerCase() ?? '';
+        const value = declaration[2]?.trim().toLowerCase() ?? '';
+        const detail = `${source.source}: selector "${selector}" sets ${property}: ${value}`;
+
+        if (ROOT_SELECTOR_RE.test(selector) && ROOT_OWNED_PROPERTIES.has(property)) {
+          errors.push(`${detail}; Cards owns root/body height and overflow for intrinsic sizing`);
+        }
+        if (property === 'position' && (value === 'fixed' || value === 'absolute')) {
+          errors.push(`${detail}; fixed/absolute extents are unsupported by intrinsic sizing`);
+        }
+        if (property === 'transform' && value !== 'none') {
+          errors.push(`${detail}; transformed extents are unsupported by intrinsic sizing`);
+        }
+        if (
+          (property === 'width' || property === 'min-width') &&
+          (/(?:^|[^\w-])(?:\d*\.)?\d+v(?:w|i|max|min)\b/.test(value) ||
+            /(?:^|[^\d])(?:10[1-9]|1[1-9]\d|[2-9]\d{2,})%/.test(value))
+        ) {
+          errors.push(`${detail}; viewport-wide or over-100% widths can create horizontal overflow`);
+        }
+        if (property === 'overflow-x' && (value === 'auto' || value === 'scroll')) {
+          errors.push(`${detail}; the preview cannot own a horizontal scroll range`);
+        }
+        if (
+          PSEUDO_ELEMENT_SELECTOR_RE.test(selector) &&
+          (property === 'position' || property === 'transform' || property === 'width' || property === 'height')
+        ) {
+          errors.push(`${detail}; pseudo-element geometry must remain in ordinary flow`);
+        }
+      }
+    }
+  }
+
+  return {
+    errors: [...new Set(errors)],
+    runtimeAuditedStylesheets: [...new Set(runtimeAuditedStylesheets)]
+  };
+}
+
 // ─── Shared content checks ──────────────────────────────────────────────────────
 
 /**
@@ -1042,13 +1119,15 @@ export interface HtmlContentCheckResult {
   valid: boolean;
   /** Error messages (already prefixed with the relevant repo-relative path). */
   errors: string[];
+  /** HTTPS stylesheet contents unavailable statically and covered by runtime audit. */
+  runtimeAuditedStylesheets?: string[];
 }
 
 /**
  * Runs the shared, pure content checks (2–4) that both the `card html check`
  * CLI and the pre-commit hook must apply identically:
  *
- * 2. Closed-schema sidecar — via {@link validateHtmlInfo} (includes aspect parse).
+ * 2. Closed-schema sidecar — via {@link validateHtmlInfo}.
  * 3. HTML well-formedness — the caller's parse5 error codes, filtered through
  *    {@link filterStructuralParseErrors}.
  * 4. Resource locality — every reference classified via
@@ -1079,6 +1158,7 @@ export interface HtmlContentCheckResult {
  *   document refuses an author `<base>` as a class — see check 4b — and the
  *   spans are its authority; a `<base` token inside a comment or script body
  *   produces no span and stays inert text. Defaults to none.
+ * @param params.intrinsicLayout - Parse-derived CSS, stylesheet, and inline-handler facts.
  * @param params.assetExists - Whether a repo-relative path under `assets/`
  *   exists. Required rather than optional: it is the one check standing between
  *   an author and a page that renders as an error, so no caller may fail open by
@@ -1096,6 +1176,7 @@ export function checkHtmlContent(params: {
   scriptSpans?: readonly ScriptSpan[];
   frameElementSpans?: readonly ElementSpan[];
   baseElementSpans?: readonly ElementSpan[];
+  intrinsicLayout?: HtmlIntrinsicLayoutInputs;
   assetExists: (repoRelativeAssetPath: string) => boolean;
 }): HtmlContentCheckResult {
   const {
@@ -1107,10 +1188,11 @@ export function checkHtmlContent(params: {
     scriptSpans = [],
     frameElementSpans = [],
     baseElementSpans = [],
+    intrinsicLayout = {},
     assetExists
   } = params;
 
-  // ── Check 2: Closed-schema sidecar (includes aspect parse) ──
+  // ── Check 2: Closed-schema sidecar ──
   const schemaResult = validateHtmlInfo(parsedMeta);
   if (!schemaResult.valid) {
     return { valid: false, errors: schemaResult.errors.map((e) => `${metaPath}: ${e}`) };
@@ -1171,11 +1253,25 @@ export function checkHtmlContent(params: {
       `${htmlPath}: the document contains a <base> element (${tagText}), which is not allowed here — the page resolves relative references against its own URL and the server injects a target-only <base> for link opening, so this element's href would be blocked by the CSP's base-uri 'none' while its target would override the server's; remove it`
     );
   }
+  const intrinsicResult = checkIntrinsicHtmlLayout(intrinsicLayout);
+  errors.push(...intrinsicResult.errors.map((error) => `${htmlPath}: ${error}`));
   if (errors.length > 0) {
-    return { valid: false, errors };
+    return {
+      valid: false,
+      errors,
+      ...(intrinsicResult.runtimeAuditedStylesheets.length > 0
+        ? { runtimeAuditedStylesheets: intrinsicResult.runtimeAuditedStylesheets }
+        : {})
+    };
   }
 
-  return { valid: true, errors: [] };
+  return {
+    valid: true,
+    errors: [],
+    ...(intrinsicResult.runtimeAuditedStylesheets.length > 0
+      ? { runtimeAuditedStylesheets: intrinsicResult.runtimeAuditedStylesheets }
+      : {})
+  };
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -1195,7 +1291,7 @@ export interface HtmlInfoValidationResult {
 /**
  * Validates an unknown value against the closed {@link HtmlInfoFile} schema.
  *
- * The schema is **closed**: any key other than `title`, `summary`, `aspect`,
+ * The schema is **closed**: any key other than `title`, `summary`,
  * and `scripts` causes validation to fail with an "unknown key" error. This
  * contrasts with the open `validateAttachmentInfo()` which permits extra keys.
  *
@@ -1203,10 +1299,7 @@ export interface HtmlInfoValidationResult {
  * - No unknown keys permitted (closed schema).
  * - `title`: required string, ≤ 120 characters.
  * - `summary`: required string, ≤ 280 characters.
- * - `aspect`: required string or number that parses to a valid positive ratio
- *   (see {@link parseAspectRatio}); unparseable values like `"0:0"`, `"16:9:9"`,
- *   `-3`, `0`, or the quoted decimal `"1.6"` are rejected.
- * - `scripts`: optional boolean.
+ * - `scripts`: required boolean.
  *
  * @param value - Unknown input to validate.
  * @returns Validation result with `valid` flag and any `errors`.
@@ -1223,7 +1316,7 @@ export function validateHtmlInfo(value: unknown): HtmlInfoValidationResult {
   // Closed schema: reject any unknown key
   for (const key of Object.keys(record)) {
     if (!ALLOWED_HTML_INFO_KEYS.has(key)) {
-      errors.push(`Unknown key "${key}" — HtmlInfoFile only permits: title, summary, aspect, scripts`);
+      errors.push(`Unknown key "${key}" — HtmlInfoFile only permits: title, summary, scripts`);
     }
   }
 
@@ -1245,20 +1338,10 @@ export function validateHtmlInfo(value: unknown): HtmlInfoValidationResult {
     errors.push(`"summary" must be ≤ ${MAX_HTML_SUMMARY_LENGTH} characters (got ${record['summary'].length})`);
   }
 
-  // aspect: required string or number, AND must parse to a valid positive ratio.
-  if (!('aspect' in record)) {
-    errors.push('Missing required field "aspect"');
-  } else if (typeof record['aspect'] !== 'string' && typeof record['aspect'] !== 'number') {
-    errors.push('"aspect" must be a string or number');
-  } else if (parseAspectRatio(record['aspect']) === null) {
-    errors.push(
-      `"aspect" value ${JSON.stringify(record['aspect'])} is not a valid aspect ratio — ` +
-        'use "<width>:<height>" with positive integers (e.g. "16:9") or a positive finite number (e.g. 1.7778)'
-    );
-  }
-
-  // scripts: optional boolean
-  if ('scripts' in record && typeof record['scripts'] !== 'boolean') {
+  // scripts: required boolean
+  if (!('scripts' in record)) {
+    errors.push('Missing required field "scripts"');
+  } else if (typeof record['scripts'] !== 'boolean') {
     errors.push('"scripts" must be a boolean');
   }
 

@@ -29,11 +29,15 @@ import { buildHtmlFileCspPolicy } from '../../../src/protocol/index.js';
 /**
  * Parses the built policy into per-directive grant sets.
  *
+ * @param authorNonce - Author nonce to grant, or null for script-disabled mode.
  * @returns Map of directive name to the set of grant tokens it carries.
  */
-function grants(): Map<string, Set<string>> {
+function grants(authorNonce: string | null = '<author-nonce>'): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
-  for (const clause of buildHtmlFileCspPolicy('<test-nonce>').split(';')) {
+  for (const clause of buildHtmlFileCspPolicy({
+    platformNonce: '<platform-nonce>',
+    ...(authorNonce === null ? {} : { authorNonce })
+  }).split(';')) {
     const tokens = clause.trim().split(/\s+/);
     if (tokens.length > 0 && tokens[0] !== '') {
       map.set(tokens[0]!, new Set(tokens.slice(1)));
@@ -45,6 +49,16 @@ function grants(): Map<string, Set<string>> {
 const grant = (directive: string): Set<string> => grants().get(directive) ?? new Set<string>();
 
 describe('gate ↔ CSP agreement', () => {
+  it('grants only the platform nonce when author scripts are disabled', () => {
+    expect(grants(null).get('script-src')).toEqual(new Set(["'nonce-<platform-nonce>'"]));
+  });
+
+  it('uses split nonces and author sources when author scripts are enabled', () => {
+    expect(grant('script-src')).toEqual(
+      new Set(["'nonce-<platform-nonce>'", "'nonce-<author-nonce>'", "'self'", 'https:'])
+    );
+  });
+
   it.each([
     [
       'script-src',

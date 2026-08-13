@@ -452,7 +452,7 @@ describe('checkHtmlContent — check 4 rework: rejected references fail with the
   const PAGE = {
     htmlPath: 'walkthrough.html',
     metaPath: 'walkthrough.meta.json',
-    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
     scriptSpans: []
   };
@@ -516,7 +516,7 @@ describe('checkHtmlContent — asset existence is the caller’s answer', () => 
   const PAGE = {
     htmlPath: 'walkthrough.html',
     metaPath: 'walkthrough.meta.json',
-    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
     scriptSpans: []
   };
@@ -588,7 +588,7 @@ describe('checkHtmlContent — frame-element start-tag references are refused', 
   const PAGE = {
     htmlPath: 'walkthrough.html',
     metaPath: 'walkthrough.meta.json',
-    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
     scriptSpans: []
   };
@@ -773,7 +773,7 @@ describe('checkHtmlContent — data: references in a <script> src are refused', 
   const PAGE = {
     htmlPath: 'walkthrough.html',
     metaPath: 'walkthrough.meta.json',
-    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
     scriptSpans: []
   };
@@ -878,7 +878,7 @@ describe('checkHtmlContent — an author <base> element is refused', () => {
   const PAGE = {
     htmlPath: 'walkthrough.html',
     metaPath: 'walkthrough.meta.json',
-    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
     scriptSpans: []
   };
