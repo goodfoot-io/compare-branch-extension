@@ -35,7 +35,10 @@ const NESTED_PAGE = 'docs/overview.html';
  * @param tagName - Lowercase tag name to find.
  * @returns Whole-element spans for every matching element, in source order.
  */
-function elementSpans(html: string, tagName: 'script' | 'iframe' | 'frame' | 'embed' | 'object'): ElementSpan[] {
+function elementSpans(
+  html: string,
+  tagName: 'script' | 'iframe' | 'frame' | 'embed' | 'object' | 'base'
+): ElementSpan[] {
   const spans: ElementSpan[] = [];
   const OPEN = `<${tagName}`;
   const CLOSE = `</${tagName}>`;
@@ -808,5 +811,102 @@ describe('checkHtmlContent — data: references in a <script> src are refused', 
       assetExists: () => true
     });
     expect(result).toEqual({ valid: true, errors: [] });
+  });
+});
+
+describe('classifyResourceReference — encoded separators never match the route prefix', () => {
+  // The asset route matches its literal `assets` segment against the *raw* URL
+  // path — Express patterns match before any percent-decoding — so an encoded
+  // character that decodes into a separator, a segment name, or a dot-segment
+  // inside the reference's first raw segment is never served: the browser keeps
+  // it inside one segment, the literal `assets` never matches, and the document
+  // route then refuses the decoded assets/-space path with a 404. The gate
+  // resolves the *decoded* reference, so without this rule it would accept a
+  // reference that genuinely could not have loaded — the gate/render inversion
+  // this check closes.
+
+  it('accepts an encoded slash inside the wildcard, which both sides decode consistently', () => {
+    // After the literal `assets` segment matched, the route decodes the
+    // wildcard's segments — so `assets/100%2Fcomplete.png` serves the file
+    // `assets/100/complete.png`, exactly the path the gate's decode-first
+    // resolution computes. Refusing every encoded slash would turn this
+    // working form into a false refusal.
+    const result = classifyResourceReference('assets/100%2Fcomplete.png', ROOT_PAGE);
+    expect(result).toEqual({ kind: 'asset', assetPath: 'assets/100/complete.png' });
+  });
+
+  it.each([
+    ['an encoded slash spanning the literal assets segment', 'assets%2Fdiagram.png', ROOT_PAGE],
+    ['an encoded segment name that decodes to assets', '%61ssets/logo.png', ROOT_PAGE],
+    ['an encoded ../ that URL resolution never collapses', '%2e%2e/assets/logo.png', NESTED_PAGE]
+  ])('rejects %s', (_label, reference, page) => {
+    const result = classifyResourceReference(reference, page);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toMatch(/literal 'assets'/);
+  });
+});
+
+describe('classifyResourceReference — dead-end suggestions name the refusal, not a looping path', () => {
+  // The not-under-assets rejection suggests a re-anchored path, but some
+  // re-anchors are themselves refused by the dot-segment, HTML-file, or
+  // mime-map rules — writing the suggestion puts the author straight back into
+  // another rejection. The suggestion is probe-classified before it is offered;
+  // when the probe refuses it, the message carries the probe's refusal instead
+  // of a path that loops.
+  it.each([
+    ['a page-local dotfile', '.logo.png', NESTED_PAGE, /dot-leading/],
+    ['a page-local unmappable extension', 'logo.dat', NESTED_PAGE, /content type/],
+    ['a bare directory name resolving to assets/ itself', 'assets', ROOT_PAGE, /directory/]
+  ])('refuses %s without a dead-end suggestion', (_label, reference, page, reasonPattern) => {
+    const result = classifyResourceReference(reference, page);
+    expect(result.kind).toBe('rejected');
+    if (result.kind !== 'rejected') return;
+    expect(result.reason).toMatch(reasonPattern);
+    expect(result.reason).not.toMatch(/write /);
+  });
+});
+
+describe('checkHtmlContent — an author <base> element is refused', () => {
+  // The served document resolves relative references against its own URL and
+  // the builder injects a target-only <base> for link opening. An author
+  // <base> would be inert under the served CSP's base-uri 'none' (its href is
+  // blocked) while its target still wins the first-base race over the
+  // builder's — the author's markup silently diverging from the render in both
+  // directions. The gate refuses the element itself, so a page that commits is
+  // a page whose base behavior is exactly the served contract.
+  const PAGE = {
+    htmlPath: 'walkthrough.html',
+    metaPath: 'walkthrough.meta.json',
+    parsedMeta: { title: 'T', summary: 'S', aspect: '16:9' },
+    parseErrorCodes: [] as string[],
+    scriptSpans: []
+  };
+
+  it('refuses a <base href> whose reference would otherwise classify as allowed', () => {
+    const htmlSource = '<head><base href="https://cdn.example.com/"></head><p>Hi</p>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      baseElementSpans: elementSpans(htmlSource, 'base'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toMatch(/<base/);
+    expect(result.errors[0]).toMatch(/base-uri/);
+  });
+
+  it('refuses a target-only <base> that carries no reference at all', () => {
+    const htmlSource = '<base target="_top"><p>Hi</p>';
+    const result = checkHtmlContent({
+      ...PAGE,
+      htmlSource,
+      baseElementSpans: elementSpans(htmlSource, 'base'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.errors[0]).toMatch(/target/);
   });
 });

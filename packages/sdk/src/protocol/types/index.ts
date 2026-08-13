@@ -129,6 +129,7 @@ export type {
   ScriptSpan
 } from './html.js';
 export {
+  BASE_ELEMENT_TAG_NAMES,
   checkHtmlContent,
   classifyResourceReference,
   collectResourceReferences,

@@ -144,6 +144,19 @@ export interface ElementSpan {
 export const FRAME_ELEMENT_TAG_NAMES = ['iframe', 'frame', 'embed', 'object'] as const;
 
 /**
+ * Tag names for the author-`<base>` refusal.
+ *
+ * The served document resolves relative references against its own URL and the
+ * serve-time builder injects a target-only `<base>`, so an author `<base>` is
+ * inert in the href direction (the CSP's `base-uri 'none'` blocks it) while
+ * its `target` still beats the builder's — {@link checkHtmlContent}'s check 4b
+ * refuses the element itself, and the span producers in
+ * `@cards.management/html-spans` walk for the same names, so the gate and its
+ * span source cannot drift.
+ */
+export const BASE_ELEMENT_TAG_NAMES = ['base'] as const;
+
+/**
  * Offset of the first unquoted `>` in `htmlSource` at or after `from`, scanning
  * to at most `to` — the terminator of a start tag, whose attribute values may
  * legally contain `>` inside quotes.
@@ -327,12 +340,13 @@ export interface HtmlInfoFile {
   /**
    * Whether the iframe sandbox permits scripts.
    *
-   * When `true` (default), the iframe's sandbox is `allow-scripts`. When
-   * `false`, the sandbox attribute is empty and scripts are fully disabled.
-   *
-   * `allow-same-origin` is never granted in either case — combined with
-   * `allow-scripts` on a `srcdoc` iframe it would let framed scripts reach the
-   * parent webview's origin.
+   * When `true` (default), the panel's sandbox is `allow-scripts
+   * allow-same-origin`; when `false`, it is `allow-same-origin` alone, so a
+   * scriptless page still loads its same-origin subresources and fonts.
+   * `allow-same-origin` is always present because the frame loads a real
+   * document from the cards server — the grant is the page's own server
+   * origin, never the parent webview's (`vscode-webview://`, unreachable from
+   * a page on the server's origin).
    */
   scripts?: boolean;
 }
@@ -630,13 +644,79 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
         reason: `'${trimmed}' resolves to '${assetPath}', which is not under the repository-root ${ASSETS_PREFIX} directory and is an HTML page — pages link over https:, with a data: URI, or to a #fragment, never with a relative path to a committed page`
       };
     }
-    const suggestion =
-      resolved[0] === ASSETS_DIR
-        ? ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${resolved.join('/')}`
-        : ` — from ${htmlRepoRelativePath}, write ${'../'.repeat(htmlDirSegments.length)}${ASSETS_DIR}/${reAnchor.join('/')}`;
+    if (resolved[0] === ASSETS_DIR) {
+      // resolved === ['assets']: the reference names the root assets/ directory
+      // itself, and the asset server serves files, not directory paths. It is
+      // the one shape whose re-anchor would be the reference itself
+      // (`assets` re-anchored from a root page is `assets`), so it gets a
+      // direct refusal naming the directory shape instead of a path that
+      // loops back through this same rule.
+      return {
+        kind: 'rejected',
+        reason: `'${trimmed}' resolves to '${assetPath}' — the ${ASSETS_PREFIX} directory itself, and the asset server serves files, not directory paths; name the file itself, e.g. ${'../'.repeat(htmlDirSegments.length)}${ASSETS_DIR}/logo.png`
+      };
+    }
+    const suggestion = `${'../'.repeat(htmlDirSegments.length)}${ASSETS_DIR}/${reAnchor.join('/')}`;
+    // The suggestion is itself a relative reference from the same page, so it
+    // is probe-classified before it is offered: a re-anchor that a rule below
+    // refuses anyway — a page-local dotfile, an unmappable extension, a
+    // directory-style trailing slash — would loop the author straight back
+    // into another rejection. When the probe refuses, the message carries the
+    // probe's refusal (the thing to fix) instead of the looping path. The
+    // probe terminates: its suggestion always starts with the page depth
+    // prefix followed by `assets/`, so its own resolution lands under root
+    // `assets/` and never re-enters this branch.
+    if (suggestion !== trimmed) {
+      const probe = classifyResourceReference(suggestion, htmlRepoRelativePath);
+      if (probe.kind === 'rejected') {
+        return {
+          kind: 'rejected',
+          reason: `'${trimmed}' resolves to '${assetPath}', which is not under the repository-root ${ASSETS_PREFIX} directory, and the natural fix is refused again: ${probe.reason}. Fix the named problem first, then reference the corrected path under ${ASSETS_PREFIX}`
+        };
+      }
+    }
     return {
       kind: 'rejected',
-      reason: `'${trimmed}' resolves to '${assetPath}', which is not under the repository-root ${ASSETS_PREFIX} directory${suggestion}`
+      reason: `'${trimmed}' resolves to '${assetPath}', which is not under the repository-root ${ASSETS_PREFIX} directory — from ${htmlRepoRelativePath}, write ${suggestion}`
+    };
+  }
+
+  // The route and the gate must read the same path out of the same URL. The
+  // asset route matches its literal `assets` segment against the raw request
+  // path — Express patterns match before any percent-decoding — and the
+  // browser keeps a percent-encoded '/' or '.' inside its one segment while
+  // resolving relative references. So an encoded separator in the first raw
+  // segment of the resolved reference (`assets%2Fdiagram.png`,
+  // `%61ssets/logo.png`, `%2e%2e/assets/logo.png`) never matches the route;
+  // the document route then 404s the decoded assets/-space path. The
+  // resolution above decoded before segmenting, which is exactly what makes
+  // those shapes land under `assets/` here — this raw resolution exists to
+  // catch that gate-accepts/route-404s inversion. Dot segments collapse over
+  // the raw text exactly as URL resolution collapses them (literal `.` and
+  // `..` only; the encoded forms stay opaque here, as in the browser), so the
+  // raw and decoded resolutions can differ only through characters the request
+  // never decodes on this side of the route. `assets/100%2Fcomplete.png`
+  // passes: its encoded slash sits inside the wildcard segment past the
+  // literal `assets`, where the route decodes it into the file the
+  // classification above already approved.
+  const rawResolved: string[] = [...htmlDirSegments];
+  for (const segment of pathPart.split('/')) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') rawResolved.pop();
+    else rawResolved.push(segment);
+  }
+  if (rawResolved[0] !== ASSETS_DIR) {
+    // The offending segment to name is the one that still carries a
+    // percent-escape: for a nested-page `%2e%2e/assets/…` the raw slot at the
+    // route's literal `assets` position is the page's own directory (not the
+    // author's mistake), so quoting the slot would blame `docs/` for a
+    // reference whose fix is `../assets/…`. A percent-escape in the reference
+    // is always present here — a literal-only reference whose raw resolution
+    // lands outside `assets/` never passed the decoded checks above.
+    const encodedSegment = pathPart.split('/').find((segment) => segment.includes('%')) ?? rawResolved[0] ?? '';
+    return {
+      kind: 'rejected',
+      reason: `'${trimmed}' resolves to the asset '${assetPath}' in the commit check, but the browser's request never reaches the asset route — its literal 'assets' segment must match the raw URL before any percent-decoding, and the percent-encoded segment '${encodedSegment}' is never decoded into a separator or a match on this side of the route; write the path literally, without percent-encoding`
     };
   }
 
@@ -692,7 +772,7 @@ export function classifyResourceReference(reference: string, htmlRepoRelativePat
     const what = extension === '' ? 'no file extension' : `the extension '.${extension}'`;
     return {
       kind: 'rejected',
-      reason: `'${trimmed}' resolves to '${assetPath}', which has ${what} the asset server cannot map to a content type — it would be served as application/octet-stream and rendering would be sniff-dependent`
+      reason: `'${trimmed}' resolves to '${assetPath}', which has ${what} the asset server cannot map to a content type — it would be served as application/octet-stream and rendering would be sniff-dependent; rename it to a mappable file type (e.g. a .png, .css, or .js extension)`
     };
   }
 
@@ -994,6 +1074,11 @@ export interface HtmlContentCheckResult {
  *   elements (`<iframe>`/`<frame>`/`<embed>`) from the same parse, used by
  *   check 4 to refuse relative references the served CSP would block (see
  *   {@link collectResourceReferences}).
+ * @param params.baseElementSpans - Whole-element spans of `<base>` elements
+ *   (see {@link BASE_ELEMENT_TAG_NAMES}) from the same parse. The served
+ *   document refuses an author `<base>` as a class — see check 4b — and the
+ *   spans are its authority; a `<base` token inside a comment or script body
+ *   produces no span and stays inert text. Defaults to none.
  * @param params.assetExists - Whether a repo-relative path under `assets/`
  *   exists. Required rather than optional: it is the one check standing between
  *   an author and a page that renders as an error, so no caller may fail open by
@@ -1010,6 +1095,7 @@ export function checkHtmlContent(params: {
   parseErrorCodes: readonly string[];
   scriptSpans?: readonly ScriptSpan[];
   frameElementSpans?: readonly ElementSpan[];
+  baseElementSpans?: readonly ElementSpan[];
   assetExists: (repoRelativeAssetPath: string) => boolean;
 }): HtmlContentCheckResult {
   const {
@@ -1020,6 +1106,7 @@ export function checkHtmlContent(params: {
     parseErrorCodes,
     scriptSpans = [],
     frameElementSpans = [],
+    baseElementSpans = [],
     assetExists
   } = params;
 
@@ -1048,7 +1135,7 @@ export function checkHtmlContent(params: {
       case 'asset':
         if (!assetExists(classification.assetPath)) {
           errors.push(
-            `${htmlPath}: references '${reference}', but the asset '${classification.assetPath}' is not present in the caller's view — stage it, or fix the reference`
+            `${htmlPath}: references '${reference}', but the asset '${classification.assetPath}' was not found — create the file, stage it, or fix the reference`
           );
         }
         break;
@@ -1056,6 +1143,33 @@ export function checkHtmlContent(params: {
         errors.push(`${htmlPath}: ${classification.reason}`);
         break;
     }
+  }
+
+  // ── Check 4b: no author <base> element ──
+  // The served document resolves relative references against its own URL and
+  // the serve-time builder injects a target-only <base> for link opening. An
+  // author <base> is refused as a class: the served CSP's `base-uri 'none'`
+  // blocks its href, so the element is inert in the direction it is normally
+  // written for, while its target still wins the first-base race over the
+  // builder's — the author's markup silently diverges from the render either
+  // way, with no load-time error to say so. Refusing the element itself keeps
+  // the gate's promise that a page which commits clean renders clean.
+  for (const span of baseElementSpans) {
+    // An unclosed `<base` at EOF never yields a span — the tokenizer drops
+    // the tag token when the `>` is missing at EOF, as the browser does, so
+    // parse5 emits nothing for it (and the form renders nothing). The
+    // zero-width guard below is defensive only: a collapsed-location span
+    // from a producer extends the start-tag scan to the source end, same as
+    // the frame rule.
+    const spanEnd = span.end > span.start ? Math.min(span.end, htmlSource.length) : htmlSource.length;
+    const tagEnd = findUnquotedTagEnd(htmlSource, span.start, spanEnd);
+    const tagText = htmlSource
+      .slice(span.start, tagEnd === -1 ? spanEnd : tagEnd)
+      .replace(/\s+/g, ' ')
+      .trim();
+    errors.push(
+      `${htmlPath}: the document contains a <base> element (${tagText}), which is not allowed here — the page resolves relative references against its own URL and the server injects a target-only <base> for link opening, so this element's href would be blocked by the CSP's base-uri 'none' while its target would override the server's; remove it`
+    );
   }
   if (errors.length > 0) {
     return { valid: false, errors };

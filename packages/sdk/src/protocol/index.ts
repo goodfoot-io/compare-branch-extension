@@ -179,6 +179,7 @@ export type {
 // --- Card Gates ---
 export {
   ATTACHMENT_ID_PATTERN,
+  BASE_ELEMENT_TAG_NAMES,
   BRANCHES_DIR,
   buildHtmlFileCspPolicy,
   CARD_RELATION_TYPES,

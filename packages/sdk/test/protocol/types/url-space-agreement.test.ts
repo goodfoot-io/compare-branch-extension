@@ -37,22 +37,40 @@ function assetRouteUrl(assetPath: string): string {
 }
 
 /**
- * Resolves a URL pathname the way the route set does before it refuses
- * anything: percent-decoded, then `.`/`..` segments collapsed (Express and
- * `send` resolve paths; a percent-encoded `..` that survived URL parsing is
- * still a dot segment to a filesystem resolver).
+ * Resolves a URL pathname the way the route set actually serves it.
+ *
+ * Express matches route patterns against the *raw* path before any decoding,
+ * so the asset route's literal `assets` segment only matches when the raw
+ * fourth segment is exactly `assets` — an encoded `%2F` (or any other escape)
+ * inside that segment keeps it from ever matching, which is what makes
+ * `assets%2Fdiagram.png` a 404. Only the wildcard that follows the literal
+ * prefix is percent-decoded (Express hands the route an array of decoded
+ * segments), and its dot segments are collapsed the way `path.join` and
+ * realpath containment resolve them. A pathname that does not match the
+ * literal prefix is returned raw: it is answered by other routes (the
+ * document route refuses decoded assets/-space paths; other mounts 404), none
+ * of which serve asset bytes.
  *
  * @param pathname - A URL pathname as the browser resolved it.
- * @returns The resolved path, percent-decoded with dot segments collapsed.
+ * @returns The path the route set resolves — the asset route's served path
+ *   when the literal prefix matched, otherwise the untouched pathname.
  */
 function resolvedPath(pathname: string): string {
-  const segments: string[] = [];
-  for (const segment of decodeURIComponent(pathname).split('/')) {
-    if (segment === '' || segment === '.') continue;
-    if (segment === '..') segments.pop();
-    else segments.push(segment);
+  const raw = pathname.split('/').filter((segment) => segment.length > 0);
+  // `/cards/:cardId/html-files/assets` — the literal prefix the asset route
+  // matches against raw segments, before any percent-decoding.
+  if (raw.length >= 4 && raw[0] === 'cards' && raw[2] === 'html-files' && raw[3] === 'assets') {
+    const segments = ['cards', raw[1], 'html-files', 'assets'];
+    for (const decoded of raw.slice(4).map(decodeURIComponent)) {
+      for (const inner of decoded.split('/')) {
+        if (inner === '' || inner === '.') continue;
+        if (inner === '..') segments.pop();
+        else segments.push(inner);
+      }
+    }
+    return `/${segments.join('/')}`;
   }
-  return `/${segments.join('/')}`;
+  return pathname;
 }
 
 describe('gate ↔ URL-space agreement', () => {
@@ -63,7 +81,12 @@ describe('gate ↔ URL-space agreement', () => {
     ['a nested subdirectory of assets/', 'assets/fonts/inter.woff2', 'walkthrough.html'],
     ['a cache-busting query string', 'assets/inter.woff2?v=2', 'walkthrough.html'],
     ['a fragment (the IE #iefix idiom)', 'assets/inter.eot#iefix', 'walkthrough.html'],
-    ['an encoded space in a filename', 'assets/my%20logo.png', 'walkthrough.html']
+    ['an encoded space in a filename', 'assets/my%20logo.png', 'walkthrough.html'],
+    [
+      'an encoded slash inside the wildcard, past the literal assets segment',
+      'assets/100%2Fcomplete.png',
+      'walkthrough.html'
+    ]
   ])('%s resolves onto the asset route URL space', (_label, reference, page) => {
     const cls = classifyResourceReference(reference, page);
     expect(cls.kind).toBe('asset');
@@ -80,7 +103,8 @@ describe('gate ↔ URL-space agreement', () => {
     ['an escaping .. reference', '../../assets/logo.png', 'docs/overview.html'],
     ['a protocol-relative reference', '//cdn.example.com/logo.png', 'walkthrough.html'],
     ['an http: reference', 'http://cdn.example.com/logo.png', 'walkthrough.html'],
-    ['an encoded .. escape', 'assets/%2e%2e%2fsecrets.png', 'walkthrough.html']
+    ['an encoded .. escape', 'assets/%2e%2e%2fsecrets.png', 'walkthrough.html'],
+    ['an encoded slash spanning the literal assets segment', 'assets%2Fdiagram.png', 'walkthrough.html']
   ])('%s resolves outside the asset route URL space', (_label, reference, page) => {
     const cls = classifyResourceReference(reference, page);
     expect(cls.kind).toBe('rejected');

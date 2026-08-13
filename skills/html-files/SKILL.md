@@ -35,7 +35,9 @@ Any relative path that normalizes into root `assets/` (so `../assets/…` from `
 
 An `.html` file under root `assets/` is **not** a valid asset reference. That directory is a fragment and template space — "a page stored under it is not a card document" — so the served-document contract (base target, theme bake, nonce stamp) never applies to it, and the checker rejects any reference resolving to an `.html` file there. Reference a page-like thing by inlining it as a `data:` URI or loading it over `https://`, like any other page.
 
-The asset must be committed **together with the page**: the pre-commit hook rejects a reference whose asset is not staged, naming the page and the asset (`stage it, or fix the reference`). It likewise rejects a staged deletion or rename of an asset a committed page references, and refuses symlinks under `assets/` — the server resolves served paths against real repository bytes, so a link's containment is a render-time property the commit gate cannot judge.
+The asset route matches its literal `assets` segment against the raw URL before any percent-decoding, so an encoded separator or segment name inside the first segment of the reference — `assets%2Fdiagram.png`, `%61ssets/logo.png`, `%2e%2e/assets/…` — is refused: the browser keeps the encoded character inside one segment and the request never reaches the asset route. Write the path literally. An encoded character *after* the literal `assets/` prefix (`assets/100%2Fcomplete.png`, from a page at the repository root) is ordinary and accepted.
+
+The asset must be committed **together with the page**: the pre-commit hook rejects a reference whose asset is not staged, naming the page and the asset (`create the file, stage it, or fix the reference`). It likewise rejects a staged deletion or rename of an asset a committed page references, and refuses symlinks under `assets/` — the server resolves served paths against real repository bytes, so a link's containment is a render-time property the commit gate cannot judge.
 
 ## Sidecar schema
 
@@ -100,6 +102,8 @@ default-src 'none'; script-src 'nonce-<nonce>' 'self' https:; style-src 'unsafe-
 ```
 
 The `'self'` tokens are what the page's own references load under: the document and the root `assets/` files share the server's origin.
+
+Do not write a `<base>` element. The document's own URL is the base — that is what makes relative `assets/` references resolve — and the server injects a target-only `<base>` at serve time for link opening. The checker rejects any author `<base>`: under the CSP's `base-uri 'none'` its `href` would be inert while its `target` would override the server's, silently changing where links open.
 
 The CSP is a genuine runtime boundary — but it confines the network, not the
 page's own scripts:
