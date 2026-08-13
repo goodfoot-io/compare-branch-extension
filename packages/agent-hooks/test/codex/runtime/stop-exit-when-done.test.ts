@@ -1,4 +1,8 @@
-/** Tests for the Codex Stop exit-when-done hook. */
+/**
+ * Tests for the Codex Stop exit-when-done hook.
+ *
+ * @summary Tests for the Codex Stop exit-when-done hook
+ */
 
 import path from 'node:path';
 import { extractActionInput } from '@cards.management/sdk/config';

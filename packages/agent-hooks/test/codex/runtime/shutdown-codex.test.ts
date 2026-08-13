@@ -1,3 +1,9 @@
+/**
+ * Tests for fail-closed Codex launcher selection and graceful shutdown.
+ *
+ * @summary Tests for the Codex shutdown executable
+ */
+
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

@@ -18,7 +18,11 @@ import {
 import { stopHook, stopOutput } from '@goodfoot/codex-hooks';
 import { isSessionIdle } from '../../shared/session-idle.js';
 
-/** Resolve against the compiled hook so installed plugins never depend on cwd. */
+/**
+ * Resolve against the compiled hook so installed plugins never depend on cwd.
+ *
+ * @returns Absolute path to the installed Codex shutdown runbook.
+ */
 function resolveShutdownRunbookPath(): string {
   return fileURLToPath(new URL('../../skills/card/references/shutdown.md', import.meta.url));
 }
