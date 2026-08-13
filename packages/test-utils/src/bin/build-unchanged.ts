@@ -198,10 +198,9 @@ export async function collectFiles(roots: string[]): Promise<CollectedFile[]> {
  *
  * Directory entries walk depth-first. A symlinked entry is stat'ed to decide
  * its role: files reached through symlinks are included, directory symlinks
- * are not recursed (no cycles, and the shared `/workspace` trees are read
- * exactly once). Hidden files are included — unlike the retired step-9c
- * glob walk, which skipped dotfiles — so a hidden edit errs toward rebuild,
- * the fail-closed direction.
+ * are not recursed (no cycles). Hidden files are included — unlike the
+ * retired step-9c glob walk, which skipped dotfiles — so a hidden edit errs
+ * toward rebuild, the fail-closed direction.
  *
  * @param root - The directory to walk.
  * @param files - The list to append found files to.
