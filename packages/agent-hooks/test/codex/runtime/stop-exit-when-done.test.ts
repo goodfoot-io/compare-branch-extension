@@ -64,6 +64,7 @@ describe('Codex Stop exit-when-done hook', () => {
     expect(runbook).toBeDefined();
     expect(path.isAbsolute(runbook!)).toBe(true);
     expect(runbook).toContain('/skills/card/references/shutdown.md');
+    expect(stdout.reason).toContain(input.session_id);
     expect(mockMarkNudged).toHaveBeenCalledWith(input.session_id);
   });
 

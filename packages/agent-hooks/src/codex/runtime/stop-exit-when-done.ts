@@ -70,6 +70,8 @@ export default stopHook({}, async (input, { logger }) => {
     reason: [
       'This action was launched with EXIT_WHEN_DONE=true and the session is now idle.',
       '',
+      `The current Codex session id is \`${input.session_id}\`; supply it where the runbook requires \`<SESSION ID FROM THE STOP MESSAGE>\`.`,
+      '',
       `Read \`${resolveShutdownRunbookPath()}\` and follow its \`<instructions>\` to terminate the validated Codex launcher cleanly.`
     ].join('\n')
   });

@@ -117,9 +117,9 @@ function sameIdentity(expected, actual, currentUid) {
 
 export function resolveAuditPath(env = process.env) {
   const cardRepoPath = env.CARD_REPO_PATH?.trim();
-  const sessionId = env.CARDS_SESSION_ID?.trim();
+  const sessionId = env.CARDS_SESSION_ID?.trim() || env.CODEX_SESSION_ID?.trim();
   if (!cardRepoPath || !sessionId || !/^[A-Za-z0-9._-]+$/.test(sessionId)) {
-    throw new Error('CARD_REPO_PATH and a safe CARDS_SESSION_ID are required for durable audit');
+    throw new Error('CARD_REPO_PATH and a safe CARDS_SESSION_ID or CODEX_SESSION_ID are required for durable audit');
   }
   return join(cardRepoPath, 'streams', 'codex-shutdown', `${sessionId}.jsonl`);
 }
@@ -127,6 +127,10 @@ export function resolveAuditPath(env = process.env) {
 async function appendAudit(auditPath, entry) {
   await mkdir(dirname(auditPath), { recursive: true });
   await appendFile(auditPath, `${JSON.stringify(entry)}\n`, { encoding: 'utf8', mode: 0o600 });
+}
+
+function isProcessGoneError(error) {
+  return error && typeof error === 'object' && (error.code === 'ENOENT' || error.code === 'ESRCH');
 }
 
 export async function shutdownCodex({
@@ -149,6 +153,10 @@ export async function shutdownCodex({
       startTime: selected.startTime,
       result: 'validated'
     });
+    const deliveryIdentity = await operations.inspect(selected.pid);
+    if (!sameIdentity(selected, deliveryIdentity, operations.currentUid)) {
+      throw new Error('launcher identity changed at signal delivery');
+    }
     operations.signal(selected.pid, 'SIGTERM');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -174,11 +182,18 @@ export async function shutdownCodex({
         });
         return { ok: true, pid: selected.pid, signal: 'SIGTERM', result: 'exited' };
       }
-    } catch {
+    } catch (error) {
+      if (isProcessGoneError(error)) {
+        await appendAudit(auditPath, {
+          at: operations.now(), event: 'shutdown-result', pid: selected.pid, signal: 'SIGTERM', result: 'exited'
+        });
+        return { ok: true, pid: selected.pid, signal: 'SIGTERM', result: 'exited' };
+      }
+      const message = error instanceof Error ? error.message : String(error);
       await appendAudit(auditPath, {
-        at: operations.now(), event: 'shutdown-result', pid: selected.pid, signal: 'SIGTERM', result: 'exited'
+        at: operations.now(), event: 'shutdown-result', pid: selected.pid, signal: 'SIGTERM', result: 'unknown', error: message
       });
-      return { ok: true, pid: selected.pid, signal: 'SIGTERM', result: 'exited' };
+      return { ok: false, pid: selected.pid, signal: 'SIGTERM', result: 'unknown', error: message };
     }
   }
   await appendAudit(auditPath, {

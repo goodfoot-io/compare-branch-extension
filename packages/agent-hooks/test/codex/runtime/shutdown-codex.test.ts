@@ -37,6 +37,7 @@ interface ShutdownModule {
     graceMs?: number;
     pollMs?: number;
   }): Promise<{ ok: boolean; pid: number | null; signal: string; result: string; error?: string }>;
+  resolveAuditPath(env: NodeJS.ProcessEnv): string;
 }
 
 const executablePath = resolve(import.meta.dirname, '../../../../../codex/runtime/skills/card/bin/shutdown-codex.mjs');
@@ -75,6 +76,12 @@ afterEach(async () => {
 });
 
 describe('Codex shutdown executable', () => {
+  it('uses CODEX_SESSION_ID when the Cards-specific session variable is absent', () => {
+    expect(shutdownModule.resolveAuditPath({ CARD_REPO_PATH: '/card', CODEX_SESSION_ID: 'codex-session' })).toBe(
+      join('/card', 'streams', 'codex-shutdown', 'codex-session.jsonl')
+    );
+  });
+
   it('selects the sole owned live Node codex.js ancestor and sends only SIGTERM to its positive PID', async () => {
     const launcher = snapshot(30, 20, ['/usr/bin/node', '/opt/lib/node_modules/@openai/codex/bin/codex.js']);
     const entries = [
@@ -205,6 +212,39 @@ describe('Codex shutdown executable', () => {
     expect(result).toMatchObject({ ok: false, pid: 2, signal: 'SIGTERM', result: 'timeout' });
     expect(signals).toEqual([[2, 'SIGTERM']]);
     expect(await readFile(auditPath, 'utf8')).toContain('"result":"timeout"');
+  });
+
+  it('reports an unknown result when post-signal inspection fails without positive exit evidence', async () => {
+    const entries = [
+      snapshot(4, 3, ['/usr/bin/node', executablePath]),
+      snapshot(3, 2, ['/opt/codex']),
+      snapshot(2, 1, ['/usr/bin/node', '/x/@openai/codex/bin/codex.js']),
+      snapshot(1, 0, ['/sbin/init'])
+    ];
+    const base = operationsFor(entries);
+    let launcherReads = 0;
+    const operations: Operations = {
+      ...base,
+      async inspect(pid) {
+        if (pid === 2 && ++launcherReads === 4) throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+        return base.inspect(pid);
+      },
+      signal() {}
+    };
+    const root = await mkdtemp(join(tmpdir(), 'codex-shutdown-unknown-'));
+    tempPaths.push(root);
+    const auditPath = join(root, 'audit.jsonl');
+
+    const result = await shutdownModule.shutdownCodex({ operations, auditPath });
+
+    expect(result).toMatchObject({
+      ok: false,
+      pid: 2,
+      signal: 'SIGTERM',
+      result: 'unknown',
+      error: 'permission denied'
+    });
+    expect(await readFile(auditPath, 'utf8')).toContain('"result":"unknown"');
   });
 
   it('walks a real launcher -> native stand-in -> shutdown descendant and observes graceful launcher exit', async () => {
