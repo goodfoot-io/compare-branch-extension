@@ -1089,6 +1089,85 @@ describe('Default Actions', () => {
     });
   });
 
+  describe('admiral', () => {
+    it('exports an action command', async () => {
+      const action = (await import('../src/actions/admiral.js')).default;
+      expect(action.factoryType).toBe('action');
+      expect(action.actionName).toBe('Admiral');
+    });
+
+    it('spawns claude with inherited stdio in interactive mode', async () => {
+      const { spawn } = await import('node:child_process');
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const action = (await import('../src/actions/admiral.js')).default;
+      const promise = action(baseInput({ actionName: 'Admiral' }), createMockContext());
+      await flushMicrotasks();
+
+      expect(spawn).toHaveBeenCalledWith(
+        'claude',
+        expect.arrayContaining(['--session-id', 'test-uuid-1234']),
+        expect.objectContaining({ cwd: '/test/workspace/.worktrees/cards/card-123/1', stdio: 'inherit' })
+      );
+
+      child.emit('close', 0);
+      await promise;
+    });
+
+    describe('agent routing', () => {
+      it.each([
+        ['empty string', ''],
+        ['undefined', undefined],
+        ['claude-code-extension', 'claude-code-extension']
+      ])('resolves %s to Claude branch and spawns claude', async (_label, codingAgent) => {
+        const { spawn } = await import('node:child_process');
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/admiral.js')).default;
+        const promise = action(baseInput({ codingAgent, actionName: 'Admiral' }), createMockContext());
+        await flushMicrotasks();
+
+        const spawnCmd = vi.mocked(spawn).mock.calls[0]![0] as string;
+        expect(spawnCmd).toBe('claude');
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it.each([
+        ['codex (pre-rename sentinel)', 'codex'],
+        ['gemini-cli (removed harness)', 'gemini-cli'],
+        ['claude (agent id not env value)', 'claude'],
+        ['CLAUDE-CODE-CLI (wrong case)', 'CLAUDE-CODE-CLI']
+      ])('rejects %s with a cards.defaultCodingAgent error and does not spawn', async (_label, codingAgent) => {
+        const { spawn } = await import('node:child_process');
+
+        const action = (await import('../src/actions/admiral.js')).default;
+        await expect(action(baseInput({ codingAgent, actionName: 'Admiral' }), createMockContext())).rejects.toThrow(
+          /cards\.defaultCodingAgent.*is not a supported value/
+        );
+
+        expect(spawn).not.toHaveBeenCalled();
+      });
+
+      it('rejects codex-cli background mode and does not spawn', async () => {
+        const { spawn } = await import('node:child_process');
+
+        const action = (await import('../src/actions/admiral.js')).default;
+        await expect(
+          action(
+            baseInput({ codingAgent: 'codex-cli', executionMode: 'background', actionName: 'Admiral' }),
+            createMockContext()
+          )
+        ).rejects.toThrow(/codex-cli.*does not support background-mode launch/);
+
+        expect(spawn).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   describe('chat', () => {
     describe('agent routing', () => {
       it.each([
