@@ -7,29 +7,33 @@ Single source of truth for card-type guidance. Two files per card type:
 Plus one shared reference used by every card type:
 - `commanders-intent.md` — first-principles guide for the opening paragraph(s) of `CARD.md`. Every writing guide and interview guide references it; do not duplicate its guidance elsewhere.
 
+Two non-type references loaded on demand from the skill body:
+- `extension-cli.md` — `cards-extension` CLI for controlling the VS Code extension host.
+- `launch-cards.md` — serial batch-launch procedure for a set of cards.
+
 ## Consumers
 
-1. **Card creation** (`$cards:cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `card create` time.
-2. **Interview skills** (`$interview-*`) — symlink the **writing guide** (`<type>.md`) into their skill directory and load it via `./<type>.md` during the post-creation interview. The `interview-<type>.md` files are pre-creation only and are **not** symlinked into `$interview-*`.
+1. **Card creation** (`$cards:cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `cards create` time.
+2. **Post-creation interview** (`$runtime:interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`.
 
 ## Symlinks
 
-The `$runtime:interview` skill's `references/` directory symlinks back to this directory:
+`public/codex/runtime/skills/interview/references/` symlinks the writing guides and `commanders-intent.md` back to this directory:
 
 ```
-runtime/skills/interview/references/bug-report.md        -> ../../../../cards/skills/api/references/bug-report.md
-runtime/skills/interview/references/enhancement.md       -> ../../../../cards/skills/api/references/enhancement.md
-runtime/skills/interview/references/investigation.md     -> ../../../../cards/skills/api/references/investigation.md
-runtime/skills/interview/references/documentation.md     -> ../../../../cards/skills/api/references/documentation.md
-runtime/skills/interview/references/maintenance.md       -> ../../../../cards/skills/api/references/maintenance.md
-runtime/skills/interview/references/operations.md        -> ../../../../cards/skills/api/references/operations.md
-runtime/skills/interview/references/commanders-intent.md -> ../../../../cards/skills/api/references/commanders-intent.md
+bug-report.md        -> ../../../../cards/skills/cards/references/bug-report.md
+enhancement.md       -> ../../../../cards/skills/cards/references/enhancement.md
+investigation.md     -> ../../../../cards/skills/cards/references/investigation.md
+documentation.md     -> ../../../../cards/skills/cards/references/documentation.md
+maintenance.md       -> ../../../../cards/skills/cards/references/maintenance.md
+operations.md        -> ../../../../cards/skills/cards/references/operations.md
+commanders-intent.md -> ../../../../cards/skills/cards/references/commanders-intent.md
 ```
 
-Edit the files here; the symlinks ensure both consumers see the same content.
+Edit those files here; the symlinks keep both consumers on the same content.
+
+The `interview-<type>.md` files are **not** symlinked, and must not be. The copies here are pre-creation — no card exists yet. `$runtime:interview` keeps its own post-creation copies, which interview against an existing CARD.md. The two sets are deliberately different documents.
 
 ## Markdown Formatting
 
-Markdown formatting guidelines (fragment links, mermaid diagrams, collapsible
-sections, code blocks) are consolidated in the `$cards:markdown` skill. Each
-card-type guide references those guidelines in its writing principles.
+Fragment links, mermaid diagrams, collapsible sections, and code blocks are consolidated in the `$cards:markdown` skill; each card-type guide references those guidelines in its writing principles.

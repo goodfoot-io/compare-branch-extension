@@ -14,6 +14,9 @@ managing panels, controlling the debugger, etc.), load `./references/extension-c
 
 For launching individual cards to implement the work they describe, load `./references/launch-cards.md`.
 
+To file a GitHub issue with the Cards extension developer, use `cards-extension issue`
+(see `./references/extension-cli.md`).
+
 The user is notified when you create a card or add a comment.
 
 ## Card Type References
@@ -38,24 +41,16 @@ Match the first applicable row:
 
 Run the interview when creating a card interactively with a user: gather enough signal, then invoke the `cards create` flow below and compose CARD.md against the writing guide in the same initial commit. Skip the interview when the user asks to capture something quickly, or when another workflow dispatches here to record an issue it hit — create the card directly from what you already know, still composing CARD.md against the matching writing guide.
 
-## CLI Binaries
+## `cards` CLI
 
-The commands below are plugin-provided executables on `PATH`. Invoke them directly as bare commands. They replace the older env-var-based CLI indirection used in Claude-oriented skills, which no longer exists.
-
-| Command | Purpose |
-|---------|---------|
-| `cards` | Card operations (get, create, list, search, bind, action, watch) |
-
-### `cards` — Card operations
-
-#### Commands
+`cards` is a plugin-provided executable on `PATH` covering get, create, list, search, bind, action, and watch. Invoke it directly as a bare command.
 
 **Get a card** — Fetch card details by ID. The response includes `repositoryPath` for filesystem access:
 ```
 cards <card-id>
 ```
 
-The response includes:
+Also included:
 - `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
 - `parentBranch` — the workspace branch the card was created from; present when the card was created in a workspace with a resolvable branch.
 
@@ -111,13 +106,6 @@ Binding installs hooks, registers the worktree branch with the card, and enables
 
 Outputs card-repo-log and workspace-repo-log context blocks to stdout (no env block). If the transcript path cannot be resolved, binding succeeds with a stderr streaming-disabled warning.
 
-Example:
-```
-$ cd my-worktree && cards main-42 bind
-cards bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.
-$ git log --oneline -3
-```
-
 **Search cards** — Search cards using a unified query syntax with `#tag`, `@relation`, and free text:
 ```
 cards search "login bug"
@@ -126,17 +114,11 @@ cards search "#planning" --limit 20
 cards search "@main-42"
 ```
 
-The query is parsed into free text, `#tag` tokens, and `@relation` tokens. Stored tags and text (3+ chars) are sent to the server. Derived tags (`planning`, `merge-requested`, `merged`, `unmerged`) and relation filters are applied client-side.
+Free text matches at 3+ chars. Beyond stored tags, four derived tags are filterable: `planning`, `merge-requested`, `merged`, `unmerged`.
 
-The response uses a flattened `CardListSummary` schema (gates as top-level booleans, no commit fields) rather than the full `Card` schema returned by `list`.
+Search responses are flattened — gates are top-level booleans and commit fields are absent.
 
 Options: `--workspace-path <path>`, `--status <status>`, `--limit <n>`, `--offset <n>`
-
-#### Workspace Path
-
-The CLI auto-detects the workspace from `pwd`. Cards are scoped to the branch you're working on — in a worktree, the card belongs to that worktree's branch (e.g., branch `feature` -> prefix `feature-`).
-
-Use `--workspace-path` only if the user explicitly requests creating a card in a different repository.
 
 **Execute an action** — Execute an action on a card via the server relay:
 ```
@@ -155,6 +137,12 @@ cards <card-id> watch "src/auth/**"
 cards <card-id> watch "src/auth/**" "tests/auth/**"
 ```
 Blocks until the first eligible commit, outputs formatted commit details, attributes the commit to the current session, then exits 0. When unattributed commits already exist at invocation time, they are output immediately without subscribing. Optional glob patterns restrict output to commits where at least one changed file matches; multiple globs are OR-combined. Requires an active card session. Exits non-zero on connection failure or missing session.
+
+### Workspace Path
+
+The CLI auto-detects the workspace from `pwd`. Cards are scoped to the branch you're working on — in a worktree, the card belongs to that worktree's branch (e.g., branch `feature` -> prefix `feature-`).
+
+Use `--workspace-path` only if the user explicitly requests creating a card in a different repository.
 
 ## Card Repository
 
@@ -180,14 +168,14 @@ branches/                   # One file per tracked branch (infra-managed)
   {encodeURIComponent(name)}.json
 ```
 
-`comments/` and `attachments/` directories do not exist until first use (lazy creation).
-
 ### Commits and Branches
 
 The `commits/` and `branches/` directories are written by Cards infrastructure, not by hand. Produce a correctly-formatted entry only when a task explicitly requires it — otherwise leave these alone.
 
-- **`commits/`** — one file per attributed commit. The filename is the full 40-character lowercase-hex commit SHA (`/^[0-9a-f]{40}$/`); the content is that SHA followed by a single newline (`<sha>\n`). The card-repo pre-commit hook validates entries fail-closed and rejects any other filename with `commits/: invalid commit entry filename: <name>` (so no `.patch`, CSV, or short-SHA forms). Defined by `COMMITS_DIR` in `public/packages/sdk/src/protocol/types/branch.ts`.
-- **`branches/`** — one file per tracked branch, named `<encodeURIComponent(name)>.json`. The authoritative branch `name` lives inside the file content, never decoded from the filename. The content is the persisted `WorkspaceBranch`: `parentBranch` and `addedAt` (ISO 8601), plus optional `worktree`. The computed `BranchInfo` fields (`exists`, `isMerged`, `commits`) are derived at read time and never persisted. Defined by `BRANCHES_DIR` and `WorkspaceBranch` in `public/packages/sdk/src/protocol/types/branch.ts`.
+- **`commits/`** — one file per attributed commit. The filename is the full 40-character lowercase-hex SHA (`/^[0-9a-f]{40}$/`); the content is that SHA plus a single newline (`<sha>\n`). No `.patch`, CSV, or short-SHA forms — the pre-commit hook rejects them fail-closed with `commits/: invalid commit entry filename: <name>`.
+- **`branches/`** — one file per tracked branch, named `<encodeURIComponent(name)>.json`. The authoritative branch `name` lives inside the file content, never decoded from the filename. The content is the persisted `WorkspaceBranch`: `parentBranch` and `addedAt` (ISO 8601), plus optional `worktree`. Never persist the read-time `BranchInfo` fields (`exists`, `isMerged`, `commits`).
+
+Source of truth: `COMMITS_DIR`, `BRANCHES_DIR`, and `WorkspaceBranch` in `public/packages/sdk/src/protocol/types/branch.ts`.
 
 ### CARD.meta.json
 

@@ -6,8 +6,7 @@ concurrently — agents on the same branch or on `main`'s ref lock will contend.
 
 ## 1. Inputs
 
-- **[CARD_IDS]** — the set of card IDs to launch, already selected by the caller
-  (e.g., from `cards list --status todo`, a tag search, or an explicit list). This
+- **[CARD_IDS]** — the card IDs to launch, already selected by the caller. This
   skill starts from that set; it does not select it.
 
 ## 2. Determine an Informal Order
@@ -19,13 +18,11 @@ ordering, not a DAG solve:
   '$.relations'` and `cards <id> --jsonpath '$.incomingRelations'`. Cluster
   cards that reference each other so related work lands close together in time.
 - **A card in the set is about the launch tooling itself** (e.g., a bug in
-  `cards action launch`, the CLI, or the extension): order it first. Fixing it
-  early reduces false-failure noise for every launch after it.
+  `cards action launch`, the CLI, or the extension): order it first, so its
+  breakage doesn't produce false failures in every launch after it.
 - Where relations are absent, group remaining cards thematically by title/tags
-  (e.g., all cards touching the same page or subsystem) so nearby launches don't
-  re-discover the same context independently.
-- State the resulting order and the reasoning before starting — this is a
-  judgment call the caller should be able to see and correct.
+  (e.g., all cards touching the same page or subsystem).
+- State the resulting order and the reasoning before starting.
 
 ## 3. Launch Each Card and Wait for `needs_review`
 
@@ -67,8 +64,7 @@ done
 
 - Represent each card as one task (TaskCreate/TaskUpdate or equivalent):
   mark it in_progress immediately before its launch call, completed the
-  moment its status reaches `needs_review`. This gives the caller visible
-  queue progress across a long-running batch.
+  moment its status reaches `needs_review`.
 - When the batch finishes, report each card ID with its final status, the
   order used, and the reasoning behind that order.
 
