@@ -663,10 +663,7 @@ export async function removeWorktree(worktreePath: string): Promise<void> {
     throw error;
   }
 
-  await execFileAsync('git', ['worktree', 'remove', '--force', resolved], {
-    cwd: repoRoot,
-    timeout: 30_000
-  });
+  await execFileAsync('git', ['worktree', 'remove', '--force', resolved], { cwd: repoRoot });
 
   // On Windows a just-exited `git worktree remove` subprocess (or a watcher/AV
   // indexer) can briefly retain a handle into the worktree directory, so the
