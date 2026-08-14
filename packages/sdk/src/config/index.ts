@@ -9,6 +9,22 @@
  */
 
 // ============================================================================
+// Detached Child Output
+// ============================================================================
+
+export {
+  DETACHED_CHILD_LOG_FILENAME,
+  DETACHED_CHILD_RECORD_PREFIX,
+  type DetachedChildCaptureIdentity,
+  type DetachedChildOutputCapture,
+  type DetachedChildOutputCaptureFailure,
+  type DetachedChildOutputCaptureResult,
+  type DetachedChildOutputPathResult,
+  prepareDetachedChildOutputCapture,
+  resolveDetachedChildOutputPath
+} from './detached-child-output.js';
+
+// ============================================================================
 // Action Factories
 // ============================================================================
 

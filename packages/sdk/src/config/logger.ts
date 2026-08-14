@@ -22,9 +22,9 @@
  * ```
  */
 
-import { execFileSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, writeSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { resolveMainRepoRoot } from './main-repo-root.js';
 
 // ============================================================================
 // Log Level Types
@@ -211,56 +211,6 @@ export interface LoggerConfig {
 }
 
 /**
- * Resolves the main repository root for the computed default log path.
- *
- * Prefers `REPO_ROOT` when set and non-empty (present in action contexts).
- * Otherwise computes `dirname(git rev-parse --path-format=absolute
- * --git-common-dir)`, which collapses a linked worktree back to its owning main
- * repo (e.g. `/workspace/.git` → `/workspace`). `--git-common-dir` is required
- * (not `--git-dir`, which yields the worktree git dir); `--path-format=absolute`
- * is required so `dirname` is meaningful regardless of cwd.
- *
- * A basename guard rejects non-standard git layouts (bare repo, submodule,
- * separate-git-dir) where the common dir basename is not `.git` — those cases
- * return `null` so file output degrades to disabled rather than writing to a
- * wrong path. Standard checkouts and linked worktrees (basename `.git`) pass.
- *
- * Fail-closed: any failure (throw, empty output, non-`.git` basename) returns
- * `null` so an unresolved path degrades to disabled file output and never throws.
- * @returns Absolute main repo root, or `null` when it cannot be resolved.
- */
-function resolveMainRepoRoot(): string | null {
-  try {
-    const repoRoot = process.env['REPO_ROOT'];
-    if (repoRoot !== undefined && repoRoot.length > 0) {
-      return repoRoot;
-    }
-
-    const commonDir = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
-      encoding: 'utf8',
-      timeout: 3000
-    }).trim();
-
-    if (commonDir.length === 0) {
-      return null;
-    }
-
-    // Guard: only accept standard <root>/.git layouts. Bare repos, submodules,
-    // and separate-git-dir repos have a basename other than '.git' and must
-    // degrade to null rather than returning a wrong path.
-    if (basename(commonDir) !== '.git') {
-      return null;
-    }
-
-    return dirname(commonDir);
-  } catch {
-    // Fail-closed: any failure (including timeout) degrades to disabled file
-    // output, never a throw.
-    return null;
-  }
-}
-
-/**
  * Resolves the log file path from config and environment.
  *
  * Resolution order (highest precedence first):
@@ -296,8 +246,8 @@ export function resolveLogFilePath(config: LoggerConfig): string | null {
   }
 
   const mainRepoRoot = resolveMainRepoRoot();
-  if (mainRepoRoot !== null) {
-    return join(mainRepoRoot, '.cards', 'logs', `${subsystem}.log`);
+  if (mainRepoRoot.ok) {
+    return join(mainRepoRoot.path, '.cards', 'logs', `${subsystem}.log`);
   }
 
   return null;
