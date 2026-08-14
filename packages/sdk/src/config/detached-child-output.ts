@@ -156,7 +156,12 @@ export function prepareDetachedChildOutputCapture(
       ...identity,
       timestamp: new Date().toISOString()
     };
-    writeSync(fd, `${DETACHED_CHILD_RECORD_PREFIX}${JSON.stringify(spawnRecord)}\n`);
+    const spawnLine = `${DETACHED_CHILD_RECORD_PREFIX}${JSON.stringify(spawnRecord)}\n`;
+    const writtenBytes = writeSync(fd, spawnLine);
+    const expectedBytes = Buffer.byteLength(spawnLine);
+    if (writtenBytes !== expectedBytes) {
+      throw new Error(`short attribution write: wrote ${writtenBytes} of ${expectedBytes} bytes`);
+    }
   } catch (error) {
     if (fd !== null) {
       try {

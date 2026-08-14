@@ -260,6 +260,43 @@ describe.sequential('detached-child output capture', () => {
     });
   });
 
+  it.skipIf(process.platform === 'win32')('reports a short parent attribution write as a preparation failure', () => {
+    const logPath = path.join(tempDir, 'size-limited.log');
+    fs.writeFileSync(logPath, Buffer.alloc(1_000, 'x'));
+    const moduleUrl = new URL('../../src/config/detached-child-output.ts', import.meta.url).href;
+    const source =
+      `process.on('SIGXFSZ',()=>{});` +
+      `const{prepareDetachedChildOutputCapture:p}=await import(${JSON.stringify(moduleUrl)});` +
+      `console.log(JSON.stringify(p({cardId:'main-456',sessionId:null,childKind:'wrapper'})))`;
+
+    const child = spawnSync(
+      'bash',
+      [
+        '-c',
+        'ulimit -f 1; exec "$@"',
+        'short-write-test',
+        process.execPath,
+        '--import=tsx',
+        '--input-type=module',
+        '-e',
+        source
+      ],
+      {
+        encoding: 'utf8',
+        env: { ...process.env, CARDS_DETACHED_STDERR_LOG_FILE: logPath },
+        timeout: 2_000
+      }
+    );
+
+    expect(child.error).toBeUndefined();
+    expect(child.status, child.stderr).toBe(0);
+    expect(JSON.parse(child.stdout) as unknown).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('short attribution write')
+    });
+    expect(fs.statSync(logPath).size).toBe(1_024);
+  });
+
   it('closes its descriptor idempotently', () => {
     process.env['CARDS_DETACHED_STDERR_LOG_FILE'] = path.join(tempDir, 'capture.log');
     const capture = requireCapture(
