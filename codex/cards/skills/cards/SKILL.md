@@ -59,32 +59,37 @@ The response includes:
 - `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
 - `parentBranch` — the workspace branch the card was created from; present when the card was created in a workspace with a resolvable branch.
 
-**Create a card** — Pipe JSON to stdin with `title` (required). Optional: `tags`, `environment`, `gates`, `relations`:
-```
-cards create <<'EOF'
-{ "title": "Fix auth", "tags": ["bug"] }
-EOF
-```
-
-The response includes `repositoryPath`. After creation:
-
-1. Load the `$cards:markdown` skill before writing CARD.md.
-2. Write card content and commit:
+**Create a card** — Pipe JSON to stdin with `title` (required). Optional: `tags`, `environment`, `gates`, `relations`. Capture `repositoryPath`; every step below writes into it:
 
 ```bash
 REPO=$(cards create --jsonpath '$.repositoryPath' <<'EOF'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 )
+```
+
+Then, in order:
+
+1. Load the `$cards:markdown` skill before writing CARD.md.
+2. When the card has something worth rendering — a mockup, diagram, data model, flow, or comparison of options — author an HTML page and commit its `.html`/`.meta.json` pair in a commit of its own; load `$cards:html-files` for mechanics and `$cards:design` for styling. Timeline position follows commit order: commit before CARD.md to open the card with a hero the reader takes in first, after CARD.md to elaborate what the description lays out.
+
+```bash
+cards html check "$REPO/proposed-panel.html"
+cd "$REPO" && git add proposed-panel.html proposed-panel.meta.json && git commit -m "Added HTML page [single sentence describing what the page shows]."
+```
+
+3. Write CARD.md and commit:
+
+```bash
 cat <<'CARD_EOF' > "$REPO/CARD.md"
 Card description here (plain markdown, no frontmatter).
 CARD_EOF
 cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
-3. Load the `$cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
+4. Load the `$cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
 
-Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
+Include `relations` when the new card relates to an existing one. Each entry has a `type` (only `"related"` is valid) and a `cardId`. The CLI sets relations only at creation; edit `CARD.meta.json` afterward.
 
 ```
 cards create <<'EOF'
@@ -104,7 +109,7 @@ Binding installs hooks, registers the worktree branch with the card, and enables
 - The card exists and is accessible
 - A parent branch can be resolved (checked in order: `branch.<name>.cardsParent` git config, reflog decoration, `--parent-branch` flag, then refuses)
 
-The command outputs card-repo-log and workspace-repo-log context blocks to stdout (without the env block), so the calling agent immediately receives current card context. If transcript streaming is disabled (transcript path cannot be resolved), binding succeeds with a stderr warning and streaming-disabled notice.
+Outputs card-repo-log and workspace-repo-log context blocks to stdout (no env block). If the transcript path cannot be resolved, binding succeeds with a stderr streaming-disabled warning.
 
 Example:
 ```
@@ -141,7 +146,7 @@ cards <card-id> action <action-id> --background --exit-when-done
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
-Actions run interactively by default. `--background` runs the action in the background instead; it is rejected with a 400 error for an action that does not support background mode. `--exit-when-done` signals the agent to exit cleanly once the action completes rather than leaving the session open.
+Actions run interactively by default. `--background` is rejected with a 400 error for an action that does not support background mode. `--exit-when-done` signals the agent to exit cleanly once the action completes rather than leaving the session open.
 
 **Watch for commits** — Block until the next unattributed commit on a card's repository:
 ```
@@ -207,11 +212,11 @@ The `commits/` and `branches/` directories are written by Cards infrastructure, 
 }
 ```
 
-`relations` is optional — omitted when the card has no outgoing relations. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card.
+`relations` is optional — omitted when the card has no outgoing relations.
 
 ### Adding a Comment
 
-Comments are pure markdown files with descriptive slug filenames. Authorship is determined by git commit ownership.
+Comments are pure markdown files with descriptive slug filenames.
 
 ```bash
 REPO=$(cards <card-id> --jsonpath '$.repositoryPath')
@@ -225,9 +230,6 @@ cd "$REPO" && git add "comments/my-slug-name.md" && git commit -m "Added comment
 ### Adding an Attachment
 
 Add relevant miscellaneous files (screenshots, logs, exports) as attachments whenever the user provides or references one during card creation or comments — don't just describe it in text. If only part of a screenshot is relevant, crop it to that portion before attaching.
-
-Attachments use UUID4 identifiers with a sanitized original filename, plus a
-`.meta.json` sidecar describing the file.
 
 ```bash
 REPO=$(cards <card-id> --jsonpath '$.repositoryPath')

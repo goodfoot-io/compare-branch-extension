@@ -9,7 +9,7 @@ description: Author HTML files in a card repository — two-file pairing, sideca
 
 # HTML Files in a Card
 
-Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline and grow or shrink to their normal-flow content height. The card detail owns vertical scrolling; previews must not create their own scrolling region. The Cards server serves each page as a real document at `/cards/<cardId>/html-files/<path>`.
+Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline and grow or shrink to their normal-flow content height. Each row sits at the date of the commit that first added the file, so commit order — not filename or path — decides where a page falls relative to CARD.md and the other timeline entries. The card detail owns vertical scrolling; previews must not create their own scrolling region. The Cards server serves each page as a real document at `/cards/<cardId>/html-files/<path>`.
 
 ## Two-file pairing
 
@@ -33,11 +33,11 @@ A page may load files from the card repository's **root-level `assets/` director
 
 Any relative path that normalizes into root `assets/` (so `../assets/…` from `docs/`, `assets/…` from the repo root) is an *asset* reference; every other relative path is rejected. The asset is served at `/cards/<cardId>/html-files/assets/…` on the document's own origin — a same-origin subresource load, which needs no credential, no CORS, and works in `@font-face` and `fetch()` just as in `img`/`srcset`/`link`.
 
-An `.html` file under root `assets/` is **not** a valid asset reference. That directory is a fragment and template space — "a page stored under it is not a card document" — so the served-document contract (base target, theme bake, nonce stamp) never applies to it, and the checker rejects any reference resolving to an `.html` file there. Reference a page-like thing by inlining it as a `data:` URI or loading it over `https://`, like any other page.
+An `.html` file under root `assets/` is **not** a valid asset reference — that directory is fragment and template space, so the served-document contract (base target, theme bake, nonce stamp) never applies there and the checker rejects any reference resolving to it. Inline a page-like thing as a `data:` URI or load it over `https://`.
 
 The asset route matches its literal `assets` segment against the raw URL before any percent-decoding, so an encoded separator or segment name inside the first segment of the reference — `assets%2Fdiagram.png`, `%61ssets/logo.png`, `%2e%2e/assets/…` — is refused: the browser keeps the encoded character inside one segment and the request never reaches the asset route. Write the path literally. An encoded character *after* the literal `assets/` prefix (`assets/100%2Fcomplete.png`, from a page at the repository root) is ordinary and accepted.
 
-The asset must be committed **together with the page**: the pre-commit hook rejects a reference whose asset is not staged, naming the page and the asset (`create the file, stage it, or fix the reference`). It likewise rejects a staged deletion or rename of an asset a committed page references, and refuses symlinks under `assets/` — the server resolves served paths against real repository bytes, so a link's containment is a render-time property the commit gate cannot judge.
+The asset must be committed **together with the page**: the pre-commit hook rejects a reference whose asset is not staged, naming the page and the asset (`create the file, stage it, or fix the reference`). It likewise rejects a staged deletion or rename of an asset a committed page references, and refuses symlinks under `assets/`.
 
 ## Sidecar schema
 
