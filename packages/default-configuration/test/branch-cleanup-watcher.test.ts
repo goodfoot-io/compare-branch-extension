@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
+import { fstatSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -34,13 +35,17 @@ vi.mock('../src/lib/claude-session.js', () => ({
   errorMessage: (error: unknown) => (error instanceof Error ? error.message : String(error))
 }));
 
-// Wraps the real `resolveLogFilePath` in a spy (default behavior unchanged) so
-// individual tests can force its "file logging disabled" (`null`) return via
-// `mockReturnValueOnce` without disturbing the real `Logger` class, which
-// `runDetachedCleanup`'s tests below rely on for actual file output.
+// Wraps the real configuration functions in spies (default behavior
+// unchanged) so individual tests can force fail-open outcomes without
+// disturbing the real Logger or detached-output implementation used by the
+// behavioral tests below.
 vi.mock('@cards.management/sdk/config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards.management/sdk/config')>();
-  return { ...actual, resolveLogFilePath: vi.fn(actual.resolveLogFilePath) };
+  return {
+    ...actual,
+    prepareDetachedChildOutputCapture: vi.fn(actual.prepareDetachedChildOutputCapture),
+    resolveLogFilePath: vi.fn(actual.resolveLogFilePath)
+  };
 });
 
 // Wraps mkdir/writeFile in spies that forward to the real implementation by
@@ -131,7 +136,82 @@ describe('spawnBranchCleanupWatcher', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    delete process.env['CARDS_DETACHED_STDERR_LOG_FILE'];
     delete process.env['CARDS_LOG_DIR'];
+  });
+
+  it('prepends the capture preload, shares its descriptor, closes the parent copy, and logs its path', async () => {
+    const capturePath = path.join(
+      await fs.mkdtemp(path.join(os.tmpdir(), 'branch-cleanup-capture-')),
+      'detached-output.log'
+    );
+    process.env['CARDS_DETACHED_STDERR_LOG_FILE'] = capturePath;
+
+    const { spawn } = await import('node:child_process');
+    const { prepareDetachedChildOutputCapture } = await import('@cards.management/sdk/config');
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const logger = createSpyLogger();
+    const promise = spawnBranchCleanupWatcher(baseParams, logger);
+    child.emit('exit', 0, null);
+    await promise;
+
+    expect(prepareDetachedChildOutputCapture).toHaveBeenCalledWith({
+      cardId: 'card-123',
+      sessionId: 'session-abc',
+      childKind: 'branch-cleanup-watcher'
+    });
+    const [, args, options] = vi.mocked(spawn).mock.calls[0]!;
+    expect(args[0]).toMatch(/^--import=data:text\/javascript,/u);
+    expect(args[1]).toMatch(/branch-cleanup-watcher\.[jt]s$/u);
+    expect(args[2]).toBe('--branch-cleanup');
+    const stdio = (options as { stdio: ['pipe', number, number] }).stdio;
+    expect(stdio[1]).toBe(stdio[2]);
+    expect(() => fstatSync(stdio[1])).toThrow();
+    expect(logger.info).toHaveBeenCalledWith(
+      'Branch-cleanup watcher spawned',
+      expect.objectContaining({ capturePath })
+    );
+
+    const captureText = await fs.readFile(capturePath, 'utf-8');
+    expect(captureText).toContain('"phase":"spawn"');
+    expect(captureText).toContain('"childKind":"branch-cleanup-watcher"');
+  });
+
+  it('warns and retains ignored output sinks when capture preparation fails', async () => {
+    const { spawn } = await import('node:child_process');
+    const { prepareDetachedChildOutputCapture } = await import('@cards.management/sdk/config');
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+
+    vi.mocked(prepareDetachedChildOutputCapture).mockReturnValueOnce({
+      ok: false,
+      reason: 'capture directory is unavailable'
+    });
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const logger = createSpyLogger();
+    const promise = spawnBranchCleanupWatcher(baseParams, logger);
+    child.emit('exit', 0, null);
+    await promise;
+
+    const [, args, options] = vi.mocked(spawn).mock.calls[0]!;
+    expect(args).toHaveLength(2);
+    expect(args[0]).toMatch(/branch-cleanup-watcher\.[jt]s$/u);
+    expect(args[1]).toBe('--branch-cleanup');
+    expect((options as { stdio: unknown[] }).stdio).toEqual(['pipe', 'ignore', 'ignore']);
+    expect(logger.warn).toHaveBeenCalledWith('Branch-cleanup watcher output capture unavailable', {
+      reason: 'capture directory is unavailable',
+      cardId: 'card-123',
+      sessionId: 'session-abc'
+    });
+    expect(logger.info).toHaveBeenCalledWith(
+      'Branch-cleanup watcher spawned',
+      expect.objectContaining({ capturePath: null })
+    );
   });
 
   it('derives CARDS_HOOKS_LOG_FILE via the same resolveLogFilePath the parent logger uses', async () => {
@@ -238,10 +318,17 @@ describe('spawnBranchCleanupWatcher', () => {
   });
 
   it('logs an error when spawn() throws, and does not touch stdin', async () => {
+    const capturePath = path.join(
+      await fs.mkdtemp(path.join(os.tmpdir(), 'branch-cleanup-capture-')),
+      'detached-output.log'
+    );
+    process.env['CARDS_DETACHED_STDERR_LOG_FILE'] = capturePath;
     const { spawn } = await import('node:child_process');
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
 
-    vi.mocked(spawn).mockImplementation(() => {
+    let inheritedFd: number | undefined;
+    vi.mocked(spawn).mockImplementation((_command, _args, options) => {
+      inheritedFd = (options?.stdio as ['pipe', number, number])[1];
       throw new Error('EMFILE: too many open files');
     });
 
@@ -256,6 +343,8 @@ describe('spawnBranchCleanupWatcher', () => {
         sessionId: 'session-abc'
       })
     );
+    expect(inheritedFd).toBeTypeOf('number');
+    expect(() => fstatSync(inheritedFd!)).toThrow();
   });
 
   it('logs when the spawned child emits exit', async () => {

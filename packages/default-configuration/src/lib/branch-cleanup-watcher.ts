@@ -17,7 +17,12 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import type { ActionContext } from '@cards.management/sdk/config';
-import { type ILogger, Logger, resolveLogFilePath } from '@cards.management/sdk/config';
+import {
+  type ILogger,
+  Logger,
+  prepareDetachedChildOutputCapture,
+  resolveLogFilePath
+} from '@cards.management/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
 
 /**
@@ -60,8 +65,9 @@ export interface BranchCleanupParams {
  * and survives parent exit — this call does not wait for the child's actual
  * cleanup work (network discovery, git operations, up to an hour of
  * backoff), which continues fire-and-forget after this function returns.
- * Stdout and stderr are discarded; errors and lifecycle events are written
- * via the supplied `logger`. The child is also handed a
+ * Stdout and stderr are appended to the detached-child output capture when it
+ * can be prepared; capture failures warn and fall back to discarded sinks so
+ * cleanup remains fail-open. The child is also handed a
  * `CARDS_HOOKS_LOG_FILE` env var pointing at the same log file the parent's
  * own `logger` actually resolves to (via {@link resolveLogFilePath}), so it
  * can construct its own working `Logger` before it has parsed anything off
@@ -104,24 +110,44 @@ export async function spawnBranchCleanupWatcher(
   // override.
   const logFilePath = resolveLogFilePath({ subsystem: HOOKS_LOGGER_SUBSYSTEM });
 
+  const capture = prepareDetachedChildOutputCapture({
+    cardId: params.cardId,
+    sessionId: params.sessionId,
+    childKind: 'branch-cleanup-watcher'
+  });
+  if (!capture.ok) {
+    logger.warn('Branch-cleanup watcher output capture unavailable', {
+      reason: capture.reason,
+      cardId: params.cardId,
+      sessionId: params.sessionId
+    });
+  }
+  const capturePath = capture.ok ? capture.path : null;
+  const childArgs = capture.ok ? [capture.preloadArg, selfPath, '--branch-cleanup'] : [selfPath, '--branch-cleanup'];
+  const outputSink = capture.ok ? capture.fd : 'ignore';
+
   let child: ChildProcess;
   try {
-    child = spawn(nodeBin, [selfPath, '--branch-cleanup'], {
-      detached: true,
-      stdio: ['pipe', 'ignore', 'ignore'],
-      // Detached, console-less root. On win32 the interpreter is now a stock
-      // console-subsystem `node.exe` which does not hide windows by default, so
-      // without `windowsHide: true` the detached child (and its `git`
-      // descendants) would pop console windows. No stdio fd is inherited here, so
-      // libuv honors CREATE_NO_WINDOW. No-op on POSIX.
-      windowsHide: true,
-      // Give the detached child a working Logger target before it has even
-      // parsed stdin — see resolveLogFilePath() in the SDK's Logger, which
-      // checks this env var before falling back to repo-root discovery. Skip
-      // setting it entirely when file logging is disabled (null) rather than
-      // passing an empty/null value.
-      env: logFilePath === null ? process.env : { ...process.env, CARDS_HOOKS_LOG_FILE: logFilePath }
-    });
+    try {
+      child = spawn(nodeBin, childArgs, {
+        detached: true,
+        stdio: ['pipe', outputSink, outputSink],
+        // Detached, console-less root. On win32 the interpreter is a stock
+        // console-subsystem `node.exe`; `windowsHide` prevents it and its `git`
+        // descendants from opening console windows. The inherited regular-file
+        // descriptor used for output capture remains compatible with this mode.
+        // No-op on POSIX.
+        windowsHide: true,
+        // Give the detached child a working Logger target before it has even
+        // parsed stdin — see resolveLogFilePath() in the SDK's Logger, which
+        // checks this env var before falling back to repo-root discovery. Skip
+        // setting it entirely when file logging is disabled (null) rather than
+        // passing an empty/null value.
+        env: logFilePath === null ? process.env : { ...process.env, CARDS_HOOKS_LOG_FILE: logFilePath }
+      });
+    } finally {
+      if (capture.ok) capture.close();
+    }
   } catch (error) {
     // Fail-open: log and return; cleanup will not run this session
     logger.error('Branch-cleanup watcher failed to spawn', {
@@ -191,7 +217,8 @@ export async function spawnBranchCleanupWatcher(
     pid: child.pid,
     cardId: params.cardId,
     sessionId: params.sessionId,
-    markerPath
+    markerPath,
+    capturePath
   });
 
   await graceRace;
