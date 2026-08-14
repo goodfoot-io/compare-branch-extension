@@ -91,6 +91,35 @@ find ~/.config/Code/logs ~/Library/Application\ Support/Code/logs -name "Cards.l
 | **Format** | JSON Lines |
 | **Source** | `public/packages/default-configuration/src/lib/branch-cleanup-watcher.ts` — resolves via `resolveLogFilePath()`, so the Handler resolution order above applies; the parent passes the resolved path to the detached child as `CARDS_HOOKS_LOG_FILE` |
 
+### Detached Child Output
+
+| Field | Value |
+|-------|-------|
+| **Default path** | `{main-repo-root}/.cards/logs/cards-detached-child-stderr.log` |
+| **Format** | Append-only plain text containing the combined, verbatim stdout and stderr of detached cleanup children, plus versioned attribution records described below. This is **not JSON Lines**. |
+| **Resolution order** | 1. A nonempty `$CARDS_DETACHED_STDERR_LOG_FILE` selects that exact file. 2. Otherwise, a nonempty `$CARDS_LOG_DIR` selects `$CARDS_LOG_DIR/cards-detached-child-stderr.log`. 3. Otherwise, the main repository is resolved using nonempty `REPO_ROOT`, then `git rev-parse --path-format=absolute --git-common-dir`, and the default path above is used. 4. If no main repository can be resolved, capture is disabled (`null`) and the child is spawned with ignored output. Empty override values are skipped. `$CARDS_HOOKS_LOG_FILE` is never consulted. |
+| **Sources** | [`prepareDetachedChildOutputCapture()`](./public/packages/sdk/src/config/detached-child-output.ts#L126), used by [`spawnBranchCleanupWatcher()`](./public/packages/default-configuration/src/lib/branch-cleanup-watcher.ts#L91) and [`spawnDetachedCleanup()`](./packages/cards/server/src/runtime/wrapper.ts#L305) |
+| **No file?** | Path-resolution, directory-creation, open, or initial-write failure produces a warning through the caller's existing logging channel, then leaves cleanup fail-open with ignored output. A healthy child normally adds only the two small attribution records below. |
+
+Each attribution record occupies one physical line and starts with the magic prefix `@@CARDS_DETACHED_CHILD_V1@@`, immediately followed by a JSON object. The parent writes a `spawn` record before launching the child. If Node reaches the generated preload, the child writes a `started` record before loading the existing cleanup entry module. Both records carry the same correlation ID, card ID, nullable session ID, and child kind; the second also records the runtime PID. Card, session, and child-kind values are bounded to 512 Unicode code points and visibly end in `...[truncated]` when shortened. JSON serialization keeps embedded newlines and other identity delimiters inside the physical record line.
+
+These examples show the exact V1 prefix, field names, field order, and compact single-line encoding; UUIDs, IDs, PIDs, and timestamps vary at runtime:
+
+```text
+@@CARDS_DETACHED_CHILD_V1@@{"phase":"spawn","correlationId":"793a94c2-ae9c-4280-a8ae-c6f7ed160f33","cardId":"main-456","sessionId":"session-123","childKind":"branch-cleanup-watcher","timestamp":"2026-08-14T02:10:00.000Z"}
+@@CARDS_DETACHED_CHILD_V1@@{"phase":"started","correlationId":"793a94c2-ae9c-4280-a8ae-c6f7ed160f33","cardId":"main-456","sessionId":"session-123","childKind":"branch-cleanup-watcher","pid":28430,"timestamp":"2026-08-14T02:10:00.014Z"}
+@@CARDS_DETACHED_CHILD_V1@@{"phase":"spawn","correlationId":"b68e809e-5a92-430b-84ba-31bd3604e32a","cardId":"main-456","sessionId":null,"childKind":"wrapper-cleanup","timestamp":"2026-08-14T02:11:00.000Z"}
+@@CARDS_DETACHED_CHILD_V1@@{"phase":"started","correlationId":"b68e809e-5a92-430b-84ba-31bd3604e32a","cardId":"main-456","sessionId":null,"childKind":"wrapper-cleanup","pid":28431,"timestamp":"2026-08-14T02:11:00.012Z"}
+```
+
+A missing `started` record narrows the failure to the period before the preload ran, but it does not by itself identify the cause.
+
+The same append descriptor receives both stdout and stderr, so their original stream identity is lost. Each attribution record is emitted with one write, but arbitrary output from concurrent children can still interleave and cannot always be assigned to one child. Use the correlation ID and nearby `spawn`/`started` records as attribution boundaries, not as a guarantee that every following stack-trace line belongs to that child.
+
+This diagnostic may contain filesystem paths, command arguments, environment-derived values, stack traces, or secrets printed by a failed process. Newly created files use owner-only permissions where the platform supports them, but the file is not rotated or cleaned up automatically. Review and redact it before sharing: **do not attach this file to a `cards-extension issue` report without operator review.**
+
+> **Do not run the JSONL `jq` recipes below against this file.** Only the prefixed attribution lines contain JSON; raw child output is plain text and may span or interleave across lines.
+
 ### Session Stderr
 
 | Field | Value |
