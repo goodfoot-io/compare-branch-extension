@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { closeSync, constants, mkdirSync, openSync, writeSync } from 'node:fs';
+import { closeSync, constants, fstatSync, mkdirSync, openSync, writeSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { resolveMainRepoRoot } from './main-repo-root.js';
 
@@ -114,7 +114,7 @@ function createPreloadArg(identity: NormalizedIdentity): string {
   const source =
     `import{writeSync}from'node:fs';` +
     `const i=${serializedIdentity};` +
-    `writeSync(2,${JSON.stringify(DETACHED_CHILD_RECORD_PREFIX)}+JSON.stringify({phase:'started',...i,pid:process.pid,timestamp:new Date().toISOString()})+'\\n');`;
+    `try{writeSync(2,${JSON.stringify(DETACHED_CHILD_RECORD_PREFIX)}+JSON.stringify({phase:'started',...i,pid:process.pid,timestamp:new Date().toISOString()})+'\\n')}catch{}`;
   return `--import=data:text/javascript,${encodeURIComponent(source)}`;
 }
 
@@ -143,7 +143,14 @@ export function prepareDetachedChildOutputCapture(
   let fd: number | null = null;
   try {
     mkdirSync(dirname(resolved.path), { recursive: true });
-    fd = openSync(resolved.path, constants.O_APPEND | constants.O_CREAT | constants.O_WRONLY, 0o600);
+    fd = openSync(
+      resolved.path,
+      constants.O_APPEND | constants.O_CREAT | constants.O_WRONLY | constants.O_NONBLOCK,
+      0o600
+    );
+    if (!fstatSync(fd).isFile()) {
+      throw new Error('capture target is not a regular file');
+    }
     const spawnRecord = {
       phase: 'spawn',
       ...identity,

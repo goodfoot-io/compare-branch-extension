@@ -3,7 +3,7 @@
  * @summary Verifies detached-child combined-output capture behavior.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -224,7 +224,7 @@ describe.sequential('detached-child output capture', () => {
     }
   });
 
-  it.skipIf(process.platform === 'win32')('returns a write failure from a real descriptor', () => {
+  it.skipIf(process.platform === 'win32')('rejects a non-regular character device target', () => {
     process.env['CARDS_DETACHED_STDERR_LOG_FILE'] = '/dev/full';
 
     const result = prepareDetachedChildOutputCapture({
@@ -234,7 +234,30 @@ describe.sequential('detached-child output capture', () => {
     });
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(/ENOSPC|no space/iu);
+    if (!result.ok) expect(result.reason).toContain('capture target is not a regular file');
+  });
+
+  it.skipIf(process.platform === 'win32')('rejects a FIFO target without blocking', () => {
+    const fifoPath = path.join(tempDir, 'capture.fifo');
+    const mkfifo = spawnSync('mkfifo', [fifoPath], { encoding: 'utf8' });
+    expect(mkfifo.status, mkfifo.stderr).toBe(0);
+    const moduleUrl = new URL('../../src/config/detached-child-output.ts', import.meta.url).href;
+    const source =
+      `import{prepareDetachedChildOutputCapture as p}from${JSON.stringify(moduleUrl)};` +
+      `console.log(JSON.stringify(p({cardId:'main-456',sessionId:null,childKind:'wrapper'})))`;
+
+    const child = spawnSync(process.execPath, ['--import=tsx', '--input-type=module', '-e', source], {
+      encoding: 'utf8',
+      env: { ...process.env, CARDS_DETACHED_STDERR_LOG_FILE: fifoPath },
+      timeout: 2_000
+    });
+
+    expect(child.error).toBeUndefined();
+    expect(child.status, child.stderr).toBe(0);
+    expect(JSON.parse(child.stdout) as unknown).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('unable to prepare detached-child output')
+    });
   });
 
   it('closes its descriptor idempotently', () => {
@@ -298,6 +321,38 @@ describe.sequential('detached-child output capture', () => {
     expect(content.indexOf(DETACHED_CHILD_RECORD_PREFIX)).toBeLessThan(content.indexOf('ERR_MODULE_NOT_FOUND'));
     expect(content).toContain('ERR_MODULE_NOT_FOUND');
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'continues into the main module when the child attribution write fails',
+    async () => {
+      const logPath = path.join(tempDir, 'capture.log');
+      const markerPath = path.join(tempDir, 'main-loaded');
+      process.env['CARDS_DETACHED_STDERR_LOG_FILE'] = logPath;
+      const capture = requireCapture(
+        prepareDetachedChildOutputCapture({
+          cardId: 'main-456',
+          sessionId: null,
+          childKind: 'wrapper'
+        })
+      );
+      capture.close();
+      const fullFd = fs.openSync('/dev/full', fs.constants.O_WRONLY);
+      const mainSource = `import{writeFileSync}from'node:fs';writeFileSync(${JSON.stringify(markerPath)},'loaded')`;
+      const child = spawn(process.execPath, [capture.preloadArg, '--input-type=module', '-e', mainSource], {
+        stdio: ['ignore', 'ignore', fullFd]
+      });
+      fs.closeSync(fullFd);
+
+      const exitCode = await new Promise<number | null>((resolve, reject) => {
+        child.once('error', reject);
+        child.once('exit', resolve);
+      });
+
+      expect(exitCode).toBe(0);
+      expect(fs.readFileSync(markerPath, 'utf8')).toBe('loaded');
+      expect(readRecords(logPath).map(({ phase }) => phase)).toEqual(['spawn']);
+    }
+  );
 
   it('retains the parent delimiter when Node rejects a flag before the preload', async () => {
     const logPath = path.join(tempDir, 'capture.log');
