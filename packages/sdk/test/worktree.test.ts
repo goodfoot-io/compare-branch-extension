@@ -131,6 +131,35 @@ describe('removeWorktree', () => {
     expect(worktrees.every((w) => w !== wPath)).toBe(true);
   });
 
+  it.runIf(process.platform !== 'win32')(
+    'waits for git worktree remove when removal takes longer than 30 seconds',
+    async () => {
+      const { path: wPath, settle } = await createWorktree('feature/slow-remove-test', { cwd: repoDir });
+      await settle;
+
+      const shimDir = path.join(tmpBase, 'git-shim');
+      const shimPath = path.join(shimDir, 'git');
+      const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
+      await fs.mkdir(shimDir);
+      await fs.writeFile(
+        shimPath,
+        `#!/bin/sh\nif [ "$1" = "worktree" ] && [ "$2" = "remove" ]; then sleep 31; fi\nexec "${realGit}" "$@"\n`,
+        { mode: 0o755 }
+      );
+
+      process.env['PATH'] = `${shimDir}${path.delimiter}${originalEnv['PATH'] ?? ''}`;
+      try {
+        await removeWorktree(wPath);
+      } finally {
+        process.env['PATH'] = originalEnv['PATH'];
+      }
+
+      await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(listWorktrees(repoDir)).not.toContain(wPath);
+    },
+    40_000
+  );
+
   it('is idempotent when worktree directory is already gone', async () => {
     const { path: wPath, settle } = await createWorktree('feature/idempotent-test', { cwd: repoDir });
     await settle;
