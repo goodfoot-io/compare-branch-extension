@@ -6,9 +6,7 @@ description: Evaluate card state and load the appropriate reference.
 **Use as few tokens as possible in this session by using subagents.**
 
 <subagents>
-Use forked subagents for open-ended tasks suited to parallelization such as research.
-
-Use non-forked subagents for well-scoped, long running tasks such as development, or when "fresh eyes" are required for tasks such as review. Choose the model most appropriate for the task. Subagent tasks should be achievable within a single session.
+Use forked subagents for open-ended tasks suited to parallelization such as research, or when "fresh eyes" are required for tasks such as review. Development work follows `./references/developer-wave.md`'s persistent developer team. Choose the model most appropriate for the task; subagent tasks should be achievable within a single session.
 </subagents>
 
 <execution-environment>

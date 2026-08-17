@@ -39,7 +39,7 @@ Evaluate from both angles below and list every finding — do not stop at the fi
 
 ## 4. Apply Fixes
 
-Fix every finding. Keep changes minimal and focused on the findings — do not use this pass to make unrelated improvements. With many findings, dispatch developers per `./developer-wave.md`, validating and committing their work yourself.
+Fix every finding. Keep changes minimal and focused on the findings — do not use this pass to make unrelated improvements. If a developer team is live, route every finding to its package's worker as a task (a fresh worker for a package with none) and apply `./developer-wave.md`'s `<integration-gate>` — do not fix inline. Otherwise fix inline; with many findings, dispatch a developer team per `./developer-wave.md`, validating and committing their work yourself.
 
 ## 5. Validate and Commit
 

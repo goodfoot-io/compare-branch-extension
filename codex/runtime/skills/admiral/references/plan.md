@@ -83,7 +83,7 @@ After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spi
 
 Build the failure-mode question set for the card — from `CARD.md`, the plan, your notes, adjacent cards, and similar workspace code: what must hold at runtime for the plan to work? Verify each answer against workspace source, not the plan's own assertions; a question the plan cannot answer is a finding.
 
-If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff — `$runtime:card-plan-failure-mode` fits the failure-mode angle for a high-stakes solo plan.
+If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff. For the failure-mode angle on a high-stakes solo plan, `spawn_agent` a `$runtime:card-plan-failure-mode` child (`task_name: plan_failure_mode`) with a `message` stating: the card repository and workspace paths; "Solo review — there are no planners. Review `[PLAN_FILE]` as `[PLANNER]` = me, the orchestrator, round-1. Draft your questions note, then report `FINDING:` and the single `VERDICT:` to me; skip `SELECT_WINNER`/`WINNER:` and end your turn after the verdict." Revise per its findings yourself; re-engage it (`send_message` if live, `resume_agent` if completed) with a `PLAN: READY round-K+1` message for re-review.
 
 Evaluate from the angles below and list every finding — do not stop at the first one:
 

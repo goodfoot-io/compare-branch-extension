@@ -21,10 +21,10 @@ The condition → reference table lives in `../SKILL.md` Step 2 — the router i
 Loaded only when the orchestrator chooses the heavy end of a step's weight spectrum:
 
 - `contest.md` — parallel planner contest, loaded by `plan.md` Step 2.
-- `developer-wave.md` — developer delegation machinery, loaded by `implementation.md`, `implementation-evaluation.md`, and `evaluation-wave.md`.
+- `developer-wave.md` — persistent developer-team delegation, loaded by `implementation.md`, `implementation-evaluation.md`, and `evaluation-wave.md`.
 - `evaluation-wave.md` — background evaluator protocol, loaded by `implementation-evaluation.md` Step 3 and `validate.md` Step 4.
 
-Each protocol runs as an ephemeral spawn tree under the orchestrator — there is no persistent team and no direct channel between spawned children. `send_message` and `resume_agent` are the only coordination primitives; every relay between children passes through the orchestrator.
+`contest.md` and `evaluation-wave.md` run as ephemeral spawn trees under the orchestrator; `developer-wave.md`'s workers are spawned once and kept live across a wave. No protocol gives children a direct channel to each other — `send_message` and `resume_agent` are the only coordination primitives, and every relay between children passes through the orchestrator.
 
 ## Not Router-Reachable
 

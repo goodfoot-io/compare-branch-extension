@@ -1,6 +1,6 @@
 # Developer Team
 
-Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md`/`./evaluation-wave.md` (finding fixes). You are the orchestrator — you never implement, and you own every gate, commit, and integration. Workers implement, test, and report; they never commit.
+Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md` (finding fixes). You are the orchestrator — you never implement, and you own every gate, commit, and integration. Workers implement, test, and report; they never commit.
 
 A worker is a spawned child kept alive across tasks — spawn it once with `spawn_agent`, then re-task it via `send_message` (worker still processing or holding at a checkpoint) or `resume_agent` (worker went dormant after its last report). There is no peer-to-peer channel between workers: they report only to you, and you relay contract state between them.
 

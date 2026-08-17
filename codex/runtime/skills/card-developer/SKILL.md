@@ -33,18 +33,20 @@ On validation failure, fix and retry rather than reporting the first failure.
 
 ## Workflow
 
-**Follow scope.** Execute the Scope section literally — complete the specified todos, stop at the specified gate.
+**Follow scope.** Complete the specified todos, then stop at the specified gate.
 
 **Validate after each logical unit per the project's AGENTS.md validation conventions.** Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Do not proceed if validation fails.
 
+When a scope item introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$runtime:tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+
 ## Output Contract
 
-Return exactly one status reflecting actual validated state. If dispatched as one task in a longer-lived session (per a caller's persistent-worker protocol), this contract applies per task — scope status, iteration count, and narrative to the current task only.
+Return exactly one status reflecting actual validated state. If dispatched as one task in a longer-lived session (per a caller's persistent-worker protocol — the orchestrator keeps you live and re-tasks you via `send_message`), this contract applies per task — scope status, iteration count, and narrative to the current task only. A checkpoint hold is not a status: report the checkpoint and wait for the orchestrator's follow-up message before returning one of these three.
 
 | Status | Condition | Include |
 |---|---|---|
 | **COMPLETED** | All scope items implemented, all validations pass | Decision narratives, files modified |
-| **NEEDS_REVISION** | Validation fails after 5 attempts or requirements unmet | What was tried, exact failure output |
+| **NEEDS_REVISION** | Retries stop producing new information or requirements unmet | What was tried, exact failure output |
 | **BLOCKED** | Cannot complete in this session: scope exceeds one session, missing dependency, ambiguous requirement, or obstacle outside your control | Exact blocker, what was attempted, and — when scope is the cause — a proposed split into independently dispatchable sub-scopes (each reaches a validation gate on its own) |
 
 ### Report Format
