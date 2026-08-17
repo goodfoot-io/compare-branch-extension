@@ -4,6 +4,7 @@ Independent adversarial evaluation via background evaluator subagents. Entered f
 
 <placeholder-variables>
 [HEAD_SHA] — The commit under evaluation; the tree must be clean at dispatch
+[EVALUATOR_MODEL] — Chosen by the diff's scope and risk, same criteria as `<dispatch>`'s model-tier judgment elsewhere: the strongest available model for system-level, high-ambiguity, or cross-cutting changes; a lighter model when the diff is small and low-ambiguity
 </placeholder-variables>
 
 <instructions>
@@ -20,7 +21,7 @@ Read the diff and the card before writing the prompts. Each prompt must reflect 
 <invoke name="Agent">
 <parameter name="description">Failure mode analysis</parameter>
 <parameter name="subagent_type">runtime:card:failure-mode</parameter>
-<parameter name="model">opus</parameter>
+<parameter name="model">[EVALUATOR_MODEL]</parameter>
 <parameter name="name">failure-mode</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
@@ -52,7 +53,7 @@ For **Deep**, add the second dispatch in the same message:
 <invoke name="Agent">
 <parameter name="description">Experience evaluation</parameter>
 <parameter name="subagent_type">runtime:card:experience-evaluator</parameter>
-<parameter name="model">opus</parameter>
+<parameter name="model">[EVALUATOR_MODEL]</parameter>
 <parameter name="name">experience-evaluator</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
@@ -89,7 +90,7 @@ Monitor inbound DMs from each evaluator:
 
 Cross-evaluator critiques travel as evaluator-to-evaluator DMs and do not reach you. On Deep, evaluators also DM each other their `FINDING:` markers directly; you receive your own copy from each evaluator. A verified peer CRITIQUE arrives as a fresh `FINDING:` DM from the verifying evaluator. Do not deduplicate across evaluators — two evaluators may legitimately raise the same underlying issue from different angles.
 
-Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, DM the evaluator to publish the note and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` routes immediately; if its note is missing at round 1, add "publish your questions note before your next verdict" to that evaluator's Step 5 re-evaluation DM. Do not adjudicate findings — route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
+Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, DM the evaluator to publish the note and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` counts without its note; if the note is missing at round 1, add "publish your questions note before your next verdict" to that evaluator's Step 5 re-evaluation DM. Do not dispatch fixes while any evaluator is still mid-round — workers would dirty the tree under it. Do not adjudicate findings — route on the verdict, not your assessment of the findings. A finding its evaluator retracts is dropped; one under peer critique stays in the wave until its owner retracts it. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
 An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state. Idle **without** it, the evaluator will never act again on its own — wake it with a DM that inlines whatever it is waiting on; task-notifications for work it delegated may be delivered to you, not to it, so forward those results in the wake-up DM.
 
@@ -103,19 +104,19 @@ A mixed set — one evaluator approves while another requests changes — is CHA
 - **Any CHANGES_REQUESTED**: Proceed to Step 3: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.
 - **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, then **STOP**.
 
-## 3. Dispatch Developer Wave
+## 3. Dispatch Developer Team
 
-Group the findings by coherence and dispatch per `./developer-wave.md` — its routing, dispatch constraints, and `<model-selection>` apply. Inline every finding a developer must address into its initial prompt (full body plus the file or runtime path it applies to); do not stream new findings to a running developer. Each developer owns the files its assigned findings touch. Developers are **not** part of the evaluation group and receive no follow-up SendMessages. Add to each prompt's Guidelines: a fix introducing a new mechanism lands with a regression test for it and an end-to-end exercise of the mechanism composed with what it touches; report each such witness (mechanism → test/command) on return.
+Group the findings by the package they touch and route each group to the owning worker per `./developer-wave.md` — dispatch a fresh worker for a package with none yet. Inline every finding the worker must address into its task (full body plus the file or runtime path it applies to); do not stream new findings to a worker mid-task. Developer-team workers are **not** part of the evaluation group and receive no follow-up SendMessages from evaluators. Add to each task's Workflow: a fix introducing a new mechanism lands with a regression test for it and an end-to-end exercise of the mechanism composed with what it touches; report each such witness (mechanism → test/command) in the `REPORT:`.
 
 ## 4. Validate and Commit
 
-Apply `./developer-wave.md`'s `<group-validation-gate>`: wait for the whole wave, fold back any stray commits, lint/typecheck/scoped-test, then commit — or fix mechanical wave errors inline, or discard and re-dispatch on implementation errors. Confirm every new mechanism the wave introduced carries its regression test and composed exercise; one without them is an implementation error — re-dispatch.
+Apply `./developer-wave.md`'s `<integration-gate>`: wait for every worker's report, fold back any stray commits, lint/typecheck/scoped-test, then commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every new mechanism the wave introduced carries its regression test and composed exercise; one without them is an implementation error — send it back.
 
 If you arrived from the caller's pre-evaluation validation failure, return there; otherwise proceed to Step 5.
 
 ## 5. Trigger Re-Evaluation
 
-DM a re-evaluation trigger to every dispatched evaluator (both DMs in a single message on Deep). The evaluator holds its own findings in context. Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix.
+DM a re-evaluation trigger to every dispatched evaluator (both DMs in a single message on Deep). The literal `RE_EVALUATE` marker wakes the evaluator's resume behavior — a free-form status DM with the same content does not. The evaluator holds its own findings in context. Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix.
 
 ```xml
 <invoke name="SendMessage">
@@ -129,7 +130,7 @@ The implementation has been updated to address the prior round's findings. Re-ev
 Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
 What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
 New witnesses: [mechanism → test/command, for each new mechanism the wave introduced — omit if none]
-Not fixed: [any finding the wave could not address, and why — omit if none]
+Not fixed: [any finding the wave could not address, and why — including findings a worker disputed, with its reasoning; omit if none]
   </parameter>
 </invoke>
 ```
@@ -144,6 +145,6 @@ Enter only when every dispatched evaluator has DM'd `VERDICT: APPROVED` for the 
 
 Evaluators that DM'd `VERDICT: APPROVED` have already gone idle — proceed directly. Only if one is still actively working and you want to stop it early, DM it `{"type": "shutdown_request"}`.
 
-Do not modify gates in `CARD.meta.json`. Return control to the caller.
+If the developer team was dispatched in this wave (the caller had none live), drain it per `./developer-wave.md` `<lifecycle>` before returning. Do not modify gates in `CARD.meta.json`. Return control to the caller.
 
 </instructions>

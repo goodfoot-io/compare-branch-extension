@@ -74,7 +74,7 @@ The verification bar is symmetric for clearing: a load-bearing claim clears only
 
 **Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings. Instead, load the `cards:cards` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
-Run the code where possible — runtime paths reveal failures static analysis misses.
+Run the code where possible — runtime paths reveal failures static analysis misses. On Deep, your peer exercises the same worktree concurrently: before filing a nondeterminism, flake, or "the gate disagrees with itself" finding, rule out a peer's transient edit or run (mtimes, `git status`, its last DM). A witness that holds a shared resource for long (lock, port, service, load run) blocks your peer and the lead's gate — run it last or tell `team-lead` first.
 
 ## 3. Evaluate the Implementation Against the Questions
 

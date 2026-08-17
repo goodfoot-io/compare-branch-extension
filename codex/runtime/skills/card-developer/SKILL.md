@@ -39,7 +39,7 @@ On validation failure, fix and retry rather than reporting the first failure.
 
 ## Output Contract
 
-Return exactly one status reflecting actual validated state.
+Return exactly one status reflecting actual validated state. If dispatched as one task in a longer-lived session (per a caller's persistent-worker protocol), this contract applies per task — scope status, iteration count, and narrative to the current task only.
 
 | Status | Condition | Include |
 |---|---|---|

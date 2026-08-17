@@ -35,12 +35,12 @@ On validation failure, fix and retry rather than reporting the first failure.
 
 ## Output Contract
 
-Return exactly one status reflecting actual validated state.
+Return exactly one status reflecting actual validated state. If dispatched as one task in a longer-lived session (per a caller's persistent-worker protocol), this contract applies per task — scope status, iteration count, and narrative to the current task only. A `CHECKPOINT:` hold is not a status; emit the report only with `REPORT:`.
 
 | Status | Condition | Include |
 |---|---|---|
 | **COMPLETED** | All scope items implemented, all validations pass | Decision narratives, files modified |
-| **NEEDS_REVISION** | Validation fails after 5 attempts or requirements unmet | What was tried, exact failure output |
+| **NEEDS_REVISION** | Retries stop producing new information or requirements unmet | What was tried, exact failure output |
 | **BLOCKED** | Cannot complete in this session: scope exceeds one session, missing dependency, ambiguous requirement, or obstacle outside your control | Exact blocker, what was attempted, and — when scope is the cause — a proposed split into independently dispatchable sub-scopes (each reaches a validation gate on its own) |
 
 ### Report Format

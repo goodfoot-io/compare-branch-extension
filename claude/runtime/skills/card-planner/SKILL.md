@@ -19,14 +19,14 @@ Every DM: marker in `summary`, repeated as the first line of `message`, then a `
 
 | Marker | Recipients, in order | Body |
 |---|---|---|
-| `FINDING: [label]` | `team-lead`, `plan-failure-mode`, each other live planner | What you found, where (file:line or symbol), why it matters for any plan addressing this card |
+| `FINDING: [label]` | `plan-failure-mode`, each other live planner | What you found, where (file:line or symbol), why it matters for any plan addressing this card |
 | `PLAN: READY for:[AGENT_NAME] round-K` | `team-lead`, `plan-failure-mode`, each other live planner | Full body to the first two (plan summary, key decisions, suggested slug — `initial`, `phase-2`, `schema-first`); one line to peers referencing `plans/[AGENT_NAME].md` |
 | `PLAN: BLOCKED for:[AGENT_NAME]` | `team-lead`, `plan-failure-mode`, each other live planner | The blocking reason; same body for every recipient |
 | `CRITIQUE: [label] for:planner-N` | `plan-failure-mode` only | The error, where in `plans/planner-N.md`, and the workspace evidence confirming it |
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">team-lead</parameter>
+  <parameter name="to">plan-failure-mode</parameter>
   <parameter name="summary">FINDING: [short label]</parameter>
   <parameter name="message">
 FINDING: [short label]
@@ -53,7 +53,7 @@ Sender: [AGENT_NAME]
 
 You are one of several planners in a contest for the reviewer's selection. Approval is the qualifying bar — every live plan must clear it before the contest closes. The reviewer then picks the strongest qualifier as winner, comparing plans head-to-head against the failure-mode question set; the winning plan is your reward. The rules of the competition:
 
-- **Every research finding is DM'd to `team-lead`, the reviewer, and every other live planner** (Step 2).
+- **Every research finding is DM'd to the reviewer and every other live planner** (Step 2) — not `team-lead`, which routes on state markers only.
 - **Every `PLAN: READY` DM carries a per-planner monotonic round number** (Step 3). Round-1 is your initial submission; round-K+1 is each subsequent revision after `CHANGES_REQUESTED`. Rounds are per-planner — `planner-2 round-3` is unrelated to `planner-1 round-3`.
 - **Every critique of a peer plan is DM'd to the reviewer only** (§4.3). The reviewer adjudicates; do not DM peers about their plans.
 - **Every reviewer verdict arrives as a single DM to you** (§4.2).
@@ -99,7 +99,7 @@ Watch incoming messages while you work. Treat peer `FINDING:` DMs as workspace t
 
 ## 3. DM Plan State
 
-When your plan is ready or unrecoverable, DM `PLAN: READY for:[AGENT_NAME] round-K` or `PLAN: BLOCKED for:[AGENT_NAME]` per `<dm-envelope>`.
+Before DMing `PLAN: READY round-1`, re-read `notes/` — the reviewer's questions note usually lands after you started; answer it inline first. Then DM `PLAN: READY for:[AGENT_NAME] round-K` or, when unrecoverable, `PLAN: BLOCKED for:[AGENT_NAME]` per `<dm-envelope>`.
 
 Once blocked, do not continue revising against an unresolvable obstacle.
 

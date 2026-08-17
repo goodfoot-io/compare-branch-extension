@@ -14,6 +14,7 @@ The condition → reference table lives in `../SKILL.md` Step 2 — the router i
 
 - `implementation.md` — implementation entry point for both plan-driven and direct work, loaded by `plan.md` and `implementation-feedback.md`.
 - `bug-dirty-tree.md` — dirty-worktree triage, loaded by `bug.md` Step 1.1.
+- `developer-wave.md` — persistent developer-team delegation, loaded by `implementation.md` and `implementation-evaluation.md`.
 
 ## Not Router-Reachable
 

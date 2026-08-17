@@ -21,7 +21,7 @@ The condition → reference table lives in `../SKILL.md` Step 2 — the router i
 Loaded only when the orchestrator chooses the heavy end of a step's weight spectrum:
 
 - `contest.md` — parallel planner contest, loaded by `plan.md` Step 2.
-- `developer-wave.md` — developer delegation machinery, loaded by `implementation.md`, `implementation-evaluation.md`, and `evaluation-wave.md`.
+- `developer-wave.md` — persistent developer-team delegation, loaded by `implementation.md`, `implementation-evaluation.md`, and `evaluation-wave.md`.
 - `evaluation-wave.md` — background evaluator protocol, loaded by `implementation-evaluation.md` Step 3 and `validate.md` Step 4.
 
 ## Not Router-Reachable

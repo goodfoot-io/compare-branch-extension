@@ -14,7 +14,7 @@ Every DM: marker in `summary`, repeated as the first line of `message`, then a `
 | Marker | Recipients, in order | Body |
 |---|---|---|
 | `FINDING: <label> for:[PLANNER] round-K` | [PLANNER] | Cause / failure mode / effect, severity / occurrence / detection, and the plan section or file it applies to |
-| `MONOCULTURE: [question]` | every live planner | The question, and why every plan answered it identically |
+| `MONOCULTURE: [question]` | every live planner, then `team-lead` | The question, and why every plan answered it identically |
 | `QUESTION: <label> for:[PLANNER] round-K` | [PLANNER] | A specific ambiguity or possible misreading you must resolve before the verdict; max 3 per plan per round |
 | `VERDICT: APPROVED for:[PLANNER] round-K`<br>`VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` | `team-lead`, then [PLANNER] | Round-level synthesis — approach-level concerns first, then step-level; final thoughts not yet streamed |
 | `VERDICT: BLOCKED for:[PLANNER] because:<cause>` | `team-lead`, then [PLANNER], then every other live planner (one-line body) | Which findings are unresolved across which rounds; what was missing or wrong |

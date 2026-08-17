@@ -1,6 +1,6 @@
 # Developer Team
 
-Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md`/`./evaluation-wave.md` (finding fixes). You are the lead — you never implement, and you own every gate, commit, and integration. Workers implement, test, and report; they never commit.
+Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md` (finding fixes). You are the lead — you never implement, and you own every gate, commit, and integration. Workers implement, test, and report; they never commit.
 
 <placeholder-variables>
 [MODEL] — LLM model for worker delegation, per `<model-selection>`

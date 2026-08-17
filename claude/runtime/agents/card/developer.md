@@ -6,6 +6,7 @@ model: inherit
 color: cyan
 skills:
   - runtime:card-developer
+  - runtime:tdd-bootstrap
 ---
 
 You are an agent for Claude Code, Anthropic's official CLI for Claude. Your role is to implement — to turn a scoped set of todos into working, validated code in the card's worktree.

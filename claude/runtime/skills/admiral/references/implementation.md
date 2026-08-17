@@ -18,14 +18,14 @@ Check `plans/` in the card repository for plan files.
 
 Read `CARD.md` for goals and constraints and `CARD.meta.json` for current `title`, `gates`, and `tags` before starting.
 
-Work proceeds in **logical units**. A logical unit is a coherent change that leaves the workspace type-check-clean and tests-passing — the natural point to commit and tag a rollback. For each unit:
+**Choose the execution weight.** Implement directly when the whole card is small enough that direct edits beat a handoff — proceed in logical units below. Otherwise read `./developer-wave.md`, split the work into packages, and dispatch a persistent developer team; its own `<integration-gate>` replaces `<per-unit-gate>` and `<final-validation-gate>` below.
+
+Direct implementation proceeds in **logical units** — a coherent change that leaves the workspace type-check-clean and tests-passing, the natural point to commit and tag a rollback. For each unit:
 
 1. Read relevant files.
 2. Implement the change.
 3. Pass the `<per-unit-gate>`.
 4. Commit, then tag the rollback point: `git tag -f "implement/$CARD_ID/step-N" HEAD`.
-
-**Choose the execution weight per unit.** Implement directly when the unit is small enough that direct edits beat a handoff. When units are numerous, touch disjoint files, or the work would consume your context, read `./developer-wave.md` and dispatch developer subagents by its routing — you still own the gate, commit, and tag.
 
 When all units are complete, pass the `<final-validation-gate>` before proceeding to Step 3.
 
@@ -44,7 +44,7 @@ Diff `implement/$CARD_ID/baseline..HEAD` to assess scope: number of files change
 
 The card is not COMPLETED until every part of this section has run. Passing the final validation gate at the end of Step 2 is not the terminal state — staging, tag cleanup, and the merge decision all follow.
 
-**Stage remaining changes.** Stage any uncommitted implementation artifacts and commit per the workspace commit style:
+**Stage remaining changes.** If a developer team is live, drain it per `./developer-wave.md` `<lifecycle>` first. Stage any uncommitted implementation artifacts and commit per the workspace commit style:
 
 ```bash
 git add -A
@@ -123,10 +123,10 @@ At any point during implementation, stop and return to planning if any of the fo
 1. **Implementation creates problems it then has to solve** — the approach introduces complexity that wouldn't exist with a different approach: timing windows, error-handling machinery, interface mismatches caused by the approach itself.
 2. **Load-bearing assumption proved false** — the implementation depends on something about the codebase that turns out to be untrue or uncertain ("only one caller," "always returns X," "this field is optional"). The correct path forward now depends on what the truth implies.
 3. **Approach fork with non-trivial tradeoffs** — a decision point arises where multiple viable paths have meaningfully different implications (correctness, performance, future extensibility) that can't be resolved by reading the code alone.
-4. **Scope exceeded the card's implied boundary** — the in-scope work must touch significantly more files or systems than the card (or plan) described. Discovering issues in code the change does not interact with is *not* this condition — create a new card for those and continue. Scope too large for one dispatch is also not this condition — split and re-dispatch per `./developer-wave.md`.
+4. **Scope exceeded the card's implied boundary** — the in-scope work must touch significantly more files or systems than the card (or plan) described. Discovering issues in code the change does not interact with is *not* this condition — create a new card for those and continue. Scope too large for one worker is also not this condition — split into another package per `./developer-wave.md`.
 5. **A plan assumption proved false, or the plan missed scope that changes the approach, or a completed planned step invalidates a later one** — when following a plan, any of these means the plan needs revision, not a workaround.
 
-When any condition holds, **stop immediately**. Revert to baseline and discard step tags:
+When any condition holds, **stop immediately**. If a developer team is live, drain it per `./developer-wave.md` `<lifecycle>` first. Revert to baseline and discard step tags:
 
 ```bash
 git reset --hard "implement/$CARD_ID/baseline"
