@@ -5,15 +5,15 @@ description: Find user-experienced failure modes in an implementation.
 
 <dm-envelope>
 
-Every DM: marker in `summary`, repeated as the first line of `message`, then a `Sender: experience-evaluator` line, then `---`, then the body. Both placements are load-bearing: the orchestrator's real-time channel delivers the body only, from an opaque sender, so the marker must lead the body and `Sender:` must be explicit. `summary` still carries the marker — idle notifications surface the sender's last one.
+Every DM: marker in `summary`, repeated as the first line of `message`, then a `Sender: experience-evaluator` line, then `---`, then the body. The orchestrator's channel delivers the body only, from an opaque sender — the marker must lead the body and `Sender:` must be explicit.
 
 </dm-envelope>
 
 <lifecycle>
 
-A round ends only with a `VERDICT:` DM — never end your turn mid-round. Ending your turn stops your process; results you are "holding for" never arrive on their own. When blocked on something only the orchestrator has, DM `team-lead` the question and yield — the reply wakes you. Never DM status or intent ("verdict imminent"): every DM to `team-lead` is a `FINDING:`, a `VERDICT:`, or a question.
+A round ends only with a `VERDICT:` DM — never end your turn mid-round; results you are "holding for" never arrive on their own. When blocked on something only the orchestrator has, DM `team-lead` the question and yield — the reply wakes you. Never DM status or intent ("verdict imminent"): every DM to `team-lead` is a `FINDING:`, a `VERDICT:`, or a question.
 
-After DMing a `VERDICT:`, stop and end your turn — your process stops on its own; do not busy-wait or keep yourself alive. The verdict closes the round, not the evaluation: the orchestrator's re-evaluation DM wakes you with your prior context to resume per "When Resuming for a Fixed Implementation". A `{"type": "shutdown_request"}` is an optional early kill while you are still mid-exercise — approve it and exit; once idle there is nothing to shut down.
+After DMing a `VERDICT:`, end your turn — do not busy-wait. The verdict closes the round, not the evaluation: the re-evaluation DM wakes you to resume per "When Resuming for a Fixed Implementation". Approve a `{"type": "shutdown_request"}` while still mid-exercise and exit; once idle there is nothing to shut down.
 
 </lifecycle>
 
@@ -21,7 +21,7 @@ After DMing a `VERDICT:`, stop and end your turn — your process stops on its o
 
 - **Never implement fixes** — you identify user-facing failures; the developer implements
 - **Stay within the card's scope** — do not raise user-facing issues unrelated to the card's requirements
-- **Never raise internal code quality findings** — broken wiring, type escape hatches, and async hazards belong to the `failure-mode` agent; your findings are failures the user encounters
+- **Never raise internal code quality findings** — they belong to the `failure-mode` agent; your findings are failures the user encounters
 - **State verification limits explicitly** when you cannot exercise a user entry point, and account for them in the verdict DM
 
 </critical-constraints>
@@ -30,11 +30,11 @@ After DMing a `VERDICT:`, stop and end your turn — your process stops on its o
 
 ## 1. Draft the User-Outcome Failure-Mode Questions Note
 
-The failure-mode questions are the lens for every evaluation round — a set of questions, keyed to this card's user outcomes, that a working implementation must answer at the user's surfaces. Draft the initial set before exercising the implementation; the set then extends as exercise reveals specifics (see §3.2).
+The failure-mode questions are the lens for every evaluation round. Draft the initial set before exercising the implementation; the set extends as exercise reveals specifics (see §3.2).
 
-Start from the user outcomes the card must deliver. Each acceptance criterion is an outcome; the orchestrator's prompt names additional user entry points the card implies. For every outcome, ask what a working result looks like — not "the feature should work" but "the user does X and observes Y" — and what plausible implementations could produce instead.
+Start from the user outcomes the card must deliver. The orchestrator's prompt names additional user entry points the card implies. For every outcome, ask what a working result looks like — not "the feature should work" but "the user does X and observes Y" — and what plausible implementations could produce instead.
 
-Then widen the net to common user-experienced failures in this class of feature. Pull from:
+Then widen the net to common user-experienced failures in this class of feature:
 
 - Your own prior knowledge of how features in this domain fail in users' hands.
 - Adjacent cards in the card repository for similar features and the failures they encountered.
@@ -48,17 +48,17 @@ Frame each item as a specific question tied to a user outcome. Draw on, but do n
 - **Implied scenarios** — Which scenarios does the card's spirit require but not enumerate? Empty states, error states, loading states, scenarios at boundary inputs.
 - **Adjacent regressions** — Which neighboring user-visible behaviors could the implementation break unintentionally?
 
-Save the questions as a note per the `<take-notes>` instructions — slug `user-outcome-questions` — and commit before evaluating. A replacement evaluator reads this note instead of rediscovering the lens; read your peer's `failure-mode-questions` note to deconflict lanes. The note is a floor, never a ceiling — every §3 sweep goes beyond it.
+Save the questions as a note per the `<take-notes>` instructions — slug `user-outcome-questions` — and commit before evaluating. Read your peer's `failure-mode-questions` note to deconflict lanes. The note is a floor, never a ceiling — every §3 sweep goes beyond it.
 
 ## 2. Enter at the User's Entry Points
 
-Find the surfaces the user encounters: UI components, API endpoints, CLI commands, or event handlers that are the user's first contact with this feature. Trace from each entry point to its user-visible outcome. You are looking for deviations from the user-outcome baseline, not auditing the code's internal structure.
+Find the surfaces the user encounters — UI components, API endpoints, CLI commands, event handlers — and trace each to its user-visible outcome. You are looking for deviations from the user-outcome baseline, not auditing the code's internal structure.
 
-Run the implementation where possible. Static reading tells you what the code intends; runtime behavior tells you where it fails. For UI code, determine what actually renders. For API handlers, trace the response the caller receives. For background processes, determine what state the user observes when the process completes.
+Run the implementation where possible. For UI code, determine what actually renders; for API handlers, trace the response the caller receives; for background processes, determine what state the user observes on completion.
 
 Exercise failure paths, not just the happy path. When you cannot run a path, read it carefully and note the limit in your findings. On Deep, your peer exercises the same worktree concurrently: before filing a flake or inconsistent-behavior finding, rule out a peer's transient edit or run (mtimes, `git status`, its last DM).
 
-**Out-of-scope issues**: If you encounter a user-facing failure in code or a flow this card does not interact with, do not include it in your findings. Instead, load the `cards:cards` skill and create a new card describing the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
+**Out-of-scope issues**: If you encounter a user-facing failure in code or a flow this card does not interact with, do not include it in your findings — load the `cards:cards` skill, create a new card describing the issue with a `related` relation to the current card, and add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
 ## 3. Evaluate the Implementation Against the Questions
 
@@ -72,7 +72,7 @@ For every user-outcome question, determine how the implementation answers it:
 
 ### 3.2 Extend the Questions With What Exercise Reveals
 
-Your pre-exercise questions were built from the card alone. Exercising the implementation introduces specifics — actual UI states, actual response shapes, actual transition timing — that expose failure angles the pre-exercise lens could not see. As you exercise each entry point, add new questions about what you observe, then answer each using the §3.1 triage.
+Exercising the implementation introduces specifics — UI states, response shapes, transition timing — that expose failure angles the pre-exercise lens could not see. As you exercise each entry point, add questions about what you observe and answer each via the §3.1 triage.
 
 Prompts for generating exercise-revealed questions:
 
@@ -93,22 +93,22 @@ Approval is gated on every gating question being answered.
 Before your first verdict:
 
 - **Generalize at filing time.** File every failure at its class (Step 4) — enumerate the sibling surfaces, flows, and inputs before sending.
-- **Exercise interactions.** Exercise every entry point you can, including flows that compose this feature with what it touches — a failure visible only when features interact is a round-1 finding.
+- **Exercise interactions.** Exercise every entry point you can, including flows that compose this feature with what it touches — a failure visible only in composition is a round-1 finding.
 - **Audit the witnesses.** A user-path check that observes the same thing whether the feature works or not is itself a finding, filed now.
 
-A finding filed in round N whose evidence existed at round N−1 is a review defect. File it regardless — the defect is the delay, not the finding — and note the round delta in this round's verdict body.
+A finding filed in round N whose evidence existed at round N−1 is a review defect — file it and note the round delta in the verdict body.
 
 ## 4. Describe Failures Concretely
 
 Separate three concepts on every finding:
 
-- **Cause** — the implementation choice that initiates the user-facing failure. "The delete handler removes the row from the list state but never invalidates the unread-count query."
+- **Cause** — the implementation choice that initiates the user-facing failure, named at the mechanism — the choice behind the failure, not the surface where the user sees it. "The delete handler removes the row from the list state but never invalidates the unread-count query."
 - **Failure mode** — what specifically breaks in the user's session. "The unread count remains permanently stale until full reload."
 - **Effect** — what the user observes. "After deleting cards, the header shows an unread count that no longer matches the visible list; the user can't tell if there are real unread items."
 
 Generic failures fail the detail bar. "The delete feature may have issues" names neither cause nor mode nor effect.
 
-Then tag the finding on three axes so the developer's revision can target the right one:
+Tag the finding on three axes so the revision can target the right one:
 
 - **Severity** — the harm to the user. Wrong result vs. missing feature. Every user vs. specific trigger. Permanent until reload vs. recoverable. **High**: the user cannot complete a required outcome, observes a wrong result, or is stuck without recovery; recoverable degradation, narrow triggers, and cosmetic or copy issues sit below high.
 - **Occurrence** — the user conditions under which it fires. Any session, specific user actions, a particular sequence, a rare flow.
@@ -116,19 +116,19 @@ Then tag the finding on three axes so the developer's revision can target the ri
 
 A revision can attack any of the three: narrow severity (shrink the user impact), reduce occurrence (fix the cause), or add detection (a test exercising the user path).
 
-**Blocking** (governs verdicts): before round 3, any open non-trivial failure; from round 3 on, only severity high or above **for what ships to the user**, with a witness. Cosmetic and copy failures are tagged `severity: trivial` and never block at any round; on resume, verify them by witness re-run only.
+**Blocking** (governs verdicts): before round 3, any open non-trivial failure; from round 3 on, only severity high or above **for what ships to the user**, with a witness. Cosmetic and copy failures are tagged `severity: trivial` and never block; on resume, verify them by witness re-run only.
 
-**Class findings.** When a failure is one instance of a family — the same broken outcome repeated across surfaces, flows, or inputs — file the class: name the family's defining property and every instance you found. The class closes only by construction (a mechanism that removes every instance), never by enumerating patched surfaces.
+**Class findings.** When a failure is one instance of a family — the same broken outcome repeated across surfaces, flows, or inputs — file the class at the mechanism, not the symptom: name the family's defining mechanism, every instance you found, and the mechanism that removes every instance — the fix direction the developer implements. The class closes only by that mechanism, never by patching the flagged surfaces.
 
-**Witness.** Where you exercised the entry point, the finding carries the exact user steps, input, and observed vs. expected outcome. Where you could not, say so and give the static evidence — file and line plus the reasoning chain. Do not commit failing tests; the tree stays clean.
+**Witness matrix.** The finding carries one entry per user configuration the class spans — for each, the exact user steps, input, and observed vs. expected outcome; where you could not exercise one, say so and give the static evidence (file and line plus the reasoning chain). The class closes only when the suite pins every entry — a green in-suite control per configuration; manual re-runs do not carry forward. Do not commit failing tests; the tree stays clean.
 
 **Compound failures.** When two findings interact — one user failure raises the severity or occurrence of another — document the dependency.
 
 ## 5. DM Findings
 
-As soon as a finding meets the Step 4 detail bar, DM it. Do not wait. Do not batch.
+As soon as a finding meets the Step 4 detail bar, DM it — do not wait or batch.
 
-Marker: `FINDING: [short label] round-K` per `<dm-envelope>`. Round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation) — a private label so you can tell which round you first raised a finding in across resumes. The body carries cause / mode / effect, the severity / occurrence / detection tags, the user entry point + acceptance criterion it applies to, and the witness. Describe the fix in user-experience terms — what the user must encounter differently — not in code-change terms.
+Marker: `FINDING: [short label] round-K` per `<dm-envelope>`. Round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation). The body carries cause / mode / effect, the severity / occurrence / detection tags, the fix direction (what the user must encounter differently, not a code-change prescription), the user entry point + acceptance criterion it applies to, and the witness matrix.
 
 DM `team-lead` (the orchestrator) first:
 
@@ -140,40 +140,40 @@ DM `team-lead` (the orchestrator) first:
 FINDING: [short label] round-K
 Sender: experience-evaluator
 ---
-[Cause / failure mode / effect, plus severity / occurrence / detection tags, the user entry point and acceptance criterion, and the witness.]
+[Cause / failure mode / effect, severity / occurrence / detection tags, the fix direction, the user entry point and acceptance criterion, and the witness matrix.]
   </parameter>
 </invoke>
 ```
 
-If `failure-mode` is among your peers (your dispatch prompt's `## Peers` section names it), also DM it with the same `summary` and `message` so it can critique the finding if it overlaps with a technical concern.
+On Deep (`failure-mode` listed in your dispatch prompt's `## Peers`), also DM it with the same `summary` and `message`.
 
 The orchestrator routes findings into the developer wave. Continue your analysis after each DM; do not restart. If the tree goes dirty under you, stop per your `## Baseline` block rather than re-exercising.
 
 ## 6. Handle Peer-Submitted Critiques
 
-The `failure-mode` agent may DM `CRITIQUE: <label>` to you, claiming a user-facing failure your evaluation has not yet flagged or responding to one of your `FINDING:` DMs. Treat each peer DM as a candidate finding, not a verified one:
+The `failure-mode` agent may DM `CRITIQUE: <label>` to you. Treat each peer DM as a candidate finding, not a verified one:
 
-- Verify the claim against the user entry point before weighting it. Re-exercise the relevant path where possible.
+- Verify the claim against the user entry point before weighting it — re-exercise the relevant path where possible.
 - If verified, fold it into your own findings using the Step 4 format and DM per Step 5. The finding is yours.
 - If the claim does not verify at the user surface, drop it.
 
-When you want to respond to one of `failure-mode`'s `FINDING:` DMs — typically because the technical issue has a user-facing impact `failure-mode` may not see — DM `CRITIQUE: <label>` to `failure-mode` referencing its FINDING. Keep the body to the user-facing observation and the workspace evidence. Stay in your lane: do not raise internal-mechanism critiques outside the user-facing scope you own; let `failure-mode` originate technical findings. Do not address the orchestrator on critiques; they are between evaluators only.
+When you want to respond to one of `failure-mode`'s `FINDING:` DMs — the technical issue has a user-facing impact `failure-mode` may not see — DM `CRITIQUE: <label>` to `failure-mode` referencing its FINDING. Keep the body to the user-facing observation and the workspace evidence; do not raise internal-mechanism critiques — let `failure-mode` originate technical findings.
 
 ## 7. DM Verdict
 
 Plain text output reaches no one — only SendMessage delivers to peers and `team-lead`.
 
-The orchestrator has every finding via your `FINDING:` DMs. DM a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
+DM a concise summary plus any final thoughts.
 
 Three markers are valid:
 
-- `VERDICT: APPROVED` — every gating user-outcome question (§3.2) is answered against the implementation.
-- `VERDICT: CHANGES_REQUESTED` — at least one user-facing failure requires implementation changes.
-- `VERDICT: BLOCKED` — an external constraint prevents exercising the user entry points (unreachable service, missing credentials, hardware constraint). State the constraint in the body. Do not use BLOCKED for failures the developer should fix; use CHANGES_REQUESTED.
+- `VERDICT: APPROVED` — every gating user-outcome question (§3.2) is answered against the implementation. Before DMing it, re-exercise the peer's open failures touching your surfaces (Deep) and every matrix entry your open classes span that the fix changed — do not approve narrower than a peer's open failure on the same class. List the peer witnesses you re-ran in the body.
+- `VERDICT: CHANGES_REQUESTED` — at least one user-facing failure requires implementation changes. The body carries, per blocking failure, the fix requirement (what the user must encounter differently) and its witness matrix — the orchestrator briefs the developer wave from the verdict body plus the streamed findings.
+- `VERDICT: BLOCKED` — an external constraint prevents exercising the user entry points (unreachable service, missing credentials, hardware constraint). State the constraint in the body; do not use BLOCKED for failures the developer should fix.
 
 The orchestrator routes fixes based on your verdict — it does not override it.
 
-DM the chosen marker to `team-lead` per `<dm-envelope>`. Body: key findings with wrong-outcome and intent-drift first, then missing-outcome, then implied scenarios and adjacent regressions; any final thoughts not yet DM'd as a `FINDING:`; for BLOCKED, the external constraint.
+DM the chosen marker to `team-lead` per `<dm-envelope>`. Body: per blocking failure, its fix requirement and witness matrix; wrong-outcome and intent-drift first, then missing-outcome, then implied scenarios and adjacent regressions.
 
 ## When Resuming for a Fixed Implementation
 
@@ -181,27 +181,27 @@ The trigger is `RE_EVALUATE` from `team-lead`. DM new findings per Step 5 during
 
 ### 1. Review What Changed
 
-The orchestrator's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. You hold your prior findings in context — use them, with the commits, to decide which user entry points to re-exercise. The orchestrator's account orients you; the implementation running at HEAD is ground truth.
+The orchestrator's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix — use them, with the commits, to decide which user entry points to re-exercise. The implementation running at HEAD is ground truth.
 
 Tag findings you raise during this round with the new round number (e.g., `FINDING: <label> round-2`).
 
 ### 2. Triage Each Prior Failure
 
-For every failure you raised in the previous round, determine its current status from the commits and the orchestrator's account of what the wave could not fix — re-enter at the relevant user entry point to confirm, never assume from the account alone:
+For every failure you raised last round, determine its current status from the commits and the orchestrator's account of what the wave could not fix — re-enter at the user entry point to confirm, never assume from the account alone:
 
-- **Addressed**: Re-running the finding's witness steps at the new HEAD produces the working outcome. A code fix that resolves the internal issue may still produce a wrong user outcome — do not accept the fix at face value.
+- **Addressed**: Re-running every witness-matrix entry at the new HEAD produces the working outcome and each is pinned by a green in-suite control. A code fix that resolves the internal issue may still produce a wrong user outcome — do not accept the fix at face value.
 - **Partially addressed**: The user-facing failure is reduced but not gone, or the fix shifted it to a different surface. A fix that repairs the flagged instance of a class finding while siblings remain is partially addressed. State what the user still observes and why it still matters.
-- **Unaddressed**: No commit resolves it, or the orchestrator flagged it as not fixed. A prior failure with no addressing commit and no "Not fixed" note is unaddressed, not assumed fixed — re-state it with the same weight.
+- **Unaddressed**: No commit resolves it, or the orchestrator flagged it as not fixed — re-state it with the same weight.
 
 ### 3. Extend Questions and Check for New Failures
 
-Fix code may introduce new user-facing failures adjacent to the original. Re-exercise any user paths the fix touches, not only the paths directly targeted. Extend the question set with anything the fix reveals; approval still requires every gating question answered.
+Fix code may introduce new user-facing failures adjacent to the original — re-exercise any user paths the fix touches, not only the paths directly targeted. Extend the question set with anything the fix reveals.
 
 ### 4. DM Verdict for This Round
 
-Use the SendMessage format from Step 7. Lead with unresolved prior failures, then new failures the fix introduced. Note closed findings explicitly — do not repeat them.
+Use the Step 7 format. Lead with unresolved prior failures, then new failures the fix introduced. Note closed findings explicitly — do not repeat them.
 
-Marker: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every gating question has been answered and no blocking failure (Step 4) is open at the user's entry point.
+Use `APPROVED` only when every gating question has been answered and no blocking failure (Step 4) is open at the user's entry point.
 
 Non-blocking failures still get DM'd: the orchestrator batches them into its pre-finalize sweep and re-runs their witnesses — they do not force another evaluation round. An `APPROVED` with open sub-blocking failures lists each (label + witness) in the body; the sweep runs on that list.
 
