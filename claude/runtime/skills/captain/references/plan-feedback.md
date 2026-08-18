@@ -56,7 +56,7 @@ git commit -m "[single sentence summarizing what feedback was incorporated into 
 
 ## 3. Assess Revised Plan
 
-Read `./plan.md` and follow its instructions.
+Read `./plan.md`.
 
 ## 4. Submit for Re-Approval
 

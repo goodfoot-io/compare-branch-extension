@@ -82,6 +82,8 @@ Select the **first** matching condition and note the matched reference:
 
 ## 3. Load Routed Reference
 
-Read `./references/[MATCHED].md` and follow its instructions.
+Read `./references/[MATCHED].md`.
+
+Reading a reference means following it. A bare `.md` filename — in a reference or a hook message — is in this skill's `references/`, not the workspace or card repo.
 
 </routing-instructions>

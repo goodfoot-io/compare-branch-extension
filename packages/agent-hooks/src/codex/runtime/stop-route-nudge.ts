@@ -153,7 +153,7 @@ export default stopHook({}, async (input, { logger }) => {
     reason: [
       `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`. The card does not have a \`blocked\` tag, and merge is either ungated or already approved.`,
       '',
-      `If validation and evaluation have passed and no scope remains, read \`${resolveMergeRunbookPath()}\` and follow its \`<instructions>\` to merge.`,
+      `If validation and evaluation have passed and no scope remains, read \`${resolveMergeRunbookPath()}\` (\`merge.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\` to merge.`,
       '',
       'Otherwise, load the `runtime:card` skill and follow its `<routing-instructions>` to determine the next action — but do not re-run validation or evaluation just because this nudge fired.'
     ].join('\n')

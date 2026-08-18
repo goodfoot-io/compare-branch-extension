@@ -31,7 +31,7 @@ Determine whether prior plans have been implemented by checking for workspace co
 Weight tracks **unknowns, not work volume**. Count genuine architectural forks — mechanisms with real trade-offs; variations of one mechanism are one approach. A large mechanical change with one obvious mechanism is a solo plan even if it touches many files; a small change with several plausible mechanisms, contested trade-offs, or ambiguous acceptance criteria warrants a contest even if it touches one file. Unverified domain knowledge — unfamiliar libraries, concurrency primitives, external APIs, legacy subsystems — raises the unknowns count.
 
 - **Solo (default)** — one approach dominates, or the forks resolve by reading source. Continue to Step 2.1.
-- **Contest** — two or more approaches with real trade-offs, or unknowns deep enough that diverse exploration pays for itself. Read `./contest.md` and follow its instructions, choosing `[N_PLANNERS]` (2–4) by the size of the solution space and `[PLANNER_EFFORT]` per slot. Un-approved plan files already in `plans/` favor a contest with incumbent seeding — the prior work gets graded rather than re-derived. On return:
+- **Contest** — two or more approaches with real trade-offs, or unknowns deep enough that diverse exploration pays for itself. Read `./contest.md`, choosing `[N_PLANNERS]` (2–4) by the size of the solution space and `[PLANNER_EFFORT]` per slot. Un-approved plan files already in `plans/` favor a contest with incumbent seeding — the prior work gets graded rather than re-derived. On return:
   - **`APPROVED`**: Skip to Step 5: Route to Implementation.
   - **`BLOCKED`**: **STOP** — do not route to implementation.
 
@@ -100,6 +100,6 @@ Revise `[PLAN_FILE]` per finding, commit, and re-evaluate against the full quest
 Do not re-prompt the user for confirmation — `gates.planApproved` and `gates.planRequired` are the authorization. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
 
 - **`gates.planRequired` is true**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
-- **`gates.planRequired` is false**: Read `./implementation.md` and follow its instructions.
+- **`gates.planRequired` is false**: Read `./implementation.md`.
 
 </instructions>

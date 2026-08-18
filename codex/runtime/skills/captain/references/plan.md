@@ -91,6 +91,6 @@ Revise `[PLAN_FILE]` per finding, commit, and re-evaluate against the full quest
 Do not re-prompt the user for confirmation — `gates.planApproved` and `gates.planRequired` are the authorization. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
 
 - **`gates.planRequired` is true**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
-- **`gates.planRequired` is false**: Read `./implementation.md` and follow its instructions.
+- **`gates.planRequired` is false**: Read `./implementation.md`.
 
 </instructions>

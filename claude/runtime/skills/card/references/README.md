@@ -4,7 +4,7 @@ Per-condition reference files for the `runtime:card` skill. The router in `../SK
 
 ## Consumer
 
-**`runtime:card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. References cross-load each other by sibling path (e.g. `./plan.md`) when one hands off to another. The skill is self-contained: it shares no reference files with `runtime:captain`. Protocol references dispatch the plugin's shared `runtime:card:*` agents (and their portability skills), which are plugin assets, not card-skill dependencies.
+**`runtime:card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. The skill is self-contained: it shares no reference files with `runtime:captain`. Protocol references dispatch the plugin's shared `runtime:card:*` agents (and their portability skills), which are plugin assets, not card-skill dependencies.
 
 ## Routing Map
 

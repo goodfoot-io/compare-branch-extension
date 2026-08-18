@@ -84,7 +84,7 @@ export default stopHook({}, async (input, { logger }) => {
     reason: [
       'This action was launched with EXIT_WHEN_DONE=true, signalling that the session should exit once work is complete.',
       '',
-      `Read \`${resolveShutdownRunbookPath()}\` and follow its \`<instructions>\` to exit the session cleanly.`
+      `Read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\` to exit the session cleanly.`
     ].join('\n')
   });
 });

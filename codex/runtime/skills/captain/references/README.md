@@ -4,7 +4,7 @@ Per-condition reference files for the `$runtime:captain` skill. The router in `.
 
 ## Consumer
 
-**`$runtime:captain` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. References cross-load each other by sibling path (e.g. `./plan.md`) when one hands off to another.
+**`$runtime:captain` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`.
 
 ## Routing Map
 

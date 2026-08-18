@@ -40,7 +40,7 @@ All of the following are true:
 - No new files, no new interfaces, no behavioral changes beyond the immediate fix
 - Examples: typo, wrong variable name, missing import, off-by-one, incorrect string literal
 
-**→ Read `./implementation.md` and follow its instructions.**
+**→ Read `./implementation.md`.**
 
 ### Needs a plan
 
@@ -53,6 +53,6 @@ Any of the following are true:
 - The correct fix requires choosing between alternatives
 - You are uncertain whether the change is trivial
 
-Read `./plan.md` and follow its instructions. It reads the existing plan files and implementation context and creates a follow-on plan.
+Read `./plan.md`. It reads the existing plan files and implementation context and creates a follow-on plan.
 
 </instructions>

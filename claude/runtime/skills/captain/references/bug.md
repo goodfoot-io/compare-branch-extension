@@ -19,7 +19,7 @@
 
 Run `git status --porcelain`:
 - **Clean**: proceed.
-- **Dirty**: Read `./bug-dirty-tree.md` and follow its `<instructions>`. Return here when its flow returns control (the **off-card** branch ends in **STOP**).
+- **Dirty**: Read `./bug-dirty-tree.md`. Return here when its flow returns control (the **off-card** branch ends in **STOP**).
 
 Create the baseline tag if one does not already exist. The baseline is pinned — it does not advance during bug resolution.
 
@@ -202,7 +202,7 @@ git tag -d "bug/$CARD_ID/baseline" "bug/$CARD_ID/reproduction" 2>/dev/null
 ### 4.2 Complete or Await Review
 
 Based on `gates.mergeRequestRequired`:
-- **false or unset**: Read `./merge.md` and follow its `<instructions>`.
+- **false or unset**: Read `./merge.md`.
 - **true**: **STOP** — Merge occurs after user approval.
 
 </instructions>

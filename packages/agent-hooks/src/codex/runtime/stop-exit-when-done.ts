@@ -72,7 +72,7 @@ export default stopHook({}, async (input, { logger }) => {
       '',
       `The current Codex session id is \`${input.session_id}\`; supply it where the runbook requires \`<SESSION ID FROM THE STOP MESSAGE>\`.`,
       '',
-      `Read \`${resolveShutdownRunbookPath()}\` and follow its \`<instructions>\` to terminate the validated Codex launcher cleanly.`
+      `Read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\` to terminate the validated Codex launcher cleanly.`
     ].join('\n')
   });
 });

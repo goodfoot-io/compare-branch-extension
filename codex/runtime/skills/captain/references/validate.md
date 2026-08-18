@@ -58,8 +58,8 @@ Before reviewing, you may bail out if your reading of `plans/`, `commits/`, `CAR
 
 This step may only re-route backward, never forward to merge:
 
-- **Plan file exists in `plans/`**: Read `./implementation.md` and follow its instructions. It detects partial implementation via the plan and resumes the work.
-- **No plan file**: Read `./plan.md` and follow its instructions.
+- **Plan file exists in `plans/`**: Read `./implementation.md`. It detects partial implementation via the plan and resumes the work.
+- **No plan file**: Read `./plan.md`.
 
 If you choose not to bail out, continue to Step 4.
 
@@ -99,7 +99,7 @@ git tag -d "implement/$CARD_ID/baseline" 2>/dev/null
 ### 5.3 Complete or Await Review
 
 Based on `gates.mergeRequestRequired`:
-- **false or unset**: Read `./merge.md` and follow its `<instructions>`.
+- **false or unset**: Read `./merge.md`.
 - **true**: **STOP** — Merge occurs after user approval.
 
 </instructions>

@@ -38,7 +38,7 @@ When the card introduces new behavior whose contract is worth validating ahead o
 Diff `implement/$CARD_ID/baseline..HEAD` to assess scope: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
 
 - **Simple** — single-file change, or mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation; proceed to Step 4.
-- **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
+- **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md`.
 
 ## 4. Finalize
 
@@ -61,7 +61,7 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 ```
 
 **Route to merge or await review.** Based on `gates.mergeRequestRequired`:
-- **false or unset** — read `./merge.md` and follow its `<instructions>`.
+- **false or unset** — read `./merge.md`.
 - **true** — **STOP**. Merge occurs after user approval.
 
 </instructions>
@@ -152,6 +152,6 @@ git clean -fd
 git tag -l "implement/$CARD_ID/step-*" | xargs -r git tag -d
 ```
 
-Read `./plan.md` and follow its instructions. The discoveries made during implementation — the false assumption, the scope boundary, the fork — are live context for the next approach.
+Read `./plan.md`. The discoveries made during implementation — the false assumption, the scope boundary, the fork — are live context for the next approach.
 
 </when-to-return-to-planning>

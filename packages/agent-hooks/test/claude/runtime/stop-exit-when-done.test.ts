@@ -4,6 +4,7 @@
  * @summary Tests for stop-exit-when-done hook
  */
 
+import path from 'node:path';
 import { extractActionInput } from '@cards.management/sdk/config';
 import {
   hasSessionExitWhenDoneNudgeFired,
@@ -78,6 +79,18 @@ describe('Stop Exit-When-Done Hook', () => {
       expect(stdout.reason).toContain('shutdown.md');
       expect(stdout.reason).toContain('<instructions>');
       expect(mockMarkSessionExitWhenDoneNudgeFired).toHaveBeenCalledWith(mockInput.session_id);
+    });
+
+    it('names shutdown.md as an absolute path and in skill-relative form so a truncated path stays resolvable', async () => {
+      const result = await hook(mockInput, { logger });
+
+      const stdout = result!.stdout as { reason?: string };
+      const runbook = stdout.reason?.match(/`([^`]*\/shutdown\.md)`/)?.[1];
+
+      expect(runbook).toBeDefined();
+      expect(path.isAbsolute(runbook!)).toBe(true);
+      expect(runbook).toContain('/skills/card/references/shutdown.md');
+      expect(stdout.reason).toContain("`shutdown.md` in `runtime:card`'s `references/`");
     });
 
     it('writes marker on first fire; subsequent invocation returns null', async () => {

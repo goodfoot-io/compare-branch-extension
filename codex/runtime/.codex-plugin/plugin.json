@@ -1,6 +1,6 @@
 {
   "name": "runtime",
-  "version": "1.0.389",
+  "version": "1.0.390",
   "description": "Codex runtime plugin for the Cards extension",
   "author": {
     "name": "Goodfoot Media LLC"

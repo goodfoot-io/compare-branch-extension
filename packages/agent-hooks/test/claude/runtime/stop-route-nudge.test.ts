@@ -5,6 +5,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards.management/sdk/config';
 import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards.management/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
@@ -107,6 +108,18 @@ describe('Stop Route Nudge Hook', () => {
       expect(stdout.reason).toContain('merge.md');
       expect(stdout.reason).toContain('<routing-instructions>');
       expect(mockMarkSessionRouteNudgeFired).toHaveBeenCalledWith(mockInput.session_id);
+    });
+
+    it('names merge.md as an absolute path and in skill-relative form so a truncated path stays resolvable', async () => {
+      const result = await hook(mockInput, { logger });
+
+      const stdout = result!.stdout as { reason?: string };
+      const runbook = stdout.reason?.match(/`([^`]*\/merge\.md)`/)?.[1];
+
+      expect(runbook).toBeDefined();
+      expect(path.isAbsolute(runbook!)).toBe(true);
+      expect(runbook).toContain('/skills/card/references/merge.md');
+      expect(stdout.reason).toContain("`merge.md` in `runtime:card`'s `references/`");
     });
 
     it('includes unmerged commit count in the reason', async () => {
