@@ -2,7 +2,6 @@
 <placeholder-variables>
 [BUG_DESCRIPTION] — One-sentence summary extracted in Step 1.2: "[Expected behavior] but [actual behavior]"
 [SCOPE_HINT] — Files, packages, or functions mentioned in the card, extracted in Step 1.2
-[SHORT_LABEL] — Short identifier for a single root-cause hypothesis (one per parallel subagent in Step 1.5)
 [TEST_FAILURE_OUTPUT] — Combined failure output from the reproduction tests, captured in Step 1.6
 </placeholder-variables>
 
@@ -65,54 +64,19 @@ If you cannot write that one sentence — if every candidate test drops at least
 - **Dangerous** (fails property 3) — a faithful reproduction must perform an unsafe or irreversible act: resource exhaustion (fork/watch/fd/memory storms, OOM, DoS load), data loss, or mutating an external or credentialed system.
 - **Cost-prohibitive or environment-bound** (fails property 3) — faithful reproduction needs infeasible fixtures or scale, or the symptom is platform/kernel/hardware/CI-specific so the test probes *where* it runs, not whether the bug is present.
 
-These three are the common ways a property fails; they are examples, not an exhaustive whitelist — apply the first principle directly when a bug fits none of them by name. "Hard", "slow", "obvious", and "I'm confident" are not disqualifiers — reproduce anyway. But confidence that reproduction is *feasible* never overrides a missing property: a tautological or environment-probing test you *can* write is still not a reproduction.
+These three are the common ways a property fails; they are examples, not an exhaustive whitelist — apply the first principle when a bug fits none of them by name. "Hard", "slow", "obvious", and "I'm confident" are not disqualifiers — reproduce anyway. But confidence that reproduction is *feasible* never overrides a missing property: a tautological or environment-probing test you *can* write is still not a reproduction.
 
 On divert: write a comment naming the disqualifier and why no outcome-level test fits, commit, and Read `./plan.md` (the planning path picks an outcome guard where one is meaningful). Otherwise proceed to Step 1.5.
 
-### 1.5 Write Reproduction Tests in Parallel
+### 1.5 Write Reproduction Tests
 
-For each viable hypothesis, dispatch one foreground subagent in a single message so they run concurrently:
+With several viable hypotheses, consider a subagent per hypothesis, each returning its trace verdict and any committed failing test.
 
-```xml
-<invoke name="Agent">
-<parameter name="description">Reproduce hypothesis: [SHORT_LABEL]</parameter>
-<parameter name="subagent_type">general-purpose</parameter>
-<parameter name="run_in_background">false</parameter>
-<parameter name="prompt">
-## Task
-Write a minimal reproduction test for a single root-cause hypothesis.
-
-## Bug
-[BUG_DESCRIPTION]
-
-## Scope
-[SCOPE_HINT]
-
-## Hypothesis
-[Specific root cause being tested, with implicated code paths]
-
-## Requirements
-- Trace code and data-flow paths in the workspace to assess whether this hypothesis is viable.
-- If viable: create a new test file that MUST FAIL against the current unfixed code.
-- If not viable: return status NOT_VIABLE and explain why.
-- Do not modify existing tests.
-- Follow existing test patterns.
-- Do NOT fix the bug.
-
-## Response Format
-## Status
-[SUCCESS | NOT_VIABLE | BLOCKED | CANNOT_COMPLETE]
-
-## Result
-[Absolute file path, or "None"]
-
-## Reasoning
-[How the test reproduces this pathway, why the hypothesis was ruled out, or why blocked]
-</parameter>
-</invoke>
-```
-
-After every subagent returns, run each new test file and discard any that passes — only tests that actually fail are kept.
+For each viable hypothesis, in turn:
+1. Trace code and data-flow paths in the workspace to assess whether the hypothesis is viable.
+2. If viable: write a minimal reproduction test that MUST FAIL against the current unfixed code. Do not modify existing tests. Follow existing test patterns. Do not fix the bug yet.
+3. If not viable: discard the hypothesis and note why.
+4. Run the new test file. Discard it if it passes — only tests that actually fail are kept.
 
 ### 1.6 Commit Reproduction
 
@@ -134,12 +98,12 @@ git tag -f "bug/$CARD_ID/reproduction" HEAD
 
 ## 2. Resolve Bug
 
-Resolve is a retry loop, bounded at 3 attempts. Each attempt runs Step 2.1: Trace Data Flow, Step 2.2: Delegate to Resolver, and Step 2.3: Validate and Commit.
+Resolve is a retry loop, bounded at 3 attempts. Each attempt runs Step 2.1: Trace Data Flow, Step 2.2: Fix, and Step 2.3: Validate and Commit.
 
 ### 2.1 Trace Data Flow
 
 <scope-rules>
-**Non-deterministic bugs**: If `[TEST_FAILURE_OUTPUT]` lacks `file:line` location information (for example, timeout or race condition), data-flow tracing may not be possible. Document what is known and pass available context to the resolver. The data-flow path becomes a hypothesis rather than a trace.
+**Non-deterministic bugs**: If `[TEST_FAILURE_OUTPUT]` lacks `file:line` location information (for example, timeout or race condition), data-flow tracing may not be possible. Document what is known and treat the data-flow path as a hypothesis rather than a trace.
 </scope-rules>
 
 For each failing reproduction test, map how bad data flows from origin to symptom:
@@ -156,67 +120,20 @@ For each failing reproduction test, map how bad data flows from origin to sympto
 
 Fixes that fail this check create dead code — new capabilities never exercised.
 
-### 2.2 Delegate to Resolver
+### 2.2 Fix
 
-Dispatch the resolver with every failing test and its output inlined:
+Fix the source code so every failing reproduction test passes, guided by the data flow from Step 2.1. The fix must modify the data-flow path so correct data reaches every symptom. Do not break existing functionality.
 
-```xml
-<invoke name="Agent">
-<parameter name="description">Resolve bug</parameter>
-<parameter name="subagent_type">general-purpose</parameter>
-<parameter name="run_in_background">false</parameter>
-<parameter name="prompt">
-## Task
-Fix source code so every failing reproduction test passes.
-
-## Bug
-[BUG_DESCRIPTION]
-
-## Failing Tests
-[For each test: absolute file path, followed by a fenced code block containing its failure output.]
-
-[If a prior resolve attempt failed, include its output under a `## Previous Attempt` heading.]
-
-## Data Flow
-[Source, Symptom, and Path from Step 2.1 — per test if they differ.]
-
-## Requirements
-- Fix source code so every failing test passes.
-- The fix must modify the data-flow path so correct data reaches every symptom.
-- If adding a new parameter, confirm callers will pass it.
-- If adding a new read, confirm something writes the data.
-- Do not break existing functionality.
-- Do not run workspace-wide validation — the orchestrator validates after you return.
-
-## If a Test Needs Correction
-Modify only the test and return status TEST_MODIFIED. The orchestrator will verify the corrected test still fails, then re-invoke.
-
-## Response Format
-## Status
-[SUCCESS | TEST_MODIFIED | BLOCKED | CANNOT_COMPLETE]
-
-## Result
-[Files modified, or "None"]
-
-## Reasoning
-[Fix explanation, or why blocked]
-</parameter>
-</invoke>
-```
+If a reproduction test itself is wrong (asserts the wrong thing, or the scenario it encodes doesn't match the bug), fix the test instead and proceed to Step 2.4: Test Correction Flow rather than continuing here.
 
 ### 2.3 Validate and Commit
-
-Based on the resolver's status:
-- **BLOCKED or CANNOT_COMPLETE**: Write a comment with the resolver's reasoning, add `blocked` to `tags` in `CARD.meta.json`, commit, and **STOP**.
-- **TEST_MODIFIED**: Proceed to Step 2.4: Test Correction Flow.
-- **SUCCESS**: Continue below.
 
 Run every reproduction test. Then lint and typecheck per the project's CLAUDE.md validation conventions, and re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 3: Validate Full Suite.
 
 Based on the combined result:
 - **All reproduction tests pass and all validations pass**: Commit the fix and proceed to Step 3: Validate Full Suite.
-- **Error within your scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
-- **Reproduction test still fails, or validation fails on implementation grounds**: Treat as NEEDS_REVISION. Discard the resolver's uncommitted work and retry per Step 2. If retries are exhausted (3 attempts), write a comment explaining attempts and the specific technical obstacle, commit, and **STOP**.
+- **Reproduction test still fails, or validation fails on implementation grounds**: Treat as NEEDS_REVISION. Discard your uncommitted work and retry per Step 2. If retries are exhausted (3 attempts), write a comment explaining attempts and the specific technical obstacle, commit, and **STOP**.
+- **Cannot proceed** (structural obstacle): Write a comment with the reasoning, add `blocked` to `tags` in `CARD.meta.json`, commit, and **STOP**.
 
 Commit on success:
 
@@ -237,14 +154,14 @@ git clean -fd
 
 ### 2.4 Test Correction Flow
 
-The resolver has modified a reproduction test. Validate the correction before accepting it. This flow is bounded at 2 corrections across the whole resolve loop.
+A reproduction test needs correction. Validate the correction before accepting it. This flow is bounded at 2 corrections across the whole resolve loop.
 
-1. Revert any non-test source changes the resolver made since `bug/$CARD_ID/reproduction`.
+1. Revert any non-test source changes made since `bug/$CARD_ID/reproduction`.
 2. Run the corrected test.
 
 Based on the corrected test's result:
-- **Fails (valid correction)**: Commit the corrected test, update the tag (`git tag -f "bug/$CARD_ID/reproduction" HEAD`), capture new `[TEST_FAILURE_OUTPUT]`, and return to Step 2.2: Delegate to Resolver.
-- **Passes (invalid correction)**: Revert the test. If resolve attempts remain, return to Step 2.2: Delegate to Resolver. Otherwise write a comment explaining test-validation failure and **STOP**.
+- **Fails (valid correction)**: Commit the corrected test, update the tag (`git tag -f "bug/$CARD_ID/reproduction" HEAD`), capture new `[TEST_FAILURE_OUTPUT]`, and return to Step 2.2: Fix.
+- **Passes (invalid correction)**: Revert the test. If resolve attempts remain, return to Step 2.2: Fix. Otherwise write a comment explaining test-validation failure and **STOP**.
 - **Corrections exhausted (2 already applied)**: Write a comment reporting that the reproduction test became unreliable during the fix process, describing what went wrong and why it cannot be trusted to verify the fix, commit, and **STOP**.
 
 ## 3. Validate Full Suite
@@ -292,7 +209,7 @@ Based on `gates.mergeRequestRequired`:
 
 <baseline-worktree-testing>
 
-The `create-worktree` command is a plugin-provided executable on `PATH`. Use it directly when you need an isolated Git worktree.
+The `create-worktree` command is a plugin-provided executable on `PATH`. Use it when you need an isolated Git worktree.
 
 To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 

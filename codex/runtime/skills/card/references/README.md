@@ -4,7 +4,7 @@ Per-condition reference files for the `$runtime:card` skill. The router in `../S
 
 ## Consumer
 
-**`$runtime:card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. References cross-load each other by sibling path (e.g. `./plan.md`) when one hands off to another.
+**`$runtime:card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. References cross-load each other by sibling path (e.g. `./plan.md`) when one hands off to another. The skill is self-contained: it shares no reference files with `$runtime:captain`. Protocol references spawn the plugin's shared `$runtime:card-*` agent skills, which are plugin assets, not card-skill dependencies.
 
 ## Routing Map
 
@@ -12,19 +12,20 @@ The condition → reference table lives in `../SKILL.md` Step 2 — the router i
 
 ## Shared Procedures
 
-- `planning.md` — Tier 2 self-plan procedure, also used by spawned `$runtime:card-planner` children in tier 3–4.
-- `contest.md` — Tier 3–4 planner-contest spawn tree, loaded by `plan.md`.
-- `implementation.md` — Tier 1 implementation, loaded by `plan.md`.
-- `implementation-evaluation.md` — post-implementation evaluator wave, loaded by both implementation references when evaluation is needed.
+- `implementation.md` — implementation entry point for both plan-driven and direct work, loaded by `plan.md` and `implementation-feedback.md`.
+- `implementation-evaluation.md` — post-implementation review, loaded by `implementation.md` when evaluation is needed.
 - `bug-dirty-tree.md` — dirty-worktree triage, loaded by `bug.md` Step 1.1.
 
-## Standalone Agent Skills (Not Consolidated)
+## Escalation Protocols (Loaded by Judgment)
 
-These stay as distinct top-level skills for portability across agent systems — the skill ID is the contract a different harness honors, and each pairs with an `agents/openai.yaml` so it can be selected as a spawned agent role:
+Loaded only when the orchestrator chooses the heavy end of a step's weight spectrum:
 
-- `$runtime:card-developer` — spawned to implement a group of work.
-- `$runtime:card-planner` — spawned per planner in the `contest.md` spawn tree.
-- `$runtime:card-plan-failure-mode` — spawned as the reviewer in the `contest.md` spawn tree.
-- `$runtime:card-failure-mode` — spawned as an evaluator in `implementation-evaluation.md`.
-- `$runtime:card-experience-evaluator` — spawned as the Deep-depth evaluator in `implementation-evaluation.md`.
-- `$runtime:card-pre-existing-condition` — spawned from both implementation references and `validate.md` when a validation failure looks pre-existing.
+- `contest.md` — parallel planner contest, loaded by `plan.md` Step 2.
+- `developer-wave.md` — persistent developer-team delegation, loaded by `implementation.md`, `implementation-evaluation.md`, and `evaluation-wave.md`.
+- `evaluation-wave.md` — background evaluator protocol, loaded by `implementation-evaluation.md` Step 3 and `validate.md` Step 4.
+
+`contest.md` and `evaluation-wave.md` run as ephemeral spawn trees under the orchestrator; `developer-wave.md`'s workers are spawned once and kept live across a wave. No protocol gives children a direct channel to each other — `send_message` and `resume_agent` are the only coordination primitives, and every relay between children passes through the orchestrator.
+
+## Not Router-Reachable
+
+- `shutdown.md` — shutdown runbook. Loaded by the exit-when-done Stop hook via a hard-coded path, never by the router.

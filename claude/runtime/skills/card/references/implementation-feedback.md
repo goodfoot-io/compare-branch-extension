@@ -1,5 +1,4 @@
 
-
 <instructions>
 
 ## 1. Read Feedback
@@ -10,7 +9,7 @@ Read:
 - `CARD.md` for the card's broader purpose
 - Recent workspace commits on the current branch (what was already delivered)
 
-Based on the user's feedback (comments, attachments, or direct messages):
+Based on the user's feedback:
 - **No actionable feedback found**: Write a comment requesting clarification, commit, and **STOP**
 
 ```bash
@@ -54,6 +53,6 @@ Any of the following are true:
 - The correct fix requires choosing between alternatives
 - You are uncertain whether the change is trivial
 
-Read `./plan.md` and follow its instructions. The planner will read the existing plan files and implementation context to create a follow-on plan.
+Read `./plan.md` and follow its instructions. It reads the existing plan files and implementation context and creates a follow-on plan.
 
 </instructions>

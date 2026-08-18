@@ -1,5 +1,4 @@
 
-
 <instructions>
 
 ## 1. Triage Prior Clarification
@@ -36,7 +35,7 @@ Based on comments and prior clarification requests:
 
 ### 2.1 Research Workspace
 
-Trace code and data flow paths in the workspace to gather file paths, component names, and patterns relevant to the card. Use whatever combination of searches, reads, and tools best fits the card content.
+Investigate the workspace to gather file paths, component names, and patterns relevant to the card. Fork subagents if the card touches areas you would otherwise sweep serially.
 
 ### 2.2 Enrich Card
 
@@ -91,7 +90,7 @@ Mark as MISSING if not present or inferable from card description, comments, and
 
 ### 3.2 Research Context
 
-Search the workspace codebase for keywords from the card description:
+Research the workspace:
 1. Look for similar implementations
 2. Check tests for expected behavior
 3. Identify relevant file paths for code references

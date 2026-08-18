@@ -1,22 +1,25 @@
+
+<placeholder-variables>
+[CARD_ID] — The card identifier
+</placeholder-variables>
+
 <instructions>
 
-This reference fires when card work exists (the `commits/` directory has commit files and/or the worktree has uncommitted changes) and no stronger signal claims the card — typically after the card emerged from a `blocked` state, after a session crashed or terminated mid-flow, or when work exists without an approved plan or pending merge approval.
+This reference fires when card work exists (`commits/` directory has commit files and/or the worktree has uncommitted changes) and no stronger signal claims the card — typically after the card emerged from a `blocked` state, after a session crashed or terminated mid-flow, or when work exists without an approved plan or pending merge approval.
 
-**Output asymmetry.** This skill may route backward to planning or implementation on the orchestrator's judgment alone. It cannot route forward to merge on its own — finalize requires a `$runtime:card-failure-mode` `VERDICT: APPROVED`.
-
-**Depth.** This skill always runs Standard depth (single `$runtime:card-failure-mode` evaluator child); it does not spawn an `experience-evaluator`. Re-validation is a focused safety check on already-committed work, not a full Deep evaluation.
+**Output asymmetry.** You may route backward to planning or implementation on your own judgment. You may not route forward to merge without passing Step 4's review.
 
 ## 1. Prepare Environment
 
 ### 1.1 Baseline Tag
 
-If `implement/$CARD_ID/baseline` does not exist, create it at the prior committed state — the latest commit in the `commits/` directory when present, otherwise current `HEAD` (which represents the workspace branch tip before any uncommitted work is staged in Step 1.2).
+If `implement/$CARD_ID/baseline` does not exist, create it at the prior committed state — the latest commit recorded in the `commits/` directory when present, otherwise current `HEAD` (which represents the workspace branch tip before any uncommitted work is staged in Step 1.2).
 
 ```bash
 if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
   echo "Baseline tag already exists — resuming from prior checkpoint."
 else
-  baseline_sha=$(git -C "$CARD_REPO_PATH" log --name-only --format= -- commits/ 2>/dev/null | grep -v '^$' | head -n 1 | xargs basename 2>/dev/null)
+  baseline_sha=$(git -C "$CARD_REPO_PATH" log -1 --name-only --pretty=format:"" -- commits/ 2>/dev/null | grep "^commits/" | head -n 1 | cut -d/ -f2)
   if [ -z "$baseline_sha" ]; then
     baseline_sha=$(git rev-parse HEAD)
   fi
@@ -28,7 +31,7 @@ fi
 
 **Every commit below follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.**
 
-If the worktree contains uncommitted changes — typical after a crashed session that left work unsaved — commit them so validation and the failure-mode evaluator analyze a coherent implementation:
+If the worktree contains uncommitted changes — typical after a crashed session that left work unsaved — commit them so validation and review analyze a coherent implementation:
 
 ```bash
 git add -A
@@ -38,71 +41,48 @@ COMMITMSG
 )"
 ```
 
-## 2. Pre-Evaluator Validation
+## 2. Pre-Review Validation
 
 Run the workspace's typecheck, lint, and tests. If a plan file in `plans/` declares custom validation commands, run those instead.
 
-Based on the result:
 - **All validations pass**: Proceed to Step 3.
-- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): `spawn_agent` a child whose `message` tells it to use `$runtime:card-pre-existing-condition`, per the spawn shape used by `./implementation-with-plan.md` Step 3. Do not investigate the failure inline.
-  - On COMPLETED: re-run the validation command. If it passes, proceed to Step 3.
-  - On NOT_PRE_EXISTING: the agent verified the failure is in scope of the active card's work. Proceed to Step 3 — the orchestrator escape hatch should fire on this evidence.
-  - On NEEDS_REVISION or BLOCKED: add `blocked` to `tags` in `CARD.meta.json`, write the agent's report and exact failure output to `comments/validation-failed.md`, commit, **STOP**.
+- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): Diagnose it per `./implementation.md`'s `<pre-existing-diagnosis>`.
+  - **Reproduces on baseline**: repair per that procedure, re-run the validation command. If it passes, proceed to Step 3.
+  - **Does not reproduce on baseline**: the failure is in scope of the active card's work. Proceed to Step 3 — the escape hatch in Step 3 should fire on this evidence.
+  - **Structural obstacle**: add `blocked` to `tags` in `CARD.meta.json`, write the diagnosis and exact failure output to `comments/validation-failed.md`, commit, **STOP**.
 - **Failure clearly originates in files the active card's diff touched**: Proceed to Step 3 — the validation suite is reporting that the work is not actually done.
 
-## 3. Optional Escape Hatch — Orchestrator Judgment
+## 3. Optional Escape Hatch — Your Judgment
 
-Before dispatching the evaluator, you may bail out if your reading of `plans/`, the `commits/` directory, `CARD.md`, the diff `implement/$CARD_ID/baseline..HEAD`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
+Before reviewing, you may bail out if your reading of `plans/`, `commits/`, `CARD.md`, the diff `implement/$CARD_ID/baseline..HEAD`, and the pre-review validation result indicates the implementation is not ready for review. The trigger is your judgment — there is no checklist.
 
-This skill cannot finalize the card on its own. The escape hatch may only re-route backward, never forward to merge:
+This step may only re-route backward, never forward to merge:
 
-- **Plan file exists in `plans/`**: Read `./implementation-with-plan.md` and follow its instructions. Its Step 2.1 detects partial-implementation and resumes the work.
+- **Plan file exists in `plans/`**: Read `./implementation.md` and follow its instructions. It detects partial implementation via the plan and resumes the work.
 - **No plan file**: Read `./plan.md` and follow its instructions.
 
 If you choose not to bail out, continue to Step 4.
 
-## 4. Spawn failure-mode
+## 4. Review
 
-Read the diff and the card before writing the spawn message — it must reflect this specific implementation, not generic instructions. Record the HEAD SHA you spawn against and inline it — Step 1.2 already made the tree clean there. `spawn_agent` a single evaluator child (`task_name: failure_mode`) whose `message` tells it to use `$runtime:card-failure-mode`:
+Weight completeness against the card's acceptance criteria alongside the usual failure-mode questions — this is a re-check of already-committed work, not first-pass evaluation. Diff `implement/$CARD_ID/baseline..HEAD`, read the card, and evaluate.
 
-```
-Use the $runtime:card-failure-mode skill and follow it from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Record each finding with a `FINDING:` marker and report `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` as your final message to me, the orchestrator that spawned you.
+**Choose the review weight.** For a substantial diff, read `./evaluation-wave.md` and follow it in place of this step's inline review — treat its finalize-and-return as "no findings" and proceed to Step 5; its BLOCKED branch stops as usual. A fresh-eyes subagent per angle is a middle weight. Otherwise review inline:
 
-This is a re-validation pass — the implementation was committed in a prior session and is being re-checked before finalize. Weight completeness against the card's acceptance criteria alongside the usual failure-mode questions.
+**Failure modes.** Where could this break at runtime that the validation suite wouldn't catch?
 
-## Card Repository
-[CARD_REPO_PATH]
+**Delivered experience.** Does it satisfy the card's acceptance criteria and intent?
 
-## Workspace
-[WORKSPACE_PATH]
+- **No findings**: Proceed to Step 5: Finalize.
+- **Findings that are in-scope fixes**: Fix them, re-run Step 2's validations, then return to Step 4 and re-review the new HEAD.
+- **Findings that require a different approach or missed scope**: Treat as Step 3's escape hatch — route to `./implementation.md` (plan exists) or `./plan.md` (no plan), carrying the findings as context.
+- **Structural constraint blocking the fix**: Document the constraint and finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, **STOP**.
 
-## Baseline
-Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.
+## 5. Finalize
 
-## Validation
-Workspace validation passed before this spawn. Focus on runtime behavior, semantic failures, completeness against the card's intent, and gaps the validation suite does not cover.
+Only enter this step once Step 4 finds nothing further to fix.
 
-[Describe the specific failure risks this implementation presents based on the diff and the card. Where is the implementer's attention concentrated, and where are the blind spots most likely? Write this from what you found, not as generic instructions.]
-```
-
-## 5. Collect Verdict and Route
-
-The evaluator child returns a structured final report to you when its task completes. Record each `FINDING:` (label and body) for the routing branches below, and read the `VERDICT:` line. The child auto-terminates once it has reported; there is no team to tear down. If it reported dirty paths instead of a verdict, commit or revert the outstanding changes and re-spawn that lane with the new HEAD SHA and its prior findings inlined.
-
-Route on the verdict:
-- **`VERDICT: APPROVED`**: Proceed to Step 6: Finalize.
-- **`VERDICT: CHANGES_REQUESTED`**: Route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plans/` in the card repository:
-  - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.
-  - **No plan file**: Read `./plan.md` and follow its instructions. The findings inform the next planning pass.
-- **`VERDICT: BLOCKED`**: Add `blocked` to `tags` in `CARD.meta.json`, write the evaluator's rationale to `comments/validation-failed.md`, commit both, **STOP**.
-
-## 6. Finalize
-
-Only enter this step on `VERDICT: APPROVED`.
-
-### 6.1 Stage Remaining Changes
-
-Stage any artifacts the evaluator wave or finalize prep produced:
+### 5.1 Stage Remaining Changes
 
 ```bash
 git add -A
@@ -112,15 +92,13 @@ COMMITMSG
 )"
 ```
 
-### 6.2 Tag Cleanup
-
-Remove the baseline tag — the pre-implementation rollback window is closed once finalize commits land.
+### 5.2 Tag Cleanup
 
 ```bash
 git tag -d "implement/$CARD_ID/baseline" 2>/dev/null
 ```
 
-### 6.3 Complete or Await Review
+### 5.3 Complete or Await Review
 
 Based on `gates.mergeRequestRequired`:
 - **false or unset**: Read `./merge.md` and follow its `<instructions>`.
@@ -132,22 +110,6 @@ Based on `gates.mergeRequestRequired`:
 
 | Tag | Created At | Advances | Purpose |
 |-----|------------|----------|---------|
-| `implement/[CARD_ID]/baseline` | Step 1.1: Baseline Tag (if missing) | Never | Comparison ref for the failure-mode evaluator and rollback target if Step 3's escape hatch fires. Pinned at the latest commit in the `commits/` directory, or HEAD when the directory is empty. |
+| `implement/[CARD_ID]/baseline` | Step 1.1 (if missing) | Never | Comparison ref for review and rollback target if Step 3's escape hatch fires. Pinned at last commit file in `commits/` directory, or HEAD when the directory is empty. |
 
 </rollback>
-
-<orchestrator-constraints>
-You coordinate — you do NOT implement code yourself.
-
-| Orchestrator handles directly | Agents handle via delegation |
-|------------------------------|------------------------------|
-| Syntax errors visible in output | Feature implementation |
-| Import path corrections | Business logic changes |
-| Config file typos | Complex debugging |
-| Test setup/polyfills | Multi-file refactoring |
-| | Investigation work |
-
-The escape hatch in Step 3 may route backward only — to planning or implementation. Forward progress to merge requires `failure-mode` `VERDICT: APPROVED` in Step 5. Never finalize the card from this skill without that verdict, regardless of how complete the implementation appears.
-
-**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
-</orchestrator-constraints>

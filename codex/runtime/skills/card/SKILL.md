@@ -1,7 +1,15 @@
 ---
 name: card
-description: Evaluate card state and load the appropriate reference.
+description: Evaluate card state and orchestrate the matched workflow with judgment-scaled weight — inline work, ad-hoc subagents, or full contest/evaluator/developer-wave protocols.
 ---
+
+**Use as few tokens as possible in this session by using subagents.**
+
+<judgment>
+Every reference offers a spectrum of weights: do the step inline, dispatch ad-hoc subagents, or run a multi-agent protocol (`./references/contest.md`, `./references/developer-wave.md`, `./references/evaluation-wave.md`). Choose the weight per step by unknowns, scope, and risk — unknowns, not work volume. Once you enter a protocol, follow it as written; discretion governs entry, not the protocol's internals.
+
+Use forked subagents for open-ended tasks suited to parallelization such as research, or when "fresh eyes" are required for tasks such as review. Development work follows `./references/developer-wave.md`'s persistent developer team. Choose the model most appropriate for the task; subagent tasks should be achievable within a single session.
+</judgment>
 
 <execution-environment>
 
@@ -22,7 +30,7 @@ A matching gate overrides this default only for the action the gate names, and o
 </execution-environment>
 
 <routing-constraints>
-Route only — evaluate, select, and load. The loaded reference does the work.
+Route only — evaluate, select, and load. The loaded reference does the work; run it directly or via subagents as best fits the task.
 </routing-constraints>
 
 <quiet>
@@ -39,7 +47,7 @@ Read `$CARD_REPO_PATH/CARD.meta.json` for current `gates.*` and `tags`. Obtain t
 
 ### 1.2 Derive Routing Signals
 
-> **Comment authorship convention**: Determine authorship from the git commit that added each comment file: `git log --diff-filter=A --format='%an' -1 -- comments/<file>`. User-authored comments are committed by the user's git identity; agent-authored comments are committed by the agent's git identity. Sort `comments/*.md` by modification time; the most recent user-authored file is the "latest user comment."
+> **Comment authorship convention**: Determine authorship from the git commit that added each comment file: `git log --diff-filter=A --format='%an' -1 -- comments/<file>`. User-authored comments are committed by the user's git identity; agent-authored comments are committed by your git identity. Sort `comments/*.md` by modification time; the most recent user-authored file is the "latest user comment."
 
 | Signal | Derivation |
 |--------|------------|
@@ -67,7 +75,7 @@ Select the **first** matching condition and note the matched reference:
 | PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN | `plan-feedback` |
 | PLAN_REQUIRED AND NOT PLAN_APPROVED | `plan` |
 | NOT DOR_MET | `clarify-and-enrich` |
-| PLAN_REQUIRED AND PLAN_APPROVED | `implementation-with-plan` |
+| PLAN_REQUIRED AND PLAN_APPROVED | `implementation` |
 | IS_TESTABLE_BUG | `bug` |
 | HAS_WORK | `validate` |
 | Otherwise | `plan` |
@@ -76,6 +84,6 @@ Select the **first** matching condition and note the matched reference:
 
 ## 3. Load Routed Reference
 
-Read `./references/[MATCHED].md` and follow its instructions.
+Read `./references/[MATCHED].md` and follow its instructions, choosing execution weight per `<judgment>`.
 
 </routing-instructions>

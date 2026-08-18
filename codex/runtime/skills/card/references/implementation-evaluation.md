@@ -1,8 +1,4 @@
 
-<placeholder-variables>
-[EFFORT] — Exploration depth briefed to a spawned developer child, chosen by the work's complexity (light, standard, or deep) per `./implementation-with-plan.md`'s `<effort-selection>`
-</placeholder-variables>
-
 <instructions>
 
 ## 1. Stage Uncommitted Changes
@@ -21,161 +17,36 @@ COMMITMSG
 
 ## 2. Pre-Evaluation Validation
 
-Run validation per the plan's validation commands.
+Run validation per the plan's validation commands (or the workspace validation configuration, when no plan exists).
 
-Based on the result:
-- **All validations pass**: Proceed to Step 3: Select Evaluation Depth.
-- **Failure**: Treat each failure's output as an initial finding, then proceed to Step 6: Dispatch Developer Wave. After Step 7: Validate and Commit, return to Step 2: Pre-Evaluation Validation.
+- **All validations pass**: Proceed to Step 3: Review.
+- **Failure**: Treat each failure's output as an initial finding. Proceed to Step 4: Apply Fixes, then return here.
 
-## 3. Select Evaluation Depth
+## 3. Review
 
-Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
+Diff `implement/[CARD_ID]/baseline..HEAD` to see the full scope of changes, then read the card (and plan, if one exists) again with that diff in hand.
 
-| Depth | What runs |
-|-------|-----------|
-| Standard | One `$runtime:card-failure-mode` evaluator child |
-| Deep | One `$runtime:card-failure-mode` child + one `$runtime:card-experience-evaluator` child |
+**Choose the review weight.** When independent adversarial review beats a re-read — you implemented the work yourself, the diff is large, or it introduces new API boundaries, shared state, async/error-path logic, or user-facing behavior changes — read `./evaluation-wave.md` and follow it in place of Steps 3–6; it finalizes and returns to the caller itself. Otherwise review inline below; a fresh-eyes subagent per angle is a middle weight worth considering.
 
-Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
+Evaluate from both angles below and list every finding — do not stop at the first one:
 
-The evaluator children form an ephemeral spawn tree under you. There is no team to create — you spawn the evaluators directly in Step 4, and they return their results to you when their tasks complete. Across revision rounds you re-engage the same lanes: `send_message` a live evaluator, `resume_agent` a completed one (it restores with its findings in context), and spawn a fresh evaluator with prior findings inlined only when resumption fails (Step 8: Trigger Re-Evaluation).
+**Failure modes.** Perform a failure mode and effects analysis on the implementation. Trace consumers, data flow, and error paths for each change. Where could this break at runtime that the validation suite wouldn't catch — new API boundaries, async/error-path logic, shared state, silently drifting contracts?
 
-## 4. Spawn Evaluators
+**Delivered experience.** Read the card's acceptance criteria and exercise the implementation from its user-facing entry points. Does it deliver what the card asked for, not just what the diff technically implements?
 
-Read the diff and the card before writing the spawn messages. Each message must reflect the specific nature of this implementation and this card, and must tell the child which `$skill` to use. Record the HEAD SHA you spawn against and inline it in every message; the tree must be clean at spawn.
+- **No findings**: Proceed to Step 6: Finalize.
+- **One or more findings**: Proceed to Step 4: Apply Fixes.
 
-Based on depth:
-- **Standard**: `spawn_agent` one `failure_mode` child.
-- **Deep**: `spawn_agent` a `failure_mode` child and an `experience_evaluator` child so they run concurrently.
+## 4. Apply Fixes
 
-For the `failure_mode` child (`task_name: failure_mode`), the `message`:
+Fix every finding. Keep changes minimal and focused on the findings — do not use this pass to make unrelated improvements. If a developer team is live, route every finding to its package's worker as a task (a fresh worker for a package with none) and apply `./developer-wave.md`'s `<integration-gate>` — do not fix inline. Otherwise fix inline; with many findings, dispatch a developer team per `./developer-wave.md`, validating and committing their work yourself.
 
-```
-Use the $runtime:card-failure-mode skill and follow it from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Record each finding with a `FINDING:` marker and report a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` as your final message to me, the orchestrator that spawned you. On Deep depth I relay the experience-evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
+## 5. Validate and Commit
 
-## Card Repository
-[CARD_REPO_PATH]
+Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2.
 
-## Workspace
-[WORKSPACE_PATH]
-
-## Baseline
-Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.
-
-## Validation
-All validation has passed. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
-
-[Describe the specific failure risks this implementation presents. Where does the diff suggest the implementer's attention was concentrated, and where are the blind spots most likely? Which runtime paths are unexercised by tests, which contracts may drift silently, and which consumer assumptions break? Write this from what you found in the diff and the card, not as generic instructions.]
-```
-
-For **Deep**, also spawn the `experience_evaluator` child (`task_name: experience_evaluator`) with the `message`:
-
-```
-Use the $runtime:card-experience-evaluator skill and follow it from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. Record each finding with a `FINDING:` marker and report a verdict as your final message to me, the orchestrator that spawned you. I relay the failure-mode evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-## Baseline
-Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never exercise the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.
-
-## Validation
-All validation has passed. Focus on what a user would experience as broken, wrong, or missing that the validation suite does not cover.
-
-[Translate the card's requirements into user scenarios this implementation must satisfy: acceptance criteria to verify, user-facing entry points, what a user testing against the card should do and observe. Write this from what you found in the card, not as a generic description.]
-```
-
-## 5. Collect Verdicts and Route
-
-Each evaluator child returns a structured final report to you when its task completes, and on a live re-evaluation reports a fresh verdict via the same channel. Each report carries two kinds of content:
-
-- **`FINDING:` entries**: Record each finding (short label and body) so you can route it into a developer wave in Step 6 and, after fixes land, brief the evaluators on what changed. Keep what you need to do those two things — not a cross-referenced ledger.
-- **`VERDICT:` line**: Record the verdict for this round. From an `APPROVED` body, capture the open sub-blocking list (label + witness) — it is the pre-finalize sweep's only input.
-
-On Deep depth you mediate cross-evaluator critique: relay each evaluator's `FINDING:` entries to the peer evaluator (via `send_message` if the peer is still live, or inlined into the peer's next resume or spawn message), and relay any `CRITIQUE: <label>` an evaluator includes back to the evaluator it targets. If an evaluator verifies a relayed critique and folds it into its own findings, it returns that as a fresh `FINDING:` in its report. Treat each `FINDING:` as a record from its sender — do not deduplicate across evaluators. Two evaluators may legitimately raise the same underlying issue from different angles; the developer wave's message will inline both labels.
-
-Continue until every spawned evaluator has reported a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, re-engage the evaluator to publish the note and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` routes immediately; if its note is missing at round 1, add "publish your questions note before your next verdict" to that lane's Step 8 re-evaluation message. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
-
-An evaluator that reported dirty paths instead of a verdict is the exception. Commit or revert the outstanding changes, then re-engage that lane with the new HEAD SHA — never spawn a fresh replacement, which would re-open findings already accepted.
-
-Otherwise, an evaluator that finished its task without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run. Re-engage the lane first — `send_message` if live, `resume_agent` if completed — never spawn a replacement without a failed re-engagement attempt on record.
-
-A fresh replacement is a new child with no prior context. Spawn it through Step 4, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Point it at its lane's questions note in the card repository's `notes/` (`failure-mode-questions` or `user-outcome-questions`) and inline the known prior-round findings for its lane into its spawn message so it does not have to rediscover them. It evaluates HEAD from scratch but **inherits the replaced evaluator's round number** — question-gating and the blocking threshold count per evaluation, not per agent instance; state that round number in its spawn message. The normal Step 8 re-evaluation loop then covers it like any other evaluator.
-
-A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
-
-Based on the aggregated verdicts:
-- **All APPROVED** (every spawned evaluator reported `VERDICT: APPROVED`): Proceed to Step 9: Finalize. This is the only path to Finalize. Do not accept fewer than the full evaluator set.
-- **Any CHANGES_REQUESTED** (at least one evaluator reported `VERDICT: CHANGES_REQUESTED`, regardless of other evaluators' verdicts): Proceed to Step 6: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.
-- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, let any still-live evaluators finish per Step 9: Finalize, and **STOP**.
-
-## 6. Dispatch Developer Wave
-
-Group the findings by coherence, using the same routing principle as `./implementation-with-plan.md`'s `<dispatch>`:
-- **Independent files OR uniform fixes**: Parallel — concurrent developers, one commit after the group returns.
-- **Dependent + varied + small**: Coherent — single developer for all findings, one commit.
-- **Dependent + varied + substantial with clear gates**: Sequential — ordered developers with a validate-and-commit gate between phases.
-
-When uncertain between Coherent and Sequential, choose **Sequential**.
-
-Trivial findings (stale prose, wrong figures, comment drift) never justify their own group — batch each into whichever developer already owns the file.
-
-Choose [EFFORT] per the same tiering as `./implementation-with-plan.md`'s `<effort-selection>`.
-
-Developer children are spawned as leaves of the tree and receive no follow-up after spawn — same single-message style as `./implementation-with-plan.md`'s `<dispatch>`. Inline every finding the developer must address into its spawn `message`; do not stream new findings to a running developer. For Parallel routing, `spawn_agent` one developer child per independent group (descriptive `task_name` like `fix_group_1`) so they run concurrently. Each developer owns the files referenced in its assigned findings. The spawn `message`:
-
-```
-Use the $runtime:card-developer skill.
-
-## Task
-Apply fixes for the findings below. Do not run full validation and do not commit — the orchestrator validates and commits after you return.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-## Baseline
-HEAD reflects the implementation under evaluation. The implementation baseline is git tag `implement/[CARD_ID]/baseline`.
-
-## Findings
-
-### [short label]
-[full finding body — include the file or runtime path it applies to]
-
-[Repeat per finding assigned to this developer.]
-
-## File Ownership
-This work owns: [absolute paths the findings touch — do not modify files outside this set without orchestrator confirmation]
-
-## Guidelines
-- Apply the fix for every finding above
-- Keep changes minimal and focused on the findings
-- Follow existing patterns
-- A fix introducing a new mechanism lands with a regression test for it and an end-to-end exercise of the mechanism composed with what it touches; report each such witness (mechanism → test/command) when you return
-
-## Success Criteria
-- [ ] Every finding addressed
-- [ ] Types correct
-- [ ] Follows existing patterns
-```
-
-## 7. Validate and Commit
-
-Wait for every developer child in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
-
-Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2: Pre-Evaluation Validation. Confirm every new mechanism the wave introduced carries its regression test and composed exercise (the Step 6 guideline); one without them is an implementation error — re-dispatch per the bullet below.
-
-Based on the combined result:
-- **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.
-- **Developer-introduced error** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above. These are mechanical corrections to errors the developer wave introduced — not resolutions of evaluator findings. If the fix addresses an evaluator finding, discard and re-dispatch per the next bullet.
-- **Error requires implementation changes**: Discard the group's uncommitted work and re-dispatch per Step 6: Dispatch Developer Wave with regrouped findings (split a too-large group into smaller ones if a single developer's work failed to cohere; combine related findings if separate developers produced conflicting changes).
-
-Commit on success — you own every commit; developers do not commit:
+- **All pass**: Commit per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2, return there. Otherwise return to Step 3 and re-review against the new HEAD — a fix can introduce a finding of its own.
+- **Failure**: Fix and re-run.
 
 ```bash
 git add -A
@@ -185,42 +56,8 @@ COMMITMSG
 )"
 ```
 
-Discarding uncommitted work for re-dispatch:
+## 6. Finalize
 
-```bash
-git restore .
-git clean -fd
-```
-
-## 8. Trigger Re-Evaluation
-
-Re-engage every evaluator lane against the revised implementation. If an evaluator is still live, `send_message` it the re-evaluation context by its task path; if its task already completed, `resume_agent` it and send the same context — it resumes per its skill's "When Resuming" path with its findings in context. Only if resumption fails, `spawn_agent` a fresh child for that lane and inline its prior findings plus the re-evaluation context into the spawn `message`. On Standard depth this is one lane (`failure_mode`); on Deep depth, re-engage both lanes.
-
-The evaluator holds its own findings in context (live or resumed) or receives them inlined (spawned replacement). Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The evaluator re-checks against the new HEAD on its own judgment. The message:
-
-```
-The implementation has been updated to address the prior round's findings. Re-evaluate against commit [HEAD_SHA]; the tree is clean at that commit.
-
-Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
-What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
-New witnesses: [mechanism → test/command, for each new mechanism the wave introduced — omit if none]
-Not fixed: [any finding the wave could not address, and why — omit if none]
-
-RE_EVALUATE
-```
-
-For Deep, deliver the same message to the `experience_evaluator` lane.
-
-Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed Implementation" section) and reports a fresh verdict for this round. Return to Step 5: Collect Verdicts and Route. The loop continues until every evaluator reports `APPROVED`, or a BLOCKED branch fires.
-
-## 9. Finalize
-
-Do not enter this step unless every spawned evaluator has reported `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path, including after applying fixes yourself (the pre-finalize sweep excepted), return to Step 5 and collect the remaining verdicts.
-
-**Pre-finalize sweep.** If sub-blocking findings or witness repairs remain open (the lists from the `APPROVED` bodies), spawn one final developer wave for them per Step 6, scoped to the listed findings' own files — no discretionary refactoring; group by file ownership as usual. Validate per Step 7's lint/typecheck paragraph and commit with its commit block — do **not** follow Step 7's routing into Step 8 — then re-run each repaired witness yourself and confirm the expected result, and run Step 2's validation commands — not its routing — before finalizing. If a witness re-run fails or validation cannot pass, fall back to Step 8 — that is the only path from the sweep into a re-evaluation round. Skip the sweep when nothing is open.
-
-The evaluator children auto-terminate when their tasks complete; there is no team to tear down. Wait for any still-live evaluator to finish, and do not spawn new ones.
-
-Do not modify gates in `CARD.meta.json`.
+Reached only once Step 3 completes with no findings. Do not modify gates in `CARD.meta.json`. Return control to the caller.
 
 </instructions>

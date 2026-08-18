@@ -12,7 +12,6 @@
 
 import { defineConfig } from '@cards.management/sdk/config';
 // Action handlers
-import admiral from './src/actions/admiral.js';
 import captain from './src/actions/captain.js';
 import chat from './src/actions/chat.js';
 import interview from './src/actions/interview.js';
@@ -26,7 +25,7 @@ export default defineConfig({
     default: {
       version: 1,
       description: 'Standard Claude Code workflows',
-      actions: [launch, interview, chat, captain, admiral],
+      actions: [launch, interview, chat, captain],
       streams: {
         'claude-code-session': {
           version: 1,

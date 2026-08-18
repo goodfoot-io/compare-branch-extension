@@ -11,11 +11,16 @@ git tag "implement/$CARD_ID/baseline" HEAD  # skip if the tag already exists
 
 ## 2. Implement
 
-This is the Tier-1 path: the card describes one obvious mechanism, no plan was required. If that turns out to be false during work, see `<when-to-return-to-planning>`.
+Check `plans/` in the card repository for plan files.
 
-Read `CARD.md` for goals and constraints. Read `CARD.meta.json` for current `title`, `gates`, and `tags`. Implement directly from the card description.
+- **Plan file(s) exist**: Execute the plan's tasks. When multiple plan files exist, treat the one with the most recent commit touching it as layering on top of older ones (`git log -1 --format=%H -- plans/<file>`). Do not rewrite the plan while implementing it — if it turns out to be wrong, see `<when-to-return-to-planning>`.
+- **No plan file**: The card describes one obvious mechanism and no plan was written. Implement from `CARD.md`. If mid-work you discover the mechanism isn't obvious after all, see `<when-to-return-to-planning>`.
 
-Work proceeds in **logical units**. A logical unit is a coherent change that leaves the workspace type-check-clean and tests-passing — the natural point to commit and tag a rollback. For each unit:
+Read `CARD.md` for goals and constraints and `CARD.meta.json` for current `title`, `gates`, and `tags` before starting.
+
+**Choose the execution weight.** Implement directly when the whole card is small enough that direct edits beat a handoff — proceed in logical units below. Otherwise read `./developer-wave.md`, split the work into packages, and dispatch a persistent developer team; its own `<integration-gate>` replaces `<per-unit-gate>` and `<final-validation-gate>` below.
+
+Direct implementation proceeds in **logical units** — a coherent change that leaves the workspace type-check-clean and tests-passing, the natural point to commit and tag a rollback. For each unit:
 
 1. Read relevant files.
 2. Implement the change.
@@ -35,13 +40,11 @@ Diff `implement/$CARD_ID/baseline..HEAD` to assess scope: number of files change
 - **Simple** — single-file change, or mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation; proceed to Step 4.
 - **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
 
-When an evaluator needs to verify behavior against the pre-implementation state, spawn a `$runtime:card-pre-existing-condition` child rather than running the comparison in the active workspace — the child owns baseline reproduction and reports the result back.
-
 ## 4. Finalize
 
 The card is not COMPLETED until every part of this section has run. Passing the final validation gate at the end of Step 2 is not the terminal state — staging, tag cleanup, and the merge decision all follow.
 
-**Stage remaining changes.** Stage any uncommitted implementation artifacts and commit per the workspace commit style:
+**Stage remaining changes.** If a developer team is live, drain it per `./developer-wave.md` `<lifecycle>` first. Stage any uncommitted implementation artifacts and commit per the workspace commit style:
 
 ```bash
 git add -A
@@ -65,18 +68,11 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 <implementation-discipline>
 
-**Scope is the card's scope.** Implement only what the card specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `$cards:cards`) for discoveries in code the change does not interact with before finalizing.
+**Scope is the card's scope.** Implement only what the card (or plan) specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `$cards:cards`) for discoveries in code the change does not interact with before finalizing.
 
 **Zero errors in affected packages.** Fix priority: pre-existing errors, then direct implementation, then test infrastructure, then environment.
 
 **No mocks.** Test with real implementations. Use dependency injection so code stays testable, and create thin adapter interfaces with real test implementations for external services — never mock libraries or framework internals.
-
-```typescript
-function createHandler(db: Database, logger: Logger) { ... }
-
-const db = createTestDatabase();
-const handler = createHandler(db, testLogger);
-```
 
 **Iterate, then escalate.** On validation failure, fix and re-run. When repeated attempts produce no new information, stop and route via `<final-validation-gate>` rather than thrashing.
 
@@ -90,40 +86,53 @@ Lint and typecheck per the project's AGENTS.md validation conventions. Re-run on
 
 - **All pass** — commit, then tag the rollback point.
 - **Failure originates in this unit's changes** — fix and re-run.
-- **Otherwise** — proceed to `<final-validation-gate>` and apply its routing (in-scope fix, pre-existing-condition dispatch, or block).
+- **Otherwise** — proceed to `<final-validation-gate>` and apply its routing.
 
 </per-unit-gate>
 
 <final-validation-gate>
 
-After all logical units are complete, run validation per the workspace validation configuration. Every command must pass before proceeding to Step 3.
+After all logical units are complete, run validation per the workspace validation configuration (or the plan's validation commands, when following a plan). Every command must pass before proceeding to Step 3.
 
 - **All pass** — proceed to Step 3.
 - **Failure originates in files the card's diff touched** — fix and re-run.
-- **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$runtime:card-pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the spawned child. The `message`:
-
-  ```
-  Use the $runtime:card-pre-existing-condition skill.
-
-  ## Failing Command
-  [the failing command]
-
-  ## Failure Output
-  [full stdout/stderr from the failing command]
-
-  ## Active Card Diff Scope
-  [list of files the active card has modified since `implement/$CARD_ID/baseline`]
-
-  ## Task
-  Decide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the full validation command. If it does not, return NOT_PRE_EXISTING with the baseline output.
-  ```
-
-  On the child's return:
-  - **COMPLETED** — re-run the validation command and proceed to Step 3 if it passes.
-  - **NOT_PRE_EXISTING** — the failure is in scope of this card; fix and re-run.
-  - **NEEDS_REVISION or BLOCKED** — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and the agent's report to `comments/validation-failed.md`, commit both files, and **STOP**.
+- **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — diagnose per `<pre-existing-diagnosis>` before deciding whether to fix or block.
 
 </final-validation-gate>
+
+<pre-existing-diagnosis>
+
+Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$runtime:card-pre-existing-condition` — it reproduces on baseline, repairs pre-existing root causes, and reports back `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise:
+
+```
+Use the $runtime:card-pre-existing-condition skill.
+
+## Failing Command
+[the failing command]
+
+## Failure Output
+[full stdout/stderr from the failing command]
+
+## Active Card Diff Scope
+[list of files this card has modified since `implement/$CARD_ID/baseline`]
+
+## Task
+Decide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the full validation command. If it does not, return NOT_PRE_EXISTING with the baseline output.
+```
+
+To diagnose yourself instead, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
+
+```bash
+create-worktree "implement/$CARD_ID/baseline"
+```
+
+Run the failing command in that worktree, then delete the worktree and branch.
+
+- **Reproduces on baseline** — the failure predates this card's changes. Try cheap remedies first (sync with the local base branch, reinstall dependencies, rebuild derived artifacts); if that doesn't clear it, repair the root cause in the active workspace, then re-run the full validation command.
+- **Does not reproduce on baseline** — the failure is in scope of this card's work; fix it and re-run.
+- **Structural obstacle** (unreachable services, missing system tools or credentials, hardware constraints, an unresolved upstream bug on the base branch) — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and your diagnosis to `comments/validation-failed.md`, commit both files, and **STOP**.
+
+</pre-existing-diagnosis>
 
 <when-to-return-to-planning>
 
@@ -132,9 +141,10 @@ At any point during implementation, stop and return to planning if any of the fo
 1. **Implementation creates problems it then has to solve** — the approach introduces complexity that wouldn't exist with a different approach: timing windows, error-handling machinery, interface mismatches caused by the approach itself.
 2. **Load-bearing assumption proved false** — the implementation depends on something about the codebase that turns out to be untrue or uncertain ("only one caller," "always returns X," "this field is optional"). The correct path forward now depends on what the truth implies.
 3. **Approach fork with non-trivial tradeoffs** — a decision point arises where multiple viable paths have meaningfully different implications (correctness, performance, future extensibility) that can't be resolved by reading the code alone.
-4. **Scope exceeded the card's implied boundary** — the in-scope work must touch significantly more files or systems than the card described. Discovering issues in code the change does not interact with is *not* this condition — create a new card for those and continue.
+4. **Scope exceeded the card's implied boundary** — the in-scope work must touch significantly more files or systems than the card (or plan) described. Discovering issues in code the change does not interact with is *not* this condition — create a new card for those and continue. Scope too large for one worker is also not this condition — split into another package per `./developer-wave.md`.
+5. **A plan assumption proved false, or the plan missed scope that changes the approach, or a completed planned step invalidates a later one** — when following a plan, any of these means the plan needs revision, not a workaround.
 
-When any condition holds, **stop immediately**. Revert to baseline and discard step tags:
+When any condition holds, **stop immediately**. If a developer team is live, drain it per `./developer-wave.md` `<lifecycle>` first. Revert to baseline and discard step tags:
 
 ```bash
 git reset --hard "implement/$CARD_ID/baseline"
@@ -145,4 +155,3 @@ git tag -l "implement/$CARD_ID/step-*" | xargs -r git tag -d
 Read `./plan.md` and follow its instructions. The discoveries made during implementation — the false assumption, the scope boundary, the fork — are live context for the next approach.
 
 </when-to-return-to-planning>
-

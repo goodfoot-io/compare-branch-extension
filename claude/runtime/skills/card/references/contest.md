@@ -1,6 +1,6 @@
 # Parallel Planner Contest
 
-Tier 3 and tier 4 orchestration: dispatch multiple planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.
+Dispatch multiple planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.
 
 Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-but-revocable (see `<definitions>` and Closure below).
 
@@ -15,10 +15,12 @@ Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-b
 </definitions>
 
 <placeholder-variables>
-[N_PLANNERS] — Number of parallel planners (2 for tier 3, 4 for tier 4)
-[PLANNER_MODEL] — `sonnet` for every planner at tier 3; alternate `sonnet`/`opus` across planner slots at tier 4
+[N_PLANNERS] — Number of parallel planners, chosen by the caller (2–4) by the size of the solution space
+[PLANNER_MODEL] — Chosen per planner slot: the model that handles most planning work reliably by default; mix in the strongest available model for slots facing the deepest unknowns
+[REVIEWER_MODEL] — Chosen by the same unknowns-depth judgment as `[PLANNER_MODEL]`: the strongest available model when the contest's unknowns run deep, otherwise the model that handles most review work reliably
 [WINNING_PLANNER] — The `planner-N` subagent the reviewer named in its `WINNER:` DM
 [WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` DM (e.g., `initial`, `phase-2`, `schema-first`)
+[PRE_EXISTING_UNAPPROVED_FILES] — Un-approved plan files (and sidecars) that existed before the contest and were not seeded as the incumbent; empty when none
 </placeholder-variables>
 
 <instructions>
@@ -27,7 +29,7 @@ Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-b
 
 Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plans/[AGENT_NAME].md`.
 
-**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a tier-2 `plans/initial.md` that never reached approval), pick the most substantive one and seed `planner-1` with it as the **incumbent**: `git mv` the file to `plans/planner-1.md` (and its `.meta.json` sidecar) before dispatch, and add an `## Incumbent Role` section to `planner-1`'s prompt below directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
+**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a prior solo plan that never reached approval), pick the most substantive one and seed `planner-1` with it as the **incumbent**: `git mv` the file to `plans/planner-1.md` (and its `.meta.json` sidecar) before dispatch, and add an `## Incumbent Role` section to `planner-1`'s prompt below directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
 
 ```xml
 <invoke name="Agent">
@@ -55,13 +57,13 @@ Your peer planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]` (exc
 
 ## 2. Dispatch the Reviewer
 
-Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners. It reviews each plan as its `PLAN: READY` DM arrives and remains active until the contest closes:
+Dispatch exactly one `plan-failure-mode` subagent in the same message as the planners so its questions note lands before their first round. It reviews each plan as its `PLAN: READY` DM arrives and remains active until the contest closes:
 
 ```xml
 <invoke name="Agent">
 <parameter name="description">Plan failure-mode review (multi-plan contest)</parameter>
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
-<parameter name="model">opus</parameter>
+<parameter name="model">[REVIEWER_MODEL]</parameter>
 <parameter name="name">plan-failure-mode</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
@@ -100,7 +102,7 @@ The ⇄ is revocation: a question raised later by a peer's plan can drop an appr
 
 A reviewer idle with a `PLAN: READY` unanswered is a stall, never an implied verdict — wake it naming the planner and round.
 
-A `VERDICT:` missing its `for:planner-N` or round tag updates no state — require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.
+A `VERDICT:` missing its `for:planner-N` tag — or missing its round tag, except `VERDICT: BLOCKED` and `WINNER:`, which are round-agnostic — updates no state; require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.
 
 ### Closure — Judgment, Not a Handshake
 
@@ -112,9 +114,9 @@ The only things that legitimately reopen a closeable field: a planner choosing t
 
 ### Convergence Collapse (Instrumented)
 
-When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` DMs plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` in the DM body — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.
+When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` DMs (copied to you) plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` in the DM body — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.
 
-After the `WINNER:` DM, before Step 5: DM each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; DM `CRITIQUE: ... for:[WINNING_PLANNER]` for every real risk you find in the winning plan. The reviewer verifies critiques, streams verified findings to the winner, and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and the red-teamers have settled — settling is silence, as in Step 3 closure. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.
+After the `WINNER:` DM, before Step 5: DM each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; DM `CRITIQUE: ... for:[WINNING_PLANNER]` for every real risk you find in the winning plan. The reviewer verifies critiques, streams verified findings to the winner, and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and every red-teamer's idle notification has arrived — you cannot see `CRITIQUE:` traffic, so idle is the only settle signal. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.
 
 **Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 4 — the reviewer's lone-survivor branch names the survivor without comparison.
 
@@ -176,7 +178,7 @@ Only if a subagent is still actively working when you need to close — and you 
 </invoke>
 ```
 
-If there is a winner, promote the winning plan and delete every other plan file. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` DM body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:
+If there is a winner, first append the open sub-blocking findings from the `WINNER:` body (label + witness) as a `## Known Open Findings` section at the end of `plans/[WINNING_PLANNER].md` — implementation inherits them and reads the plan, not your context. Then promote the winning plan and delete the losing planner files. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` DM body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:
 
 ```bash
 cd $CARD_REPO_PATH
@@ -185,12 +187,9 @@ cd $CARD_REPO_PATH
 git mv plans/[WINNING_PLANNER].md plans/[WINNING_SLUG].md
 git mv plans/[WINNING_PLANNER].md.meta.json plans/[WINNING_SLUG].md.meta.json
 
-# Remove every other tracked file in plans/ — losing planner files AND any pre-existing
-# un-approved plans (e.g., a tier-2 plans/initial.md that never reached approval). Only the
-# winner's two files survive.
-git ls-files plans/ \
-  | grep -vE '^plans/[WINNING_SLUG]\.md(\.meta\.json)?$' \
-  | xargs -r git rm
+# Remove the losing planner files and any pre-existing un-approved plan you chose not to
+# seed. Never remove approved or implemented plans — follow-on work layers on them.
+git ls-files 'plans/planner-*' [PRE_EXISTING_UNAPPROVED_FILES] | xargs -r git rm
 
 git commit -m "[single sentence summarizing the winning approach]"
 ```

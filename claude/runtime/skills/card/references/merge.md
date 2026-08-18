@@ -1,4 +1,8 @@
 
+<placeholder-variables>
+[CARD_ID] — The current card identifier
+[BASE_BRANCH] — The branch the card's worktree was created from
+</placeholder-variables>
 
 <instructions>
 
@@ -39,7 +43,7 @@ If rebase moved commits, run linting, type checking, and tests.
 - All validation commands must execute and pass — a command that errors before producing results is a failure
 - Fix any errors you encounter — do not dismiss errors as "pre-existing" or "unrelated"
 - "Resolve or block" is the only valid outcome — there is no "proceed despite errors" path
-- Fix infrastructure failures (missing dependencies, path issues) directly — do not work around them
+- Fix infrastructure failures (missing dependencies, path issues) — do not work around them
 - Creating a card is not an alternative to fixing a validation failure — test failures, lint errors, and type errors must be fixed in this branch
 - **If blocked by an issue outside the validation toolchain** (e.g., missing credentials, network outage, unavailable service): Report by adding to existing open cards about the block, or create a new card with "todo" status
 

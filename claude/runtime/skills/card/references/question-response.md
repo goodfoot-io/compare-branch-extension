@@ -1,12 +1,11 @@
 
-
 <instructions>
 
 ## 1. Research the Answer
 
 Read the most recent user comment in the card repository to identify the question.
 
-Trace code and data flow paths in the workspace to find information relevant to the question. Use whatever combination of searches, reads, and tools best fits the question.
+Investigate the workspace to find information relevant to the question. If the question opens several lines of inquiry, fork a subagent per line.
 
 ## 2. Write Comment and Commit
 

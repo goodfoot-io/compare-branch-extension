@@ -1,3 +1,4 @@
+
 <placeholder-variables>
 [CARD_ID] — The current card identifier
 [BASE_BRANCH] — The branch the card's worktree was created from

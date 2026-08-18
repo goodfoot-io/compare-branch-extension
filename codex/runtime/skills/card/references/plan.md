@@ -1,67 +1,105 @@
 
-
 <placeholder-variables>
-[N_PLANNERS] — Number of parallel planners for the selected tier (2 for tier 3, 4 for tier 4)
+[PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plans/initial.md`, or `plans/phase-N.md` for follow-on work)
 </placeholder-variables>
 
 <instructions>
 
-## 1. Select Planning Tier
+## 1. Assess Starting State
 
-Tier selection is driven by **unknowns**, not work volume. Parallel planners exist to explore the *solution space* — the value of running more planners grows with the number of viable approaches, not with the number of files or lines of code. A large, mechanical change with one obvious approach is tier 2 even if it touches many files. A small change with several plausible mechanisms, contested trade-offs, or ambiguous acceptance criteria is tier 3 or 4 even if it touches one file.
+If `gates.planApproved` is true, skip to Step 5: Route to Implementation — the plan is already approved.
 
-Read CARD.meta.json and assess the unknowns:
+Read `CARD.md` for goals and constraints. Read `CARD.meta.json` for current `title`, `gates`, and `tags`. Read the contents of the 5 most recent `comments/*.md` files for context.
 
-- **How many reasonable approaches could a planner take?** One → tier 2. Two or three → tier 3. Four or more → tier 4. Count only genuine architectural forks — approaches that differ in mechanism with real trade-offs. Variations of one mechanism are one approach and do not raise the tier.
-- **How contested are the trade-offs?** If competing approaches each optimize for a different axis (performance vs. simplicity, correctness vs. migration effort, consistency vs. incremental rollout), the space is worth exploring.
-- **How ambiguous is the card?** Acceptance criteria open to multiple user-experience interpretations favor more planners.
-- **How much unverified domain knowledge does planning require?** Unfamiliar libraries, concurrency primitives, external APIs, or legacy subsystems raise the unknowns count.
+Check whether any plan files exist in `plans/` in the card repository:
 
-Volume-only cards — many files but one mechanism — do **not** warrant tier 3 or 4. If the only question is execution effort, tier 2 is correct.
+- **`plans/` contains at least one `.md` file**: Go to Step 1.1.
+- **No plan files exist**: Go to Step 2.
 
-| Tier | When |
-|------|------|
-| 1 | No plan — one obvious mechanism, minimal risk, planning adds no value |
-| 2 | Orchestrator self-plans inline — one approach dominates; work may be large but direction is clear |
-| 3 | 2 `$runtime:card-planner` children + 1 `$runtime:card-plan-failure-mode` reviewer — 2–3 plausible approaches with real trade-offs |
-| 4 | 4 `$runtime:card-planner` children + 1 `$runtime:card-plan-failure-mode` reviewer — 4+ plausible approaches or deep unknowns that benefit from diverse exploration |
+### 1.1 Evaluate Existing Plans
 
-If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–4).
+Read all plan files from the `plans/` directory. Compare the plans against the current card state — comments added after a plan was last modified may contain new requirements, feedback, or context.
 
-If `gates.planApproved` is true, skip to Step 3: Route to Implementation — the plan is already approved, proceed to implementation.
+Determine whether prior plans have been implemented by checking for workspace commits on the current branch that correspond to plan tasks.
 
-If plan files already exist in `plans/` but are not approved, the minimum tier is 3 — always spawn at least one `$runtime:card-plan-failure-mode` reviewer to evaluate the existing plan. The contest is the mechanism by which that evaluation happens: per `./contest.md`, one planner is seeded with the pre-existing plan as the **incumbent** and defends it through review; the others draft fresh as challengers. This way the prior work is actually graded rather than re-derived in parallel.
+- **Prior plan(s) implemented and new work requested** (follow-on): Go to Step 2 to plan the new work. Treat prior plans and their implementation as established context — do not revise completed plans.
+- **Plan is current and no new information**: Proceed to Step 3.
+- **New information requires plan revision**: Incorporate changes into `[PLAN_FILE]`, commit, then go to Step 3.
 
-## 2. Dispatch
+## 2. Choose Planning Weight
 
-The gates evaluated in Step 1 (`gates.planRequired`, `gates.planApproved`) are the only authorization required to dispatch. Do not pause to confirm tier selection, plan size, or scope with the user before entering a tier. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
+Weight tracks **unknowns, not work volume**. Count genuine architectural forks — mechanisms with real trade-offs; variations of one mechanism are one approach. A large mechanical change with one obvious mechanism is a solo plan even if it touches many files; a small change with several plausible mechanisms, contested trade-offs, or ambiguous acceptance criteria warrants a contest even if it touches one file. Unverified domain knowledge — unfamiliar libraries, concurrency primitives, external APIs, legacy subsystems — raises the unknowns count.
 
-### Tier 1
+- **Solo (default)** — one approach dominates, or the forks resolve by reading source. Continue to Step 2.1.
+- **Contest** — two or more approaches with real trade-offs, or unknowns deep enough that diverse exploration pays for itself. Read `./contest.md` and follow its instructions, choosing `[N_PLANNERS]` (2–4) by the size of the solution space and `[PLANNER_EFFORT]` per slot. Un-approved plan files already in `plans/` favor a contest with incumbent seeding — the prior work gets graded rather than re-derived. On return:
+  - **`APPROVED`**: Skip to Step 5: Route to Implementation.
+  - **`BLOCKED`**: **STOP** — do not route to implementation.
 
-No plan needed. Skip to Step 3: Route to Implementation.
+### 2.1 Create Plan (Solo)
 
-### Tier 2 — Orchestrator Self-Plans
+#### Commander's Intent
 
-Read `./planning.md` and follow its instructions. Set `[PLAN_FILE]` to `plans/initial.md` (or a semantically descriptive slug if the card's nature suggests one, e.g., `plans/phase-2.md` for follow-on work). Do not spawn any children; self-plan inline.
+Distill from the card what the situation looks like when the work is done and what constraints must hold regardless of approach. Lead with the done state, not the problem.
 
-After the plan is written, spiked, and committed, proceed to Step 3: Route to Implementation.
+#### Research
 
-### Tier 3–4 — Contest Parallel Planners
+Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure. If the research spans several independent threads — consumer sweeps, external-system source reads, fixture capture — consider forking a subagent per thread. When the plan writes to or depends on another system's files or protocol, read that system's source at the deployed version: check for a native mechanism first; record the invariants it enforces.
 
-Set `[N_PLANNERS]` to `2` for tier 3 or `4` for tier 4. Read `./contest.md` and follow its instructions.
+When correctness depends on the shape of real-world data the plan will process (live payloads, environment-injected values, file formats), capture a real sample **now** and commit it as a fixture in the card repo's `notes/`.
 
-On return:
-- **`APPROVED`**: Proceed to Step 3: Route to Implementation.
-- **`BLOCKED`**: **STOP** — do not route to implementation.
+Follow the `<take-notes>` instructions from `$cards:notes` skill — write a note to the card repository for each architectural discovery made during research.
 
-## 3. Route to Implementation
+#### Apply Markdown Guidelines
 
-The gates consulted in Step 1 determine the route. Do not re-prompt the user for confirmation — `gates.planApproved` and `gates.planRequired` are the authorization. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
+When writing the plan file, fragment-link every named file, function, and type per `<markdown-guidelines>`. Use mermaid diagrams for multi-component interactions, state transitions, and data flows. Use fenced code blocks with language tags for configuration and code examples.
 
-Based on tier and gates:
+The plan file is stored in the card repository (`$CARD_REPO_PATH`), but the card's workspace may be at a different path (`$WORKSPACE_PATH`). Fragment links must be relative to `$WORKSPACE_PATH` — use `./packages/foo/bar.ts`, not a filesystem path from the card repository or your working directory to the workspace.
 
-- **Tier 1**: Read `./implementation.md` and follow its instructions.
-- **`planRequired` is true**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
-- **`planRequired` is false**: Read `./implementation-with-plan.md` and follow its instructions.
+#### Consider Bootstrap Sequencing
+
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `$runtime:tdd-bootstrap` skill and structure the plan's implementation steps along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+
+#### Write and Store Plan
+
+Write the plan to `[PLAN_FILE]` in the card repository. Before committing, re-verify every file, line, symbol, and behavior claim the plan makes against current source — read or grep each one.
+
+Create a sidecar at `[PLAN_FILE].meta.json` with a `title` prefixed with `"Plan: "` followed by a description of at most ten words (e.g., `"title": "Plan: Three-phase migration starting with schema"`). Commit to the card repository:
+
+```bash
+cd $CARD_REPO_PATH
+git add plans/
+git commit -m "[single sentence summarizing the approach and key decisions]"
+```
+
+## 3. Investigate Testable Uncertainties
+
+Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source — including CARD.md claims about third-party behavior). Any assumption that affects a planned implementation step warrants investigation; spike it per the procedure below. Load-bearing assumptions are work items for this step, not questions to surface to the user as a choice — converting a spike into an (a)/(b) prompt is a protocol violation. Skip only when no load-bearing assumptions exist.
+
+For each testable uncertainty, load the `$runtime:spike` skill and follow its instructions. With several independent uncertainties, they can run as concurrent subagents rather than in sequence.
+
+After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spike that disproves a load-bearing assumption invalidates the plan from intent through approach, so rewrite rather than patch.
+
+## 4. Evaluate the Plan
+
+Build the failure-mode question set for the card — from `CARD.md`, the plan, your notes, adjacent cards, and similar workspace code: what must hold at runtime for the plan to work? Verify each answer against workspace source, not the plan's own assertions; a question the plan cannot answer is a finding.
+
+If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff. For the failure-mode angle on a high-stakes solo plan, `spawn_agent` a `$runtime:card-plan-failure-mode` child (`task_name: plan_failure_mode`) with a `message` stating: the card repository and workspace paths; "Solo review — there are no planners. Review `[PLAN_FILE]` as `[PLANNER]` = me, the orchestrator, round-1. Draft your questions note, then report `FINDING:` and the single `VERDICT:` to me; skip `SELECT_WINNER`/`WINNER:` and end your turn after the verdict." Revise per its findings yourself; re-engage it (`send_message` if live, `resume_agent` if completed) with a `PLAN: READY round-K+1` message for re-review.
+
+Evaluate from the angles below and list every finding — do not stop at the first one:
+
+**Failure modes.** Perform a failure mode and effects analysis on the plan. Trace consumers, data flow, and error paths for each planned change. Where could this break at runtime that the validation suite wouldn't catch — new API boundaries, async/error-path logic, shared state, silently drifting contracts?
+
+**Delivered experience.** Read the card's acceptance criteria against the plan's outcome. Does it deliver what the card asked, not just a technically sound approach?
+
+**Surviving assumptions.** A load-bearing assumption that outlived Step 3's spikes is an unanswered question — verify it against source or revise the plan; never surface it as a user question.
+
+Revise `[PLAN_FILE]` per finding, commit, and re-evaluate against the full question set — a fix can raise a new question. Stop only when every question is answered. Findings are plan-revision work; re-prompting the user to resolve them is a protocol violation.
+
+## 5. Route to Implementation
+
+Do not re-prompt the user for confirmation — `gates.planApproved` and `gates.planRequired` are the authorization. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
+
+- **`gates.planRequired` is true**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
+- **`gates.planRequired` is false**: Read `./implementation.md` and follow its instructions.
 
 </instructions>
