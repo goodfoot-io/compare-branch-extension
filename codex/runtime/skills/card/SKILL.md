@@ -29,6 +29,10 @@ A matching gate overrides this default only for the action the gate names, and o
 
 </execution-environment>
 
+<progress-check>
+At session start, if your environment exposes a scheduling tool, use it to schedule a recurring ~30-minute check that the card is still making progress. A stuck subagent, a hung background command (tests, builds), or a teammate that silently stopped otherwise goes unnoticed. On each fire: check live subagents/background tasks for actual progress since the last check, and nudge or re-dispatch anything stalled. Cancel the scheduled check before finishing.
+</progress-check>
+
 <routing-constraints>
 Route only — evaluate, select, and load. The loaded reference does the work; run it directly or via subagents as best fits the task.
 </routing-constraints>
