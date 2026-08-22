@@ -667,15 +667,17 @@ async function collectPluginEntryPaths(
 }
 
 /**
- * Collects each enabled plugin's skills directory that exists on disk, in
- * sorted order. Plugins legitimately ship zero skills directories, so absence
- * contributes nothing; any other stat error propagates.
+ * Collects each enabled plugin's existing `<cacheSlot>/skills` directory.
+ *
+ * Shared by launch staging ({@link writeCardsLaunchConfig}) and the
+ * extension-side user-scope installer, which registers the same directories in
+ * the user's `opencode.json` so plain terminal sessions discover Cards skills.
  *
  * @param pluginNames - Enabled plugin names.
  * @param pluginCachePaths - Map of plugin name → installed cache dir.
  * @returns Absolute existing skills directories, sorted lexicographically.
  */
-async function collectSkillDirs(
+export async function collectSkillDirs(
   pluginNames: readonly OpencodePluginName[],
   pluginCachePaths: Record<string, string>
 ): Promise<string[]> {
