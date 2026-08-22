@@ -7,6 +7,9 @@
  * - Codex: spawns the `codex` CLI with the codex `chat-routing` skill
  *   appended as `developer_instructions` (the Codex analog of
  *   `--append-system-prompt`).
+ * - OpenCode: spawns the `opencode run` CLI with the opencode `chat-routing`
+ *   skill prepended to the opening positional turn (`opencode run` has no
+ *   system-prompt override flag).
  *
  * The process always runs interactively — stdio is inherited so the user gets
  * direct terminal control. Background mode is not supported because chat
@@ -24,9 +27,11 @@ import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards.management/sdk/config';
 import chatRoutingSkill from '../../../../claude/runtime/skills/chat-routing/SKILL.md';
 import codexChatRoutingSkill from '../../../../codex/runtime/skills/chat-routing/SKILL.md';
+import opencodeChatRoutingSkill from '../../../../opencode/runtime/skills/chat-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
+import { spawnOpencodeSession } from '../lib/opencode-session.js';
 
 /**
  * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
@@ -39,12 +44,13 @@ function stripFrontmatter(md: string): string {
 
 const CHAT_ROUTING_SKILL: string = stripFrontmatter(chatRoutingSkill).trim();
 const CHAT_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexChatRoutingSkill).trim();
+const CHAT_ROUTING_SKILL_OPENCODE: string = stripFrontmatter(opencodeChatRoutingSkill).trim();
 
 /**
  * Chat action handler.
  *
- * Spawns either the `claude` or `codex` CLI as a child process, selected by
- * `input.codingAgent`. The process lifecycle is tied to the action:
+ * Spawns the `claude`, `codex`, or `opencode` CLI as a child process, selected
+ * by `input.codingAgent`. The process lifecycle is tied to the action:
  * cancellation sends SIGTERM. Session resume is not supported — each chat
  * always starts fresh.
  */
@@ -62,6 +68,14 @@ export default defineAction(
       await spawnCodexSession(input, context, {
         suppressExitWhenDone: true,
         appendSystemPrompt: CHAT_ROUTING_SKILL_CODEX
+      });
+      return;
+    }
+
+    if (agent === 'opencode-cli') {
+      await spawnOpencodeSession(input, context, {
+        suppressExitWhenDone: true,
+        appendSystemPrompt: CHAT_ROUTING_SKILL_OPENCODE
       });
       return;
     }

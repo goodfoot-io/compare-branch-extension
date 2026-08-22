@@ -106,6 +106,33 @@ describe('CardsUserPromptSubmit (core)', () => {
     expect(call.output.parts).toHaveLength(1);
   });
 
+  it('nudges a resumed session whose first observation is the message itself (I5 correction)', async () => {
+    // Resumed sessions never re-emit session.created — rule (b) classifies.
+    const parts = await runNudgeForUnseen('please look into this card tracking issue');
+    expect(parts).toHaveLength(2);
+    expect(parts[1]).toMatchObject({ type: 'text', synthetic: true });
+  });
+
+  /**
+   * Drives one chat.message call for a session this bundle never saw created.
+   *
+   * @param prompt - Outgoing user prompt text.
+   * @returns The message parts after hook processing.
+   */
+  async function runNudgeForUnseen(
+    prompt: string
+  ): Promise<Array<{ id: string; type: string; text?: string; synthetic?: boolean }>> {
+    const { deps } = makeDeps(tempDir);
+    const plugin = createUserPromptSubmitPlugin(deps);
+    const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+    const call = chatMessageCall('ses-resumed', prompt);
+    await (hooks as { 'chat.message'?: (i: unknown, o: unknown) => Promise<void> })['chat.message']?.(
+      call.input,
+      call.output
+    );
+    return call.output.parts;
+  }
+
   it('short-circuits when the skill-load marker exists', async () => {
     const { deps } = makeDeps(tempDir);
     deps.markers.markSkillLoaded('ses-root', 'cards:cards');

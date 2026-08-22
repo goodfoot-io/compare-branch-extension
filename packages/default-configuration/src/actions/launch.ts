@@ -11,6 +11,12 @@
  *   `<routing-instructions>`. The skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch `CODEX_HOME`. Background mode
  *   is rejected explicitly.
+ * - OpenCode: spawns the `opencode run` CLI interactively with a short prompt
+ *   that instructs it to load the `card` skill and follow its
+ *   `<routing-instructions>`. The skill itself is provided by the bundled
+ *   `runtime` plugin staged into the per-launch cache and registered through
+ *   the staged `OPENCODE_CONFIG` document. Background mode is rejected
+ *   explicitly (`opencode run` is an interactive session here).
  *
  * The action awaits process exit before resolving, so the terminal closes
  * only after the underlying CLI finishes and cleanup is complete.
@@ -25,17 +31,18 @@ import { type ActionContext, type ActionInput, defineAction } from '@cards.manag
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
+import { spawnOpencodeSession } from '../lib/opencode-session.js';
 /**
  * Launch action handler.
  *
- * Spawns either the `claude` or `codex` CLI as a child process, selected by
- * `input.codingAgent`. The process lifecycle is tied to the action:
+ * Spawns the `claude`, `codex`, or `opencode` CLI as a child process, selected
+ * by `input.codingAgent`. The process lifecycle is tied to the action:
  * cancellation sends SIGTERM. In the Claude branch, switching to interactive
  * mode preserves the session ID for resumption.
  *
  * Codex + background mode is rejected explicitly: background launch is a
  * Claude-only capability until `spawnCodexSession` grows a background-mode
- * implementation.
+ * implementation. The same holds for OpenCode.
  */
 export default defineAction(
   {
@@ -56,6 +63,19 @@ export default defineAction(
       }
       await spawnCodexSession(input, context, {
         prompt: 'Load the `$runtime:card` skill and follow the `<routing-instructions>`.'
+      });
+      return;
+    }
+
+    if (agent === 'opencode-cli') {
+      if (input.executionMode === 'background') {
+        throw new Error(
+          `cards.defaultCodingAgent='opencode-cli' does not support background-mode launch. ` +
+            `Run the Launch action in interactive mode, or switch cards.defaultCodingAgent to 'claude-code-cli'.`
+        );
+      }
+      await spawnOpencodeSession(input, context, {
+        prompt: 'Load the `card` skill and follow the `<routing-instructions>`.'
       });
       return;
     }

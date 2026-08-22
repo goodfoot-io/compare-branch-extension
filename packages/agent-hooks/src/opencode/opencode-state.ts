@@ -204,18 +204,42 @@ export interface SessionLike {
 }
 
 /**
- * In-memory registry of root sessions observed via `event`/`session.created`.
+ * In-memory registry of root sessions seen by one plugin bundle.
  *
- * Child sessions carry a `parentID`; only their absence marks a root. Each
- * emitted plugin bundle embeds its own copy of this module, so every bundle
- * that needs root gating feeds its own registry from its own `event`
+ * Classification rule (verified against OpenCode v1.18.21 live behavior):
+ *
+ * (a) a `session.created` event whose `info.parentID` is null/absent marks a
+ *     root, and one carrying `parentID` records the session as a child;
+ * (b) a session **first observed through any non-created event** while no
+ *     parent record exists for it is also a root.
+ *
+ * Rule (b) is load-bearing for resumed sessions: `opencode run --continue`
+ * never re-emits `session.created` for the resumed session id (I5 live probe),
+ * so a bundle that classified only from `created` would fail-closed-skip every
+ * hook there. It cannot misclassify children because child sessions always
+ * announce `created` carrying `parentID` before any other event (in-process
+ * ordering), so their parent record always exists before activity arrives.
+ *
+ * Each emitted plugin bundle embeds its own copy of this module, so every
+ * bundle that needs root gating feeds its own registry from its own `event`
  * subscription — registration is idempotent and cheap.
  *
  * @summary Registry of root card sessions seen by this plugin bundle
  */
 export interface RootSessionRegistry {
-  /** Records a `session.created` payload; roots are kept, children ignored. */
+  /** Records a `session.created` payload; roots are kept, children linked. */
   observe(info: SessionLike): void;
+  /**
+   * Notes a session first observed through a non-created event.
+   *
+   * Unknown sessions classify as roots (resumed-session rule); known children
+   * stay children. Safe to call on every event.
+   *
+   * @param sessionId - Session the activity event carries.
+   * @returns `true` when this call newly classified the session as a root —
+   *   the signal handlers use to run once-per-session startup work.
+   */
+  noteObserved(sessionId: string): boolean;
   /** Drops a session (on `session.deleted`). */
   forget(sessionId: string): void;
   /** `true` when the id names a known root session. */
@@ -233,19 +257,52 @@ export interface RootSessionRegistry {
  */
 export function createRootSessionRegistry(): RootSessionRegistry {
   const roots = new Set<string>();
+  /** Sessions observed via `session.created` carrying a parentID. */
+  const childLinks = new Map<string, string>();
   const order: string[] = [];
+
+  const addRoot = (sessionId: string) => {
+    if (!roots.has(sessionId)) {
+      roots.add(sessionId);
+      order.push(sessionId);
+    }
+  };
 
   return {
     observe(info) {
-      if (!info || typeof info.id !== 'string' || info.parentID) {
+      if (!info || typeof info.id !== 'string' || info.id.length === 0) {
         return;
       }
-      if (!roots.has(info.id)) {
-        roots.add(info.id);
-        order.push(info.id);
+      if (info.parentID === undefined || info.parentID === null || info.parentID.length === 0) {
+        // Rule (a): created without a parent — a fresh root.
+        addRoot(info.id);
+        return;
+      }
+      // Explicit created-with-parent beats any earlier classification: the
+      // verified ordering guarantees this arrives before the child's other
+      // events, so a conflicting prior root entry can only be stale.
+      childLinks.set(info.id, info.parentID);
+      if (roots.delete(info.id)) {
+        const index = order.indexOf(info.id);
+        if (index >= 0) {
+          order.splice(index, 1);
+        }
       }
     },
+    noteObserved(sessionId) {
+      if (!sessionId || typeof sessionId !== 'string') {
+        return false;
+      }
+      if (roots.has(sessionId) || childLinks.has(sessionId)) {
+        return false;
+      }
+      // Rule (b): first sight through a non-created event with no parent
+      // record — a resumed (or otherwise pre-existing) root session.
+      addRoot(sessionId);
+      return true;
+    },
     forget(sessionId) {
+      childLinks.delete(sessionId);
       if (roots.delete(sessionId)) {
         const index = order.indexOf(sessionId);
         if (index >= 0) {

@@ -51,11 +51,9 @@ async function runTool(tool: string, args: unknown, sessionId = 'ses-root', pare
   const { deps, recorders } = makeDeps(tempDir);
   const plugin = createPostToolUseSkillPlugin(deps);
   const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
-  await hooks.event?.(sessionCreatedEvent('ses-root'));
   if (parentID) {
+    await hooks.event?.(sessionCreatedEvent('ses-root'));
     await hooks.event?.(sessionCreatedEvent(sessionId, { parentID }));
-  } else {
-    await hooks.event?.(sessionCreatedEvent(sessionId));
   }
   const input = { tool, sessionID: sessionId, callID: 'call-1', args };
   await (hooks as { 'tool.execute.after'?: (i: unknown, o: unknown) => Promise<void> })['tool.execute.after']?.(
@@ -86,6 +84,13 @@ describe('CardsPostToolUseSkill (core)', () => {
     let markers = await runTool('bash', { command: 'ls' });
     markers = await runTool('skill', { skill: 'some-other-skill' }, 'ses-root');
     expect(markers.skills.size).toBe(0);
+  });
+
+  it('records the marker for a resumed session with no prior created event (I5 correction)', async () => {
+    // Resumed sessions never re-emit session.created — rule (b) classifies
+    // from the tool event itself.
+    const markers = await runTool('skill', { skill: 'cards' }, 'ses-resumed');
+    expect(markers.skills.has('ses-resumed::cards:cards')).toBe(true);
   });
 
   it('skips child sessions entirely', async () => {

@@ -66,10 +66,10 @@ run('cards-sdk build -c settings.config.ts -o dist --loader .md=text');
 run('yarn build:www');
 
 // 4. Prune each registered renderer's output to just index.html, drop any
-//    unexpected sibling directories, and fail closed if either renderer's
-//    entry point is missing — a failed Codex build must not ship a partial
+//    unexpected sibling directories, and fail closed if any renderer's
+//    entry point is missing — a failed OpenCode build must not ship a partial
 //    artifact alongside the Claude renderer.
-const RENDERER_TYPES = ['claude-code-session', 'codex-session'];
+const RENDERER_TYPES = ['claude-code-session', 'codex-session', 'opencode-session'];
 const wwwDir = join(dist, 'www');
 
 for (const type of RENDERER_TYPES) {

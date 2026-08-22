@@ -9,13 +9,17 @@
  *   `CODEX_HOME`, writes a `cards-assistant` profile, and spawns `codex` with
  *   `--profile cards-assistant` and the interview instructions as a
  *   `developer_instructions` override via `-c`.
+ * - OpenCode: stages the `cards` and `cards-assistant` plugins into the
+ *   content-addressed cache, writes the per-set staged config document, and
+ *   spawns `opencode run --dir <repoRoot>` with the interview instructions as
+ *   the opening positional turn and the document passed via `OPENCODE_CONFIG`.
  *
  * When `input.initialPrompt` is set, it is appended to the Claude branch's
  * `cliArgs` after a `--` end-of-options terminator, so `claude` treats it as
  * the session's opening user turn even if it begins with `-` — the
  * terminator prevents an attacker-influenced prompt from being parsed as CLI
- * flags. The Codex branch does not read it; it is unreachable via
- * `cards.startCardsAssistant` in this release.
+ * flags. The Codex and OpenCode branches do not read it; it is unreachable
+ * via `cards.startCardsAssistant` in this release.
  *
  * Unlike action handlers, this handler has no card context, no worktree, and no
  * socket. It runs in `input.repoRoot` under either coding agent.
@@ -34,6 +38,14 @@ import {
   writeCodexProfileConfig
 } from './lib/codex-session.js';
 import { resolveCodingAgent } from './lib/coding-agent.js';
+import {
+  assertOpencodeBinaryAvailable,
+  OPENCODE_ASSISTANT_PLUGIN_NAMES,
+  populateOpencodePluginCache,
+  resolveCardsOpencodeStagingDir,
+  resolveDefaultOpencodeConfigDir,
+  writeCardsLaunchConfig
+} from './lib/opencode-session.js';
 import { spawnAgentCli } from './lib/spawn-cli.js';
 
 const INTERVIEW_INSTRUCTIONS = `<instructions>
@@ -97,6 +109,62 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
       // hung forever. Mirrors the `claude` launch guard below.
       child.on('error', (error) => {
         logger.error('Failed to spawn codex', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        resolve(null);
+      });
+      child.on('close', resolve);
+    });
+
+    logger.info('Cards assistant exited', { exitCode });
+    return;
+  }
+
+  if (agent === 'opencode-cli') {
+    await assertOpencodeBinaryAvailable();
+    const configDir = resolveDefaultOpencodeConfigDir();
+    const { pluginCachePaths } = await populateOpencodePluginCache(
+      configDir,
+      input.marketplacePath,
+      OPENCODE_ASSISTANT_PLUGIN_NAMES
+    );
+    const stagingDir = resolveCardsOpencodeStagingDir();
+    const configPath = await writeCardsLaunchConfig(
+      stagingDir,
+      'assistant',
+      OPENCODE_ASSISTANT_PLUGIN_NAMES,
+      pluginCachePaths
+    );
+
+    // `opencode run` has no system-prompt override flag, so the interview
+    // instructions ride the opening positional turn. `input.initialPrompt` is
+    // not read by this branch — it is unreachable via
+    // `cards.startCardsAssistant` in this release (same gap as the codex
+    // branch, named there).
+    const args = ['run', '--dir', input.repoRoot, INTERVIEW_INSTRUCTIONS];
+
+    logger.info('Starting cards assistant (opencode)', {
+      cwd: input.repoRoot,
+      configDir,
+      stagingDir,
+      configPath
+    });
+
+    // Route through cross-spawn so the win32 PATHEXT shim resolves and its
+    // arguments are escaped for cmd.exe; on POSIX it spawns `opencode`
+    // directly.
+    const child = spawnAgentCli('opencode', args, {
+      cwd: input.repoRoot,
+      stdio: 'inherit',
+      env: { ...process.env, OPENCODE_CONFIG: configPath }
+    });
+
+    const exitCode = await new Promise<number | null>((resolve) => {
+      // Fail closed: a spawn failure (e.g. ENOENT when the binary is missing)
+      // emits `error` but never `close`, which would leave this promise hung
+      // forever. Mirrors the codex/claude launch guards above.
+      child.on('error', (error) => {
+        logger.error('Failed to spawn opencode', {
           error: error instanceof Error ? error.message : String(error)
         });
         resolve(null);

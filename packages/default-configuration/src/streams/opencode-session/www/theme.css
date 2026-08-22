@@ -1,0 +1,55 @@
+@import '@cards.management/web/styles';
+@import '@vscode/codicons/dist/codicon.css';
+@import '../../lib/tokens.css';
+@import '../../lib/compact-card.css';
+@import '../../lib/accordions.css';
+@import '../../lib/json-block.css';
+@import '../../lib/boundary.css';
+@import '../../lib/turns.css';
+@import '../../lib/aui/aui.css';
+
+/* =============================================================================
+   OPENCODE SESSION RENDERER STYLES (`.oc-*` classes)
+
+   Reads the shared `--stream-*` design-token layer (tokens.css) exclusively —
+   no direct `--vscode-*` reads and no literal colors — so this renderer's
+   surfaces, text, and accents stay in lockstep with the claude-code-session
+   (`.cc-*`) and codex-session (`.cx-*`) styling.
+
+   The transcript renders entirely through the shared foundation: turn anatomy,
+   markdown, reasoning, tool calls, and the four shared `data` parts all come
+   from aui.css/turns.css/accordions.css/boundary.css imported above. This
+   file carries only what has no shared shape yet: the empty-transcript
+   placeholder.
+   ============================================================================= */
+
+html,
+body,
+#stream-root {
+  height: 100%;
+}
+
+body {
+  color: var(--stream-fg);
+}
+
+/* Compact mode renders inside the cards-detail StreamIframeHost iframe. Keep
+   the body transparent so the rounded corners on the inner container are
+   visible, and anchor the root to the host's em basis. */
+body.mode-compact {
+  background: transparent;
+  margin: 0;
+  font-size: var(--vscode-font-size, 13px);
+}
+
+/* Expanded transcript: sticky SessionHeader + scrolling StreamThread. */
+body.mode-expanded {
+  margin: 0;
+}
+
+.oc-empty {
+  font-size: var(--stream-text-label);
+  font-style: italic;
+  color: var(--stream-fg-muted);
+  padding: 12px;
+}

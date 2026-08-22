@@ -1,0 +1,469 @@
+/**
+ * Exercises OpenCode branches of the consolidated action handlers (launch,
+ * chat, interview, captain) through end-to-end scenarios. Locks in the
+ * pre-spawn binary probe, plugin-cache population, staged-config writing,
+ * spawn argv (the headless `run --dir --title` contract), error paths,
+ * cancellation, and branch-cleanup wiring for the OpenCode path.
+ *
+ * @summary Tests OpenCode branches of consolidated action handlers
+ */
+
+import type { ChildProcess } from 'node:child_process';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
+import { flushMicrotasks } from '@cards.management/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * Production code builds paths with node:path, so on Windows the values passed
+ * to fs mocks use backslash separators. Normalize to forward slashes so the
+ * POSIX-keyed mock lookups and matchers below match regardless of platform.
+ *
+ * @param p - Path-like value (string, Buffer, or URL) to normalize.
+ * @returns The value stringified with backslashes converted to forward slashes.
+ */
+function toPosix(p: unknown): string {
+  return String(p).replace(/\\/g, '/');
+}
+
+/**
+ * The default OpenCode config dir, resolved exactly as production's
+ * `resolveDefaultOpencodeConfigDir` does ($XDG_CONFIG_HOME ?? ~/.config +
+ * /opencode). XDG_CONFIG_HOME is deleted in beforeEach.
+ */
+const DEFAULT_OPENCODE_CONFIG_DIR = join(homedir(), '.config', 'opencode');
+/** The Cards staging dir holding the per-set config documents. */
+const CARDS_OPENCODE_STAGING_DIR = join(homedir(), '.cards', 'opencode');
+const WORKTREE_PATH = '/test/workspace/.worktrees/cards/card-123/1';
+
+vi.mock('cross-spawn', async () => {
+  // spawnAgentCli routes the agent launch through cross-spawn; forward it to the
+  // mocked node:child_process.spawn so spawn('opencode', ...) assertions hold on
+  // every platform (cross-spawn would otherwise rewrite the call into a cmd.exe
+  // invocation on win32 and bypass the node:child_process mock).
+  const cp = await import('node:child_process');
+  return { default: cp.spawn };
+});
+vi.mock('node:child_process', () => ({
+  spawn: vi.fn(),
+  execFile: vi.fn(),
+  execFileSync: vi.fn()
+}));
+
+vi.mock('node:fs', () => ({
+  readdirSync: vi.fn(),
+  readFileSync: vi.fn(),
+  statSync: vi.fn()
+}));
+
+vi.mock('node:fs/promises', () => ({
+  access: vi.fn(),
+  cp: vi.fn(),
+  mkdir: vi.fn(),
+  mkdtemp: vi.fn(),
+  readFile: vi.fn(),
+  readdir: vi.fn(),
+  rename: vi.fn(),
+  rm: vi.fn(),
+  stat: vi.fn(),
+  writeFile: vi.fn()
+}));
+
+vi.mock('@cards.management/sdk/worktree', () => ({
+  createWorktree: vi.fn(),
+  checkWorktreeExists: vi.fn(),
+  findGitRoots: vi.fn()
+}));
+
+// createWorktreeForCard wraps the pure createWorktree git primitive with the
+// per-card outfit. Mock it as a thin adapter that forwards to the low-level
+// createWorktree mock (see claude-session.test.ts) so these tests keep asserting
+// the pure-primitive call shape without running the real outfit side effects.
+vi.mock('@cards.management/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn()
+}));
+
+vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
+  spawnBranchCleanupWatcher: vi.fn()
+}));
+
+const originalFetch = globalThis.fetch;
+
+beforeEach(async () => {
+  vi.clearAllMocks();
+  process.env['EXTENSION_PATH'] = '/test/extension';
+  process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
+  process.env['API_TEST_MODE'] = '1';
+  delete process.env['XDG_CONFIG_HOME'];
+  delete process.env['CARDS_HOME'];
+  delete process.env['EXIT_WHEN_DONE'];
+
+  const { execFile, execFileSync } = await import('node:child_process');
+  const fs = await import('node:fs/promises');
+  const syncFs = await import('node:fs');
+
+  // Git commands + the `which opencode` pre-spawn probe.
+  vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+    const cb = args[args.length - 1];
+    const cmd = args[0] as string;
+    const cmdArgs = args[1] as string[];
+    const key = `${cmd} ${cmdArgs.join(' ')}`;
+
+    if (typeof cb === 'function') {
+      if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
+        cb(null, { stdout: 'main\n', stderr: '' });
+      } else if (key === `${process.platform === 'win32' ? 'where' : 'which'} opencode`) {
+        cb(null, { stdout: '/usr/bin/opencode\n', stderr: '' });
+      } else {
+        cb(new Error(`mock: unhandled command: ${key}`));
+      }
+    }
+
+    return {} as ReturnType<typeof execFile>;
+  });
+  vi.mocked(execFileSync).mockImplementation(() => '');
+
+  // Card-repo AGENTS.md for the opening-turn composition.
+  vi.mocked(syncFs.readFileSync).mockImplementation((filePath: string | Buffer | URL) => {
+    if (toPosix(filePath) === '/test/repo/AGENTS.md') {
+      return '# Card Repository Reference\n\nEach card is an isolated Git repository.\n';
+    }
+    throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
+  });
+
+  globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+    if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+      );
+    }
+    if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
+      return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+  });
+
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards.management/sdk/worktree');
+  vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
+  vi.mocked(checkWorktreeExists).mockResolvedValue(false);
+
+  const { createWorktreeForCard } = await import('@cards.management/sdk/worktree-for-card');
+  vi.mocked(createWorktreeForCard).mockImplementation((_client, ref, opts) =>
+    createWorktree(ref, {
+      cwd: opts.cwd,
+      cardId: opts.cardId,
+      compiledScriptPaths: opts.compiledScriptPaths
+    })
+  );
+  vi.mocked(createWorktree).mockResolvedValue({
+    path: WORKTREE_PATH,
+    settle: Promise.resolve({
+      branch: 'cards/card-123/1',
+      worktree: WORKTREE_PATH,
+      baseSha: 'abc123'
+    })
+  });
+
+  vi.mocked(fs.access).mockResolvedValue(undefined);
+  // Tiered package.json manifest service: source bundle paths carry the plugin
+  // name segment; staged copies (.plugin-install-*) carry none and are served
+  // in install order (cards first, then runtime); published slots end
+  // <plugin>/<version>/package.json.
+  let stagedReadIndex = 0;
+  vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+    const p = toPosix(filePath);
+    if (p.endsWith('.cards-content-hash')) {
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    }
+    if (p.endsWith('/package.json')) {
+      if (p.includes('.plugin-install-')) {
+        const name = ['cards', 'runtime'][stagedReadIndex++];
+        if (name === undefined) {
+          throw new Error(`Unexpected staged manifest read: ${p}`);
+        }
+        return JSON.stringify({ name: `cards-opencode-${name}`, version: '1.0.0' });
+      }
+      const published = /\/(cards|runtime|cards-assistant)\/[^/]+\/package\.json$/.exec(p);
+      if (published !== null) {
+        return JSON.stringify({ name: `cards-opencode-${published[1]}`, version: '1.0.0' });
+      }
+      const source = /\/(cards|runtime|cards-assistant)\/package\.json$/.exec(p);
+      if (source !== null) {
+        return JSON.stringify({ name: `cards-opencode-${source[1]}`, version: '1.0.0' });
+      }
+    }
+    throw Object.assign(new Error(`mock: unhandled readFile: ${p}`), { code: 'ENOENT' });
+  });
+  vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+  vi.mocked(fs.mkdtemp).mockImplementation(async (prefix: string | URL) => `${String(prefix)}XXXXXX`);
+  vi.mocked(fs.cp).mockResolvedValue(undefined);
+  vi.mocked(fs.rename).mockResolvedValue(undefined);
+  vi.mocked(fs.rm).mockResolvedValue(undefined);
+  // Empty listings: content-hash walks see no files; prune finds no siblings;
+  // the staged config lists no hook modules beyond the fixtures above.
+  vi.mocked(fs.readdir).mockImplementation(async () => [] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+  vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+  vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  delete process.env['API_TEST_MODE'];
+});
+
+function createMockContext(): ActionContext {
+  return {
+    logger: new Logger(),
+    cwd: process.cwd(),
+    onCancel: vi.fn(),
+    onSwitchToInteractive: vi.fn()
+  };
+}
+
+function createMockChild(): ChildProcess {
+  const handlers = new Map<string, (...args: unknown[]) => void>();
+  return {
+    pid: 12345,
+    on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+      handlers.set(event, cb);
+    }),
+    kill: vi.fn(),
+    stdout: null,
+    stderr: null,
+    emit(event: string, ...args: unknown[]) {
+      handlers.get(event)?.(...args);
+      return true;
+    }
+  } as unknown as ChildProcess;
+}
+
+function baseInput(overrides?: Partial<ActionInput>): ActionInput {
+  return {
+    cardId: 'card-123',
+    actionName: 'Launch',
+    environment: 'default',
+    executionMode: 'interactive',
+    repoRoot: '/test/workspace',
+    cardRepoPath: '/test/repo',
+    configPath: '/test/config',
+    extensionPath: '/test/extension',
+    codingAgent: 'opencode-cli',
+    ...overrides
+  };
+}
+
+describe('resolveCodingAgent — opencode', () => {
+  it('resolves opencode-cli to itself', async () => {
+    const { resolveCodingAgent } = await import('../src/lib/coding-agent.js');
+
+    expect(resolveCodingAgent({ codingAgent: 'opencode-cli' })).toBe('opencode-cli');
+  });
+
+  it('lists all three supported values in the unsupported-value error', async () => {
+    const { resolveCodingAgent } = await import('../src/lib/coding-agent.js');
+
+    expect(() => resolveCodingAgent({ codingAgent: 'cursor-cli' })).toThrow(
+      /'claude-code-cli', 'codex-cli', or 'opencode-cli'/
+    );
+  });
+});
+
+describe('launch action — opencode branch', () => {
+  it('stages the cache and spawns opencode run with worktree argv and staged config env', async () => {
+    const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+
+    // Bundled plugins are staged into the cache below the user's OpenCode
+    // config dir (never the config dir root, never their own files).
+    const cpDests = vi.mocked(fs.cp).mock.calls.map((call) => toPosix(call[1]));
+    expect(cpDests.length).toBeGreaterThan(0);
+    expect(
+      cpDests.every((dest) => dest.startsWith(`${toPosix(DEFAULT_OPENCODE_CONFIG_DIR)}/plugins/cache/cards/`))
+    ).toBe(true);
+    const renameDests = vi.mocked(fs.rename).mock.calls.map((call) => toPosix(call[1]));
+    expect(renameDests).toContain(toPosix(`${DEFAULT_OPENCODE_CONFIG_DIR}/plugins/cache/cards/cards/1.0.0`));
+    expect(renameDests).toContain(toPosix(`${DEFAULT_OPENCODE_CONFIG_DIR}/plugins/cache/cards/runtime/1.0.0`));
+
+    expect(vi.mocked(spawn).mock.calls).toHaveLength(1);
+    expect(vi.mocked(spawn).mock.calls[0]![0]).toBe('opencode');
+
+    const args = vi.mocked(spawn).mock.calls[0]![1] as string[];
+    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    // The card-repo AGENTS.md leads the composed opening turn; the caller
+    // prompt closes it.
+    const openingTurn = args[args.length - 1]!;
+    expect(openingTurn).toContain('# Card Repository Reference');
+    expect(openingTurn.endsWith('Load the `card` skill and follow the `<routing-instructions>`.')).toBe(true);
+
+    const opts = vi.mocked(spawn).mock.calls[0]![2] as {
+      cwd: string;
+      stdio: string;
+      env: Record<string, string | undefined>;
+    };
+    expect(opts.cwd).toBe(WORKTREE_PATH);
+    expect(opts.stdio).toBe('inherit');
+    expect(opts.env.WORKSPACE_PATH).toBe(WORKTREE_PATH);
+    expect(opts.env.BASE_BRANCH).toBe('main');
+    expect(opts.env.PARENT_BRANCH).toBe('main');
+    expect(opts.env.WORKSPACE_BRANCH).toBe('cards/card-123/1');
+    // Staged activation goes through OPENCODE_CONFIG pointing into the Cards
+    // staging dir — never CODEX_HOME-style replacement of the config dir.
+    const stagedConfig = String(opts.env.OPENCODE_CONFIG);
+    expect(stagedConfig.startsWith(`${toPosix(CARDS_OPENCODE_STAGING_DIR)}/`)).toBe(true);
+    expect(stagedConfig.endsWith('launch.config.json')).toBe(true);
+    // No enablement document is ever written into the user's config dir.
+    const writeTargets = vi.mocked(fs.writeFile).mock.calls.map((call) => toPosix(call[0]));
+    expect(
+      writeTargets.some(
+        (target) => target.startsWith(`${toPosix(DEFAULT_OPENCODE_CONFIG_DIR)}/`) && target.includes('.config.json')
+      )
+    ).toBe(false);
+
+    child.emit('close', 0);
+    await promise;
+
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+    expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith(
+      { cardId: 'card-123', repoRoot: '/test/workspace', cardRepoPath: '/test/repo' },
+      expect.anything()
+    );
+  });
+
+  it('rejects background-mode launch with a codingAgent-specific error and does not spawn', async () => {
+    const { spawn } = await import('node:child_process');
+
+    const action = (await import('../src/actions/launch.js')).default;
+
+    await expect(action(baseInput({ executionMode: 'background' }), createMockContext())).rejects.toThrow(
+      /'opencode-cli' does not support background-mode/
+    );
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it('registers onCancel that kills the child process', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const context = createMockContext();
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), context);
+    await flushMicrotasks();
+
+    const onCancel = vi.mocked(context.onCancel).mock.calls[0][0] as () => void;
+    onCancel();
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('fails closed before spawning when the opencode binary is absent', async () => {
+    const { execFile, spawn } = await import('node:child_process');
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1];
+      if (typeof cb === 'function') {
+        cb(new Error('not found'));
+      }
+      return {} as ReturnType<typeof execFile>;
+    });
+
+    const action = (await import('../src/actions/launch.js')).default;
+
+    await expect(action(baseInput(), createMockContext())).rejects.toThrow(/opencode/i);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+});
+
+describe('chat action — opencode branch', () => {
+  it('spawns opencode chat with the routing skill as the single positional turn', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/chat.js')).default;
+    const promise = action(baseInput({ actionName: 'Chat' }), createMockContext());
+    await flushMicrotasks();
+
+    const calls = vi.mocked(spawn).mock.calls;
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0]).toBe('opencode');
+    const args = calls[0]![1] as string[];
+    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    // Chat passes no guidance prompt — the composed turn carries only the
+    // card-repo AGENTS.md plus the chat-routing skill.
+    expect(args).toHaveLength(6);
+    expect(args[5]).toContain('Route only — evaluate, select, and load');
+    expect(args[5]).toContain('Each card is an isolated Git repository.');
+
+    const opts = calls[0]![2] as { env: Record<string, string | undefined> };
+    expect(opts.env.EXIT_WHEN_DONE).toBe('false');
+    expect(String(opts.env.OPENCODE_CONFIG)).toMatch(/launch\.config\.json$/);
+
+    child.emit('close', 0);
+    await promise;
+  });
+});
+
+describe('interview action — opencode branch', () => {
+  it('spawns opencode with a short prompt referencing the interview skill', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/interview.js')).default;
+    const promise = action(baseInput({ actionName: 'Interview' }), createMockContext());
+    await flushMicrotasks();
+
+    const calls = vi.mocked(spawn).mock.calls;
+    expect(calls).toHaveLength(1);
+    const args = calls[0]![1] as string[];
+    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    const openingTurn = args[args.length - 1]!;
+    expect(openingTurn.endsWith('Load the `interview` skill and follow the `<routing-instructions>`.')).toBe(true);
+
+    const opts = calls[0]![2] as { env: Record<string, string | undefined> };
+    expect(opts.env.EXIT_WHEN_DONE).toBe('false');
+
+    child.emit('close', 0);
+    await promise;
+  });
+});
+
+describe('captain action — opencode branch', () => {
+  it('spawns opencode with a short prompt referencing the captain skill', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/captain.js')).default;
+    const promise = action(baseInput({ actionName: 'Captain' }), createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[0]![1] as string[];
+    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    expect(args[args.length - 1]).toMatch(/Load the `captain` skill and follow the `<routing-instructions>`\.$/);
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('rejects background-mode captain with a codingAgent-specific error and does not spawn', async () => {
+    const { spawn } = await import('node:child_process');
+
+    const action = (await import('../src/actions/captain.js')).default;
+
+    await expect(action(baseInput({ executionMode: 'background' }), createMockContext())).rejects.toThrow(
+      /'opencode-cli' does not support background-mode/
+    );
+    expect(spawn).not.toHaveBeenCalled();
+  });
+});

@@ -61,13 +61,15 @@ describe('CardsSubagentStart (runtime)', () => {
     expect(recorders.markers.subagents.get('ses-root')).toEqual(['ses-child-2', 'ses-child-1']);
   });
 
-  it('ignores children of sessions it never saw as roots', async () => {
+  it('classifies an unseen parent from its child-created event and records the subagent (I5 correction)', async () => {
+    // A resumed root never re-announces `created`; its child's created event
+    // is the parent's first observation — rule (b).
     const { deps, recorders } = makeDeps(tempDir);
     const plugin = createSubagentStartPlugin(deps);
     const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
-    await hooks.event?.(sessionCreatedEvent('ses-orphan-child', { parentID: 'ses-unseen' }));
+    await hooks.event?.(sessionCreatedEvent('ses-resumed-child', { parentID: 'ses-resumed-root' }));
 
-    expect(recorders.markers.subagents.size).toBe(0);
+    expect(recorders.markers.subagents.get('ses-resumed-root')).toEqual(['ses-resumed-child']);
   });
 
   it('ignores root session creations (no parent linkage to act on)', async () => {

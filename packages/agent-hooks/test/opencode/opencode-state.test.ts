@@ -59,6 +59,64 @@ describe('root session registry', () => {
     registry.observe({ id: 'ses-a' });
     expect(registry.size).toBe(1);
   });
+
+  describe('rule (b): resumed sessions first observed via non-created events', () => {
+    it('classifies an unseen session as a root on its first non-created observation', () => {
+      const registry = createRootSessionRegistry();
+      expect(registry.noteObserved('ses-resumed')).toBe(true);
+      expect(registry.isRoot('ses-resumed')).toBe(true);
+      expect(registry.size).toBe(1);
+    });
+
+    it('returns false for already-known roots and does not duplicate them', () => {
+      const registry = createRootSessionRegistry();
+      expect(registry.noteObserved('ses-a')).toBe(true);
+      expect(registry.noteObserved('ses-a')).toBe(false);
+      expect(registry.rootIds()).toEqual(['ses-a']);
+    });
+
+    it('never promotes a known child to root', () => {
+      const registry = createRootSessionRegistry();
+      // Child sessions always announce created(parentID) before other events,
+      // so the parent record exists by the time their activity arrives.
+      registry.observe({ id: 'ses-child', parentID: 'ses-root' });
+      expect(registry.noteObserved('ses-child')).toBe(false);
+      expect(registry.isRoot('ses-child')).toBe(false);
+      expect(registry.size).toBe(0);
+    });
+
+    it('classifies the implicit parent of a child-created payload as a root', () => {
+      const registry = createRootSessionRegistry();
+      registry.observe({ id: 'ses-child', parentID: 'ses-root' });
+      // The parent itself was never observed directly (resumed session).
+      expect(registry.noteObserved('ses-root')).toBe(true);
+      expect(registry.isRoot('ses-root')).toBe(true);
+      expect(registry.isRoot('ses-child')).toBe(false);
+    });
+
+    it('lets an explicit created(parentID) demote a stale rule-b classification', () => {
+      const registry = createRootSessionRegistry();
+      expect(registry.noteObserved('ses-x')).toBe(true);
+      registry.observe({ id: 'ses-x', parentID: 'ses-parent' });
+      expect(registry.isRoot('ses-x')).toBe(false);
+    });
+
+    it('forgets rule-b roots and children alike', () => {
+      const registry = createRootSessionRegistry();
+      registry.noteObserved('ses-r');
+      registry.observe({ id: 'ses-c', parentID: 'ses-r' });
+      registry.forget('ses-c');
+      registry.forget('ses-r');
+      expect(registry.isRoot('ses-r')).toBe(false);
+      expect(registry.noteObserved('ses-c')).toBe(true); // re-classifiable after deletion
+    });
+
+    it('ignores empty identifiers', () => {
+      const registry = createRootSessionRegistry();
+      expect(registry.noteObserved('')).toBe(false);
+      expect(registry.size).toBe(0);
+    });
+  });
 });
 
 describe('CONTRACT-C transcript exporter', () => {

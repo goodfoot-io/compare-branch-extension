@@ -49,6 +49,15 @@ vi.mock('../src/lib/codex-session.js', () => ({
   writeCodexProfileConfig: vi.fn().mockResolvedValue('/test/codex-home/config.toml')
 }));
 
+vi.mock('../src/lib/opencode-session.js', () => ({
+  OPENCODE_ASSISTANT_PLUGIN_NAMES: ['cards', 'cards-assistant'],
+  assertOpencodeBinaryAvailable: vi.fn().mockResolvedValue(undefined),
+  populateOpencodePluginCache: vi.fn().mockResolvedValue({ bundlePath: '', pluginPaths: {}, pluginCachePaths: {} }),
+  resolveCardsOpencodeStagingDir: vi.fn(() => '/test/cards-opencode-staging'),
+  resolveDefaultOpencodeConfigDir: vi.fn(() => '/test/oc-config'),
+  writeCardsLaunchConfig: vi.fn().mockResolvedValue('/test/cards-opencode-staging/assistant.config.json')
+}));
+
 const ORIGINAL_PLATFORM = process.platform;
 
 /**
@@ -339,6 +348,70 @@ describe('cards-assistant handler', () => {
     await promise;
     expect(resolved).toBe(true);
     expect(errorSpy).toHaveBeenCalledWith('Failed to spawn codex', { error: 'spawn codex ENOENT' });
+  });
+
+  it('routes the opencode branch through cross-spawn with run argv, staged config env, and the opening turn', async () => {
+    forcePlatform('win32');
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const handler = (await import('../src/cards-assistant.js')).default;
+    const promise = handler(baseInput({ codingAgent: 'opencode-cli' }), createMockContext());
+    await flushMicrotasks();
+
+    expect(vi.mocked(spawn).mock.calls[0][0]).toBe('opencode');
+    const opts = vi.mocked(spawn).mock.calls[0][2] as {
+      shell?: boolean;
+      cwd?: string;
+      stdio?: unknown;
+      env?: Record<string, string | undefined>;
+    };
+    expect(opts.shell).toBeUndefined();
+    expect(opts.cwd).toBe('/test/workspace');
+    expect(opts.stdio).toBe('inherit');
+    // The per-set staged config document rides OPENCODE_CONFIG — never a
+    // CODEX_HOME-style replacement of the config dir.
+    expect(opts.env?.OPENCODE_CONFIG).toBe('/test/cards-opencode-staging/assistant.config.json');
+
+    // Headless run contract pinned at the repo root; the interview
+    // instructions are the opening positional turn.
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    expect(args.slice(0, 3)).toEqual(['run', '--dir', '/test/workspace']);
+    expect(args[3]).toContain('Load the `cards:cards` skill');
+    expect(args[3].trimStart().startsWith('<instructions>')).toBe(true);
+    // The assistant session runs prompt-less beyond that — initialPrompt is
+    // not read by this branch (unreachable via cards.startCardsAssistant).
+    expect(args).toHaveLength(4);
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('fails closed on an opencode spawn error without hanging', async () => {
+    forcePlatform('win32');
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const context = createMockContext();
+    const errorSpy = vi.spyOn(context.logger, 'error');
+
+    const handler = (await import('../src/cards-assistant.js')).default;
+    let resolved = false;
+    const promise = handler(baseInput({ codingAgent: 'opencode-cli' }), context).then(() => {
+      resolved = true;
+    });
+    await flushMicrotasks();
+
+    expect(resolved).toBe(false);
+
+    const enoent = Object.assign(new Error('spawn opencode ENOENT'), { code: 'ENOENT' });
+    child.emit('error', enoent);
+
+    await promise;
+    expect(resolved).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith('Failed to spawn opencode', { error: 'spawn opencode ENOENT' });
   });
 
   it('updates marketplace registration before spawning claude', async () => {

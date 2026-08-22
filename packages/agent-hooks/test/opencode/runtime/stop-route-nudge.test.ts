@@ -158,6 +158,17 @@ describe('CardsStopRouteNudge (runtime)', () => {
     expect(markers.routeNudged.size).toBe(0);
   });
 
+  it('notifies a resumed root whose first observation is its own idle event (I5 correction)', async () => {
+    // Resumed sessions never re-emit session.created — rule (b) classifies
+    // the root from the idle event itself.
+    const { deps } = makeDeps(tempDir, { unmergedCommitCount: () => 6 });
+    const plugin = createStopRouteNudgePlugin(deps);
+    const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+    await hooks.event?.(sessionIdleEvent('ses-untracked'));
+
+    expect(deps.markers.hasRouteNudgeFired('ses-untracked')).toBe(true);
+  });
+
   it('waits while active subagents keep the session busy', async () => {
     const { deps } = makeDeps(tempDir, { unmergedCommitCount: () => 4 });
     // Real shared leaf against real files: HOME redirected so

@@ -72,6 +72,18 @@ describe('CardsAssistantSessionStart (assistant)', () => {
     expect(system).toHaveLength(0);
   });
 
+  it('announces a resumed session first observed via its own transform (I5 correction)', async () => {
+    // Resumed sessions never re-emit session.created — rule (b) classifies.
+    const plugin = createAssistantSessionStartPlugin(makeDeps(tempDir).deps);
+    const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+    const output = { system: [] as string[] };
+    await (hooks as { 'experimental.chat.system.transform'?: (i: unknown, o: unknown) => Promise<void> })[
+      'experimental.chat.system.transform'
+    ]?.({ sessionID: 'ses-resumed' }, output);
+
+    expect(output.system).toEqual([ASSISTANT_ANNOUNCEMENT]);
+  });
+
   it('warns by name when the transform fires without a sessionID', async () => {
     const system = await transformFor(undefined);
     expect(system).toHaveLength(0);

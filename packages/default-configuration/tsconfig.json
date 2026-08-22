@@ -28,6 +28,7 @@
     "test",
     "src/streams/claude-code-session/www",
     "src/streams/codex-session/www",
+    "src/streams/opencode-session/www",
     "src/streams/lib"
   ]
 }

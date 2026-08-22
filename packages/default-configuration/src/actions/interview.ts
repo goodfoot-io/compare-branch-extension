@@ -8,6 +8,11 @@
  *   instructs Codex to load the `$runtime:interview` skill and follow its
  *   `<routing-instructions>`. The skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch `CODEX_HOME`.
+ * - OpenCode: spawns the `opencode run` CLI interactively with a short prompt
+ *   that instructs it to load the `interview` skill and follow its
+ *   `<routing-instructions>`. The skill itself is provided by the bundled
+ *   `runtime` plugin staged into the per-launch cache and registered through
+ *   the staged `OPENCODE_CONFIG` document.
  *
  * The process always runs interactively — stdio is inherited so the user gets
  * direct terminal control. Background mode is not supported because interviews
@@ -26,11 +31,12 @@ import { type ActionContext, type ActionInput, defineAction } from '@cards.manag
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
+import { spawnOpencodeSession } from '../lib/opencode-session.js';
 
 /**
  * Interview action handler.
  *
- * Spawns either the `claude` or `codex` CLI as a child process using the
+ * Spawns the `claude`, `codex`, or `opencode` CLI as a child process using the
  * corresponding interview-routing skill, selected by `input.codingAgent`.
  * The process lifecycle is tied to the action: cancellation sends SIGTERM.
  * Session resume is not supported — each interview always starts fresh.
@@ -49,6 +55,14 @@ export default defineAction(
       await spawnCodexSession(input, context, {
         suppressExitWhenDone: true,
         prompt: 'Load the `$runtime:interview` skill and follow the `<routing-instructions>`.'
+      });
+      return;
+    }
+
+    if (agent === 'opencode-cli') {
+      await spawnOpencodeSession(input, context, {
+        suppressExitWhenDone: true,
+        prompt: 'Load the `interview` skill and follow the `<routing-instructions>`.'
       });
       return;
     }

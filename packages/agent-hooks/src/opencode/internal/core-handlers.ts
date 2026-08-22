@@ -121,6 +121,9 @@ export function createUserPromptSubmitPlugin(deps: OpencodeHandlerDeps = default
 
       'chat.message': async (input, output) =>
         guarded(log, 'chat.message card nudge', async () => {
+          // Resumed sessions never re-emit `created`; their first message
+          // classifies them as roots under registry rule (b).
+          registry.noteObserved(input.sessionID);
           if (!registry.isRoot(input.sessionID)) {
             return;
           }
@@ -227,6 +230,8 @@ export function createPostToolUseSkillPlugin(deps: OpencodeHandlerDeps = default
 
       'tool.execute.after': async (input) =>
         guarded(log, 'post-tool-use-skill', async () => {
+          // Resumed sessions classify on their first tool execution.
+          registry.noteObserved(input.sessionID);
           if (!registry.isRoot(input.sessionID)) {
             return;
           }

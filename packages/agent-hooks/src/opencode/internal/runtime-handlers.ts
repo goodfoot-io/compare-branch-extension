@@ -109,6 +109,11 @@ interface RuntimeSessionRecord {
 /**
  * Creates the runtime SessionStart-equivalent plugin.
  *
+ * Startup runs once per root session — from `session.created` for fresh
+ * sessions, and from the first activity event (message, `shell.env`,
+ * transform) that classifies a **resumed** session as root under registry
+ * rule (b), since resumed sessions never re-emit `created` (I5 probe).
+ *
  * @param deps - Injectable edges; defaults wire the real SDK.
  * @returns An OpenCode plugin registering `event`, `shell.env`, and the
  *   `experimental.chat.system.transform` hooks.
@@ -116,36 +121,44 @@ interface RuntimeSessionRecord {
 export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpencodeHandlerDeps()): Plugin {
   const registry = createRootSessionRegistry();
   const records = new Map<string, RuntimeSessionRecord>();
+  /** Sessions whose startup sequence already ran (or was declined). */
+  const started = new Set<string>();
 
   /**
-   * Runs the Cards-action startup sequence for a freshly created root session.
+   * Runs the Cards-action startup sequence for one root session, at most once.
    *
-   * @param info - The created session record, carrying its embedded runtime version.
+   * @param sessionId - Root session identifier.
    * @param log - Bundle logger.
+   * @param version - Runtime version when known (fresh `created` payloads).
    */
-  async function startCardsSession(info: SessionLike & { version?: string }, log: OpencodeLog): Promise<void> {
+  async function ensureStarted(sessionId: string, log: OpencodeLog, version?: string): Promise<void> {
+    if (started.has(sessionId)) {
+      return;
+    }
+    started.add(sessionId);
+
     const actionInput = deps.loadActionInput();
     if (!actionInput) {
       // Not spawned by a Cards action — a user-scope install firing inside the
       // user's own terminal session. Stay out of the way entirely.
       await log.info('OpenCode session is not a Cards action; Cards integration idle', {
-        sessionId: info.id
+        sessionId
       });
       return;
     }
 
-    const record: RuntimeSessionRecord = records.get(info.id) ?? {};
+    const record: RuntimeSessionRecord = records.get(sessionId) ?? {};
     record.cardId = actionInput.cardId;
-    record.transcriptPath = join(deps.transcriptsRoot(), `${info.id}.jsonl`);
+    record.transcriptPath = join(deps.transcriptsRoot(), `${sessionId}.jsonl`);
 
     // Materialize the transcript: meta line first, then live event appends.
     try {
-      const exporter = createTranscriptExporter(info.id, record.transcriptPath, deps.io);
-      exporter.writeMeta({ runtime: 'opencode', opencodeVersion: info.version ?? 'unknown' });
+      const exporter = createTranscriptExporter(sessionId, record.transcriptPath, deps.io);
+      exporter.writeMeta({ runtime: 'opencode', opencodeVersion: version ?? 'unknown' });
       record.exporter = exporter;
     } catch (error) {
       await log.warn('Failed to open the Cards transcript exporter; streaming disabled', {
-        sessionId: info.id,
+        sessionId,
         path: record.transcriptPath,
         error: error instanceof Error ? error.message : String(error)
       });
@@ -158,7 +171,7 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
     try {
       record.contextFragment = buildAdditionalContext(actionInput);
       await log.info('Card context prepared for injection', {
-        sessionId: info.id,
+        sessionId,
         cardId: actionInput.cardId,
         actionName: actionInput.actionName
       });
@@ -171,14 +184,14 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
       }
     }
 
-    records.set(info.id, record);
+    records.set(sessionId, record);
 
     // Manifest + watcher, mirroring the Codex session-start wiring. Both are
     // non-fatal; build failures warn exactly like spawn failures.
     const monitorPid = deps.findMonitorPid();
     if (monitorPid === null || !record.transcriptPath) {
       await log.warn('Could not identify agent PID; transcript watcher disabled', {
-        sessionId: info.id,
+        sessionId,
         cardId: actionInput.cardId,
         cardRepoPath: actionInput.cardRepoPath,
         actionName: actionInput.actionName
@@ -188,7 +201,7 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
 
     try {
       const manifestInput: OpencodeManifestInput = {
-        sessionId: info.id,
+        sessionId,
         cardId: actionInput.cardId,
         transcriptPath: record.transcriptPath,
         monitorPid,
@@ -197,7 +210,7 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
       const manifest = deps.buildManifest(manifestInput);
       const spawned = deps.spawnWatcher({ manifest, extensionPath: actionInput.extensionPath });
       if (spawned) {
-        await log.info('Spawned stream-sync-watcher', { pid: monitorPid, sessionId: info.id });
+        await log.info('Spawned stream-sync-watcher', { pid: monitorPid, sessionId });
       }
     } catch (error) {
       await log.warn('stream-sync-watcher spawn failed', {
@@ -214,22 +227,39 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
         guarded(log, 'runtime session-start event', async () => {
           switch (event.type) {
             case 'session.created': {
-              const info: SessionLike = { id: event.properties.info.id, parentID: event.properties.info.parentID };
+              const info: SessionLike & { version?: string } = {
+                id: event.properties.info.id,
+                parentID: event.properties.info.parentID,
+                version: event.properties.info.version
+              };
               registry.observe(info);
               if (!registry.isRoot(info.id)) {
                 return;
               }
-              await startCardsSession(event.properties.info, log);
+              await ensureStarted(info.id, log, info.version);
               return;
             }
             case 'message.part.updated': {
-              const exporter = records.get(event.properties.part.sessionID)?.exporter;
-              exporter?.writePart(event.properties.part);
+              const sessionId = event.properties.part.sessionID;
+              // Resumed sessions surface here first — classify and start.
+              if (registry.noteObserved(sessionId)) {
+                await ensureStarted(sessionId, log);
+              }
+              if (!registry.isRoot(sessionId)) {
+                return;
+              }
+              records.get(sessionId)?.exporter?.writePart(event.properties.part);
               return;
             }
             case 'message.updated': {
-              const exporter = records.get(event.properties.info.sessionID)?.exporter;
-              exporter?.writeMessage(event.properties.info);
+              const sessionId = event.properties.info.sessionID;
+              if (registry.noteObserved(sessionId)) {
+                await ensureStarted(sessionId, log);
+              }
+              if (!registry.isRoot(sessionId)) {
+                return;
+              }
+              records.get(sessionId)?.exporter?.writeMessage(event.properties.info);
               return;
             }
             case 'session.deleted': {
@@ -259,6 +289,11 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
           // execution to the sole tracked root session when exactly one is
           // live (the Cards launcher spawns one session at a time).
           let sessionId = input.sessionID;
+          if (sessionId && registry.noteObserved(sessionId)) {
+            // Resumed sessions first surface here — classify, then start so
+            // the transcript path this call injects actually exists.
+            await ensureStarted(sessionId, log);
+          }
           if (!sessionId) {
             const roots = registry.rootIds().filter((id) => records.has(id));
             sessionId = roots.length === 1 ? (roots[0] as string) : undefined;
@@ -283,6 +318,10 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
             // request — skip with a named warning rather than guessing.
             await log.warn('system.transform fired without a sessionID; card context injection skipped');
             return;
+          }
+          if (registry.noteObserved(input.sessionID)) {
+            // Resumed sessions classify here on their next prompt.
+            await ensureStarted(input.sessionID, log);
           }
           const fragment = records.get(input.sessionID)?.contextFragment;
           if (fragment === undefined) {
@@ -324,6 +363,9 @@ export function createSessionStartAfterCompactionPlugin(
 
       'experimental.session.compacting': async (input, output) =>
         guarded(log, 'compaction reminder', async () => {
+          // Resumed sessions never re-emit `created`; their first compaction
+          // classifies them as roots under registry rule (b).
+          registry.noteObserved(input.sessionID);
           if (!registry.isRoot(input.sessionID)) {
             return;
           }
@@ -386,6 +428,8 @@ export function createStopRouteNudgePlugin(deps: OpencodeHandlerDeps = defaultOp
             return;
           }
           const sessionId = event.properties.sessionID;
+          // Resumed sessions never re-emit `created`; their first idle classifies.
+          registry.noteObserved(sessionId);
           if (!registry.isRoot(sessionId)) {
             return;
           }
@@ -492,6 +536,8 @@ export function createStopExitWhenDonePlugin(deps: OpencodeHandlerDeps = default
             return;
           }
           const sessionId = event.properties.sessionID;
+          // Resumed sessions never re-emit `created`; their first idle classifies.
+          registry.noteObserved(sessionId);
           if (!registry.isRoot(sessionId)) {
             return;
           }
@@ -560,7 +606,13 @@ export function createSubagentStartPlugin(deps: OpencodeHandlerDeps = defaultOpe
           const info: SessionLike = { id: event.properties.info.id, parentID: event.properties.info.parentID };
           registry.observe(info);
           const parentID = event.properties.info.parentID;
-          if (!parentID || !registry.isRoot(parentID)) {
+          if (!parentID) {
+            return;
+          }
+          // A resumed root never re-announces `created`, so its child's
+          // created event is the parent's first observation — rule (b).
+          registry.noteObserved(parentID);
+          if (!registry.isRoot(parentID)) {
             return;
           }
           try {
@@ -602,8 +654,13 @@ export function createSubagentStopPlugin(deps: OpencodeHandlerDeps = defaultOpen
             const info: SessionLike = { id: event.properties.info.id, parentID: event.properties.info.parentID };
             registry.observe(info);
             const parentID = event.properties.info.parentID;
-            if (parentID && registry.isRoot(parentID)) {
-              children.set(info.id, parentID);
+            if (parentID) {
+              // A resumed root never re-announces `created`; classify it from
+              // its child's created event (rule (b)) before tracking.
+              registry.noteObserved(parentID);
+              if (registry.isRoot(parentID)) {
+                children.set(info.id, parentID);
+              }
             }
             return;
           }

@@ -81,6 +81,9 @@ export function createAssistantSessionStartPlugin(deps: OpencodeHandlerDeps = de
             await log.warn('assistant system.transform fired without a sessionID; announcement skipped');
             return;
           }
+          // Resumed sessions never re-emit `created`; their first transform
+          // classifies them as roots under registry rule (b).
+          registry.noteObserved(input.sessionID);
           if (!registry.isRoot(input.sessionID) || announced.has(input.sessionID)) {
             return;
           }

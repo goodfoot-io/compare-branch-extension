@@ -68,13 +68,24 @@ describe('CardsSessionStartAfterCompaction (runtime)', () => {
   });
 
   it('skips child sessions', async () => {
-    const context = await runCompacting('ses-child');
-    expect(context).toHaveLength(0);
+    // One instance: the child's created(parentID) record must exist in the
+    // same registry the compacting hook consults.
+    const plugin = createSessionStartAfterCompactionPlugin(makeDeps(tempDir).deps);
+    const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+    await hooks.event?.(sessionCreatedEvent('ses-root'));
+    await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
+    const call = compactingCall('ses-child');
+    await (hooks as { 'experimental.session.compacting'?: (i: unknown, o: unknown) => Promise<void> })[
+      'experimental.session.compacting'
+    ]?.(call.input, call.output);
+    expect(call.output.context).toHaveLength(0);
   });
 
-  it('skips sessions this bundle never observed (fail-closed attribution)', async () => {
-    const context = await runCompacting('ses-unknown', false);
-    expect(context).toHaveLength(0);
+  it('reminds a resumed session first observed via compaction (I5 correction)', async () => {
+    // Resumed sessions never re-emit session.created — rule (b) classifies.
+    const context = await runCompacting('ses-resumed', false);
+    expect(context).toHaveLength(1);
+    expect(context[0]).toContain('<routing-instructions>');
   });
 
   it('fails open when the hook body throws', async () => {

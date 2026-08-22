@@ -38,6 +38,14 @@ export default defineConfig({
           // Codex rollout lines can carry full function-call payloads, so the
           // per-line limit is larger (4 MiB) than the Claude renderer's.
           maxLineLength: 4_194_304
+        },
+        'opencode-session': {
+          version: 1,
+          wwwRoot: './src/streams/opencode-session/www',
+          // The Cards runtime exporter appends one normalized envelope per
+          // line; OpenCode truncates tool output before it reaches the part,
+          // so lines stay well under 1 MiB.
+          maxLineLength: 1_048_576
         }
       }
     }

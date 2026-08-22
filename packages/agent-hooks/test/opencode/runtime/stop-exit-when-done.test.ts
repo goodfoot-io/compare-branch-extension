@@ -111,19 +111,31 @@ describe('CardsStopExitWhenDone (runtime)', () => {
     const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput(true) });
     const plugin = createStopExitWhenDonePlugin(deps);
     const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+    await hooks.event?.(sessionCreatedEvent('ses-root'));
     await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
     await hooks.event?.(sessionIdleEvent('ses-child'));
 
     expect(recorders.markers.exitNudged.size).toBe(0);
   });
 
-  it('ignores sessions this bundle never observed', async () => {
-    const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput(true) });
+  it('notifies a resumed root whose first observation is its own idle event (I5 correction)', async () => {
+    // Resumed sessions never re-emit session.created — rule (b) classifies
+    // the root from the idle event itself.
+    const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput(true) });
     const plugin = createStopExitWhenDonePlugin(deps);
     const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
     await hooks.event?.(sessionIdleEvent('ses-untracked'));
 
-    expect(recorders.markers.exitNudged.size).toBe(0);
+    expect(deps.markers.hasExitWhenDoneFired('ses-untracked')).toBe(true);
+  });
+
+  it('stays silent for an unseen idle event outside a Cards action', async () => {
+    const { deps } = makeDeps(tempDir);
+    const plugin = createStopExitWhenDonePlugin(deps);
+    const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+    await hooks.event?.(sessionIdleEvent('ses-untracked'));
+
+    expect(deps.markers.hasExitWhenDoneFired('ses-untracked')).toBe(false);
   });
 
   it('waits while active subagents keep the session busy', async () => {

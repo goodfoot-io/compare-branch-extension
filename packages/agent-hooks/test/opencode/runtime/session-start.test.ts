@@ -157,6 +157,111 @@ describe('runtime session-start plugin', () => {
     expect(recorders.watcherSpawns).toHaveLength(0);
   });
 
+  describe('resumed sessions (I5 correction): never re-emit session.created', () => {
+    it('starts the Cards integration from the first message.part.updated event', async () => {
+      const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      // No session.created ever arrives for a resumed session.
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'continuing work'));
+
+      // Startup ran once: meta line first, then the triggering part.
+      const lines = readLines('ses-resumed');
+      expect(lines.map((line) => line['type'])).toEqual(['meta', 'part']);
+      expect(lines[0]).toMatchObject({ data: { runtime: 'opencode', opencodeVersion: 'unknown' } });
+
+      expect(recorders.manifests).toHaveLength(1);
+      expect(recorders.manifests[0]).toMatchObject({
+        sessionId: 'ses-resumed',
+        cardId: 'main-453',
+        monitorPid: 4242
+      });
+      expect(recorders.watcherSpawns).toHaveLength(1);
+    });
+
+    it('starts at most once despite repeated activity events', async () => {
+      const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'first'));
+      await hooks.event?.(messageUpdatedEvent('ses-resumed'));
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'third'));
+
+      const types = readLines('ses-resumed').map((line) => line['type']);
+      expect(types).toEqual(['meta', 'part', 'message', 'part']);
+      expect(recorders.manifests).toHaveLength(1);
+      expect(recorders.watcherSpawns).toHaveLength(1);
+    });
+
+    it('injects identity when shell.env is the first observation of a resumed session', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      const output = { env: {} as Record<string, string> };
+      await (hooks as { 'shell.env'?: (i: unknown, o: unknown) => Promise<void> })['shell.env']?.(
+        { cwd: tempDir, sessionID: 'ses-resumed' },
+        output
+      );
+
+      expect(output.env['CARDS_SESSION_ID']).toBe('ses-resumed');
+      expect(output.env['CARDS_TRANSCRIPT_PATH']).toBe(join(tempDir, 'transcripts', 'ses-resumed.jsonl'));
+      // The startup sequence ran, so the injected transcript file exists.
+      expect(readLines('ses-resumed')).toHaveLength(1);
+    });
+
+    it('injects context when system.transform is the first observation', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      const output = { system: [] as string[] };
+      await (hooks as { 'experimental.chat.system.transform'?: (i: unknown, o: unknown) => Promise<void> })[
+        'experimental.chat.system.transform'
+      ]?.({ sessionID: 'ses-resumed' }, output);
+
+      expect(output.system).toHaveLength(1);
+      expect(output.system[0]).toContain('CARD_ID=main-453');
+    });
+
+    it('keeps child sessions skipped even when their activity arrives first in this bundle', async () => {
+      const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      // Child announces created(parentID); its activity must stay ignored.
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'subagent work'));
+
+      const output = { env: {} as Record<string, string> };
+      await (hooks as { 'shell.env'?: (i: unknown, o: unknown) => Promise<void> })['shell.env']?.(
+        { cwd: tempDir, sessionID: 'ses-child' },
+        output
+      );
+
+      expect(readLines('ses-child')).toHaveLength(0);
+      expect(recorders.watcherSpawns).toHaveLength(0);
+      expect(Object.keys(output.env)).toHaveLength(0);
+    });
+
+    it('stays inert for a non-action session first observed via activity', async () => {
+      const { deps, recorders } = makeDeps(tempDir);
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-user-resumed', 'hello'));
+      await hooks.event?.(partUpdatedEvent('ses-user-resumed', 'again'));
+
+      expect(readLines('ses-user-resumed')).toHaveLength(0);
+      expect(recorders.manifests).toHaveLength(0);
+      // The decline is logged once, not per event.
+      const declines = logEntries.filter((e) => e.message.includes('not a Cards action'));
+      expect(declines).toHaveLength(1);
+    });
+  });
+
   it('appends part and message lines only for tracked sessions', async () => {
     const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
     const plugin = createSessionStartPlugin(deps);
@@ -185,12 +290,20 @@ describe('runtime session-start plugin', () => {
   });
 
   describe('shell.env identity injection', () => {
-    async function shellEnvFor(sessionId?: string, roots: string[] = ['ses-card']) {
-      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+    async function shellEnvFor(
+      sessionId?: string,
+      options: { roots?: string[]; children?: string[]; noAction?: boolean } = {}
+    ) {
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => (options.noAction ? null : actionInput())
+      });
       const plugin = createSessionStartPlugin(deps);
       const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
-      for (const id of roots) {
+      for (const id of options.roots ?? ['ses-card']) {
         await hooks.event?.(sessionCreatedEvent(id));
+      }
+      for (const [index, id] of (options.children ?? []).entries()) {
+        await hooks.event?.(sessionCreatedEvent(id, { parentID: `ses-parent-${index}` }));
       }
       const output = { env: {} as Record<string, string> };
       await (hooks as { 'shell.env'?: (i: unknown, o: unknown) => Promise<void> })['shell.env']?.(
@@ -208,22 +321,24 @@ describe('runtime session-start plugin', () => {
     });
 
     it('skips child sessions', async () => {
-      const env = await shellEnvFor('ses-other');
+      const env = await shellEnvFor('ses-child', { roots: [], children: ['ses-child'] });
       expect(Object.keys(env)).toHaveLength(0);
     });
 
     it('attributes absent-sessionID calls to the sole live root session', async () => {
-      const env = await shellEnvFor(undefined, ['ses-card']);
+      const env = await shellEnvFor(undefined, { roots: ['ses-card'] });
       expect(env['CARDS_SESSION_ID']).toBe('ses-card');
     });
 
     it('declines to guess when several root sessions are live', async () => {
-      const env = await shellEnvFor(undefined, ['ses-a', 'ses-b']);
+      const env = await shellEnvFor(undefined, { roots: ['ses-a', 'ses-b'] });
       expect(Object.keys(env)).toHaveLength(0);
     });
 
     it('stays empty for sessions without Cards state', async () => {
-      const env = await shellEnvFor('ses-user', []);
+      // Not spawned by a Cards action — classification happens but startup
+      // declines, so there is no transcript path to inject.
+      const env = await shellEnvFor('ses-user', { roots: [], noAction: true });
       expect(Object.keys(env)).toHaveLength(0);
     });
   });
