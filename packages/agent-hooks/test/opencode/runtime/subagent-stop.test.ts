@@ -19,6 +19,7 @@ import {
   makeTempDir,
   removeTempDir,
   sessionCreatedEvent,
+  sessionDeletedEvent,
   sessionIdleEvent
 } from '../helpers.js';
 
@@ -120,5 +121,40 @@ describe('CardsSubagentStop (runtime)', () => {
 
     expect(recorders.markers.subagents.size).toBe(0);
     expect(stderrWrites.join('')).not.toContain('Failed');
+  });
+
+  it('prunes the child entry when a tracked child is deleted without going idle (A8)', async () => {
+    const { deps, recorders } = makeDeps(tempDir);
+    const { startHooks, stopHooks } = await buildHooks(deps);
+
+    for (const hooks of [startHooks, stopHooks]) {
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionCreatedEvent('ses-child-1', { parentID: 'ses-root' }));
+    }
+    // Deleted before any idle event — the leak path.
+    await stopHooks.event?.(sessionDeletedEvent('ses-child-1'));
+
+    expect(recorders.markers.subagents.get('ses-root')).toEqual([]);
+    expect(recorders.markers.removalCalls).toBe(1);
+
+    // The map entry is gone: a late idle for the same child is a no-op.
+    await stopHooks.event?.(sessionIdleEvent('ses-child-1'));
+    expect(recorders.markers.removalCalls).toBe(1);
+  });
+
+  it('created → idle → deleted sequence leaves no tracking residue (A8 witness)', async () => {
+    const { deps, recorders } = makeDeps(tempDir);
+    const { startHooks, stopHooks } = await buildHooks(deps);
+
+    for (const hooks of [startHooks, stopHooks]) {
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionCreatedEvent('ses-child-1', { parentID: 'ses-root' }));
+    }
+    await stopHooks.event?.(sessionIdleEvent('ses-child-1'));
+    await stopHooks.event?.(sessionDeletedEvent('ses-child-1'));
+
+    expect(recorders.markers.subagents.get('ses-root')).toEqual([]);
+    // Idle already removed the entry; deletion finds nothing to clean.
+    expect(recorders.markers.removalCalls).toBe(1);
   });
 });

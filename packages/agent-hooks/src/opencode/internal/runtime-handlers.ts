@@ -632,9 +632,9 @@ export function createSubagentStartPlugin(deps: OpencodeHandlerDeps = defaultOpe
 /**
  * Creates the SubagentStop-equivalent plugin.
  *
- * When a tracked child session goes idle, it is removed from the parent's
- * active-subagent tracking so the session can reach a genuine idle state.
- * Best-effort with graceful degradation.
+ * When a tracked child session goes idle — or is deleted without going idle —
+ * it is removed from the parent's active-subagent tracking so the session can
+ * reach a genuine idle state. Best-effort with graceful degradation.
  *
  * @param deps - Injectable edges; defaults wire the real SDK.
  * @returns An OpenCode plugin registering `event` handling.
@@ -661,6 +661,28 @@ export function createSubagentStopPlugin(deps: OpencodeHandlerDeps = defaultOpen
               if (registry.isRoot(parentID)) {
                 children.set(info.id, parentID);
               }
+            }
+            return;
+          }
+
+          if (event.type === 'session.deleted') {
+            // A child destroyed without going idle (crash, cancel) must not
+            // leak its tracking entry — the parent could never reach a
+            // genuine idle state otherwise.
+            const deletedChildId = event.properties.info.id;
+            const deletedParentId = children.get(deletedChildId);
+            if (deletedParentId === undefined) {
+              return;
+            }
+            children.delete(deletedChildId);
+            try {
+              await deps.markers.removeActiveSubagent(deletedParentId, deletedChildId);
+            } catch (error) {
+              await log.warn('Failed to remove active subagent after deletion', {
+                sessionId: deletedParentId,
+                agentId: deletedChildId,
+                error: error instanceof Error ? error.message : String(error)
+              });
             }
             return;
           }

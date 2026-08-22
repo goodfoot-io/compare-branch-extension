@@ -31,6 +31,7 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import type { Dirent } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -51,11 +52,58 @@ import {
 import {
   CODEX_PLUGIN_CONTENT_STAMP,
   composeDeveloperInstructions,
-  computePluginContentHash,
   readCardRepoAgentsMd,
   readSlotContentStamp
 } from './codex-session.js';
 import { spawnAgentCli } from './spawn-cli.js';
+
+/**
+ * Computes the content digest of a bundled plugin source directory, following
+ * directory symlinks.
+ *
+ * Differs deliberately from {@link computePluginContentHash} in codex-session:
+ * the OpenCode payload tree ships out-of-package relative symlinks (e.g.
+ * `skills/debug -> ../../../skills/debug`), which the codex walker's
+ * `withFileTypes` directory check EISDIRs on when hashing source-as-shipped.
+ * Every entry is resolved with {@link module:fs/promises.stat} — which follows
+ * symlinks — so linked directories are walked and linked files are hashed by
+ * content, mirroring exactly what `fs.cp(..., { dereference: true })` lands in
+ * the cache slot. The stamp file is skipped, and repo-relative POSIX paths are
+ * folded into one SHA-256 in sorted order for cross-platform determinism.
+ *
+ * @param sourceDir - Absolute path to the packaged plugin source directory.
+ * @returns Lowercase hex SHA-256 digest of the directory's dereferenced contents.
+ */
+async function computeDereferencedContentHash(sourceDir: string): Promise<string> {
+  const files: Array<{ rel: string; abs: string }> = [];
+
+  async function walk(dir: string, relBase: string): Promise<void> {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === CODEX_PLUGIN_CONTENT_STAMP) continue;
+      const abs = path.join(dir, entry.name);
+      const rel = relBase === '' ? entry.name : `${relBase}/${entry.name}`;
+      const stat = await fs.stat(abs);
+      if (stat.isDirectory()) {
+        await walk(abs, rel);
+      } else if (stat.isFile()) {
+        files.push({ rel, abs });
+      }
+    }
+  }
+
+  await walk(sourceDir, '');
+  files.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+
+  const hash = createHash('sha256');
+  for (const file of files) {
+    hash.update(file.rel, 'utf-8');
+    hash.update('\0');
+    hash.update(await fs.readFile(file.abs));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
 
 /**
  * Options for {@link spawnOpencodeSession}.
@@ -290,7 +338,7 @@ async function installPluginToCache(
 ): Promise<string> {
   const baseRoot = path.join(cacheRoot, pluginName);
   const destVersionDir = path.join(baseRoot, version);
-  const contentHash = await computePluginContentHash(sourceDir);
+  const contentHash = await computeDereferencedContentHash(sourceDir);
 
   // Fast path: an existing slot whose stamp matches the current bundle is
   // byte-identical — leave it untouched. No writes, so any number of concurrent
@@ -302,7 +350,9 @@ async function installPluginToCache(
   const staging = await fs.mkdtemp(path.join(cacheRoot, '.plugin-install-'));
   try {
     const stagedVersionDir = path.join(staging, version);
-    await fs.cp(sourceDir, stagedVersionDir, { recursive: true, force: true });
+    // dereference: the payload ships relative skill symlinks that must land
+    // as real files in the cache slot (see {@link computeDereferencedContentHash}).
+    await fs.cp(sourceDir, stagedVersionDir, { recursive: true, force: true, dereference: true });
 
     // Validate the staged bundle BEFORE publishing — fail closed on a bad bundle.
     await readOpencodePluginManifest(stagedVersionDir, pluginName);
@@ -644,22 +694,35 @@ async function collectSkillDirs(
  * Writes the per-plugin-set Cards launch config document consumed by spawned
  * OpenCode sessions via the `OPENCODE_CONFIG` env var.
  *
- * One file PER SET (`launch.config.json` / `assistant.config.json`) — never one
- * per launch — closing the concurrent-launch clobber race: the document holds
- * only set-scoped inputs (enabled plugin hook modules, allow-all tool
- * permissions, skill discovery dirs), so every launch of the same set under the
- * same extension build computes byte-identical content. Concurrent launches hit
- * the stamp-match fast path (current bytes on disk → no write); the rare
- * post-upgrade rewrite lands through a sibling mkdtemp + atomic rename, so a
- * concurrent reader sees either the old or the new complete document, never a
- * partial one.
+ * One file PER SET (`cards-launch.config.json` / `cards-assistant.config.json`)
+ * — never one per launch — closing the concurrent-launch clobber race: the
+ * document holds only set-scoped inputs (enabled plugin hook modules, allow-all
+ * tool permissions, skill discovery dirs), so every launch of the same set
+ * under the same extension build computes byte-identical content. Concurrent
+ * launches hit the stamp-match fast path (current bytes on disk → no write);
+ * the rare post-upgrade rewrite lands through a sibling mkdtemp + atomic
+ * rename, so a concurrent reader sees either the old or the new complete
+ * document, never a partial one.
  *
- * Document shape (verified against the installed binary's Config v2 schema):
- * `$schema`, `plugins` (every `*.mjs` under each enabled plugin's `plugin/`
- * dir, sorted), `permissions` (allow-all ordered ruleset), `skills` (existing
- * plugin skills dirs, sorted). `extras` entries are merged last and win over
- * the base keys; they participate in the determinism contract — callers passing
- * per-card values would break cross-launch byte-stability and must not.
+ * Document shape (live-probed against the installed v1.18.21 binary — the
+ * earlier "Config v2 schema" reading was wrong: those schema strings exist but
+ * the plugin/skills consumers decode legacy keys):
+ *
+ * - `"plugin"` (singular) — absolute `.mjs` file specs; the plural form is
+ *   silently ignored (`onExcessProperty: "ignore"`), producing dead sessions
+ *   with no Cards hooks and exit 0.
+ * - `"permission"` — nested allow-all records (`{"*":{"*":"allow"}}`); the key
+ *   the running binary itself consumes (workspace-root opencode.json precedent).
+ * - `"skills": {"paths": [...]}` — object form only; array-shaped skills
+ *   hard-rejects startup (`Expected object | undefined`). Probed live: with
+ *   this shape a staged SKILL.md was discoverable by the model; without it,
+ *   not. Omitted entirely when a set ships no skill directories.
+ *
+ * Any v1 key (`plugin`) trips the binary's v1 detection, which then migrates
+ * the whole document — so the document is pure v1 throughout. `extras` entries
+ * are merged last and win over the base keys; they participate in the
+ * determinism contract — callers passing per-card values would break
+ * cross-launch byte-stability and must not.
  *
  * Deliberately omitted: per-card `references` (Config v2 record mapping a name
  * to a local path or Git repository) and inline `agents` definitions — see
@@ -683,16 +746,21 @@ export async function writeCardsLaunchConfig(
   pluginCachePaths: Record<string, string>,
   extras?: Record<string, unknown>
 ): Promise<string> {
+  const skillDirs = await collectSkillDirs(pluginNames, pluginCachePaths);
   const document: Record<string, unknown> = {
     $schema: 'https://opencode.ai/config.json',
-    plugins: await collectPluginEntryPaths(pluginNames, pluginCachePaths),
-    permissions: [{ action: '*', resource: '*', effect: 'allow' }],
-    skills: await collectSkillDirs(pluginNames, pluginCachePaths)
+    plugin: await collectPluginEntryPaths(pluginNames, pluginCachePaths),
+    permission: { '*': { '*': 'allow' } }
   };
+  if (skillDirs.length > 0) {
+    // Object form is required — array-shaped skills hard-rejects the document.
+    document['skills'] = { paths: skillDirs };
+  }
   Object.assign(document, extras ?? {});
   const serialized = stableSerialize(document);
 
-  const configPath = path.join(stagingDir, `${set}.config.json`);
+  const stem = set === 'launch' ? 'cards-launch' : 'cards-assistant';
+  const configPath = path.join(stagingDir, `${stem}.config.json`);
 
   // Stamp-match skip: current bytes on disk → leave untouched, so the common
   // concurrent-launch case performs no write at all.
@@ -711,7 +779,7 @@ export async function writeCardsLaunchConfig(
   await fs.mkdir(stagingDir, { recursive: true });
   const staging = await fs.mkdtemp(path.join(stagingDir, '.config-write-'));
   try {
-    const stagedPath = path.join(staging, `${set}.config.json`);
+    const stagedPath = path.join(staging, `${stem}.config.json`);
     await fs.writeFile(stagedPath, serialized, 'utf-8');
     await fs.rename(stagedPath, configPath);
   } finally {

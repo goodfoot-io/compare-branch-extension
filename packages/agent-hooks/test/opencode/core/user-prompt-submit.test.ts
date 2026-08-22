@@ -81,6 +81,9 @@ describe('CardsUserPromptSubmit (core)', () => {
     expect(parts).toHaveLength(2);
     const nudge = parts[1] as { id: string; type: string; text?: string; synthetic?: boolean };
     expect(nudge).toMatchObject({ type: 'text', synthetic: true });
+    // OpenCode rejects parts whose id lacks its prefixed fixed-length shape —
+    // a bare UUID crashes the live message pipeline (binary-gate regression).
+    expect(nudge?.id).toMatch(/^prt_[0-9a-f]{26}$/);
     expect(nudge?.text).toContain('<cards-extension>');
     expect(nudge?.text).toContain('Load the `cards:cards` skill.');
     expect(nudge?.text).toContain('</cards-extension>');

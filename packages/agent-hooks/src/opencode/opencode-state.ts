@@ -329,6 +329,13 @@ export type ExporterLineType = 'meta' | 'message' | 'part';
  * Appends normalized lines to a session's transcript file:
  * `{"v":1,"ts":"<ISO>","seq":<n>,"sessionId":"…","type":"meta"|"message"|"part","data":{...}}`.
  *
+ * **`seq` semantics (pinned):** the counter is per-process — it starts at 1
+ * for every exporter instance and therefore **restarts when a session is
+ * resumed** (a resumed run opens a fresh exporter appending to the same
+ * file). Consumers MUST NOT treat `seq` as a global order key across process
+ * boundaries; within one process it orders lines monotonically. The
+ * renderer tolerates duplicate and out-of-`seq` values across segments.
+ *
  * Writes are append-only with no fsync (throughput over durability — a hard
  * crash loses the tail). The first write after opening heals a torn trailing
  * line left by a dead predecessor: when the file's last byte is not `\n`, the
@@ -508,13 +515,20 @@ function readOpencodeConfig(io: OpencodeStateIo, path: string): unknown {
 /**
  * Reports whether a parsed config's `plugin` array references Cards payloads.
  *
- * Matches both activation models from the plan: user-scope pointer files
- * (`…/plugins/cache/cards/<name>/current.mjs`, package names `cards-opencode-*`)
- * and launch-time staged absolute paths under `~/.cards/opencode/plugins/`.
- * Deliberately heuristic — the gate only decides where a log file lives.
+ * Accepts exactly the document the launcher writer emits (cross-package
+ * contract): the **singular v1 `plugin` key** holding an array of specifier
+ * strings, under any `$schema`. Tuple/option-pair entries and plural key
+ * spellings are not the writer's shape and fail loudly (`false`) so a future
+ * writer/detector drift cannot silently re-enable file logging.
+ *
+ * Entry content stays deliberately heuristic — user-scope pointer files
+ * (`…/plugins/cache/cards/<name>/current.mjs`), package names
+ * (`cards-opencode-*`), and launch-time staged absolute paths under
+ * `~/.cards/opencode/plugins/` — because the gate only decides where a log
+ * file lives, not whether an install is live.
  *
  * @param config - Parsed opencode config document.
- * @returns `true` when any plugin entry looks like a Cards payload.
+ * @returns `true` when any string plugin entry looks like a Cards payload.
  */
 export function recordsCardsPluginInstall(config: unknown): boolean {
   if (config === null || typeof config !== 'object') {
@@ -524,10 +538,7 @@ export function recordsCardsPluginInstall(config: unknown): boolean {
   if (!Array.isArray(plugin)) {
     return false;
   }
-  return plugin.some((entry) => {
-    const spec = Array.isArray(entry) ? entry[0] : entry;
-    return typeof spec === 'string' ? isCardsPluginSpec(spec) : false;
-  });
+  return plugin.some((entry) => typeof entry === 'string' && isCardsPluginSpec(entry));
 }
 
 /**

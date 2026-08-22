@@ -89,6 +89,9 @@ export function createAssistantSessionStartPlugin(deps: OpencodeHandlerDeps = de
           }
           announced.add(input.sessionID);
           output.system.push(ASSISTANT_ANNOUNCEMENT);
+          // Observability parity: one anchored log line proves the menu was
+          // injected (the system fragment itself is invisible in server logs).
+          await log.info('Assistant capability menu injected', { sessionId: input.sessionID });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           await log.warn(`assistant announcement failed (fail-open): ${message}`);

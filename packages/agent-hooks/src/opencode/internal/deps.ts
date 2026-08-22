@@ -87,19 +87,34 @@ export interface OpencodeHandlerDeps {
 }
 
 /**
- * Resolves a runbook shipped beside the emitted plugin bundle.
+ * Resolves a runbook shipped beside the emitted plugin bundle, from any
+ * module URL.
  *
  * Every build target compiles handlers to `<outBase>/plugin/<name>.mjs` with
- * skills shipped as a sibling of `plugin/` at `<outBase>/skills/…`. Resolving
- * from `import.meta.url` finds the runbook wherever the plugin tree is
- * installed; repo-root-relative strings only work when the agent's cwd happens
- * to be this monorepo, which is never true for installed payloads.
+ * skills shipped as a **sibling of `plugin/`** at `<outBase>/skills/…` — one
+ * level up from the bundle file in every install layout (repo/dist payloads
+ * and content-addressed cache slots alike). Resolving from the bundle's
+ * `import.meta.url` therefore needs exactly one `..`; repo-root-relative
+ * strings only work when the agent's cwd happens to be this monorepo, which
+ * is never true for installed payloads.
  *
- * @param relative - Skill-relative fragment below `<plugin>/../skills/card/references`.
+ * @param fromUrl - `file://` URL (typically `import.meta.url`) of a module
+ *   inside the installed `<pkg>/plugin/` directory.
+ * @param relative - Skill-relative fragment below `<pkg>/skills/card/references`.
+ * @returns Absolute path of the referenced runbook.
+ */
+export function resolveRunbookFrom(fromUrl: string, relative: string): string {
+  return fileURLToPath(new URL(`../skills/card/references/${relative}`, fromUrl));
+}
+
+/**
+ * Resolves this bundle's installed runbook paths.
+ *
+ * @param relative - Skill-relative fragment below `<pkg>/skills/card/references`.
  * @returns Absolute path of the referenced runbook.
  */
 function resolveRunbook(relative: string): string {
-  return fileURLToPath(new URL(`../../skills/card/references/${relative}`, import.meta.url));
+  return resolveRunbookFrom(import.meta.url, relative);
 }
 
 /**

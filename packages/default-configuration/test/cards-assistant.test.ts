@@ -55,7 +55,7 @@ vi.mock('../src/lib/opencode-session.js', () => ({
   populateOpencodePluginCache: vi.fn().mockResolvedValue({ bundlePath: '', pluginPaths: {}, pluginCachePaths: {} }),
   resolveCardsOpencodeStagingDir: vi.fn(() => '/test/cards-opencode-staging'),
   resolveDefaultOpencodeConfigDir: vi.fn(() => '/test/oc-config'),
-  writeCardsLaunchConfig: vi.fn().mockResolvedValue('/test/cards-opencode-staging/assistant.config.json')
+  writeCardsLaunchConfig: vi.fn().mockResolvedValue('/test/cards-opencode-staging/cards-assistant.config.json')
 }));
 
 const ORIGINAL_PLATFORM = process.platform;
@@ -372,7 +372,7 @@ describe('cards-assistant handler', () => {
     expect(opts.stdio).toBe('inherit');
     // The per-set staged config document rides OPENCODE_CONFIG — never a
     // CODEX_HOME-style replacement of the config dir.
-    expect(opts.env?.OPENCODE_CONFIG).toBe('/test/cards-opencode-staging/assistant.config.json');
+    expect(opts.env?.OPENCODE_CONFIG).toBe('/test/cards-opencode-staging/cards-assistant.config.json');
 
     // Headless run contract pinned at the repo root; the interview
     // instructions are the opening positional turn.

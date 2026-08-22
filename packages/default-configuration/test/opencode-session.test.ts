@@ -323,19 +323,28 @@ describe('opencode-session library', () => {
 
       const configPath = await writeCardsLaunchConfig('/staging', 'launch', ['cards', 'runtime'], cachePaths('/cache'));
 
-      expect(toPosix(configPath)).toBe('/staging/launch.config.json');
+      expect(toPosix(configPath)).toBe('/staging/cards-launch.config.json');
       expect(vi.mocked(fs.writeFile).mock.calls).toHaveLength(1);
       const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
-      const doc = JSON.parse(written) as { plugins: string[]; permissions: unknown[]; skills: string[] };
-      expect(doc.plugins).toEqual([
+      const doc = JSON.parse(written) as {
+        $schema?: string;
+        plugin: string[];
+        permission: Record<string, Record<string, string>>;
+        skills?: { paths: string[] };
+      };
+      // Live-verified v1 contract (see writeCardsLaunchConfig): singular
+      // `plugin`, nested `permission` record, legacy `skills` object — and
+      // nothing else.
+      expect(Object.keys(doc).sort()).toEqual(['$schema', 'permission', 'plugin', 'skills']);
+      expect(doc.plugin).toEqual([
         '/cache/cards/1.0.0/plugin/post-tool-use-skill.mjs',
         '/cache/cards/1.0.0/plugin/user-prompt-submit.mjs',
         '/cache/runtime/1.0.0/plugin/session-start.mjs'
       ]);
-      expect(doc.skills).toEqual(['/cache/cards/1.0.0/skills', '/cache/runtime/1.0.0/skills']);
-      // The stable serializer sorts object keys recursively, so the permission
-      // rule's keys come back in lexicographic order.
-      expect(JSON.stringify(doc.permissions)).toBe(JSON.stringify([{ action: '*', effect: 'allow', resource: '*' }]));
+      expect(doc.permission).toEqual({ '*': { '*': 'allow' } });
+      expect(doc.skills).toEqual({
+        paths: ['/cache/cards/1.0.0/skills', '/cache/runtime/1.0.0/skills']
+      });
 
       // Deterministic: an identical second call produces identical bytes.
       const firstBytes = written;
@@ -356,9 +365,9 @@ describe('opencode-session library', () => {
       const assistantPath = await writeCardsLaunchConfig('/staging', 'assistant', ['cards'], {
         cards: '/cache/cards/1.0.0'
       });
-      expect(toPosix(assistantPath)).toBe('/staging/assistant.config.json');
+      expect(toPosix(assistantPath)).toBe('/staging/cards-assistant.config.json');
       const targets = vi.mocked(fs.writeFile).mock.calls.map((call) => toPosix(call[0]));
-      expect(targets.every((target) => target.includes('assistant.config.json'))).toBe(true);
+      expect(targets.every((target) => target.includes('cards-assistant.config.json'))).toBe(true);
     });
 
     it('skips the write entirely when the on-disk file already holds these exact bytes', async () => {
@@ -369,7 +378,7 @@ describe('opencode-session library', () => {
         return undefined;
       });
       vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
-        if (payload !== null && toPosix(filePath) === '/staging/assistant.config.json') {
+        if (payload !== null && toPosix(filePath) === '/staging/cards-assistant.config.json') {
           return payload;
         }
         throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
@@ -404,8 +413,8 @@ describe('opencode-session library', () => {
 
       const renames = vi.mocked(fs.rename).mock.calls.map((call) => [toPosix(call[0]), toPosix(call[1])]);
       expect(renames).toHaveLength(1);
-      expect(renames[0]![0]).toMatch(/^\/staging\/\.config-write-[^/]+\/launch\.config\.json$/);
-      expect(renames[0]![1]).toBe('/staging/launch.config.json');
+      expect(renames[0]![0]).toMatch(/^\/staging\/\.config-write-[^/]+\/cards-launch\.config\.json$/);
+      expect(renames[0]![1]).toBe('/staging/cards-launch.config.json');
     });
 
     it('fails closed when an enabled plugin has no cache path', async () => {
@@ -668,11 +677,11 @@ describe('opencode-session library', () => {
       // dir — never into the user's OpenCode config dir.
       const stagedConfig = String(opts.env.OPENCODE_CONFIG);
       expect(stagedConfig.startsWith(`${toPosix(CARDS_OPENCODE_STAGING_DIR)}/`)).toBe(true);
-      expect(stagedConfig.endsWith('launch.config.json')).toBe(true);
+      expect(stagedConfig.endsWith('cards-launch.config.json')).toBe(true);
       const launchConfigWrites = vi
         .mocked(fs.writeFile)
         .mock.calls.map((call) => toPosix(call[0]))
-        .filter((target) => target.includes('launch.config.json'));
+        .filter((target) => target.includes('cards-launch.config.json'));
       expect(launchConfigWrites.length).toBeGreaterThan(0);
       expect(launchConfigWrites.every((target) => target.startsWith(`${toPosix(CARDS_OPENCODE_STAGING_DIR)}/`))).toBe(
         true

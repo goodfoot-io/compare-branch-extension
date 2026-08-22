@@ -283,17 +283,36 @@ describe('hooks log anchor resolution', () => {
 });
 
 describe('recordsCardsPluginInstall', () => {
+  it('accepts the exact document the launcher writer emits (A4 contract)', () => {
+    // v1 singular keys: "plugin" array of absolute .mjs strings under any
+    // $schema, plus the launcher's permission block.
+    const writerDoc = {
+      $schema: 'https://opencode.ai/config.json',
+      plugin: [
+        '/home/u/.cards/opencode/plugins/cache/cards/runtime/plugin/session-start.mjs',
+        '/home/u/.config/opencode/plugins/cache/cards/cards/current.mjs'
+      ],
+      permission: { '*': { '*': 'allow' } }
+    };
+    expect(recordsCardsPluginInstall(writerDoc)).toBe(true);
+  });
+
   it.each([
     ['a cache pointer file', { plugin: ['/h/.config/opencode/plugins/cache/cards/cards/current.mjs'] }, true],
     ['an npm-style package name', { plugin: ['cards-opencode-runtime'] }, true],
-    ['a tuple entry', { plugin: [['/x/plugins/cache/cards/runtime/current.mjs', {}]] }, true],
     [
       'a launch-staged absolute path',
       { plugin: ['/home/u/.cards/opencode/plugins/cache/cards/runtime/plugin/session-start.mjs'] },
       true
     ],
     ['unrelated plugins only', { plugin: ['./my-plugin.ts'] }, false],
-    ['a config without the plugin key', {}, false]
+    ['a config without the plugin key', {}, false],
+    // Drift sentinels: anything that is not the writer's strings-array shape
+    // must fail loudly instead of silently matching.
+    ['a tuple-entry array (plural/v2 shape)', { plugin: [['/x/plugins/cache/cards/runtime/current.mjs', {}]] }, false],
+    ['a mixed string/tuple array', { plugin: ['./ok.ts', ['/x/cache/cards/current.mjs', {}]] }, false],
+    ['the plural "plugins" key', { plugins: ['/x/plugins/cache/cards/runtime/current.mjs'] }, false],
+    ['a non-array plugin value', { plugin: '/x/plugins/cache/cards/runtime/current.mjs' }, false]
   ])('detects %s', (_label, config, expected) => {
     expect(recordsCardsPluginInstall(config)).toBe(expected);
   });

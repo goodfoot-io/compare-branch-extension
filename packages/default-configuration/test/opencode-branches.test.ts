@@ -318,7 +318,7 @@ describe('launch action — opencode branch', () => {
     // staging dir — never CODEX_HOME-style replacement of the config dir.
     const stagedConfig = String(opts.env.OPENCODE_CONFIG);
     expect(stagedConfig.startsWith(`${toPosix(CARDS_OPENCODE_STAGING_DIR)}/`)).toBe(true);
-    expect(stagedConfig.endsWith('launch.config.json')).toBe(true);
+    expect(stagedConfig.endsWith('cards-launch.config.json')).toBe(true);
     // No enablement document is ever written into the user's config dir.
     const writeTargets = vi.mocked(fs.writeFile).mock.calls.map((call) => toPosix(call[0]));
     expect(

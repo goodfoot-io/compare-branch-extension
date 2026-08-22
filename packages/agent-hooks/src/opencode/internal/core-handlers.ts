@@ -18,7 +18,7 @@
  * @module internal/core-handlers
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { Plugin } from '@opencode-ai/plugin';
 import {
   buildNudgeContext,
@@ -90,6 +90,20 @@ function isCardsSkill(skill: string): boolean {
 // ---------------------------------------------------------------------------
 // UserPromptSubmit
 // ---------------------------------------------------------------------------
+
+/**
+ * Generates a synthetic text-part id in OpenCode's own shape.
+ *
+ * The live binary rejects parts whose id does not match its prefixed,
+ * fixed-length convention (`prt_` + 26 characters) — a bare UUID crashes the
+ * message pipeline (verified against v1.18.21). Matching the observed shape
+ * keeps the appended nudge part indistinguishable from a native one.
+ *
+ * @returns An `prt_`-prefixed identifier of the expected length.
+ */
+function nextPartId(): string {
+  return `prt_${randomBytes(13).toString('hex')}`;
+}
 
 /**
  * Creates the card-mention nudge plugin over `chat.message`.
@@ -169,7 +183,7 @@ export function createUserPromptSubmitPlugin(deps: OpencodeHandlerDeps = default
 
           // Parts-append nudge: a synthetic text part riding the user turn.
           output.parts.push({
-            id: randomUUID(),
+            id: nextPartId(),
             sessionID: input.sessionID,
             messageID: input.messageID ?? output.message.id,
             type: 'text',

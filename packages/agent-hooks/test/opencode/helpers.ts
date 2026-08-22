@@ -85,6 +85,8 @@ export class MemoryMarkers {
   readonly exitNudged = new Set<string>();
   /** Parent session → active child ids. */
   readonly subagents = new Map<string, string[]>();
+  /** Number of removeActiveSubagent calls, for leak assertions. */
+  removalCalls = 0;
 
   /**
    * Adds a child to a parent's active set (real card-repo parity).
@@ -104,9 +106,10 @@ export class MemoryMarkers {
    * Removes a child from a parent's active set.
    *
    * @param parentId - Parent root session id.
-   * @param childId - Child subagent session id that went idle.
+   * @param childId - Child subagent session id that went idle or was deleted.
    */
   async removeSubagent(parentId: string, childId: string): Promise<void> {
+    this.removalCalls += 1;
     const list = this.subagents.get(parentId) ?? [];
     const next = list.filter((id) => id !== childId);
     this.subagents.set(parentId, next);
