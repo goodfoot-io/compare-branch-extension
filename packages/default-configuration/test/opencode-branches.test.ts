@@ -2,7 +2,7 @@
  * Exercises OpenCode branches of the consolidated action handlers (launch,
  * chat, interview, captain) through end-to-end scenarios. Locks in the
  * pre-spawn binary probe, plugin-cache population, staged-config writing,
- * spawn argv (the headless `run --dir --title` contract), error paths,
+ * spawn argv (interactive TUI via `--prompt`, background headless run), error paths,
  * cancellation, and branch-cleanup wiring for the OpenCode path.
  *
  * @summary Tests OpenCode branches of consolidated action handlers
@@ -296,10 +296,11 @@ describe('launch action — opencode branch', () => {
     expect(vi.mocked(spawn).mock.calls[0]![0]).toBe('/usr/bin/opencode');
 
     const args = vi.mocked(spawn).mock.calls[0]![1] as string[];
-    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    expect(args[0]).toBe('--prompt');
+    expect(args[2]).toBe(WORKTREE_PATH);
     // The card-repo AGENTS.md leads the composed opening turn; the caller
     // prompt closes it.
-    const openingTurn = args[args.length - 1]!;
+    const openingTurn = args[1]!;
     expect(openingTurn).toContain('# Card Repository Reference');
     expect(openingTurn.endsWith('Load the `card` skill and follow the `<routing-instructions>`.')).toBe(true);
 
@@ -397,12 +398,13 @@ describe('chat action — opencode branch', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]![0]).toBe('/usr/bin/opencode');
     const args = calls[0]![1] as string[];
-    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    expect(args[0]).toBe('--prompt');
+    expect(args[2]).toBe(WORKTREE_PATH);
     // Chat passes no guidance prompt — the composed turn carries only the
     // card-repo AGENTS.md plus the chat-routing skill.
-    expect(args).toHaveLength(6);
-    expect(args[5]).toContain('Route only — evaluate, select, and load');
-    expect(args[5]).toContain('Each card is an isolated Git repository.');
+    expect(args).toHaveLength(3);
+    expect(args[1]).toContain('Route only — evaluate, select, and load');
+    expect(args[1]).toContain('Each card is an isolated Git repository.');
 
     const opts = calls[0]![2] as { env: Record<string, string | undefined> };
     expect(opts.env.EXIT_WHEN_DONE).toBe('false');
@@ -426,8 +428,9 @@ describe('interview action — opencode branch', () => {
     const calls = vi.mocked(spawn).mock.calls;
     expect(calls).toHaveLength(1);
     const args = calls[0]![1] as string[];
-    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
-    const openingTurn = args[args.length - 1]!;
+    expect(args[0]).toBe('--prompt');
+    expect(args[2]).toBe(WORKTREE_PATH);
+    const openingTurn = args[1]!;
     expect(openingTurn.endsWith('Load the `interview` skill and follow the `<routing-instructions>`.')).toBe(true);
 
     const opts = calls[0]![2] as { env: Record<string, string | undefined> };
@@ -449,8 +452,9 @@ describe('captain action — opencode branch', () => {
     await flushMicrotasks();
 
     const args = vi.mocked(spawn).mock.calls[0]![1] as string[];
-    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
-    expect(args[args.length - 1]).toMatch(/Load the `captain` skill and follow the `<routing-instructions>`\.$/);
+    expect(args[0]).toBe('--prompt');
+    expect(args[2]).toBe(WORKTREE_PATH);
+    expect(args[1]).toMatch(/Load the `captain` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
     await promise;

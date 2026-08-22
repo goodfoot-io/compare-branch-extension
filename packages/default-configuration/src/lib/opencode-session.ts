@@ -809,33 +809,48 @@ export async function writeCardsLaunchConfig(
 /**
  * Builds the CLI argument list for the `opencode` process.
  *
- * Pins the headless run contract verified against the installed binary:
- * `opencode run --dir <worktree> --title <cardId> [message…]` — the prompt is
- * passed as positional arguments, there is no `--add-dir` analog, and there is
- * no system-prompt override flag, so session guidance rides the opening
- * positional turn ahead of the prompt.
+ * Interactive actions boot the TUI with the composed opening turn seeded via
+ * `--prompt` and the worktree as the project positional — the live-verified
+ * surface of the installed binary (the TUI accepts neither `--dir` nor
+ * `--title`). Background dispatch uses the headless one-shot
+ * `opencode run --dir <worktree> --title <cardId> [message…]`, where the title
+ * labels the transcript. There is no system-prompt override flag on either
+ * form, so session guidance rides the composed opening turn ahead of the
+ * prompt.
  *
  * @param prompt - Prompt passed to OpenCode. Omit for prompt-less sessions.
  * @param workspacePath - Card worktree path used as the session working directory.
- * @param cardId - Card identifier carried on `--title` so the transcript and UI label the session.
- * @param appendSystemPrompt - Session guidance prepended ahead of `prompt` in the positionals.
+ * @param cardId - Card identifier carried on `--title` (background only) so the transcript and UI label the session.
+ * @param appendSystemPrompt - Session guidance prepended ahead of `prompt`.
+ * @param executionMode - Dispatch mode: `'interactive'` boots the TUI, `'background'` the headless run.
  * @returns Array of CLI arguments.
  */
 export function buildOpencodeArgs(
   prompt: string | undefined,
   workspacePath: string,
   cardId: string,
-  appendSystemPrompt?: string
+  appendSystemPrompt: string | undefined,
+  executionMode: 'interactive' | 'background'
 ): string[] {
-  const args = ['run', '--dir', workspacePath, '--title', cardId];
-
   const fragments = [appendSystemPrompt?.trim(), prompt?.trim()].filter(
     (fragment): fragment is string => fragment !== undefined && fragment.length > 0
   );
-  if (fragments.length > 0) {
-    args.push(fragments.join('\n\n'));
+  const composed = fragments.join('\n\n');
+
+  // Interactive actions boot the TUI seeded with the composed opening turn
+  // (`--prompt`); background dispatch runs the headless one-shot (`run`),
+  // which additionally supports `--title` for transcript labeling.
+  if (executionMode === 'interactive') {
+    return composed.length > 0 ? ['--prompt', composed, workspacePath] : [workspacePath];
   }
 
+  const args = ['run', '--dir', workspacePath];
+  if (cardId.length > 0) {
+    args.push('--title', cardId);
+  }
+  if (composed.length > 0) {
+    args.push(composed);
+  }
   return args;
 }
 
@@ -993,7 +1008,7 @@ export async function spawnOpencodeSession(
   // its developer_instructions channel.
   const cardRepoAgentsMd = readCardRepoAgentsMd(input.cardRepoPath);
   const guidance = composeDeveloperInstructions([cardRepoAgentsMd, appendSystemPrompt]);
-  const args = buildOpencodeArgs(rawPrompt, cwd, input.cardId, guidance);
+  const args = buildOpencodeArgs(rawPrompt, cwd, input.cardId, guidance, input.executionMode);
 
   const child: ChildProcess = spawnAgentCli(opencodeBinary, args, {
     cwd,

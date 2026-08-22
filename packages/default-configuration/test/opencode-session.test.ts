@@ -428,10 +428,22 @@ describe('opencode-session library', () => {
   });
 
   describe('buildOpencodeArgs', () => {
-    it('pins the headless run contract: run --dir <worktree> --title <cardId> [prompt…]', async () => {
+    it('interactive mode boots the TUI: --prompt <composed> <worktree>', async () => {
       const { buildOpencodeArgs } = await import('../src/lib/opencode-session.js');
 
-      expect(buildOpencodeArgs('do the thing', '/wt', 'card-123')).toEqual([
+      expect(buildOpencodeArgs('do the thing', '/wt', 'card-123', undefined, 'interactive')).toEqual([
+        '--prompt',
+        'do the thing',
+        '/wt'
+      ]);
+      // Prompt-less interactive sessions still target the worktree positional.
+      expect(buildOpencodeArgs(undefined, '/wt', 'card-123', undefined, 'interactive')).toEqual(['/wt']);
+    });
+
+    it('background mode pins the headless run contract: run --dir <worktree> --title <cardId> [prompt…]', async () => {
+      const { buildOpencodeArgs } = await import('../src/lib/opencode-session.js');
+
+      expect(buildOpencodeArgs('do the thing', '/wt', 'card-123', undefined, 'background')).toEqual([
         'run',
         '--dir',
         '/wt',
@@ -439,18 +451,31 @@ describe('opencode-session library', () => {
         'card-123',
         'do the thing'
       ]);
-      // Prompt-less sessions pass no positionals after --title.
-      expect(buildOpencodeArgs(undefined, '/wt', 'card-123')).toEqual(['run', '--dir', '/wt', '--title', 'card-123']);
+      // Prompt-less background sessions pass no positionals after --title.
+      expect(buildOpencodeArgs(undefined, '/wt', 'card-123', undefined, 'background')).toEqual([
+        'run',
+        '--dir',
+        '/wt',
+        '--title',
+        'card-123'
+      ]);
     });
 
-    it('prepends appendSystemPrompt ahead of the prompt in the positionals', async () => {
+    it('prepends appendSystemPrompt ahead of the prompt for both modes', async () => {
       const { buildOpencodeArgs } = await import('../src/lib/opencode-session.js');
 
-      const args = buildOpencodeArgs('do the thing', '/wt', 'card-123', 'ROUTING SKILL');
-      expect(args.slice(0, 5)).toEqual(['run', '--dir', '/wt', '--title', 'card-123']);
-      expect(args.slice(5)).toEqual(['ROUTING SKILL\n\ndo the thing']);
-      // Guidance alone still yields a single positional turn.
-      expect(buildOpencodeArgs(undefined, '/wt', 'card-123', 'ROUTING SKILL').slice(5)).toEqual(['ROUTING SKILL']);
+      const interactive = buildOpencodeArgs('do the thing', '/wt', 'card-123', 'ROUTING SKILL', 'interactive');
+      expect(interactive).toEqual(['--prompt', 'ROUTING SKILL\n\ndo the thing', '/wt']);
+      // Guidance alone still yields a single composed turn.
+      expect(buildOpencodeArgs(undefined, '/wt', 'card-123', 'ROUTING SKILL', 'interactive')).toEqual([
+        '--prompt',
+        'ROUTING SKILL',
+        '/wt'
+      ]);
+
+      const background = buildOpencodeArgs('do the thing', '/wt', 'card-123', 'ROUTING SKILL', 'background');
+      expect(background.slice(0, 5)).toEqual(['run', '--dir', '/wt', '--title', 'card-123']);
+      expect(background.slice(5)).toEqual(['ROUTING SKILL\n\ndo the thing']);
     });
   });
 
@@ -658,16 +683,12 @@ describe('opencode-session library', () => {
       // verified install into a spawn ENOENT.
       expect(calls[0]![0]).toBe('/usr/bin/opencode');
       const args = calls[0]![1] as string[];
-      expect(args.slice(0, 5)).toEqual([
-        'run',
-        '--dir',
-        '/test/workspace/.worktrees/cards/card-123/1',
-        '--title',
-        'card-123'
-      ]);
+      // Interactive dispatch boots the TUI seeded with the composed turn.
+      expect(args[0]).toBe('--prompt');
+      expect(args[args.length - 1]).toBe('/test/workspace/.worktrees/cards/card-123/1');
       // The card-repo AGENTS.md leads the composed opening turn; the caller
       // prompt closes it.
-      const openingTurn = args[args.length - 1]!;
+      const openingTurn = args[1]!;
       expect(openingTurn).toContain('# Card Repo Reference');
       expect(openingTurn.endsWith('Load the `card` skill.')).toBe(true);
 
