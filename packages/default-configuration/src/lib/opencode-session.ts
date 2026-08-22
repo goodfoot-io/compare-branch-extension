@@ -153,6 +153,18 @@ export const OPENCODE_ASSISTANT_PLUGIN_NAMES = [
   'cards-assistant'
 ] as const satisfies readonly OpencodePluginName[];
 
+/**
+ * Plugins the user-scope installer registers in the USER'S global
+ * `opencode.json`: only the interaction layer, whose hooks are safe and useful
+ * in arbitrary terminal sessions. The runtime lifecycle plugins require Cards
+ * action environment variables (`CARD_ID` and friends) and load exclusively
+ * through launch-time staging — `writeCardsLaunchConfig` documents passed via
+ * `OPENCODE_CONFIG`, which the pinned v1.18.21 loader LAYERS over global config
+ * with remeda `mergeDeep` (arrays replace per layer, so a staged set cleanly
+ * overrides registration for that session without touching user settings).
+ */
+export const OPENCODE_USER_SCOPE_PLUGIN_NAMES = ['cards'] as const satisfies readonly OpencodePluginName[];
+
 /** Which per-plugin-set staged config {@link writeCardsLaunchConfig} writes. */
 export type OpencodeLaunchConfigSet = 'launch' | 'assistant';
 

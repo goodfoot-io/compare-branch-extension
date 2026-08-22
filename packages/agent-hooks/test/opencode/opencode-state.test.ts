@@ -215,8 +215,9 @@ describe('hooks log anchor resolution', () => {
   const mainRoot = '/repo/main';
   /** IO whose git lookup reports fixed roots (no git subprocess in tests). */
   const ioWithRoots = { ...io, gitRoots: () => ({ worktreeRoot: tempDir, mainRepoRoot: mainRoot }) };
-  /** IO outside any repository. */
-  const ioNoRepo = { ...io, gitRoots: () => null };
+  /** IO outside any repository, with an isolated home so a real Cards install
+   *  on the host machine cannot leak into anchor resolution. */
+  const ioNoRepo = { ...io, gitRoots: () => null, homedir: () => join(tempDir, 'home') };
 
   it('honors an explicit OPENCODE_CARDS_HOOKS_LOG_FILE override', () => {
     const env = { OPENCODE_CARDS_HOOKS_LOG_FILE: '/tmp/override.log' } as NodeJS.ProcessEnv;
@@ -261,7 +262,8 @@ describe('hooks log anchor resolution', () => {
       { OPENCODE_CONFIG_DIR: globalDir } as NodeJS.ProcessEnv,
       '/some/checkout'
     );
-    expect(anchor).toBe(defaultOpencodeStateIo.homedir());
+    // Anchored at the INJECTED home: resolution must honor the IO seam.
+    expect(anchor).toBe(ioNoRepo.homedir());
   });
 
   it('parses comment-bearing .jsonc configs when detecting installs', () => {

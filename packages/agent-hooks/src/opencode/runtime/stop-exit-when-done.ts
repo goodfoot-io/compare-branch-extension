@@ -14,7 +14,15 @@
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
-import { createStopExitWhenDonePlugin } from '../internal/runtime-handlers.js';
+import {
+  createInertRuntimePlugin,
+  createStopExitWhenDonePlugin,
+  isCardsActionSession
+} from '../internal/runtime-handlers.js';
 
 /** Exit-when-done nudge plugin bound to the real dependency wiring. */
-export const CardsStopExitWhenDone: Plugin = createStopExitWhenDonePlugin();
+// Inert outside Cards-action sessions: without `CARD_ID` the lifecycle hooks
+// would only idle; exporting no hooks keeps accidental registrations silent.
+export const CardsStopExitWhenDone: Plugin = isCardsActionSession()
+  ? createStopExitWhenDonePlugin()
+  : createInertRuntimePlugin();

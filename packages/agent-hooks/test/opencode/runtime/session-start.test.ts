@@ -110,6 +110,39 @@ describe('runtime session-start plugin', () => {
     expect(logEntries.some((e) => e.message.includes('not a Cards action'))).toBe(true);
   });
 
+  it('entry exports an inert plugin (no hooks at all) outside Cards-action sessions', async () => {
+    const previous = process.env.CARD_ID;
+    delete process.env.CARD_ID;
+    try {
+      vi.resetModules();
+      const entry = await import('../../../src/opencode/runtime/session-start.js');
+      const plugin = entry.CardsRuntimeSessionStart;
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+      // No hook surface whatsoever: accidental global registration is silent.
+      expect(hooks).toEqual({});
+      expect(hooks.event).toBeUndefined();
+    } finally {
+      if (previous === undefined) delete process.env.CARD_ID;
+      else process.env.CARD_ID = previous;
+      vi.resetModules();
+    }
+  });
+
+  it('entry exports the live factory when spawned by a Cards action', async () => {
+    const previous = process.env.CARD_ID;
+    process.env.CARD_ID = 'ope-age-sup-1';
+    try {
+      vi.resetModules();
+      const entry = await import('../../../src/opencode/runtime/session-start.js');
+      const hooks = await entry.CardsRuntimeSessionStart(makePluginInput(tempDir, makeClient(logEntries)));
+      expect(typeof hooks.event).toBe('function');
+    } finally {
+      if (previous === undefined) delete process.env.CARD_ID;
+      else process.env.CARD_ID = previous;
+      vi.resetModules();
+    }
+  });
+
   it('materializes the transcript with a meta line and spawns the watcher for an action session', async () => {
     const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
     const plugin = createSessionStartPlugin(deps);

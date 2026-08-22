@@ -12,7 +12,15 @@
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
-import { createSubagentStartPlugin } from '../internal/runtime-handlers.js';
+import {
+  createInertRuntimePlugin,
+  createSubagentStartPlugin,
+  isCardsActionSession
+} from '../internal/runtime-handlers.js';
 
 /** Subagent-start tracking plugin bound to the real dependency wiring. */
-export const CardsSubagentStart: Plugin = createSubagentStartPlugin();
+// Inert outside Cards-action sessions: without `CARD_ID` the lifecycle hooks
+// would only idle; exporting no hooks keeps accidental registrations silent.
+export const CardsSubagentStart: Plugin = isCardsActionSession()
+  ? createSubagentStartPlugin()
+  : createInertRuntimePlugin();

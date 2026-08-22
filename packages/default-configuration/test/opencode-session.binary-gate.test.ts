@@ -130,7 +130,7 @@ describe.skipIf(binary === null)('staged launch config — real-binary witness (
     expect(doc['skills']).toEqual({ paths: expect.any(Array) });
   });
 
-  it('boots a full session on the emitted document with the runtime plugin firing', () => {
+  it('boots a full session on the emitted document; runtime stays inert without an action env', () => {
     const home = path.join(scratchRoot, 'home');
     const xdg = path.join(scratchRoot, 'xdg');
     const data = path.join(scratchRoot, 'data');
@@ -143,26 +143,38 @@ describe.skipIf(binary === null)('staged launch config — real-binary witness (
       delete childEnv[key];
     }
 
-    const run = spawnSync(binary as string, ['run', '--dir', path.join(scratchRoot, 'proj'), 'reply with ok'], {
-      encoding: 'utf8',
-      timeout: 120000,
-      cwd: path.join(scratchRoot, 'proj'),
-      env: {
-        ...childEnv,
-        HOME: home,
-        XDG_CONFIG_HOME: xdg,
-        XDG_DATA_HOME: data,
-        OPENCODE_CONFIG: configPath,
-        // Operator override: every handler entry lands in this temp anchor.
-        OPENCODE_CARDS_HOOKS_LOG_FILE: anchorPath
-      }
-    });
+    const spawnWith = (extraEnv: NodeJS.ProcessEnv) =>
+      spawnSync(binary as string, ['run', '--dir', path.join(scratchRoot, 'proj'), 'reply with ok'], {
+        encoding: 'utf8',
+        timeout: 120000,
+        cwd: path.join(scratchRoot, 'proj'),
+        env: {
+          ...childEnv,
+          HOME: home,
+          XDG_CONFIG_HOME: xdg,
+          XDG_DATA_HOME: data,
+          OPENCODE_CONFIG: configPath,
+          // Operator override: every handler entry lands in this temp anchor.
+          OPENCODE_CARDS_HOOKS_LOG_FILE: anchorPath,
+          ...extraEnv
+        }
+      });
 
     // A rejected document hard-fails startup with a non-zero exit (the
     // pre-fix v2-shaped doc exited 1 with "Configuration is invalid").
+    const run = spawnWith({});
     expect(run.status).toBe(0);
 
-    const anchorText = existsSync(anchorPath) ? readFileSync(anchorPath, 'utf8') : '';
+    // The runtime entry exports NO hooks without `CARD_ID` — the document
+    // still boots cleanly, and no lifecycle handler idles into the anchor.
+    let anchorText = existsSync(anchorPath) ? readFileSync(anchorPath, 'utf8') : '';
+    expect(anchorText).not.toContain('OpenCode session');
+
+    // With `CARD_ID` present the guard passes and the handler engages.
+    rmSync(anchorPath, { force: true });
+    const actionRun = spawnWith({ CARD_ID: 'ope-age-sup-1' });
+    expect(actionRun.status).toBe(0);
+    anchorText = existsSync(anchorPath) ? readFileSync(anchorPath, 'utf8') : '';
     expect(anchorText).toContain('OpenCode session is not a Cards action');
   }, 180000);
 });

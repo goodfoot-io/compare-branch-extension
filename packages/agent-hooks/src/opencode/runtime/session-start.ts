@@ -16,7 +16,15 @@
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
-import { createSessionStartPlugin } from '../internal/runtime-handlers.js';
+import {
+  createInertRuntimePlugin,
+  createSessionStartPlugin,
+  isCardsActionSession
+} from '../internal/runtime-handlers.js';
 
 /** Runtime session-start plugin bound to the real dependency wiring. */
-export const CardsRuntimeSessionStart: Plugin = createSessionStartPlugin();
+// Inert outside Cards-action sessions: without `CARD_ID` the lifecycle hooks
+// would only idle; exporting no hooks keeps accidental registrations silent.
+export const CardsRuntimeSessionStart: Plugin = isCardsActionSession()
+  ? createSessionStartPlugin()
+  : createInertRuntimePlugin();

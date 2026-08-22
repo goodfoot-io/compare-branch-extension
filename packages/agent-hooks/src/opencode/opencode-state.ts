@@ -601,8 +601,10 @@ export function resolveLogAnchorRoot(io: OpencodeStateIo, env: NodeJS.ProcessEnv
   }
 
   const configuredDir = env['OPENCODE_CONFIG_DIR'];
+  // Route through the IO seam (not raw os.homedir()) so resolution stays
+  // deterministic under injected environments.
   const globalDir =
-    configuredDir !== undefined && configuredDir.length > 0 ? configuredDir : join(osHomedir(), '.config', 'opencode');
+    configuredDir !== undefined && configuredDir.length > 0 ? configuredDir : join(io.homedir(), '.config', 'opencode');
   const userInstall = [join(globalDir, 'opencode.json'), join(globalDir, 'opencode.jsonc')].some((file) =>
     recordsCardsPluginInstall(readOpencodeConfig(io, file))
   );

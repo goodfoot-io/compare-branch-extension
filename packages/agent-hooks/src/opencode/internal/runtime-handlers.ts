@@ -29,7 +29,13 @@
  */
 
 import { join } from 'node:path';
-import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards.management/sdk/config';
+import {
+  CARDS_ENV_VARS,
+  getBaseBranch,
+  getCardRepoPath,
+  getWorkspaceBranch,
+  getWorkspacePath
+} from '@cards.management/sdk/config';
 import type { OpencodeManifestInput } from '@cards.management/sdk/transcript-sync/adapters';
 import type { Plugin } from '@opencode-ai/plugin';
 import { buildAdditionalContext, CardRepoAccessError } from '../../shared/context.js';
@@ -108,6 +114,35 @@ interface RuntimeSessionRecord {
 
 /**
  * Creates the runtime SessionStart-equivalent plugin.
+ *
+/**
+ * Whether the hosting OpenCode process was spawned by a Cards action.
+ *
+ * The Cards launcher injects `CARD_ID` (and the rest of the action envelope)
+ * before spawn; plain terminal sessions never carry it. Runtime lifecycle
+ * plugins are meaningless outside that context, so their entries export an
+ * inert plugin when this returns false — accidental global registration stays
+ * silent and side-effect-free instead of idling loudly on every hook.
+ *
+ * @returns `true` when `CARD_ID` is present in the process environment.
+ */
+export function isCardsActionSession(): boolean {
+  return Boolean(process.env[CARDS_ENV_VARS.CARD_ID]);
+}
+
+/**
+ * A plugin factory registering no hooks. Returned by every runtime entry when
+ * {@link isCardsActionSession} is false.
+ *
+ * @returns An OpenCode plugin with an empty hook surface.
+ */
+export function createInertRuntimePlugin(): Plugin {
+  return () => ({});
+}
+
+/**
+ * Runtime session-start plugin: root-session registration and identity,
+ * context injection, transcript materialization, watcher wiring.
  *
  * Startup runs once per root session — from `session.created` for fresh
  * sessions, and from the first activity event (message, `shell.env`,

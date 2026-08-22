@@ -12,7 +12,15 @@
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
-import { createSessionStartAfterCompactionPlugin } from '../internal/runtime-handlers.js';
+import {
+  createInertRuntimePlugin,
+  createSessionStartAfterCompactionPlugin,
+  isCardsActionSession
+} from '../internal/runtime-handlers.js';
 
 /** Post-compaction reminder plugin bound to the real dependency wiring. */
-export const CardsSessionStartAfterCompaction: Plugin = createSessionStartAfterCompactionPlugin();
+// Inert outside Cards-action sessions: without `CARD_ID` the lifecycle hooks
+// would only idle; exporting no hooks keeps accidental registrations silent.
+export const CardsSessionStartAfterCompaction: Plugin = isCardsActionSession()
+  ? createSessionStartAfterCompactionPlugin()
+  : createInertRuntimePlugin();

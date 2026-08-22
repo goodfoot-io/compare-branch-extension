@@ -103,9 +103,11 @@ interface RunResult {
  *
  * @param bundlePath - Absolute path of the emitted `.mjs` under test.
  * @param prompt - Trivial prompt driving one full turn.
+ * @param extraEnv - Additional environment injected into the child (e.g. a
+ *        `CARD_ID` to simulate a Cards-action launch).
  * @returns Exit status, streams, and the hook-log anchor contents.
  */
-function runBundle(bundlePath: string, prompt: string): RunResult {
+function runBundle(bundlePath: string, prompt: string, extraEnv: NodeJS.ProcessEnv = {}): RunResult {
   const home = path.join(scratchRoot, 'home');
   const xdg = path.join(scratchRoot, 'xdg');
   const data = path.join(scratchRoot, 'data');
@@ -134,7 +136,8 @@ function runBundle(bundlePath: string, prompt: string): RunResult {
       XDG_DATA_HOME: data,
       OPENCODE_CONFIG: configFile,
       // Operator override: every handler entry lands in this temp anchor.
-      OPENCODE_CARDS_HOOKS_LOG_FILE: anchor
+      OPENCODE_CARDS_HOOKS_LOG_FILE: anchor,
+      ...extraEnv
     }
   });
 
@@ -143,9 +146,20 @@ function runBundle(bundlePath: string, prompt: string): RunResult {
 }
 
 describe.skipIf(binary === null)('real-binary gate (installed opencode v1.18.x)', () => {
-  it('runtime bundle: session-start hook fires and reports non-action sessions', () => {
+  it('runtime bundle: inert outside Cards-action sessions — no hooks, silent anchor', () => {
     const result = runBundle(bundles.runtime, 'reply with ok');
     expect(result.status).toBe(0);
+    // The runtime entry exports NO hooks without `CARD_ID`: accidental global
+    // registration must be fully silent, not merely idle-guarded.
+    expect(result.anchorText).not.toContain('OpenCode session');
+    expect(result.anchorText).not.toContain('Nudging');
+  }, 180000);
+
+  it('runtime bundle: session-start engages when launched with a Cards action env', () => {
+    const result = runBundle(bundles.runtime, 'reply with ok', { CARD_ID: 'ope-age-sup-1' });
+    expect(result.status).toBe(0);
+    // With `CARD_ID` present the guard passes; the remaining action envelope is
+    // incomplete in this harness, so the handler idles with its named message.
     expect(result.anchorText).toContain('OpenCode session is not a Cards action');
   }, 180000);
 

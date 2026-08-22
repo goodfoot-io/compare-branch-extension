@@ -14,7 +14,15 @@
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
-import { createStopRouteNudgePlugin } from '../internal/runtime-handlers.js';
+import {
+  createInertRuntimePlugin,
+  createStopRouteNudgePlugin,
+  isCardsActionSession
+} from '../internal/runtime-handlers.js';
 
 /** Merge route-nudge plugin bound to the real dependency wiring. */
-export const CardsStopRouteNudge: Plugin = createStopRouteNudgePlugin();
+// Inert outside Cards-action sessions: without `CARD_ID` the lifecycle hooks
+// would only idle; exporting no hooks keeps accidental registrations silent.
+export const CardsStopRouteNudge: Plugin = isCardsActionSession()
+  ? createStopRouteNudgePlugin()
+  : createInertRuntimePlugin();
