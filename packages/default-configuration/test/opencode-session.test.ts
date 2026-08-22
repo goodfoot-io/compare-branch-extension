@@ -56,6 +56,9 @@ vi.mock('node:fs', () => ({
 }));
 
 vi.mock('node:fs/promises', () => ({
+  // Production code reads fs.constants.X_OK for executability checks on the
+  // well-known binary fallback; mirror the shape it needs.
+  constants: { X_OK: 0o1 },
   access: vi.fn(),
   cp: vi.fn(),
   mkdir: vi.fn(),
@@ -650,7 +653,10 @@ describe('opencode-session library', () => {
 
       const calls = vi.mocked(spawn).mock.calls;
       expect(calls).toHaveLength(1);
-      expect(calls[0]![0]).toBe('opencode');
+      // The launcher resolves the binary once (PATH probe here) and spawns the
+      // absolute path, so a PATH-less child environment can never turn the
+      // verified install into a spawn ENOENT.
+      expect(calls[0]![0]).toBe('/usr/bin/opencode');
       const args = calls[0]![1] as string[];
       expect(args.slice(0, 5)).toEqual([
         'run',
@@ -744,6 +750,8 @@ describe('opencode-session library', () => {
         return {} as ReturnType<typeof execFile>;
       });
       const fs = await import('node:fs/promises');
+      // The well-known-location fallback must also miss for the probe to fail.
+      vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const { spawn } = await import('node:child_process');
       const { spawnOpencodeSession } = await import('../src/lib/opencode-session.js');
 
@@ -752,6 +760,55 @@ describe('opencode-session library', () => {
       // No staging happened before the probe failed.
       expect(vi.mocked(fs.cp)).not.toHaveBeenCalled();
       expect(vi.mocked(fs.writeFile)).not.toHaveBeenCalled();
+    });
+
+    it('spawns the well-known installer location when which fails but <home>/.opencode/bin/opencode exists', async () => {
+      const { execFile } = await import('node:child_process');
+      // Fail ONLY the PATH probe; later flow steps (git) still succeed so the
+      // launch proceeds far enough to reach the spawn.
+      vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1];
+        const cmd = args[0] as string;
+        const cmdArgs = args[1] as string[];
+        const key = `${cmd} ${cmdArgs.join(' ')}`;
+        if (typeof cb === 'function') {
+          if (key === `${process.platform === 'win32' ? 'where' : 'which'} opencode`) {
+            cb(new Error('not found'));
+          } else if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
+            cb(null, { stdout: 'main\n', stderr: '' });
+          } else {
+            cb(new Error(`mock: unhandled command: ${key}`));
+          }
+        }
+        return {} as ReturnType<typeof execFile>;
+      });
+
+      const fs = await import('node:fs/promises');
+      // With the PATH probe failing, the resolver's very next check is the
+      // well-known installer location; let every fs.access succeed so the rest
+      // of the launch flow (plugin-cache staging) proceeds as in the happy
+      // path. Spawning the computed candidate proves the fallback resolved.
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+
+      const { spawn } = await import('node:child_process');
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+      const { spawnOpencodeSession } = await import('../src/lib/opencode-session.js');
+
+      // Mirror the resolver's candidate computation (production uses the real
+      // os.homedir()).
+      const wellKnownBinary = join(homedir(), '.opencode', 'bin', 'opencode');
+
+      const context = createMockContext();
+      const promise = spawnOpencodeSession(baseInput(), context, { prompt: 'Load the `card` skill.' });
+      await flushMicrotasks();
+
+      const calls = vi.mocked(spawn).mock.calls;
+      expect(calls).toHaveLength(1);
+      expect(calls[0]![0]).toBe(wellKnownBinary);
+
+      child.emit('close', 0);
+      await promise;
     });
   });
 });

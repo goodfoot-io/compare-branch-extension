@@ -826,23 +826,75 @@ export function buildOpencodeArgs(
 }
 
 /**
+ * Well-known OpenCode install locations probed when the PATH probe fails.
+ *
+ * The official installer (`curl -fsSL https://opencode.ai/install | bash`)
+ * installs to `<home>/.opencode/bin`, which users typically put on PATH from an
+ * interactive-shell rc file (`.zshrc`) — a file VS Code's extension host never
+ * sources (it resolves its environment through login shells), so a bare-PATH
+ * probe misses otherwise-working installs. Mirrors the detection-side fallback
+ * in `packages/extension/src/agents/agentDetection.ts`.
+ *
+ * @returns Absolute candidate paths, best-first.
+ */
+function wellKnownOpencodeBinaryCandidates(): string[] {
+  return [path.join(homedir(), '.opencode', 'bin', process.platform === 'win32' ? 'opencode.exe' : 'opencode')];
+}
+
+/**
+ * Resolves the `opencode` CLI to an absolute path.
+ *
+ * Probes PATH via `which`/`where` first; when that fails, probes the well-known
+ * installer locations ({@link wellKnownOpencodeBinaryCandidates}) so installs
+ * reachable only through interactive-shell PATH edits are found.
+ *
+ * @returns Absolute binary path, or null when nothing resolves.
+ */
+export async function resolveOpencodeBinary(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileNoWindowAsync(process.platform === 'win32' ? 'where' : 'which', ['opencode']);
+    const firstLine = stdout.trim().split('\n')[0]?.trim();
+    if (firstLine) {
+      return firstLine;
+    }
+  } catch {
+    // Not on PATH (or the probe itself failed) — fall through to the
+    // well-known locations rather than declaring the CLI absent.
+  }
+
+  for (const candidate of wellKnownOpencodeBinaryCandidates()) {
+    try {
+      await fs.access(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch {
+      // Candidate missing or not executable — try the next one.
+    }
+  }
+
+  return null;
+}
+
+/**
  * Probes for the `opencode` binary before any staging work, failing closed
  * with an actionable message. Mirrors the claude-session launcher's
  * `where`/`which` probe (win32 has no `which`; `where` exits non-zero when the
  * executable is absent).
  *
- * @throws {Error} When no `opencode` executable resolves on PATH.
+ * @returns Absolute path to the resolved binary — pass it to {@link spawnAgentCli}
+ *          instead of the bare name so a PATH-less extension-host environment
+ *          cannot turn an already-verified install into a spawn ENOENT.
+ * @throws {Error} When no `opencode` executable resolves on PATH or at the
+ *         well-known installer locations.
  */
-export async function assertOpencodeBinaryAvailable(): Promise<void> {
-  try {
-    await execFileNoWindowAsync(process.platform === 'win32' ? 'where' : 'which', ['opencode']);
-  } catch (error) {
+export async function assertOpencodeBinaryAvailable(): Promise<string> {
+  const binaryPath = await resolveOpencodeBinary();
+  if (binaryPath === null) {
     throw new Error(
-      'The `opencode` CLI was not found on PATH. Install OpenCode and make sure `opencode` resolves on PATH, ' +
-        'or switch cards.defaultCodingAgent to another coding agent.',
-      { cause: error }
+      'The `opencode` CLI was not found on PATH or at ~/.opencode/bin. Install OpenCode and make sure `opencode` ' +
+        'resolves on PATH, or switch cards.defaultCodingAgent to another coding agent.'
     );
   }
+  return binaryPath;
 }
 
 /**
@@ -879,7 +931,7 @@ export async function spawnOpencodeSession(
 ): Promise<void> {
   const { prompt: rawPrompt, appendSystemPrompt } = options;
 
-  await assertOpencodeBinaryAvailable();
+  const opencodeBinary = await assertOpencodeBinaryAvailable();
   const marketplacePath = resolveMarketplacePath();
 
   context.logger.info(`${input.actionName} action started`, {
@@ -929,7 +981,7 @@ export async function spawnOpencodeSession(
   const guidance = composeDeveloperInstructions([cardRepoAgentsMd, appendSystemPrompt]);
   const args = buildOpencodeArgs(rawPrompt, cwd, input.cardId, guidance);
 
-  const child: ChildProcess = spawnAgentCli('opencode', args, {
+  const child: ChildProcess = spawnAgentCli(opencodeBinary, args, {
     cwd,
     stdio: 'inherit',
     env: {

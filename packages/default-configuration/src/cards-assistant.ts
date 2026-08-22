@@ -121,7 +121,7 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
   }
 
   if (agent === 'opencode-cli') {
-    await assertOpencodeBinaryAvailable();
+    const opencodeBinary = await assertOpencodeBinaryAvailable();
     const configDir = resolveDefaultOpencodeConfigDir();
     const { pluginCachePaths } = await populateOpencodePluginCache(
       configDir,
@@ -151,9 +151,9 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
     });
 
     // Route through cross-spawn so the win32 PATHEXT shim resolves and its
-    // arguments are escaped for cmd.exe; on POSIX it spawns `opencode`
-    // directly.
-    const child = spawnAgentCli('opencode', args, {
+    // arguments are escaped for cmd.exe; on POSIX it spawns the resolved
+    // absolute path directly.
+    const child = spawnAgentCli(opencodeBinary, args, {
       cwd: input.repoRoot,
       stdio: 'inherit',
       env: { ...process.env, OPENCODE_CONFIG: configPath }

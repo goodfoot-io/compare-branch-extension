@@ -51,7 +51,7 @@ vi.mock('../src/lib/codex-session.js', () => ({
 
 vi.mock('../src/lib/opencode-session.js', () => ({
   OPENCODE_ASSISTANT_PLUGIN_NAMES: ['cards', 'cards-assistant'],
-  assertOpencodeBinaryAvailable: vi.fn().mockResolvedValue(undefined),
+  assertOpencodeBinaryAvailable: vi.fn().mockResolvedValue('/usr/bin/opencode'),
   populateOpencodePluginCache: vi.fn().mockResolvedValue({ bundlePath: '', pluginPaths: {}, pluginCachePaths: {} }),
   resolveCardsOpencodeStagingDir: vi.fn(() => '/test/cards-opencode-staging'),
   resolveDefaultOpencodeConfigDir: vi.fn(() => '/test/oc-config'),
@@ -360,7 +360,7 @@ describe('cards-assistant handler', () => {
     const promise = handler(baseInput({ codingAgent: 'opencode-cli' }), createMockContext());
     await flushMicrotasks();
 
-    expect(vi.mocked(spawn).mock.calls[0][0]).toBe('opencode');
+    expect(vi.mocked(spawn).mock.calls[0][0]).toBe('/usr/bin/opencode');
     const opts = vi.mocked(spawn).mock.calls[0][2] as {
       shell?: boolean;
       cwd?: string;

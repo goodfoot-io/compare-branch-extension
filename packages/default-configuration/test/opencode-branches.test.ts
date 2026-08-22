@@ -293,7 +293,7 @@ describe('launch action — opencode branch', () => {
     expect(renameDests).toContain(toPosix(`${DEFAULT_OPENCODE_CONFIG_DIR}/plugins/cache/cards/runtime/1.0.0`));
 
     expect(vi.mocked(spawn).mock.calls).toHaveLength(1);
-    expect(vi.mocked(spawn).mock.calls[0]![0]).toBe('opencode');
+    expect(vi.mocked(spawn).mock.calls[0]![0]).toBe('/usr/bin/opencode');
 
     const args = vi.mocked(spawn).mock.calls[0]![1] as string[];
     expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
@@ -395,7 +395,7 @@ describe('chat action — opencode branch', () => {
 
     const calls = vi.mocked(spawn).mock.calls;
     expect(calls).toHaveLength(1);
-    expect(calls[0]![0]).toBe('opencode');
+    expect(calls[0]![0]).toBe('/usr/bin/opencode');
     const args = calls[0]![1] as string[];
     expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
     // Chat passes no guidance prompt — the composed turn carries only the
