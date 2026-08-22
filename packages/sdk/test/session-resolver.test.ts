@@ -179,8 +179,19 @@ describe('resolveRuntime', () => {
     expect(await resolveRuntime()).toBeNull();
   });
 
-  it('returns null for OPENCODE_RUN_ID — no adapter exists for that runtime yet', async () => {
+  it('resolves opencode from OPENCODE_RUN_ID when higher-precedence vars are absent', async () => {
     process.env['OPENCODE_RUN_ID'] = 'opencode-run-456';
+    expect(await resolveRuntime()).toBe('opencode');
+  });
+
+  it('prefers codex over opencode when both vars are set', async () => {
+    process.env['CODEX_THREAD_ID'] = 'codex-thread-123';
+    process.env['OPENCODE_RUN_ID'] = 'opencode-run-456';
+    expect(await resolveRuntime()).toBe('codex');
+  });
+
+  it('returns null when only a whitespace-only OPENCODE_RUN_ID is set', async () => {
+    process.env['OPENCODE_RUN_ID'] = '   ';
     expect(await resolveRuntime()).toBeNull();
   });
 

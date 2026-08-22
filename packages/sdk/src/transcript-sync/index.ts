@@ -1,8 +1,8 @@
 /**
  * Public API for the transcript-sync system: the runtime-agnostic
  * {@link SessionSyncManifest} contract, the runtime adapters that build one
- * for Claude Code and Codex sessions, and the engine that syncs a session's
- * files per that manifest (see `./engine/`).
+ * for Claude Code, Codex, and OpenCode sessions, and the engine that syncs a
+ * session's files per that manifest (see `./engine/`).
  *
  * @summary Transcript-sync manifest, adapters, and engine barrel
  * @module
@@ -12,8 +12,10 @@ export {
   buildClaudeCodeManifest,
   buildCodexManifest,
   buildManifestForRuntime,
+  buildOpencodeManifest,
   type ClaudeCodeManifestInput,
   type CodexManifestInput,
+  type OpencodeManifestInput,
   type RuntimeManifestInput,
   UnsupportedRuntimeError
 } from './adapters/index.js';

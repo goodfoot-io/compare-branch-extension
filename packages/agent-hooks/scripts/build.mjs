@@ -1,21 +1,25 @@
 // Manifest-driven multi-target build for @cards.management/agent-hooks.
 //
-// Emits all six plugin payloads — the three Claude targets (core, assistant,
-// runtime) and the three Codex targets (core, assistant, runtime) — into their
-// existing output directories under public/, with the exact per-target flags
-// inherited from the former package.json `build` scripts. Each target globs only
-// its own handler directory; shared leaves in src/shared/ are pulled into every
-// bundle through normal imports, never added to an input glob (matching today,
-// where the hook CLI ignores non-hook modules).
+// Emits all nine plugin payloads — the three Claude targets (core, assistant,
+// runtime) and the three Codex targets (core, assistant, runtime), each via its
+// SDK CLI, plus the three OpenCode targets (core → cards, assistant →
+// cards-assistant, runtime → runtime) emitted directly with esbuild — into
+// their existing output directories under public/, with the exact per-target
+// flags inherited from the former package.json `build` scripts. Each target
+// globs only its own handler directory; shared leaves in src/shared/ are pulled
+// into every bundle through normal imports, never added to an input glob
+// (matching today, where the hook CLI ignores non-hook modules).
 //
 // Plain Node ESM, consistent with scripts/validate.mjs and scripts/typecheck.mjs
 // at the workspace root — no TS-runner tooling.
 
 import { spawnSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { readdirSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(fileURLToPath(import.meta.url), '..', '..');
 
 // The hook CLI JS entry points, resolved through each package's `exports` map
@@ -116,6 +120,126 @@ const targets = [
   }
 ];
 
+/**
+ * The three OpenCode build targets.
+ *
+ * OpenCode v1.18.21 plugins are in-process modules executed by the host's
+ * embedded Bun — there is no hooks.json and nothing to stamp (no
+ * ELECTRON_RUN_AS_NODE / VSCODE_NODE indirection). Each target bundles every
+ * handler under its own `src/opencode/<area>/` directory into one
+ * self-contained `<name>.mjs` per handler at `<outBase>/<name>.mjs`, exporting
+ * the plugin factory functions verbatim. Bundling is required because the
+ * emitted files run from installed payload locations where the workspace
+ * packages (`@cards.management/sdk`, …) do not resolve; only Node builtins and
+ * the editor-only `vscode` module stay external.
+ */
+const opencodeTargets = [
+  {
+    name: 'opencode-core',
+    input: 'src/opencode/core/**/*.ts',
+    // Core handlers ship with the `cards` plugin, mirroring the Codex layout.
+    outBase: '../../opencode/cards/plugin'
+  },
+  {
+    name: 'opencode-assistant',
+    input: 'src/opencode/assistant/**/*.ts',
+    outBase: '../../opencode/cards-assistant/plugin'
+  },
+  {
+    name: 'opencode-runtime',
+    input: 'src/opencode/runtime/**/*.ts',
+    outBase: '../../opencode/runtime/plugin'
+  }
+];
+
+/**
+ * Recursively lists the `.ts` entry files under a directory relative to the
+ * package root, sorted for deterministic output ordering.
+ *
+ * @param dirRel - Directory to scan, relative to the package root.
+ * @returns Absolute paths of every `.ts` file beneath it (sorted).
+ */
+function listEntryFiles(dirRel) {
+  const absDir = path.resolve(packageRoot, dirRel);
+  const entries = [];
+
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name));
+      } else if (entry.name.endsWith('.ts')) {
+        entries.push(path.join(dir, entry.name));
+      }
+    }
+  };
+
+  walk(absDir);
+  return entries.sort();
+}
+
+/**
+ * Resolves the concrete directory to scan from a target's glob-style `input`
+ * by cutting at the first wildcard segment, so an input like
+ * `src/x/(star)(star)/star.ts` scans `src/x`.
+ *
+ * @param input - The target's input glob.
+ * @returns Directory path relative to the package root.
+ */
+function inputScanRoot(input) {
+  const wildcard = input.indexOf('*');
+  const dir = wildcard === -1 ? path.dirname(input) : input.slice(0, wildcard);
+  return dir.replace(/[/\\]+$/, '');
+}
+
+/**
+ * Builds one OpenCode target: cleans the output directory, then bundles each
+ * handler source into a flat `<basename>.mjs` beside its siblings via esbuild.
+ *
+ * Flags follow the pinned decision for this emitter: ESM output on the Node
+ * platform (`platform: 'browser'` is wrong — these modules import `node:*`
+ * builtins), `esnext` target for Bun, full bundling, `vscode` external. The
+ * banner bridges one gap between the two: bundled CommonJS dependencies that
+ * `require()` Node builtins compile to esbuild's `__require` shim, which has
+ * no `require` binding under strict ESM. OpenCode's Bun tolerates it, but the
+ * banner gives every runtime a working binding instead of relying on that.
+ *
+ * @param {typeof opencodeTargets[number]} target - Target descriptor.
+ */
+async function buildOpencodeTarget(target) {
+  const esbuild = require('esbuild');
+  const outDir = path.resolve(packageRoot, target.outBase);
+
+  rmSync(outDir, { recursive: true, force: true });
+
+  const entryFiles = listEntryFiles(inputScanRoot(target.input));
+  if (entryFiles.length === 0) {
+    throw new Error(`target ${target.name} has no entry files under ${target.input}`);
+  }
+
+  await Promise.all(
+    entryFiles.map((entryFile) =>
+      esbuild.build({
+        entryPoints: [entryFile],
+        outfile: path.join(outDir, `${path.basename(entryFile, '.ts')}.mjs`),
+        bundle: true,
+        format: 'esm',
+        platform: 'node',
+        target: 'esnext',
+        external: ['vscode'],
+        banner: {
+          js: [
+            "import { createRequire as cardsCreateRequire } from 'node:module';",
+            'const require = cardsCreateRequire(import.meta.url);'
+          ].join('\n')
+        },
+        sourcemap: false,
+        legalComments: 'none',
+        logLevel: 'warning'
+      })
+    )
+  );
+}
+
 function buildTarget(target) {
   // Pre-clean each output subdirectory (rm → compile), matching the
   // `node -e "...rmSync..."` prefix of each former build script.
@@ -146,8 +270,8 @@ function buildTarget(target) {
 }
 
 // Exported build manifest — side-effect-free. Consumers (e.g. tests) can import
-// EXECUTABLE and targets without triggering the build.
-export { EXECUTABLE, targets };
+// EXECUTABLE, targets, and opencodeTargets without triggering the build.
+export { EXECUTABLE, targets, opencodeTargets, listEntryFiles, inputScanRoot, buildOpencodeTarget };
 
 // Only run the build when executed directly (not when imported as a module).
 // Guard on argv[1] being defined: an importer with no script argument (e.g.
@@ -166,5 +290,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     buildTarget(target);
   }
 
-  console.log('\n[agent-hooks] all six targets built');
+  for (const target of opencodeTargets) {
+    console.log(`\n[agent-hooks] building ${target.name}`);
+    await buildOpencodeTarget(target);
+  }
+
+  console.log('\n[agent-hooks] all nine targets built');
 }

@@ -52,18 +52,19 @@ export async function resolveSessionId(): Promise<string | null> {
  * deliberately NOT consulted here — it is persisted by the Claude Code
  * SessionStart hook onto every subsequent Bash invocation in that session (see
  * `persistSessionEnv`), so its presence does not distinguish a runtime; only
- * the agent-specific vars each CLI actually sets do. `OPENCODE_RUN_ID` and
- * `CURSOR_TRACE_ID` are recognized by {@link resolveSessionId} for identity but
- * have no {@link SessionSyncManifest} adapter yet (Phase 1 built only
- * `claude-code` and `codex`), so they resolve to `null` here rather than a
- * runtime string a caller cannot act on — fail closed, never guess.
+ * the agent-specific vars each CLI actually sets do. `CURSOR_TRACE_ID` is
+ * recognized by {@link resolveSessionId} for identity but has no
+ * {@link SessionSyncManifest} adapter yet (only `claude-code`, `codex`, and
+ * `opencode` have one), so it resolves to `null` here rather than a runtime
+ * string a caller cannot act on — fail closed, never guess.
  *
- * @returns `'claude-code'`, `'codex'`, or `null` when no supported runtime's
- *   env var is set.
+ * @returns `'claude-code'`, `'codex'`, `'opencode'`, or `null` when no
+ *   supported runtime's env var is set.
  */
-export async function resolveRuntime(): Promise<'claude-code' | 'codex' | null> {
+export async function resolveRuntime(): Promise<'claude-code' | 'codex' | 'opencode' | null> {
   if ((process.env['CLAUDE_CODE_SESSION_ID'] ?? '').trim()) return 'claude-code';
   if ((process.env['CODEX_THREAD_ID'] ?? '').trim()) return 'codex';
+  if ((process.env['OPENCODE_RUN_ID'] ?? '').trim()) return 'opencode';
   return null;
 }
 

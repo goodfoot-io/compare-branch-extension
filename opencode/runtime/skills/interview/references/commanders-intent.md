@@ -1,0 +1,1 @@
+../../../../cards/skills/cards/references/commanders-intent.md

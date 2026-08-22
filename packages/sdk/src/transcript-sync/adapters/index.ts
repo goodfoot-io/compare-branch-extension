@@ -8,9 +8,11 @@
 import type { SessionSyncManifest } from '../manifest.js';
 import { buildClaudeCodeManifest } from './claude-code.js';
 import { buildCodexManifest } from './codex.js';
+import { buildOpencodeManifest } from './opencode.js';
 
 export { buildClaudeCodeManifest, type ClaudeCodeManifestInput } from './claude-code.js';
 export { buildCodexManifest, type CodexManifestInput } from './codex.js';
+export { buildOpencodeManifest, type OpencodeManifestInput } from './opencode.js';
 
 /**
  * Thrown by {@link buildManifestForRuntime} when asked to build a manifest for
@@ -47,7 +49,7 @@ export interface RuntimeManifestInput {
  * statically (the SessionStart hooks) call `buildClaudeCodeManifest` /
  * `buildCodexManifest` directly instead of going through this dispatcher.
  *
- * @param runtime - The runtime identifier, e.g. `'claude-code'` or `'codex'`.
+ * @param runtime - The runtime identifier, e.g. `'claude-code'`, `'codex'`, or `'opencode'`.
  * @param input - Session identifiers and paths shared by every adapter.
  * @returns The manifest built by the matching adapter.
  * @throws {UnsupportedRuntimeError} When `runtime` has no known adapter.
@@ -60,6 +62,8 @@ export function buildManifestForRuntime(runtime: string, input: RuntimeManifestI
       return buildClaudeCodeManifest(input);
     case 'codex':
       return buildCodexManifest({ ...input, rolloutPath: input.transcriptPath });
+    case 'opencode':
+      return buildOpencodeManifest(input);
     default:
       throw new UnsupportedRuntimeError(runtime);
   }

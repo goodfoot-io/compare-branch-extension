@@ -1,0 +1,4 @@
+interface:
+  display_name: "Card Planner"
+  short_description: "Create and refine card implementation plans in a planning contest."
+  default_prompt: "Use $card-planner to create or revise a plan for this card and report it to the orchestrator."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Card Experience Evaluator"
+  short_description: "Find user-experienced failure modes in an implementation."
+  default_prompt: "Use $card-experience-evaluator to evaluate the implementation from the user's side and report findings and a verdict."

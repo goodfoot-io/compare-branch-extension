@@ -1,0 +1,1 @@
+**This skill provides documentaton for `public/packages/sdk` and should be kept up to date at all times.**
