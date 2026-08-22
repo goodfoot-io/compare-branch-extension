@@ -86,7 +86,13 @@ const dist = join(pkgRoot, 'dist');
 rmSync(dist, { recursive: true, force: true });
 
 // 2. Generate the configuration bundle (settings.json + compiled handlers).
-run('cards-sdk build -c settings.config.ts -o dist --loader .md=text');
+//
+// Retry-wrapped for the same overlayfs reason as {@link runWithRetry}: this
+// step materializes dist/www/<renderer> itself, and its recursive mkdirs are
+// the ones that lose the lookup race on a freshly cleaned tree. Empirically
+// the first pass on a fresh dist burns the race and the immediate second
+// pass succeeds.
+runWithRetry('cards-sdk build -c settings.config.ts -o dist --loader .md=text');
 
 // 3. Build the stream webviews (bun).
 //

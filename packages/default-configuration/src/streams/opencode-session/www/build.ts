@@ -26,7 +26,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import tailwind from 'bun-plugin-tailwind';
 
-const pkgRoot = join(import.meta.dir, '..', '..', '..', '..', '..');
+// www -> opencode-session -> streams -> src -> <package root>
+const pkgRoot = join(import.meta.dir, '..', '..', '..', '..');
 const srcWww = 'src/streams/opencode-session/www';
 
 // dist/ is un-watched output space; the entrypoint is regenerated after every
