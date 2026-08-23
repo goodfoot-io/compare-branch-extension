@@ -9,6 +9,7 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
@@ -469,5 +470,194 @@ describe('captain action — opencode branch', () => {
       /'opencode-cli' does not support background-mode/
     );
     expect(spawn).not.toHaveBeenCalled();
+  });
+});
+
+describe('opencode branch — background-mode dispatch', () => {
+  it('launch spawns the headless one-shot run with piped stdio and staged config env', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput({ executionMode: 'background' }), createMockContext());
+    await flushMicrotasks();
+
+    const calls = vi.mocked(spawn).mock.calls;
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0]).toBe('/usr/bin/opencode');
+
+    const args = calls[0]![1] as string[];
+    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    const openingTurn = args[5]!;
+    expect(openingTurn).toContain('# Card Repository Reference');
+    expect(openingTurn.endsWith('Load the `card` skill and follow the `<routing-instructions>`.')).toBe(true);
+
+    const opts = calls[0]![2] as {
+      cwd: string;
+      stdio: unknown;
+      env: Record<string, string | undefined>;
+    };
+    // Background handlers are console-less: stdout/stdin ignored, stderr piped
+    // for diagnostic capture.
+    expect(opts.stdio).toEqual(['ignore', 'ignore', 'pipe']);
+    expect(opts.cwd).toBe(WORKTREE_PATH);
+    expect(String(opts.env.OPENCODE_CONFIG)).toMatch(/cards-launch\.config\.json$/);
+    expect(opts.env.WORKSPACE_BRANCH).toBe('cards/card-123/1');
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('captain spawns the headless one-shot run with the captain routing skill', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/captain.js')).default;
+    const promise = action(baseInput({ actionName: 'Captain', executionMode: 'background' }), createMockContext());
+    await flushMicrotasks();
+
+    const calls = vi.mocked(spawn).mock.calls;
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0]).toBe('/usr/bin/opencode');
+
+    const args = calls[0]![1] as string[];
+    expect(args.slice(0, 5)).toEqual(['run', '--dir', WORKTREE_PATH, '--title', 'card-123']);
+    expect(args[5]).toMatch(/Load the `captain` skill and follow the `<routing-instructions>`\.$/);
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('captures piped stderr into the logger in background mode', async () => {
+    const { spawn } = await import('node:child_process');
+    const stderr = new EventEmitter();
+    const child = {
+      pid: 12345,
+      on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+        (child as unknown as Record<string, unknown>)[`_${event}`] = cb;
+      }),
+      kill: vi.fn(),
+      stdout: null,
+      stderr,
+      emit(event: string, ...args: unknown[]) {
+        ((child as unknown as Record<string, unknown>)[`_${event}`] as ((...a: unknown[]) => void) | undefined)?.(
+          ...args
+        );
+        return true;
+      }
+    } as unknown as ChildProcess;
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const context = createMockContext();
+    const warnSpy = vi.spyOn(context.logger, 'warn');
+    const promise = action(baseInput({ executionMode: 'background' }), context);
+    await flushMicrotasks();
+
+    stderr.emit('data', Buffer.from('headless diagnostics'));
+
+    child.emit('close', 1);
+    await promise;
+
+    expect(warnSpy).toHaveBeenCalledWith('headless diagnostics');
+  });
+
+  it('runs post-exit branch cleanup inline without spawning the detached watcher', async () => {
+    const { execFile, spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+
+    const entryFile = `${encodeURIComponent('cards/card-123/1')}.json`;
+    vi.mocked(fs.readFile).mockImplementation(((filePath: unknown) => {
+      const p = toPosix(filePath);
+      if (p.endsWith('.cards-content-hash')) {
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      }
+      if (p.endsWith('CARD.meta.json')) {
+        // A readable, non-active status passes cleanupMergedBranches' fail-closed
+        // status guard so this test exercises the branch loop.
+        return Promise.resolve(JSON.stringify({ status: 'needs_review' }));
+      }
+      if (p.endsWith(`/branches/${entryFile}`)) {
+        return Promise.resolve(
+          JSON.stringify({
+            name: 'cards/card-123/1',
+            worktree: WORKTREE_PATH,
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z'
+          })
+        );
+      }
+      if (p.endsWith('/package.json')) {
+        return Promise.resolve(JSON.stringify({ name: 'cards-opencode-cards', version: '1.0.0' }));
+      }
+      return Promise.reject(Object.assign(new Error(`unhandled readFile: ${p}`), { code: 'ENOENT' }));
+    }) as unknown as typeof fs.readFile);
+
+    vi.mocked(fs.readdir).mockImplementation(((dirPath: unknown) => {
+      if (toPosix(dirPath).endsWith('/branches')) {
+        return Promise.resolve([entryFile]);
+      }
+      return Promise.resolve([] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+    }) as unknown as typeof fs.readdir);
+
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1];
+      const cmd = args[0] as string;
+      const cmdArgs = args[1] as string[];
+      const key = `${cmd} ${cmdArgs.join(' ')}`;
+
+      if (typeof cb === 'function') {
+        const handled: Record<string, { stdout?: string; error?: Error }> = {
+          [`git rev-parse --abbrev-ref HEAD`]: { stdout: 'main\n' },
+          [`${process.platform === 'win32' ? 'where' : 'which'} opencode`]: { stdout: '/usr/bin/opencode\n' },
+          'git branch --list': { stdout: `  cards/card-123/1\n` },
+          'git merge-base --is-ancestor cards/card-123/1 main': { stdout: '' },
+          'git worktree remove': { stdout: '' },
+          'git branch -d': { stdout: '' },
+          'git rm': { stdout: '' },
+          'git commit': { stdout: '' }
+        };
+        for (const [pattern, result] of Object.entries(handled)) {
+          if (key.startsWith(pattern)) {
+            if (result.error) cb(result.error);
+            else cb(null, { stdout: result.stdout ?? '', stderr: '' });
+            return {} as ReturnType<typeof execFile>;
+          }
+        }
+        cb(new Error(`mock: unhandled command: ${key}`));
+      }
+      return {} as ReturnType<typeof execFile>;
+    });
+
+    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+    });
+
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput({ executionMode: 'background' }), createMockContext());
+    await flushMicrotasks();
+
+    child.emit('close', 0);
+    await promise;
+
+    // Inline cleanup ran the merged-branch reclamation steps itself…
+    const execCalls = vi.mocked(execFile).mock.calls;
+    expect(execCalls.some((c) => String(c[0]) === 'git' && (c[1] as string[])[0] === 'worktree')).toBe(true);
+    expect(execCalls.some((c) => String(c[0]) === 'git' && (c[1] as string[]).join(' ').startsWith('branch -d'))).toBe(
+      true
+    );
+    // …and no detached watcher was spawned behind the headless run.
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+    expect(spawnBranchCleanupWatcher).not.toHaveBeenCalled();
   });
 });
