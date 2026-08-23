@@ -41,6 +41,6 @@ export type {
   TypeSchemasResponse
 } from './types/client.js';
 // Error classes
-export { ApiError, NetworkError } from './types/errors.js';
+export { ApiError, NetworkError, RequestCancelledError, RetryExhaustedError } from './types/errors.js';
 // Event types
 export type { DiscoverResult, EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';

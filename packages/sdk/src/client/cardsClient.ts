@@ -34,7 +34,7 @@ import type {
   TimelineOptions,
   TypeSchemasResponse
 } from './types/client.js';
-import { ApiError, NetworkError } from './types/errors.js';
+import { ApiError, NetworkError, RequestCancelledError, RetryExhaustedError } from './types/errors.js';
 
 /** Default initial fetch timeout in milliseconds for each individual request attempt. */
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
@@ -87,6 +87,26 @@ const INITIAL_RETRY_DELAY_MS = 3_000;
 /** Maximum delay between retries (30 seconds). Once reached, retries continue at this interval. */
 const MAX_RETRY_DELAY_MS = 30_000;
 
+/** Default maximum number of attempts for a retried request (initial attempt included). */
+const DEFAULT_MAX_ATTEMPTS = 10;
+
+/**
+ * Resolves the maximum number of attempts for a retried request, counting the
+ * initial attempt.
+ *
+ * Unset values fall back to {@link DEFAULT_MAX_ATTEMPTS}. Invalid values
+ * (non-finite, less than 1) also fall back to the default — fail closed to the
+ * safe bound rather than allowing an unbounded or zero-attempt loop.
+ *
+ * @param raw - Caller-provided attempt bound from `CardsClientOptions`.
+ * @returns The resolved attempt count, at least 1.
+ */
+function resolveMaxAttempts(raw: number | undefined): number {
+  if (raw === undefined) return DEFAULT_MAX_ATTEMPTS;
+  if (!Number.isFinite(raw) || raw < 1) return DEFAULT_MAX_ATTEMPTS;
+  return Math.floor(raw);
+}
+
 /**
  * Returns true when an error is a programming bug rather than a recoverable
  * transport failure — retrying would produce the identical failure forever.
@@ -123,8 +143,11 @@ function isNonRecoverableError(error: unknown): boolean {
  *
  * All network errors (timeouts, connection refused, DNS failures) are retried
  * with exponential backoff: 3s → 6s → 12s → 24s → 30s cap, then every 30s
- * indefinitely until the server responds. HTTP error responses (4xx, 5xx) are
- * not retried — they surface immediately as {@link ApiError}.
+ * until the attempt budget ({@link CardsClientOptions.maxAttempts}, default
+ * 10) is exhausted, surfacing {@link RetryExhaustedError}. A configured
+ * {@link CardsClientOptions.signal} stops further retries immediately with
+ * {@link RequestCancelledError}. HTTP error responses (4xx, 5xx) are not
+ * retried — they surface immediately as {@link ApiError}.
  *
  * @example
  * ```typescript
@@ -153,6 +176,19 @@ export class CardsClient {
   private _currentTimeoutMs: number;
 
   /**
+   * Maximum number of attempts for retried requests (initial attempt
+   * included). Resolved once from {@link CardsClientOptions.maxAttempts};
+   * invalid values fail closed to the default bound.
+   */
+  private readonly _maxAttempts: number;
+
+  /**
+   * Optional client-level signal that cancels requests and stops retries.
+   * Captured once from {@link CardsClientOptions.signal} at construction.
+   */
+  private readonly _signal: AbortSignal | undefined;
+
+  /**
    * Creates a new CardsClient instance.
    *
    * @param options - Configuration options including base URL and auth token.
@@ -165,6 +201,8 @@ export class CardsClient {
     this._httpClient = httpClient;
     this._initialTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
     this._currentTimeoutMs = this._initialTimeoutMs;
+    this._maxAttempts = resolveMaxAttempts(options.maxAttempts);
+    this._signal = options.signal;
   }
 
   /**
@@ -197,13 +235,16 @@ export class CardsClient {
   /**
    * Returns an AbortSignal that fires after the current backoff timeout.
    * Uses caller's signal if provided (for DI/testing), otherwise applies the backoff timeout.
+   * A client-level {@link CardsClientOptions.signal} is combined into the
+   * result so cancelling it also aborts in-flight fetch attempts.
    *
    * @param existingSignal - Optional caller-provided signal to reuse instead of creating a timeout signal.
    * @returns AbortSignal that controls request cancellation for the current operation.
    */
   private getTimeoutSignal(existingSignal?: AbortSignal | null): AbortSignal {
-    if (existingSignal) return existingSignal;
-    return AbortSignal.timeout(this._currentTimeoutMs);
+    const timeoutSignal = existingSignal ?? AbortSignal.timeout(this._currentTimeoutMs);
+    if (!this._signal) return timeoutSignal;
+    return AbortSignal.any([timeoutSignal, this._signal]);
   }
 
   /**
@@ -212,6 +253,34 @@ export class CardsClient {
    */
   private onRequestSuccess(): void {
     this._currentTimeoutMs = this._initialTimeoutMs;
+  }
+
+  /**
+   * Waits out a backoff delay, resolving early when the client-level signal
+   * aborts so cancellation is not delayed by the remaining sleep.
+   *
+   * @param ms - Delay duration in milliseconds.
+   * @returns True when the delay elapsed fully; false when cancelled.
+   */
+  private backoffSleep(ms: number): Promise<boolean> {
+    const signal = this._signal;
+    return new Promise((resolve) => {
+      if (signal?.aborted) {
+        resolve(false);
+        return;
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const onAbort = () => {
+        if (timer !== undefined) clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+        resolve(false);
+      };
+      timer = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve(true);
+      }, ms);
+      signal?.addEventListener('abort', onAbort, { once: true });
+    });
   }
 
   /**
@@ -346,10 +415,15 @@ export class CardsClient {
    * since the server is reachable and the request was rejected on its merits.
    *
    * Network errors are retried with exponential backoff (starting at 3s,
-   * doubling each attempt up to a 30s cap, then every 30s indefinitely) only
-   * when the operation is idempotent — re-running it cannot change server
-   * state beyond what a single successful run would. GETs and replace-style
-   * writes (PUT/DELETE) are idempotent and retried.
+   * doubling each attempt up to a 30s cap, then every 30s) only when the
+   * operation is idempotent — re-running it cannot change server state beyond
+   * what a single successful run would. GETs and replace-style writes
+   * (PUT/DELETE) are idempotent and retried.
+   *
+   * Retrying stops when the attempt budget ({@link CardsClientOptions.maxAttempts},
+   * default 10) is exhausted — surfacing {@link RetryExhaustedError} — or when
+   * {@link CardsClientOptions.signal} aborts, which stops further retries
+   * immediately with {@link RequestCancelledError}.
    *
    * Non-idempotent operations (e.g. `POST /cards`, which mints a new card on
    * each run) are NOT retried on an ambiguous-outcome network error such as a
@@ -363,16 +437,23 @@ export class CardsClient {
    * @returns The resolved value from the request function.
    * @throws ApiError when the server responds with a non-2xx status.
    * @throws NetworkError when a non-idempotent request fails to reach the server.
+   * @throws RetryExhaustedError when an idempotent request exhausts its attempt budget.
+   * @throws RequestCancelledError when the configured abort signal fires.
    */
   private async request<T>(fn: () => Promise<T>, idempotent = true): Promise<T> {
     let retryDelayMs = INITIAL_RETRY_DELAY_MS;
+    let attempts = 0;
 
     while (true) {
+      if (this._signal?.aborted) {
+        throw new RequestCancelledError('Request cancelled');
+      }
       try {
         const result = await fn();
         this.onRequestSuccess();
         return result;
       } catch (error) {
+        attempts++;
         const httpLike =
           error instanceof Response ||
           (error !== null &&
@@ -409,6 +490,12 @@ export class CardsClient {
           throw error;
         }
 
+        // Cancellation wins over retry bookkeeping: an aborted signal must not
+        // spend more attempts or wait out a backoff sleep.
+        if (this._signal?.aborted) {
+          throw new RequestCancelledError('Request cancelled', error instanceof Error ? error : undefined);
+        }
+
         // Network error. A non-idempotent operation has an ambiguous outcome —
         // the request may already have committed server-side — so retrying it
         // would duplicate the effect (main-186). Surface it instead of retrying.
@@ -419,7 +506,19 @@ export class CardsClient {
             error instanceof Error ? error : undefined
           );
         }
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+
+        if (attempts >= this._maxAttempts) {
+          throw new RetryExhaustedError(
+            `Request failed after ${attempts} attempts`,
+            attempts,
+            error instanceof Error ? error : undefined
+          );
+        }
+
+        const completed = await this.backoffSleep(retryDelayMs);
+        if (!completed) {
+          throw new RequestCancelledError('Request cancelled', error instanceof Error ? error : undefined);
+        }
         retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
         // Double the per-request fetch timeout on each consecutive network
         // failure (capped at MAX_REQUEST_TIMEOUT_MS) so a congested server gets

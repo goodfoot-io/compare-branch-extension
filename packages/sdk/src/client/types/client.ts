@@ -75,6 +75,22 @@ export interface CardsClientOptions {
    * itself.
    */
   requestTimeoutMs?: number;
+  /**
+   * Maximum number of attempts for a retried (idempotent) request, counting
+   * the initial attempt. Defaults to 10 — a generous finite bound so callers
+   * never retry forever against an unreachable server. Exhaustion surfaces as
+   * {@link RetryExhaustedError}. Invalid values (non-finite, less than 1) fall
+   * back to the default — fail closed to the safe bound.
+   */
+  maxAttempts?: number;
+  /**
+   * AbortSignal that cancels this client's requests and stops further retries.
+   *
+   * Checked before each attempt and between backoff sleeps: when it aborts,
+   * in-flight fetches are aborted and no further attempt is scheduled — the
+   * pending request rejects with {@link RequestCancelledError} immediately.
+   */
+  signal?: AbortSignal;
 }
 
 // ============================================================================
