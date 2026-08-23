@@ -1,0 +1,44 @@
+{"type":"system","subtype":"init","model":"claude-opus-4","cwd":"/repo","tools":[],"uuid":"v-01","timestamp":"2026-08-20T10:00:00.000Z"}
+{"type":"user","message":{"content":[{"type":"text","text":"First question."}]},"uuid":"v-02","timestamp":"2026-08-20T10:00:05.000Z"}
+{"type":"assistant","message":{"id":"b-1","content":[{"type":"text","text":"Answer one."}]},"uuid":"v-03","timestamp":"2026-08-20T10:00:10.000Z"}
+{"type":"system","subtype":"status","status":"compacting","uuid":"v-04"}
+{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"manual","pre_tokens":12345},"uuid":"v-05"}
+{"type":"assistant","message":{"id":"b-2","content":[{"type":"text","text":"{\"from\":\"reviewer\",\"type\":\"approval\"}"},{"type":"text","text":"Looks good."}]},"uuid":"v-06"}
+{"type":"mode","mode":"interactive","uuid":"v-07"}
+{"type":"mode","mode":"interactive","uuid":"v-08"}
+{"type":"mode","mode":"auto","uuid":"v-09"}
+{"type":"queue-operation","operation":"enqueue","content":"<task>Deploy the thing</task>","uuid":"v-10"}
+{"type":"queue-operation","operation":"enqueue","content":"   ","uuid":"v-11"}
+{"type":"queue-operation","operation":"remove","uuid":"v-12"}
+{"type":"queue-operation","operation":"dequeue","uuid":"v-13"}
+{"type":"queue-operation","operation":"future_op","uuid":"v-14"}
+{"type":"worktree-state","worktreeSession":{"worktreeName":"wt-x","worktreePath":"/tmp/wt-x"},"uuid":"v-15"}
+{"type":"bridge-session","bridgeSessionId":"bridge-9","uuid":"v-16"}
+{"type":"auth_status","isAuthenticating":true,"uuid":"v-17"}
+{"type":"auth_status","error":"oauth expired","uuid":"v-18"}
+{"type":"system","subtype":"task_notification","task_id":"t-7","status":"completed","summary":"Background build finished","uuid":"v-19"}
+{"type":"system","subtype":"files_persisted","files":["a.ts","b.ts"],"failed":["c.ts"],"uuid":"v-20"}
+{"type":"system","subtype":"files_persisted","files":["d.ts"],"uuid":"v-21"}
+{"type":"system","subtype":"away_summary","content":"Claude exited while you were away.","uuid":"v-22"}
+{"type":"progress","data":{"type":"agent_progress","content":[{"type":"tool_use","name":"Grep","input":{"pattern":"flaky"}}]},"uuid":"v-23"}
+{"type":"progress","data":{"type":"other_progress","content":[]},"uuid":"v-24"}
+{"type":"attachment","attachment":{"type":"team_context","agentName":"planner-1","teamName":"team-a"},"uuid":"v-25"}
+{"type":"attachment","attachment":{"type":"team_context","agentName":"planner-2","teamName":"team-a"},"uuid":"v-26"}
+{"type":"attachment","attachment":{"type":"team_context","agentName":"worker-1","teamName":"team-a"},"uuid":"v-27"}
+{"type":"attachment","attachment":{"type":"date_change","newDate":"2026-08-21"},"uuid":"v-28"}
+{"type":"attachment","attachment":{"type":"opened_file_in_ide","filename":"x.ts"},"uuid":"v-29"}
+{"type":"attachment","attachment":{"type":"unknown_future_kind","x":1},"uuid":"v-30"}
+{"type":"assistant","error":"API Error: overloaded","uuid":"v-31"}
+{"type":"user","isMeta":true,"sourceToolUseID":"T9","message":{"content":[{"type":"text","text":"orphaned instructions"}]},"uuid":"v-32"}
+{"type":"assistant","message":{"id":"b-3","content":[{"type":"tool_use","id":"T9","name":"Skill","input":{}}]},"uuid":"v-33"}
+{"type":"user","isMeta":true,"sourceToolUseID":"T9","message":{"content":[{"type":"text","text":"full skill instructions"}]},"uuid":"v-34"}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"T9","content":"skill ran"}]},"uuid":"v-35"}
+{"type":"tool_use_summary","summary":"Summarized earlier work","preceding_tool_use_ids":["T9"],"uuid":"v-36"}
+{"type":"assistant","message":{"id":"b-4","content":[{"type":"tool_use","id":"T10","name":"Read","input":{}}]},"uuid":"v-37"}
+{"type":"tool_use_summary","summary":"Read three files","preceding_tool_use_ids":["T10","missing"],"uuid":"v-38"}
+{"type":"system","subtype":"mystery_subtype","payload":{},"uuid":"v-39"}
+{"type":"hologram","payload":"x","uuid":"v-40"}
+{"type":"system","subtype":"hook_started","hook_name":"Stop","hook_event":"Stop","uuid":"v-41"}
+{"type":"system","subtype":"hook_progress","hook_name":"Stop","output":"running","uuid":"v-42"}
+{"type":"system","subtype":"hook_response","hook_name":"Stop","outcome":"success","uuid":"v-43"}
+{"type":"result","subtype":"error_max_turns","num_turns":9,"duration_ms":300000,"uuid":"v-44"}

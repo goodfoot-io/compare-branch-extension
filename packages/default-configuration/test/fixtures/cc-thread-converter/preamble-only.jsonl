@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","model":"claude-haiku-3","cwd":"/scratch","tools":["Bash"],"uuid":"y-01","timestamp":"2026-08-22T08:00:00.000Z"}
+{"type":"mode","mode":"plan","uuid":"y-02"}
+{"type":"attachment","attachment":{"type":"skill_listing","content":"- research","skillCount":1,"isInitial":true},"uuid":"y-03"}

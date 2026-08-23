@@ -1,0 +1,392 @@
+{
+  "messages": [
+    {
+      "id": "cc-msg-0",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "data",
+          "name": "boundary",
+          "data": {
+            "kind": "turn",
+            "label": "Session started · 0 tools"
+          }
+        }
+      ],
+      "status": {
+        "type": "complete",
+        "reason": "stop"
+      },
+      "createdAt": "2026-08-20T10:00:00.000Z",
+      "metadata": {
+        "custom": {
+          "service": true
+        }
+      }
+    },
+    {
+      "id": "cc-msg-1",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "First question."
+        }
+      ],
+      "createdAt": "2026-08-20T10:00:05.000Z"
+    },
+    {
+      "id": "cc-msg-2",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Answer one."
+        }
+      ],
+      "status": {
+        "type": "complete",
+        "reason": "stop"
+      },
+      "createdAt": "2026-08-20T10:00:10.000Z"
+    },
+    {
+      "id": "cc-msg-3",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Compacting context…"
+          }
+        },
+        {
+          "type": "data",
+          "name": "boundary",
+          "data": {
+            "kind": "compaction",
+            "label": "Context compacted (manual) · 12,345 tokens"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "reviewer: approval"
+          }
+        }
+      ],
+      "status": {
+        "type": "complete",
+        "reason": "stop"
+      },
+      "metadata": {
+        "custom": {
+          "service": true
+        }
+      }
+    },
+    {
+      "id": "cc-msg-4",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Looks good."
+        }
+      ],
+      "status": {
+        "type": "complete",
+        "reason": "stop"
+      }
+    },
+    {
+      "id": "cc-msg-5",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Mode: interactive"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Mode: auto"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Queued: Deploy the thing"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Queued"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Queue: remove"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Queue: dequeue"
+          }
+        },
+        {
+          "type": "data",
+          "name": "raw",
+          "data": {
+            "data": {
+              "type": "queue-operation",
+              "operation": "future_op",
+              "uuid": "v-14"
+            },
+            "label": "Unrecognized queue operation · future_op"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Worktree: wt-x"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Bridge session bridge-9"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Authenticating…"
+          }
+        },
+        {
+          "type": "data",
+          "name": "error-line",
+          "data": {
+            "message": "Auth error: oauth expired"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Task t-7: completed — Background build finished"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Files persisted: 2 saved, 1 failed"
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "Files persisted: 1 saved"
+          }
+        },
+        {
+          "type": "data",
+          "name": "cc-away-summary",
+          "data": {
+            "content": "Claude exited while you were away."
+          }
+        },
+        {
+          "type": "data",
+          "name": "status-line",
+          "data": {
+            "text": "↳ Grep /flaky/"
+          }
+        },
+        {
+          "type": "data",
+          "name": "cc-ambient-group",
+          "data": {
+            "attachments": [
+              {
+                "type": "team_context",
+                "agentName": "planner-1",
+                "teamName": "team-a"
+              },
+              {
+                "type": "team_context",
+                "agentName": "planner-2",
+                "teamName": "team-a"
+              },
+              {
+                "type": "team_context",
+                "agentName": "worker-1",
+                "teamName": "team-a"
+              }
+            ]
+          }
+        },
+        {
+          "type": "data",
+          "name": "cc-attachment",
+          "data": {
+            "attachment": {
+              "type": "date_change",
+              "newDate": "2026-08-21"
+            }
+          }
+        },
+        {
+          "type": "data",
+          "name": "cc-ambient-group",
+          "data": {
+            "attachments": [
+              {
+                "type": "opened_file_in_ide",
+                "filename": "x.ts"
+              }
+            ]
+          }
+        },
+        {
+          "type": "data",
+          "name": "cc-attachment",
+          "data": {
+            "attachment": {
+              "type": "unknown_future_kind",
+              "x": 1
+            }
+          }
+        },
+        {
+          "type": "data",
+          "name": "error-line",
+          "data": {
+            "message": "API Error: API Error: overloaded"
+          }
+        }
+      ],
+      "status": {
+        "type": "complete",
+        "reason": "stop"
+      },
+      "metadata": {
+        "custom": {
+          "service": true
+        }
+      }
+    },
+    {
+      "id": "cc-msg-7",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool-call",
+          "toolCallId": "T9",
+          "toolName": "Skill",
+          "args": {},
+          "result": {
+            "output": "skill ran",
+            "supplementalResult": "full skill instructions"
+          },
+          "isError": false
+        },
+        {
+          "type": "tool-call",
+          "toolCallId": "tus-cc-msg-6",
+          "toolName": "tool",
+          "args": {},
+          "result": {
+            "output": "Summarized earlier work"
+          }
+        },
+        {
+          "type": "tool-call",
+          "toolCallId": "T10",
+          "toolName": "Read",
+          "args": {},
+          "result": {
+            "output": "Read three files",
+            "supplementalResult": null
+          },
+          "isError": false
+        }
+      ],
+      "status": {
+        "type": "complete",
+        "reason": "stop"
+      }
+    },
+    {
+      "id": "cc-msg-8",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "data",
+          "name": "raw",
+          "data": {
+            "data": {
+              "type": "system",
+              "subtype": "mystery_subtype",
+              "payload": {},
+              "uuid": "v-39"
+            },
+            "label": "Unrecognized system event · mystery_subtype"
+          }
+        },
+        {
+          "type": "data",
+          "name": "raw",
+          "data": {
+            "data": {
+              "type": "hologram",
+              "payload": "x",
+              "uuid": "v-40"
+            },
+            "label": "Unrecognized message · hologram"
+          }
+        },
+        {
+          "type": "data",
+          "name": "boundary",
+          "data": {
+            "kind": "result",
+            "label": "Session error (error_max_turns) · 9 turns · 300s"
+          }
+        }
+      ],
+      "status": {
+        "type": "complete",
+        "reason": "stop"
+      },
+      "metadata": {
+        "custom": {
+          "service": true
+        }
+      }
+    }
+  ],
+  "isRunning": false,
+  "model": "claude-opus-4",
+  "cwd": "/repo",
+  "status": "error"
+}
