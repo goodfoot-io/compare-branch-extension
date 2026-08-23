@@ -3,10 +3,12 @@
  *
  * Mirrors the claude-code-session {@link CompactView} lifecycle: it bootstraps
  * from `streamStore.getState()` before subscribing, folds the primary file's
- * lines via {@link buildCodexCompactState} on each update, observes
- * `meta.isActive` for liveness, and asks the host to `close()` a stream whose
- * primary file has zero lines so no blank box shows in the card detail. The
- * folded state is adapted into a provider-neutral `CompactCardModel` via
+ * lines via {@link reconcileFolded} on each update, observes `meta.isActive`
+ * for liveness, and asks the host to `close()` a stream whose primary file has
+ * zero lines so no blank box shows in the card detail. Folding is incremental:
+ * lines past a watermark are appended onto the prior fold, so each store
+ * update only parses what is new; a shrink rebuilds fully. The folded state is
+ * adapted into a provider-neutral `CompactCardModel` via
  * {@link codexToCompactCardModel} and rendered through the shared `CompactCard`
  * component — the DOM/CSS for the card live there, not here.
  *
@@ -24,8 +26,8 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { CompactCard } from '../../../../lib/CompactCard';
 import { codexToCompactCardModel } from '../../lib/adapt-compact-model';
-import type { CodexCompactState } from '../../lib/compact-state';
-import { buildCodexCompactState } from '../../lib/compact-state';
+import type { FoldedState } from '../../lib/compact-state';
+import { buildFoldedState, reconcileFolded } from '../../lib/compact-state';
 
 /**
  * Reads the primary stream file's lines and liveness from the store.
@@ -38,38 +40,29 @@ function readPrimary(): { lines: string[]; isActive: boolean } {
 }
 
 /**
- * Folds the primary file into {@link CodexCompactState}. Because
- * {@link buildCodexCompactState} is a pure rebuild from the full line array, a
- * stream shrink/reset produces correct state with no stale carryover — no
- * watermark is tracked here.
- * @returns The freshly folded compact state plus the source liveness flag.
- */
-function foldPrimary(): { state: CodexCompactState; isActive: boolean } {
-  const { lines, isActive } = readPrimary();
-  return { state: buildCodexCompactState(lines, isActive), isActive };
-}
-
-/**
- * Compact Codex session card. Folds the primary stream into
- * {@link CodexCompactState}, adapts it into a `CompactCardModel`, and ticks a
- * live elapsed timer while the stream is active. Closes the renderer when the
- * primary file has zero lines.
+ * Compact Codex session card. Folds the primary stream into a
+ * {@link FoldedState}, adapts its snapshot into a `CompactCardModel`, and ticks
+ * while the stream is active. Closes the renderer when the primary file has
+ * zero lines.
  * @returns Rendered compact card.
  */
 export function CodexCompactView(): React.ReactElement {
-  const [state, setState] = useState<CodexCompactState>(() => foldPrimary().state);
+  const [folded, setFolded] = useState<FoldedState>(() => {
+    const { lines, isActive } = readPrimary();
+    return buildFoldedState(lines, isActive);
+  });
   const [isActive, setIsActive] = useState<boolean>(() => readPrimary().isActive);
 
   // Bootstrap-then-subscribe: fold once for lines that arrived between the
   // initial render and this effect (the empty-on-boot primary's
   // subscribe:response can land in exactly this window), then keep folding on
-  // every store update. buildCodexCompactState is a full rebuild, so this is
-  // correct for append, no-op, and shrink/reset alike.
+  // every store update. reconcileFolded appends only lines past its watermark,
+  // so steady-state updates parse just the new lines; shrink/reset rebuilds.
   useEffect(() => {
     const sync = (): void => {
-      const { state: next, isActive: active } = foldPrimary();
+      const { lines, isActive: active } = readPrimary();
       setIsActive(active);
-      setState(next);
+      setFolded((prev) => reconcileFolded(prev, lines, active));
     };
     sync();
     return streamStore.subscribe(sync);
@@ -91,16 +84,20 @@ export function CodexCompactView(): React.ReactElement {
     return streamStore.subscribe(checkEmpty);
   }, []);
 
-  // Re-fold on a ~1s tick while the stream is active so the duration the lib
-  // derives from the first/last line timestamps stays current as new lines
-  // arrive. The interval is cleared on unmount and whenever `isActive` flips to
-  // false, so an ended card never churns re-renders on a timer.
+  // Reconcile on a ~1s tick while the stream is active as a safety net for
+  // updates that bypass the subscription. A tick with no new lines returns the
+  // prior folded value by reference, so React bails out instead of re-rendering.
+  // The interval is cleared on unmount and whenever `isActive` flips to false,
+  // so an ended card never churns re-renders on a timer.
   useEffect(() => {
     if (!isActive) return;
-    const id = setInterval(() => setState(foldPrimary().state), 1000);
+    const id = setInterval(() => {
+      const { lines, isActive: active } = readPrimary();
+      setFolded((prev) => reconcileFolded(prev, lines, active));
+    }, 1000);
     return () => clearInterval(id);
   }, [isActive]);
 
-  const model = codexToCompactCardModel(state, isActive);
+  const model = codexToCompactCardModel(folded.state, isActive);
   return <CompactCard model={model} />;
 }
