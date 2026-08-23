@@ -5,7 +5,10 @@
  * @module lib/process-tree
  */
 
-import { execSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 /** Maximum depth to walk up the process tree. */
 export const PROCESS_TREE_MAX_DEPTH = 10;
@@ -55,23 +58,28 @@ function normalizeComm(comm: string): string {
 }
 
 /**
- * Builds the platform command that reports a process's name and parent PID.
+ * Builds the platform invocation that reports a process's name and parent PID.
  *
- * On Windows a single PowerShell CIM query emits `Name|ParentProcessId`; `ps`
- * is not available. On POSIX a single `ps` invocation emits both fields.
+ * On Windows the fields come from a PowerShell CIM query emitting
+ * `Name|ParentProcessId`; `ps` is not available. On POSIX a single `ps`
+ * invocation emits both fields.
  *
  * @param pid - Process ID to inspect.
- * @returns The shell command string to execute.
+ * @returns The executable and argument vector to execute.
  */
-function buildProcessInfoCommand(pid: number): string {
+function buildProcessInfoInvocation(pid: number): { file: string; args: string[] } {
   if (IS_WINDOWS) {
-    return (
-      'powershell -NoProfile -NonInteractive -Command ' +
-      `"Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}' | ` +
-      "Select-Object -First 1 | ForEach-Object { $_.Name + '|' + $_.ParentProcessId }\""
-    );
+    return {
+      file: 'powershell',
+      args: [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}' | Select-Object -First 1 | ForEach-Object { $_.Name + '|' + $_.ParentProcessId }`
+      ]
+    };
   }
-  return `ps -p ${pid} -o comm=,ppid=`;
+  return { file: 'ps', args: ['-p', String(pid), '-o', 'comm=,ppid='] };
 }
 
 /**
@@ -106,20 +114,21 @@ function parseProcessInfo(raw: string): ProcessInfo | null {
 /**
  * Returns the command name and parent PID for `pid`, or `null` on failure.
  *
- * A single subprocess reports both fields. Returns `null` when the process is
- * gone, the query fails, or the output cannot be parsed.
+ * A single async subprocess reports both fields. Returns `null` when the
+ * process is gone, the query fails or times out, or the output cannot be
+ * parsed.
  *
  * @param pid - Process ID to inspect.
  * @returns The process info, or `null` when unavailable.
  */
-function getProcessInfo(pid: number): ProcessInfo | null {
+async function getProcessInfo(pid: number): Promise<ProcessInfo | null> {
+  const { file, args } = buildProcessInfoInvocation(pid);
   try {
-    const raw = execSync(buildProcessInfoCommand(pid), {
+    const { stdout } = await execFileAsync(file, args, {
       encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
-    return parseProcessInfo(raw);
+      timeout: 5000
+    });
+    return parseProcessInfo(stdout.trim());
   } catch {
     return null;
   }
@@ -132,20 +141,22 @@ function getProcessInfo(pid: number): ProcessInfo | null {
  * Under shell-skip the first non-shell ancestor *is* the agent process. The
  * walk traverses at most {@link PROCESS_TREE_MAX_DEPTH} levels and is
  * cross-platform: it resolves each process's name and parent PID via `ps` on
- * POSIX and a PowerShell `Win32_Process` query on Windows.
+ * POSIX and a PowerShell `Win32_Process` query on Windows. Each step is an
+ * asynchronous subprocess (`execFile`) so the event loop is never blocked
+ * while awaiting the result.
  *
  * @param startPid - Optional root PID for traversal. When omitted, traversal
  *   starts at the parent of the current hook process.
  * @returns The first non-shell ancestor PID, or `null` when no non-shell
  *   ancestor is found within {@link PROCESS_TREE_MAX_DEPTH}.
  */
-export function findAgentPid(startPid?: number): number | null {
+export async function findAgentPid(startPid?: number): Promise<number | null> {
   let pid = startPid ?? process.ppid;
 
   for (let depth = 0; depth < PROCESS_TREE_MAX_DEPTH; depth++) {
     if (pid <= 1) return null;
 
-    const info = getProcessInfo(pid);
+    const info = await getProcessInfo(pid);
     if (info === null) return null;
 
     if (!SHELL_COMMS.has(normalizeComm(info.comm))) return pid;

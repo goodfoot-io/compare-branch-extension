@@ -337,7 +337,7 @@ export async function outfitWorktreeForCard(
     return { attribution: 'skipped', reason: 'card-repo-path-unresolved' };
   }
 
-  const agentPid = options.agentPid ?? findAgentPid();
+  const agentPid = options.agentPid ?? (await findAgentPid());
   if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
     stderrLogger.warn(
       'outfitWorktreeForCard: bound worktree but could not resolve a known agent PID — attribution not spawned',

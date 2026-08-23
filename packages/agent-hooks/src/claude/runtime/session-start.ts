@@ -136,7 +136,7 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
     logger.warn('Could not resolve git HEAD sha', { repoPath: actionInput.cardRepoPath });
   }
 
-  const agentPid = findAgentPid();
+  const agentPid = await findAgentPid();
   if (agentPid) {
     spawnWatcher(agentPid, input.session_id, input.transcript_path, actionInput, logger);
   } else {

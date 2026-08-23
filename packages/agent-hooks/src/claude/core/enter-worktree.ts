@@ -66,7 +66,7 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
     if (process.env['ACTION_NAME']) return null;
 
     // PID first — fail closed on missing or wrong PID.
-    const agentPid = findAgentPid();
+    const agentPid = await findAgentPid();
     if (!agentPid) return null;
     if (!isKnownAgentComm(agentPid, logger)) return null;
 

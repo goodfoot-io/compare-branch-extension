@@ -184,7 +184,7 @@ describe('outfitWorktreeForCard attribution outcome', () => {
 
   it('marks attribution spawned when spawnAdhocAttribution actually activates', async () => {
     vi.mocked(resolveCardRepoPath).mockResolvedValue('/home/.cards/cards-repos/main-196');
-    vi.mocked(findAgentPid).mockReturnValue(4242);
+    vi.mocked(findAgentPid).mockResolvedValue(4242);
     vi.mocked(isKnownAgentComm).mockReturnValue(true);
     vi.mocked(spawnAdhocAttribution).mockResolvedValue({ attribution: 'spawned' } as never);
 
@@ -214,7 +214,7 @@ describe('outfitWorktreeForCard attribution outcome', () => {
     // exits promptly; worktree-created cards need a caller-supplied PID so
     // the CLI process exit drives the flip to `needs_review`.
     vi.mocked(resolveCardRepoPath).mockResolvedValue('/home/.cards/cards-repos/main-196');
-    vi.mocked(findAgentPid).mockReturnValue(99999);
+    vi.mocked(findAgentPid).mockResolvedValue(99999);
     vi.mocked(isKnownAgentComm).mockReturnValue(true);
     vi.mocked(spawnAdhocAttribution).mockResolvedValue({ activated: true, attribution: 'spawned' } as never);
 

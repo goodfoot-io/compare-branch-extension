@@ -58,7 +58,7 @@ vi.mock('@cards.management/sdk', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards.management/sdk')>();
   return {
     ...actual,
-    findAgentPid: vi.fn().mockReturnValue(1234),
+    findAgentPid: vi.fn().mockResolvedValue(1234),
     resolveGlobalCardsConfigDir: vi.fn().mockReturnValue('/tmp/cards-config')
   };
 });
@@ -155,7 +155,7 @@ describe('EnterWorktree hook — bound path', () => {
     mocks.resolveGlobalCardsConfigDir.mockReturnValue('/tmp/cards-config');
     mocks.resolveWorktreeCardId.mockResolvedValue('main-42');
     mocks.resolveCardRepoPath.mockResolvedValue('/srv/cards-repos/main-42');
-    mocks.findAgentPid.mockReturnValue(1234);
+    mocks.findAgentPid.mockResolvedValue(1234);
     mocks.isKnownAgentComm.mockReturnValue(true);
     mocks.spawnAdhocAttribution.mockResolvedValue(undefined);
   });
@@ -217,7 +217,7 @@ describe('EnterWorktree hook — bound path', () => {
   });
 
   it('no-ops when findAgentPid returns null', async () => {
-    mocks.findAgentPid.mockReturnValue(null);
+    mocks.findAgentPid.mockResolvedValue(null);
     const hook = await importHook();
 
     await hook(makeInput(), { logger: mockLogger });
@@ -325,7 +325,7 @@ describe('EnterWorktree hook — unbound path (bindable linked worktree)', () =>
     const linked = makeLinkedWorktree(tmp);
     mocks.resolveWorktreeCardId.mockResolvedValue('main-42');
     mocks.resolveCardRepoPath.mockResolvedValue('/srv/cards-repos/main-42');
-    mocks.findAgentPid.mockReturnValue(1234);
+    mocks.findAgentPid.mockResolvedValue(1234);
     mocks.isKnownAgentComm.mockReturnValue(true);
     mocks.spawnAdhocAttribution.mockResolvedValue(undefined);
 

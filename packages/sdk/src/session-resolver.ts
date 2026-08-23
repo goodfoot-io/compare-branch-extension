@@ -40,7 +40,7 @@ export async function resolveSessionId(): Promise<string | null> {
   }
   // Final tier: PID-as-id. Never reached mid-session (CARDS_SESSION_ID is
   // persisted by session-start before any hook fires — see B3 / Phase 2.1).
-  const pid = findAgentPid();
+  const pid = await findAgentPid();
   return pid !== null ? String(pid) : null;
 }
 

@@ -98,7 +98,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('returns XML context blocks in additionalContext', async () => {
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -126,7 +126,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('calls findAgentPid when inside action subprocess', async () => {
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -137,7 +137,7 @@ describe('SessionStart Hook', () => {
 
     it('warns and continues when findAgentPid returns null (PID-keyed entry is best-effort)', async () => {
       const warnSpy = vi.spyOn(logger, 'warn');
-      mockFindClaudePid.mockReturnValue(null);
+      mockFindClaudePid.mockResolvedValue(null);
       const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -166,7 +166,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('does not spawn the stream-sync-watcher when transcript_path is null', async () => {
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const warnSpy = vi.spyOn(logger, 'warn');
       // transcript_path is absent (null / undefined) — watcher guard is false
       const mockInput = { session_id: 'sess-no-transcript' } as Parameters<typeof hook>[0];
@@ -195,7 +195,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('builds a Codex manifest from the rollout path and spawns the stream-sync-watcher', async () => {
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -219,7 +219,7 @@ describe('SessionStart Hook', () => {
 
     it('logs a success message only when the watcher was actually spawned', async () => {
       const infoSpy = vi.spyOn(logger, 'info');
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -234,7 +234,7 @@ describe('SessionStart Hook', () => {
     it('does not log spawn success when spawnStreamSyncWatcher reports it was skipped', async () => {
       vi.mocked(spawnStreamSyncWatcher).mockReturnValue(false);
       const infoSpy = vi.spyOn(logger, 'info');
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -256,7 +256,7 @@ describe('SessionStart Hook', () => {
     // and skip the spawn, exactly like a spawn-level failure.
     it('warns and continues without spawning when the rollout path does not match the sessionId', async () => {
       const warnSpy = vi.spyOn(logger, 'warn');
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const mockInput = {
         session_id: SESSION_ID,
         transcript_path: '/tmp/.codex/sessions/rollout-2026-07-06T15-03-11-some-other-id.jsonl'
@@ -281,7 +281,7 @@ describe('SessionStart Hook', () => {
       vi.mocked(spawnStreamSyncWatcher).mockImplementation(() => {
         throw new Error('spawn failed');
       });
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       const mockInput = { session_id: SESSION_ID, transcript_path: ROLLOUT_PATH } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -291,7 +291,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('returns continue:false with stopReason when card repo is inaccessible', async () => {
-      mockFindClaudePid.mockReturnValue(42);
+      mockFindClaudePid.mockResolvedValue(42);
       process.env['CARD_REPO_PATH'] = '/tmp/does-not-exist-xyz-123';
       const mockInput = { session_id: SESSION_ID } as Parameters<typeof hook>[0];
       const context = { logger };

@@ -93,7 +93,7 @@ export default sessionStartHook({}, async (input, { logger }) => {
     });
   }
 
-  const agentPid = findAgentPid();
+  const agentPid = await findAgentPid();
   if (agentPid && input.transcript_path) {
     spawnWatcher(agentPid, input.session_id, input.transcript_path, actionInput, logger);
   } else {

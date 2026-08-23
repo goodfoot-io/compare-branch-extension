@@ -39,7 +39,7 @@ describe('resolveSessionId', () => {
       delete process.env[name];
     }
     mockFindAgentPid.mockReset();
-    mockFindAgentPid.mockReturnValue(null);
+    mockFindAgentPid.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -103,7 +103,7 @@ describe('resolveSessionId', () => {
       for (const name of ENV_VARS) {
         process.env[name] = '';
       }
-      mockFindAgentPid.mockReturnValue(42000);
+      mockFindAgentPid.mockResolvedValue(42000);
       expect(await resolveSessionId()).toBe('42000');
     });
 
@@ -111,27 +111,27 @@ describe('resolveSessionId', () => {
       for (const name of ENV_VARS) {
         process.env[name] = '\t  \n';
       }
-      mockFindAgentPid.mockReturnValue(99999);
+      mockFindAgentPid.mockResolvedValue(99999);
       expect(await resolveSessionId()).toBe('99999');
     });
   });
 
   describe('PID fallback tier', () => {
     it('calls findAgentPid when all env vars are absent', async () => {
-      mockFindAgentPid.mockReturnValue(12345);
+      mockFindAgentPid.mockResolvedValue(12345);
       expect(await resolveSessionId()).toBe('12345');
       expect(mockFindAgentPid).toHaveBeenCalledOnce();
     });
 
     it('returns the PID as a string', async () => {
-      mockFindAgentPid.mockReturnValue(5000);
+      mockFindAgentPid.mockResolvedValue(5000);
       const result = await resolveSessionId();
       expect(typeof result).toBe('string');
       expect(result).toBe('5000');
     });
 
     it('returns null when all env vars absent and findAgentPid returns null', async () => {
-      mockFindAgentPid.mockReturnValue(null);
+      mockFindAgentPid.mockResolvedValue(null);
       expect(await resolveSessionId()).toBeNull();
     });
   });
