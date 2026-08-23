@@ -5,7 +5,8 @@
  * content-addressed plugin cache from the bundled `opencode` payload tree,
  * writes per-plugin-set staged config documents, and spawns the `opencode`
  * CLI with card context, worktree lifecycle, cancel handling, status settle,
- * and the branch-cleanup watcher.
+ * and mode-dependent post-exit branch cleanup (detached watcher when
+ * interactive, inline sweep in background mode).
  *
  * Isolation model (verified against the installed binary, v1.18.21): the child
  * is pointed at one staged config document via the `OPENCODE_CONFIG` env var,
@@ -43,6 +44,7 @@ import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
 import { CARDS_ENV_VARS } from '@cards.management/sdk/config';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import {
+  cleanupMergedBranches,
   errorMessage,
   resolveBaseBranch,
   resolveMarketplacePath,
@@ -932,7 +934,14 @@ export async function assertOpencodeBinaryAvailable(): Promise<string> {
  * Stage order mirrors {@link ./codex-session.js} launch-for-launch: pre-spawn
  * binary probe → marketplace resolution → API client → base branch → worktree →
  * plugin-cache staging → per-set staged config → CLI spawn with card env vars →
- * cancel handling → exit settle → card status settle → branch-cleanup watcher.
+ * cancel handling → exit settle → card status settle → branch cleanup.
+ *
+ * Execution modes mirror the Claude launcher: interactive sessions inherit
+ * stdio (direct terminal control) and hand post-exit cleanup to the detached
+ * branch-cleanup watcher so the terminal closes immediately; background runs
+ * execute headlessly via `opencode run` under console-less stdio (`ignore`,
+ * `ignore`, piped stderr), log captured stderr for diagnostics, and run the
+ * merged-branch sweep inline before resolving.
  *
  * Named degradations (documented plan decisions):
  * - **Per-card `references`**: the Config v2 shape is verified (a record
@@ -948,6 +957,11 @@ export async function assertOpencodeBinaryAvailable(): Promise<string> {
  *   alongside out-of-schema color literals — and a rejected inline mapping
  *   would invalidate the whole staged document, silently dropping every other
  *   key with it. Omitted with a warning.
+ * - **Switch-to-interactive in background mode**: Claude's switch path relaunches
+ *   with `--resume <sessionId>`, but a headless `opencode run` session ID is
+ *   server-assigned and unknowable until exit, so no
+ *   {@link ActionContext.onSwitchToInteractive} callback is registered — the
+ *   runtime wrapper simply never advertises the capability.
  *
  * @param input - Parsed action input from the environment.
  * @param context - Action context providing logger and lifecycle hooks.
@@ -1010,9 +1024,18 @@ export async function spawnOpencodeSession(
   const guidance = composeDeveloperInstructions([cardRepoAgentsMd, appendSystemPrompt]);
   const args = buildOpencodeArgs(rawPrompt, cwd, input.cardId, guidance, input.executionMode);
 
+  const isInteractive = input.executionMode === 'interactive';
+
   const child: ChildProcess = spawnAgentCli(opencodeBinary, args, {
     cwd,
-    stdio: 'inherit',
+    // Interactive mode inherits stdio so the user gets direct terminal control.
+    // Background handlers run console-less (spawned from the GUI extension host
+    // via pipes): stdout/stdin have no reader and are ignored, stderr is piped
+    // for diagnostic capture. windowsHide keeps the cross-spawn cmd.exe hop
+    // invisible on win32 — libuv ignores it when any fd is inherited, so the
+    // interactive path must not set it.
+    stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
+    ...(isInteractive ? {} : { windowsHide: true }),
     env: {
       ...process.env,
       // Staged activation: ONE extra config layer between the user's global
@@ -1032,6 +1055,16 @@ export async function spawnOpencodeSession(
     child.kill('SIGTERM');
   });
 
+  // Background mode: capture stderr for diagnostic logging.
+  if (!isInteractive) {
+    child.stderr?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString().trim();
+      if (text) {
+        context.logger.warn(text);
+      }
+    });
+  }
+
   const exitCode = await new Promise<number | null>((resolve) => {
     // Fail closed: a spawn failure (e.g. ENOENT) emits `error` but never
     // `close`, which would leave this promise hung forever. Mirrors the
@@ -1047,24 +1080,41 @@ export async function spawnOpencodeSession(
 
   context.logger.info(`${input.actionName} action completed`, { exitCode });
 
-  // Settle the card's status (active → needs_review) before the watcher can
+  // Settle the card's status (active → needs_review) before cleanup can
   // read it: the sweep's first gate is the on-disk status, which otherwise
   // races this exit path from a separate process. See
   // {@link settleCardStatusForCleanup}.
   await settleCardStatusForCleanup(input.cardRepoPath, context.logger);
 
-  try {
-    await spawnBranchCleanupWatcher(
-      {
-        cardId: input.cardId,
-        repoRoot: input.repoRoot,
-        cardRepoPath: input.cardRepoPath
-      },
-      context.logger
-    );
-  } catch (error) {
-    context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', {
-      error: errorMessage(error)
-    });
+  // Post-exit cleanup: remove fully-merged branches. In background mode there
+  // is no terminal to keep open, so the sweep runs inline before the action
+  // resolves; in interactive mode a detached watcher takes over so the
+  // terminal closes immediately (the watcher calls the same
+  // {@link cleanupMergedBranches} function).
+  if (isInteractive) {
+    try {
+      await spawnBranchCleanupWatcher(
+        {
+          cardId: input.cardId,
+          repoRoot: input.repoRoot,
+          cardRepoPath: input.cardRepoPath
+        },
+        context.logger
+      );
+    } catch (error) {
+      context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', {
+        error: errorMessage(error)
+      });
+    }
+  } else {
+    try {
+      await cleanupMergedBranches(input, input.cardRepoPath, context.logger);
+    } catch (error) {
+      const message = errorMessage(error);
+      if (message.includes('self-referential parentBranch') || message.includes('data corruption')) {
+        throw error;
+      }
+      context.logger.warn('Post-exit cleanup failed (non-fatal)', { error: message });
+    }
   }
 }

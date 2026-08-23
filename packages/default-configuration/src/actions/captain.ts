@@ -13,12 +13,14 @@
  *   `<routing-instructions>`. The skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch `CODEX_HOME`. Background mode
  *   is rejected explicitly.
- * - OpenCode: spawns the `opencode run` CLI interactively with a short prompt
- *   that instructs it to load the `captain` skill and follow its
- *   `<routing-instructions>`. The skill itself is provided by the bundled
+ * - OpenCode: spawns the `opencode` CLI. Interactive actions boot the TUI with
+ *   a short prompt that instructs it to load the `captain` skill and follow its
+ *   `<routing-instructions>`; the skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch cache and registered through
- *   the staged `OPENCODE_CONFIG` document. Background mode is rejected
- *   explicitly.
+ *   the staged `OPENCODE_CONFIG` document. Background dispatch runs the
+ *   headless one-shot (`opencode run`) in the card worktree — piped stdio,
+ *   stderr captured to the action log, and inline post-exit cleanup, mirroring
+ *   the Claude background path.
  *
  * The action awaits process exit before resolving, so the terminal closes
  * only after the underlying CLI finishes and cleanup is complete.
@@ -40,11 +42,13 @@ import { spawnOpencodeSession } from '../lib/opencode-session.js';
  * Spawns the `claude`, `codex`, or `opencode` CLI as a child process, selected
  * by `input.codingAgent`. The process lifecycle is tied to the action:
  * cancellation sends SIGTERM. In the Claude branch, switching to interactive
- * mode preserves the session ID for resumption.
+ * mode preserves the session ID for resumption; OpenCode background sessions
+ * deliberately register no switch-to-interactive callback (the headless run's
+ * session ID is server-assigned and unknowable until exit).
  *
  * Codex + background mode is rejected explicitly: background launch is a
- * Claude-only capability until `spawnCodexSession` grows a background-mode
- * implementation. The same holds for OpenCode.
+ * Claude/OpenCode capability until `spawnCodexSession` grows a background-mode
+ * implementation.
  */
 export default defineAction(
   {
@@ -70,12 +74,6 @@ export default defineAction(
     }
 
     if (agent === 'opencode-cli') {
-      if (input.executionMode === 'background') {
-        throw new Error(
-          `cards.defaultCodingAgent='opencode-cli' does not support background-mode launch. ` +
-            `Run the Captain action in interactive mode, or switch cards.defaultCodingAgent to 'claude-code-cli'.`
-        );
-      }
       await spawnOpencodeSession(input, context, {
         prompt: 'Load the `captain` skill and follow the `<routing-instructions>`.'
       });

@@ -339,17 +339,6 @@ describe('launch action — opencode branch', () => {
     );
   });
 
-  it('rejects background-mode launch with a codingAgent-specific error and does not spawn', async () => {
-    const { spawn } = await import('node:child_process');
-
-    const action = (await import('../src/actions/launch.js')).default;
-
-    await expect(action(baseInput({ executionMode: 'background' }), createMockContext())).rejects.toThrow(
-      /'opencode-cli' does not support background-mode/
-    );
-    expect(spawn).not.toHaveBeenCalled();
-  });
-
   it('registers onCancel that kills the child process', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
@@ -460,17 +449,6 @@ describe('captain action — opencode branch', () => {
     child.emit('close', 0);
     await promise;
   });
-
-  it('rejects background-mode captain with a codingAgent-specific error and does not spawn', async () => {
-    const { spawn } = await import('node:child_process');
-
-    const action = (await import('../src/actions/captain.js')).default;
-
-    await expect(action(baseInput({ executionMode: 'background' }), createMockContext())).rejects.toThrow(
-      /'opencode-cli' does not support background-mode/
-    );
-    expect(spawn).not.toHaveBeenCalled();
-  });
 });
 
 describe('opencode branch — background-mode dispatch', () => {
@@ -569,31 +547,46 @@ describe('opencode branch — background-mode dispatch', () => {
     const fs = await import('node:fs/promises');
 
     const entryFile = `${encodeURIComponent('cards/card-123/1')}.json`;
-    vi.mocked(fs.readFile).mockImplementation(((filePath: unknown) => {
+    // Superset of the beforeEach tiered manifest mock, extended with the card
+    // status and branch-entry reads that inline cleanupMergedBranches performs.
+    let stagedReadIndex = 0;
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
       const p = toPosix(filePath);
       if (p.endsWith('.cards-content-hash')) {
-        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       }
+      // A readable, non-active status passes cleanupMergedBranches' fail-closed
+      // status guard so this test exercises the branch loop.
       if (p.endsWith('CARD.meta.json')) {
-        // A readable, non-active status passes cleanupMergedBranches' fail-closed
-        // status guard so this test exercises the branch loop.
-        return Promise.resolve(JSON.stringify({ status: 'needs_review' }));
+        return JSON.stringify({ status: 'needs_review' });
       }
       if (p.endsWith(`/branches/${entryFile}`)) {
-        return Promise.resolve(
-          JSON.stringify({
-            name: 'cards/card-123/1',
-            worktree: WORKTREE_PATH,
-            parentBranch: 'main',
-            addedAt: '2025-01-01T00:00:00Z'
-          })
-        );
+        return JSON.stringify({
+          name: 'cards/card-123/1',
+          worktree: WORKTREE_PATH,
+          parentBranch: 'main',
+          addedAt: '2025-01-01T00:00:00Z'
+        });
       }
       if (p.endsWith('/package.json')) {
-        return Promise.resolve(JSON.stringify({ name: 'cards-opencode-cards', version: '1.0.0' }));
+        if (p.includes('.plugin-install-')) {
+          const name = ['cards', 'runtime'][stagedReadIndex++];
+          if (name === undefined) {
+            throw new Error(`Unexpected staged manifest read: ${p}`);
+          }
+          return JSON.stringify({ name: `cards-opencode-${name}`, version: '1.0.0' });
+        }
+        const published = /\/(cards|runtime|cards-assistant)\/[^/]+\/package\.json$/.exec(p);
+        if (published !== null) {
+          return JSON.stringify({ name: `cards-opencode-${published[1]}`, version: '1.0.0' });
+        }
+        const source = /\/(cards|runtime|cards-assistant)\/package\.json$/.exec(p);
+        if (source !== null) {
+          return JSON.stringify({ name: `cards-opencode-${source[1]}`, version: '1.0.0' });
+        }
       }
-      return Promise.reject(Object.assign(new Error(`unhandled readFile: ${p}`), { code: 'ENOENT' }));
-    }) as unknown as typeof fs.readFile);
+      throw Object.assign(new Error(`mock: unhandled readFile: ${p}`), { code: 'ENOENT' });
+    });
 
     vi.mocked(fs.readdir).mockImplementation(((dirPath: unknown) => {
       if (toPosix(dirPath).endsWith('/branches')) {
