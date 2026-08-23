@@ -137,7 +137,7 @@ export function isCardsActionSession(): boolean {
  * @returns An OpenCode plugin with an empty hook surface.
  */
 export function createInertRuntimePlugin(): Plugin {
-  return () => ({});
+  return async () => ({});
 }
 
 /**
