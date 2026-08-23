@@ -9,7 +9,6 @@
  */
 
 import { runReconciliationSweep } from '@cards.management/sdk/bin/adhoc-refs';
-import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-sync-watcher';
 import type { ActionInput } from '@cards.management/sdk/config';
 import { extractActionInput } from '@cards.management/sdk/config';
 import { findAgentPid } from '@cards.management/sdk/process-tree';
@@ -22,56 +21,28 @@ import {
   buildWorkspaceRepoLogBlocks,
   CardRepoAccessError
 } from '../../shared/context.js';
+import { createSpawnWatcher } from '../../shared/spawn-watcher.js';
 
 export { buildCardRepoLogBlock, buildEnvBlock, buildWorkspaceRepoLogBlocks, CardRepoAccessError };
 
 /**
- * Builds the session's {@link SessionSyncManifest} and spawns the
- * stream-sync-watcher for the agent process.
- *
- * Manifest construction and watcher spawn are both non-fatal — a hook must
- * not crash the session. `buildCodexManifest` throws when `transcriptPath`'s
- * basename does not match Codex's rollout naming convention or embeds a
- * different session id (a wiring bug upstream); that is caught and warned
- * exactly like a spawn failure. This is the fix for Codex sessions
+ * Spawns the session's stream-sync-watcher via the shared factory; only the
+ * manifest builder is Codex-specific. `buildCodexManifest` throws when
+ * `rolloutPath`'s basename does not match Codex's rollout naming convention
+ * or embeds a different session id (a wiring bug upstream); that is caught
+ * and warned exactly like a spawn failure. This is the fix for Codex sessions
  * previously syncing nothing — the runtime hook now builds a real manifest
  * instead of never spawning a watcher at all.
- *
- * @param agentPid - agent process ID to monitor.
- * @param sessionId - Session identifier.
- * @param transcriptPath - Path to the rollout file for the watcher.
- * @param actionInput - Parsed action input containing card context.
- * @param logger - Logger for structured output.
  */
-function spawnWatcher(
-  agentPid: number,
-  sessionId: string,
-  transcriptPath: string,
-  actionInput: ActionInput,
-  logger: Parameters<Parameters<typeof sessionStartHook>[1]>[1]['logger']
-): void {
-  try {
-    const manifest = buildCodexManifest({
-      sessionId,
-      cardId: actionInput.cardId,
-      rolloutPath: transcriptPath,
-      monitorPid: agentPid,
-      cardRepoPath: actionInput.cardRepoPath
-    });
-    // Resolve the watcher by absolute path: a background Launch action enables
-    // only the `runtime` plugin, so the `cards` plugin bin that publishes the
-    // `stream-sync-watcher` wrapper is never on PATH. The success log is gated
-    // on the spawn actually happening so a skipped spawn is not reported as
-    // success.
-    const spawned = spawnStreamSyncWatcher({ manifest, extensionPath: actionInput.extensionPath, logger });
-    if (spawned) {
-      logger.info('Spawned stream-sync-watcher', { pid: agentPid, sessionId });
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn('stream-sync-watcher spawn failed', { error: message });
-  }
-}
+const spawnWatcher = createSpawnWatcher(({ agentPid, sessionId, transcriptPath, actionInput }) =>
+  buildCodexManifest({
+    sessionId,
+    cardId: actionInput.cardId,
+    rolloutPath: transcriptPath,
+    monitorPid: agentPid,
+    cardRepoPath: actionInput.cardRepoPath
+  })
+);
 
 export default sessionStartHook({}, async (input, { logger }) => {
   // Reconciliation sweep: settle any card left `active` by a dead ad-hoc
