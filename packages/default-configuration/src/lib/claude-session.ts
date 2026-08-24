@@ -1034,6 +1034,11 @@ export async function spawnClaudeSession(
     child.kill('SIGTERM');
   });
 
+  context.onAgentShutdown(() => {
+    context.logger.info(`${input.actionName} agent signalled shutdown, terminating claude`, { sessionId });
+    child.kill('SIGTERM');
+  });
+
   if (supportsSwitchToInteractive) {
     context.onSwitchToInteractive(() => {
       context.logger.info('Switching to interactive mode', { sessionId });

@@ -1055,6 +1055,11 @@ export async function spawnOpencodeSession(
     child.kill('SIGTERM');
   });
 
+  context.onAgentShutdown(() => {
+    context.logger.info(`${input.actionName} agent signalled shutdown, terminating opencode`);
+    child.kill('SIGTERM');
+  });
+
   // Background mode: capture stderr for diagnostic logging.
   if (!isInteractive) {
     child.stderr?.on('data', (chunk: Buffer) => {

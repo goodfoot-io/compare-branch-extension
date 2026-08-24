@@ -969,6 +969,11 @@ export async function spawnCodexSession(
     child.kill('SIGTERM');
   });
 
+  context.onAgentShutdown(() => {
+    context.logger.info(`${input.actionName} agent signalled shutdown, terminating codex`);
+    child.kill('SIGTERM');
+  });
+
   const exitCode = await new Promise<number | null>((resolve) => {
     child.on('close', resolve);
   });
