@@ -793,7 +793,7 @@ describe('runtime', () => {
         }) as unknown as ActionCommand;
       }
 
-      it.skip('should advertise supportsAgentShutdown and supersede snapshots in registration order', async () => {
+      it('should advertise supportsAgentShutdown and supersede snapshots in registration order', async () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
@@ -840,21 +840,28 @@ describe('runtime', () => {
         expect(last).toEqual({ type: 'capabilities', switchToInteractive: true, supportsAgentShutdown: true });
       });
 
-      it.skip('should invoke onAgentShutdown callback without exiting the process', async () => {
+      it('should invoke onAgentShutdown callback without exiting the process', async () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
         const shutdownFn = vi.fn();
+        const cancelFn = vi.fn();
         let resolveHandler!: () => void;
         const handlerDone = new Promise<void>((resolve) => {
           resolveHandler = resolve;
         });
         const handler = vi
           .fn()
-          .mockImplementation(async (_input: unknown, context: { onAgentShutdown: (cb: () => void) => void }) => {
-            context.onAgentShutdown(shutdownFn);
-            await handlerDone;
-          });
+          .mockImplementation(
+            async (
+              _input: unknown,
+              context: { onCancel: (cb: () => void) => void; onAgentShutdown: (cb: () => void) => void }
+            ) => {
+              context.onCancel(cancelFn);
+              context.onAgentShutdown(shutdownFn);
+              await handlerDone;
+            }
+          );
         const command = makeCommand(handler);
 
         const executePromise = executeCommand(command);
@@ -869,17 +876,21 @@ describe('runtime', () => {
         // entirely the callbacks' job. Let the handler finish naturally instead.
         expect(exitSpy).not.toHaveBeenCalled();
 
+        // agentShutdown must not consume the first-wins slot: a user cancel
+        // arriving during graceful wind-down still reaches its callback.
         conn.write('{"type":"cancel"}\n');
         await vi.waitFor(() => {
-          expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+          expect(cancelFn).toHaveBeenCalledOnce();
         });
+
         resolveHandler();
         await executePromise;
 
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
         expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
 
-      it.skip('should ignore a duplicate agentShutdown command', async () => {
+      it('should ignore a duplicate agentShutdown command', async () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
@@ -912,7 +923,7 @@ describe('runtime', () => {
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
       });
 
-      it.skip('should treat agentShutdown as a no-op when no callback registered', async () => {
+      it('should treat agentShutdown as a no-op when no callback registered', async () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
@@ -933,7 +944,7 @@ describe('runtime', () => {
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
       });
 
-      it.skip('should log callback rejection without exiting with an error', async () => {
+      it('should log callback rejection without exiting with an error', async () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 

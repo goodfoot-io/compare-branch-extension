@@ -453,11 +453,19 @@ function handleSwitchToInteractiveCommand(
  * entirely the callbacks' job, and with no callback registered the command
  * is a no-op. Callback rejections are reported via the logger only.
  *
- * @param _callback - The registered agentShutdown callback, if any
- * @throws Always — contract not yet implemented.
+ * @param callback - The registered agentShutdown callback, if any
  *
  * @internal
  */
-function handleAgentShutdownCommand(_callback: (() => void | Promise<void>) | undefined): void {
-  throw new Error('Not Implemented');
+function handleAgentShutdownCommand(callback: (() => void | Promise<void>) | undefined): void {
+  if (!callback) {
+    return;
+  }
+
+  toPromise(callback()).then(
+    () => {},
+    (error) => {
+      logger.error(`onAgentShutdown callback error: ${getErrorMessage(error)}`);
+    }
+  );
 }
