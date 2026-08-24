@@ -763,13 +763,13 @@ export class CardsClient {
    * This method uses `fetch` directly so binary data is preserved.
    *
    * @param cardId - Identifier of the card that owns the attachment.
-   * @param attachmentId - Identifier of the attachment blob to download.
+   * @param attachmentId - Identifier of the attachment blob to download (will be URL-encoded).
    * @returns Promise resolving to an attachment Blob.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
    */
   async getAttachment(cardId: string, attachmentId: string): Promise<Blob> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/attachments/${attachmentId}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/attachments/${encodeURIComponent(attachmentId)}`);
     return this.request(async () => {
       const response = await this.fetchWithUrlContext(url, {
         headers: this.getHeaders(),
@@ -826,14 +826,14 @@ export class CardsClient {
    * Writes a file to a card repository.
    *
    * @param cardId - Identifier of the card whose repository should receive the file.
-   * @param filePath - Relative path within the card repo (e.g. `PLAN.md`, `foo/BAR.md`).
+   * @param filePath - Relative path within the card repo (e.g. `PLAN.md`, `foo/BAR.md`; will be URL-encoded).
    * @param content - File content to write.
    * @returns Promise resolving when the file is saved.
    * @throws ApiError when the server rejects the write.
    * @throws NetworkError when the request fails to reach the server.
    */
   async putFile(cardId: string, filePath: string, content: string): Promise<void> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/fs/${filePath}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/fs/${encodeURIComponent(filePath)}`);
     return this.request(() => this.getHttpClient().put<void>(url, content));
   }
 
@@ -850,7 +850,7 @@ export class CardsClient {
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
   async approveGate(cardId: string, gateName: 'plan' | 'mergeRequest'): Promise<GateApprovalResponse> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/gates/${gateName}/approve`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/gates/${encodeURIComponent(gateName)}/approve`);
     return this.request(() => this.getHttpClient().post<GateApprovalResponse>(url, undefined));
   }
 

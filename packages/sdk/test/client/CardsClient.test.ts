@@ -230,7 +230,7 @@ describe('CardsClient', () => {
       await client.putFile('card-1', `${PLANS_PREFIX}initial.md`, '# My Plan');
       expect(httpClient.requests[0]).toMatchObject({
         method: 'PUT',
-        url: `http://localhost:3000/cards/card-1/fs/${PLANS_PREFIX}initial.md`,
+        url: `http://localhost:3000/cards/card-1/fs/${encodeURIComponent(`${PLANS_PREFIX}initial.md`)}`,
         body: '# My Plan'
       });
     });
@@ -315,6 +315,32 @@ describe('CardsClient', () => {
       const client = new CardsClient(options, httpClient);
       await client.getComment('card-123', 'comment/1 ?#');
       expect(new URL(httpClient.requests[0]!.url).pathname).toBe('/cards/card-123/comments/comment%2F1%20%3F%23');
+    });
+
+    it('should encode attachmentId as a single path segment', async () => {
+      const client = new CardsClient(options);
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(['attachment content'])
+      } as Response);
+      await client.getAttachment('card-123', 'att#1?id x');
+      const requestUrl = String(fetchSpy.mock.calls[0]?.[0]);
+      expect(new URL(requestUrl).pathname).toBe('/cards/card-123/attachments/att%231%3Fid%20x');
+      vi.restoreAllMocks();
+    });
+
+    it('should encode a hostile filePath so reserved characters cannot alter the route shape', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.putFile('card-123', 'notes#3.md', 'content');
+      expect(new URL(httpClient.requests[0]!.url).pathname).toBe('/cards/card-123/fs/notes%233.md');
+    });
+
+    it('should percent-encode slashes in a multi-segment filePath for the fs catch-all to decode once', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.putFile('card-123', 'a b/50%.md', 'content');
+      expect(new URL(httpClient.requests[0]!.url).pathname).toBe('/cards/card-123/fs/a%20b%2F50%25.md');
     });
 
     const cardIdCallers: Array<[string, (client: CardsClient, cardId: string) => Promise<unknown>]> = [
