@@ -125,4 +125,14 @@ import { EXIT_CODES } from '@cards.management/sdk/config';
 
 The runtime exits 42 itself as part of the `onSwitchToInteractive` flow — see [input-types.md](input-types.md). Handlers do not exit 42 directly.
 
+## Shutdown Signalling
+
+`EXIT_WHEN_DONE=true` tells the agent to check in at its terminal states; `SOCKET_PATH` is how it reports back. Any process inside an action tree can run:
+
+```bash
+cards "$CARD_ID" shutdown --outcome success|blocked|error [--message "..."]
+```
+
+The verb connects to `$SOCKET_PATH`, writes one `shutdownRequest` line, and exits 0 on delivery (missing/unreachable socket fails closed with guidance — there is no fallback surface). The dispatcher records the outcome, relays an `agentShutdown` command, and handlers registered via `context.onAgentShutdown` perform termination. The recorded outcome travels on `action:completed`; status still settles to `needs_review` regardless.
+
 </instructions>

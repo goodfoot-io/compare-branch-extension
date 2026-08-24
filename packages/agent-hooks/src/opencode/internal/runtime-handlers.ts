@@ -544,12 +544,13 @@ export function createStopRouteNudgePlugin(deps: OpencodeHandlerDeps = defaultOp
 }
 
 /**
- * Creates the exit-when-done nudge plugin (notify-only degradation).
+ * Creates the exit-when-done nudge plugin.
  *
  * Fires at most once per idle root session launched with `EXIT_WHEN_DONE=true`
- * and announces the shutdown runbook through the log channels. A plugin cannot
- * terminate its host process cleanly, so v1 ships notify-only with a named
- * warning — matching the Codex port's explicit-rejection honesty.
+ * and announces the shutdown protocol through the log channels. The plugin
+ * never terminates anything: it instructs the model to run
+ * `cards "$CARD_ID" shutdown`, and the action handler — parent of this
+ * process — performs the graceful termination in response.
  *
  * @param deps - Injectable edges; defaults wire the real SDK.
  * @returns An OpenCode plugin registering `event`/`session.idle` handling.
@@ -594,15 +595,11 @@ export function createStopExitWhenDonePlugin(deps: OpencodeHandlerDeps = default
             return;
           }
 
-          // Named degradation: notify-only. A plugin cannot terminate its host
-          // cleanly, so EXIT_WHEN_DONE cannot exit the process on OpenCode.
           await log.warn(
             [
-              'Cards exit-when-done nudge (notify-only: an OpenCode plugin cannot terminate its host process).',
-              'This action was launched with EXIT_WHEN_DONE=true and the session is now idle.',
-              `The current OpenCode session id is \`${sessionId}\`; supply it where the runbook requires \`<SESSION ID FROM THE STOP MESSAGE>\`.`,
-              `Read ${deps.shutdownRunbookPath()} and follow its <instructions> to terminate the validated launcher cleanly.`,
-              'The launcher will keep running until terminated manually or by the extension.'
+              'Cards exit-when-done nudge: this action was launched with EXIT_WHEN_DONE=true and the session is now idle.',
+              `Read ${deps.shutdownRunbookPath()} and follow its <instructions>: finish or roll back in-progress work to a clean state, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session cleanly.`,
+              'The action handler terminates the launcher gracefully in response to the signal.'
             ].join('\n'),
             { sessionId }
           );

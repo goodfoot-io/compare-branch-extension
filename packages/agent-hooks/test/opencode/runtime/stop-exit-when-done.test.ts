@@ -1,5 +1,5 @@
 /**
- * Tests for the OpenCode exit-when-done nudge plugin (notify-only degradation).
+ * Tests for the OpenCode exit-when-done nudge plugin.
  *
  * @summary Tests for the OpenCode stop-exit-when-done handler
  */
@@ -85,11 +85,10 @@ describe('CardsStopExitWhenDone (runtime)', () => {
     expect(recorders.markers.exitNudged.has('ses-root')).toBe(true);
     const warnings = logEntries.filter((e) => e.level === 'warn' && e.message.includes('exit-when-done'));
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]?.message).toContain('notify-only');
-    expect(warnings[0]?.message).toContain('`ses-root`');
+    expect(warnings[0]?.message).toContain('cards "$CARD_ID" shutdown');
     expect(warnings[0]?.message).toContain(join(tempDir, 'skills', 'card', 'references', 'shutdown.md'));
-    expect(warnings[0]?.message).toContain('cannot terminate its host process');
-    // Named degradation mirrors to stderr.
+    expect(warnings[0]?.message).toContain('terminates the launcher gracefully');
+    // Nudge mirrors to stderr.
     expect(stderrWrites.join('')).toContain('exit-when-done');
 
     // A repeated idle event consumes no additional notification budget.

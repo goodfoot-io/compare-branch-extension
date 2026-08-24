@@ -130,6 +130,12 @@ The action ID is the lowercase identifier from the action definition (e.g., `lau
 
 Actions run interactively by default. `--background` is rejected with a 400 error for an action that does not support background mode. `--exit-when-done` signals the agent to exit cleanly once the action completes rather than leaving the session open.
 
+**Signal shutdown** — From inside a running action, tell Cards the agent reached a terminal state (after a merge, after recording a blocker, after all tasks complete). Check `EXIT_WHEN_DONE` first; if true, finish or roll back in-progress commits, then:
+```
+cards "$CARD_ID" shutdown --outcome success|blocked|error [--message "..."]
+```
+Outcome defaults to `success`. Exit 0 confirms delivery; the handler terminates the session gracefully and the card still settles on `needs_review`. Without `SOCKET_PATH` the command exits non-zero — it only works inside an action.
+
 **Watch for commits** — Block until the next unattributed commit on a card's repository:
 ```
 cards <card-id> watch

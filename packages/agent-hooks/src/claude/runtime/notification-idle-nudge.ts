@@ -222,7 +222,7 @@ function tryExitWhenDoneNudge(sessionId: string, logger: Logger): string | null 
   return [
     'This action was launched with EXIT_WHEN_DONE=true, signalling that the session should exit once work is complete.',
     '',
-    `Read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\` to exit the session cleanly.`
+    `Read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\`: finish or roll back in-progress work to a clean state, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session cleanly.`
   ].join('\n');
 }
 

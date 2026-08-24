@@ -26,4 +26,4 @@ Loaded only when the orchestrator chooses the heavy end of a step's weight spect
 
 ## Not Router-Reachable
 
-- `shutdown.md` — shutdown runbook. Loaded by the exit-when-done Stop hook via a hard-coded path, never by the router.
+- `shutdown.md` — shutdown runbook. Loaded by the idle-nudge hooks via a hard-coded path when `EXIT_WHEN_DONE=true`; also referenced by the terminal-state protocol. Never loaded by the router.

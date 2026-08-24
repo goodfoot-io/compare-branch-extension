@@ -155,7 +155,8 @@ Plain text stderr capture from session processes. Sanitized card ID: characters 
 
 ## Session End Cleanup
 
-When a session ends (SessionEnd hook + exit-when-done):
+Sessions end through two equivalent paths: a natural exit, or an agent-initiated `cards "$CARD_ID" shutdown --outcome ...` whose `agentShutdown` relay makes the action handler SIGTERM the agent CLI gracefully. Both feed the same cascade:
+
 1. Flush sentinel written to trigger transcript watcher close
 2. `removeSessionRouteNudge(sessionId)` — deletes the route-nudge marker
 3. `removeSessionExitWhenDoneNudge(sessionId)` — deletes the exit-when-done marker

@@ -59,6 +59,10 @@ done
 - `needs_review` **is** the review gate, not a stall. A card agent committing
   its work and moving to `needs_review` is the process working correctly —
   do not pause the queue or flag it as a concern.
+- When the agent signals shutdown (`cards <id> shutdown --outcome ...`, per the
+  runbook), the recorded success/blocked/error outcome travels on the action's
+  completion event; status still settles to `needs_review` either way — the
+  signal is informational and never gates this transition.
 
 ## 4. Track and Report
 

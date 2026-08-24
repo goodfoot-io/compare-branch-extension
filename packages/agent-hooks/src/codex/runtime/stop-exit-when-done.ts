@@ -70,9 +70,7 @@ export default stopHook({}, async (input, { logger }) => {
     reason: [
       'This action was launched with EXIT_WHEN_DONE=true and the session is now idle.',
       '',
-      `The current Codex session id is \`${input.session_id}\`; supply it where the runbook requires \`<SESSION ID FROM THE STOP MESSAGE>\`.`,
-      '',
-      `Read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\` to terminate the validated Codex launcher cleanly.`
+      `Read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\`: finish or roll back in-progress work to a clean state, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session cleanly. The action handler terminates the validated Codex launcher in response to the signal.`
     ].join('\n')
   });
 });
