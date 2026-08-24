@@ -1397,6 +1397,7 @@ describe('rerouteNodeModules entry-shape provisioning', () => {
     await fs.mkdir(path.join(sourceNm, '@scope', 'scope-share'));
     await fs.writeFile(path.join(sourceNm, '@scope', 'scope-share', 'index.js'), 'scope\n');
     await fs.writeFile(path.join(sourceNm, '@scope', 'scope-file.js'), 'scope-file\n');
+    await fs.writeFile(path.join(sourceNm, '@scope', 'scope-copy-file.js'), 'scope-copy-file\n');
     await fs.mkdir(path.join(sourceNm, '@scope', 'scope-copied', '.cache'), { recursive: true });
     await fs.writeFile(path.join(sourceNm, '@scope', 'scope-copied', 'index.js'), 'scope-copied\n');
     await fs.writeFile(path.join(sourceNm, '@scope', 'scope-copied', '.cache', 'blob'), 'cache\n');
@@ -1446,6 +1447,7 @@ describe('rerouteNodeModules entry-shape provisioning', () => {
       'node_modules/copied-cache.js',
       'node_modules/copied-pkg/.cache/blob',
       'node_modules/@scope/scope-copied/.cache/blob',
+      'node_modules/@scope/scope-copy-file.js',
       'node_modules/copied-link'
     ]
   });
@@ -1506,6 +1508,11 @@ describe('rerouteNodeModules entry-shape provisioning', () => {
       expect: 'absent',
       rel: 'copied-link',
       name: 'directly copied symlink stays absent for the include copy executor'
+    },
+    {
+      expect: 'absent',
+      rel: '@scope/scope-copy-file.js',
+      name: 'directly copied scope-member file stays absent for the include copy executor'
     },
     { expect: 'absent', rel: 'omitted-entry', name: 'checkout-materialized omitted entry is removed' },
     { expect: 'absent', rel: '@scope/scope-omitted', name: 'omitted scope member is removed on the committed shape' },
