@@ -732,6 +732,80 @@ describe('runtime', () => {
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
         expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
+
+      it('should contain a sync-throwing onCancel callback as a logged error and still exit successfully', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const loggerErrorSpy = vi.spyOn(logger, 'error');
+        const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+        const cancelFn = vi.fn(() => {
+          throw new Error('sync cancel boom');
+        });
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi
+          .fn()
+          .mockImplementation(async (_input: unknown, context: { onCancel: (cb: () => void) => void }) => {
+            context.onCancel(cancelFn);
+            await handlerDone;
+          });
+        const command = makeCommand(handler);
+
+        const executePromise = executeCommand(command);
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"cancel"}\n');
+
+        await vi.waitFor(() => {
+          expect(loggerErrorSpy).toHaveBeenCalledWith(expect.stringContaining('onCancel callback error'));
+        });
+        expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('malformed line'));
+
+        resolveHandler();
+        await executePromise;
+
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it('should contain a sync-throwing onSwitchToInteractive callback as a logged error and exit with the error code', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const loggerErrorSpy = vi.spyOn(logger, 'error');
+        const switchFn = vi.fn(() => {
+          throw new Error('sync switch boom');
+        });
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi
+          .fn()
+          .mockImplementation(async (_input: unknown, context: { onSwitchToInteractive: (cb: () => void) => void }) => {
+            context.onSwitchToInteractive(switchFn);
+            await handlerDone;
+          });
+        const command = makeCommand(handler);
+
+        const executePromise = executeCommand(command);
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"switchToInteractive"}\n');
+
+        await vi.waitFor(() => {
+          expect(loggerErrorSpy).toHaveBeenCalledWith(expect.stringContaining('switchToInteractive callback error'));
+        });
+
+        resolveHandler();
+        await executePromise;
+
+        // Mirrors the rejection arm: the relaunch cannot proceed without a
+        // response payload, so the runtime surfaces the failure via its exit.
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
+      });
     });
 
     describe('agentShutdown command', () => {

@@ -245,7 +245,8 @@ Shutdown:
   Options:
     --outcome <value>        One of success | blocked | error (default success;
                              last value wins if repeated)
-    --message <text>         Optional free-text detail recorded with the outcome
+    --message <text>         Optional free-text detail recorded with the
+                             outcome (last value wins if repeated)
 
   Examples:
     cards "$CARD_ID" shutdown

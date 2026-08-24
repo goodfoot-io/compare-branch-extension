@@ -438,18 +438,27 @@ function handleSwitchToInteractiveCommand(
     return;
   }
 
-  toPromise(callback()).then(
-    (data) => {
-      socketClient.sendResponseThen({ type: 'switchToInteractiveResponse', data }, () => {
-        cleanupAndExit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
-      });
-    },
-    (error) => {
-      logger.error(`switchToInteractive callback error: ${getErrorMessage(error)}`);
-      socketClient.close();
-      cleanupAndExit(EXIT_CODES.ERROR);
-    }
-  );
+  try {
+    // Same sync-throw containment as the other lifecycle handlers: without
+    // it the escape lands in SocketClient's parse loop as a bogus
+    // "malformed line" while the relaunch silently never proceeds.
+    toPromise(callback()).then(
+      (data) => {
+        socketClient.sendResponseThen({ type: 'switchToInteractiveResponse', data }, () => {
+          cleanupAndExit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
+        });
+      },
+      (error) => {
+        logger.error(`switchToInteractive callback error: ${getErrorMessage(error)}`);
+        socketClient.close();
+        cleanupAndExit(EXIT_CODES.ERROR);
+      }
+    );
+  } catch (error) {
+    logger.error(`switchToInteractive callback error: ${getErrorMessage(error)}`);
+    socketClient.close();
+    cleanupAndExit(EXIT_CODES.ERROR);
+  }
 }
 
 /**
