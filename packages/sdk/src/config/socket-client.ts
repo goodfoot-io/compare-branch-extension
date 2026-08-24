@@ -17,11 +17,19 @@ import * as net from 'node:net';
 // ============================================================================
 
 /**
+ * Outcome reported by an agent when it requests shutdown.
+ *
+ * Informational only: Cards records the outcome on the running action and
+ * includes it on `action:completed`, but never gates status transitions.
+ */
+export type ShutdownOutcome = 'success' | 'blocked' | 'error';
+
+/**
  * Commands that can be received from the ActionDispatcher via socket.
  *
  * Uses NDJSON (newline-delimited JSON) protocol.
  */
-export type SocketCommand = { type: 'cancel' } | { type: 'switchToInteractive' };
+export type SocketCommand = { type: 'cancel' } | { type: 'switchToInteractive' } | { type: 'agentShutdown' };
 
 /**
  * Response sent back to the ActionDispatcher when switchToInteractive is handled.
@@ -32,18 +40,32 @@ export interface SwitchToInteractiveResponse {
 }
 
 /**
+ * Ingress message sent by any process inside an action tree (typically via
+ * `cards <card-id> shutdown`) to tell Cards the agent reached a terminal
+ * state. The dispatcher records it, relays an `agentShutdown` command to
+ * the handler, and takes no further action.
+ */
+export interface ShutdownRequestMessage {
+  type: 'shutdownRequest';
+  outcome: ShutdownOutcome;
+  message?: string;
+}
+
+/**
  * Capability advertisement sent by the runtime to the dispatcher when
- * `onSwitchToInteractive` is registered.
+ * lifecycle callbacks are registered. Snapshots are superseding: each
+ * registration that adds a new flag sends the full current state.
  */
 export interface CapabilitiesMessage {
   type: 'capabilities';
   switchToInteractive: boolean;
+  supportsAgentShutdown?: boolean;
 }
 
 /**
  * Union of all messages the runtime may send to the dispatcher.
  */
-export type SocketResponse = SwitchToInteractiveResponse | CapabilitiesMessage;
+export type SocketResponse = SwitchToInteractiveResponse | CapabilitiesMessage | ShutdownRequestMessage;
 
 // ============================================================================
 // SocketClient
@@ -53,8 +75,9 @@ export type SocketResponse = SwitchToInteractiveResponse | CapabilitiesMessage;
  * Client for the NDJSON socket protocol between the action runtime and
  * ActionDispatcher.
  *
- * Receives commands (cancel, switchToInteractive) and sends responses
- * (switchToInteractiveResponse) over a Unix domain socket.
+ * Receives commands (cancel, switchToInteractive, agentShutdown) and sends
+ * responses (switchToInteractiveResponse, capabilities, shutdownRequest)
+ * over a Unix domain socket.
  *
  * @example
  * ```typescript

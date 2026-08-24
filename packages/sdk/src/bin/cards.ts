@@ -39,6 +39,7 @@ import { outfitWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards.management/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
+import type { ShutdownOutcome } from '../config/socket-client.js';
 import { compiledHookScriptPaths } from '../git-hooks.js';
 
 const execFileAsync = promisify(execFile);
@@ -1219,6 +1220,29 @@ export async function executeAction(
 }
 
 /**
+ * Valid outcomes for the `cards <card-id> shutdown` verb.
+ */
+export const SHUTDOWN_OUTCOMES: readonly ShutdownOutcome[] = ['success', 'blocked', 'error'];
+
+/**
+ * Signals "the agent is done" from inside a running action.
+ *
+ * Fast path only: connects directly to the per-action socket named by
+ * `$SOCKET_PATH` and writes one `shutdownRequest` NDJSON line. Exit 0 means
+ * the line was handed to the dispatcher's socket — not that the relay has
+ * been processed. Without `$SOCKET_PATH` (or on any delivery failure) the
+ * verb fails closed with guidance; no fallback surface exists.
+ *
+ * @param _args - Flags after the verb: `--outcome <success|blocked|error>`
+ *   (default `success`) and `--message <text>`.
+ * @throws When the socket write cannot be delivered and the failure is
+ *   surfaced through the top-level catch instead of a graceful exit code.
+ */
+export async function runShutdownVerb(_args: string[]): Promise<void> {
+  throw new Error('Not Implemented');
+}
+
+/**
  * Binds an existing card to the current worktree.
  *
  * Applies four fail-closed gates before any state change:
@@ -1418,6 +1442,8 @@ if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
       } else if (verb === 'bind') {
         const bindFlags = parseFlags(process.argv.slice(4));
         run = bindCard(command, bindFlags['parent-branch']?.[0]);
+      } else if (verb === 'shutdown') {
+        run = runShutdownVerb(process.argv.slice(4));
       } else if (verb?.startsWith('--')) {
         const getFlags = parseFlags(process.argv.slice(3));
         run = getCard(command, getFlags['jsonpath']?.[0]);

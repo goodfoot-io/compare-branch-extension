@@ -251,8 +251,38 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
       // Callback registration state
       let cancelCallback: (() => void | Promise<void>) | undefined;
       let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
+      let agentShutdownCallback: (() => void | Promise<void>) | undefined;
       let commandProcessed = false;
-      let capabilitiesSent = false;
+      let agentShutdownProcessed = false;
+      let sentCapabilities: { switchToInteractive: boolean; supportsAgentShutdown: boolean } | undefined;
+
+      // Advertise registered lifecycle hooks to the dispatcher. Snapshots are
+      // superseding: every registration that changes the advertised state sends
+      // the full current snapshot, so registration order never freezes a stale
+      // flag at false (the dispatcher merges partial messages additively).
+      const advertiseCapabilities = (): void => {
+        if (!socketClient) return;
+        const snapshot = {
+          switchToInteractive: switchToInteractiveCallback !== undefined,
+          supportsAgentShutdown: agentShutdownCallback !== undefined
+        };
+        if (
+          sentCapabilities &&
+          sentCapabilities.switchToInteractive === snapshot.switchToInteractive &&
+          sentCapabilities.supportsAgentShutdown === snapshot.supportsAgentShutdown
+        ) {
+          return;
+        }
+        sentCapabilities = snapshot;
+        socketClient.sendResponseThen(
+          {
+            type: 'capabilities',
+            switchToInteractive: snapshot.switchToInteractive,
+            supportsAgentShutdown: snapshot.supportsAgentShutdown
+          },
+          () => {}
+        );
+      };
 
       // Build ActionContext with logger, cwd, and socket-backed callbacks
       const context: ActionContext = {
@@ -263,19 +293,28 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
         },
         onSwitchToInteractive: (callback) => {
           switchToInteractiveCallback = callback;
-          // Emit capability to the dispatcher at most once per process
-          if (socketClient && !capabilitiesSent) {
-            capabilitiesSent = true;
-            socketClient.sendResponseThen({ type: 'capabilities', switchToInteractive: true }, () => {});
-          }
+          advertiseCapabilities();
+        },
+        onAgentShutdown: (callback) => {
+          agentShutdownCallback = callback;
+          advertiseCapabilities();
         }
       };
 
       // Wire socket command dispatch
       if (socketClient) {
         socketClient.onCommand((cmd: SocketCommand) => {
-          // First-wins semantics: ignore subsequent commands
+          // First-wins semantics for user-initiated commands; agentShutdown is
+          // deduplicated independently so a later cancel still lands after it.
           if (commandProcessed) return;
+
+          if (cmd.type === 'agentShutdown') {
+            if (agentShutdownProcessed) return;
+            agentShutdownProcessed = true;
+            handleAgentShutdownCommand(agentShutdownCallback);
+            return;
+          }
+
           commandProcessed = true;
 
           if (cmd.type === 'cancel') {
@@ -402,4 +441,23 @@ function handleSwitchToInteractiveCommand(
       cleanupAndExit(EXIT_CODES.ERROR);
     }
   );
+}
+
+/**
+ * Handles an `agentShutdown` command from the socket.
+ *
+ * Invokes the registered `onAgentShutdown` callback — typically terminating
+ * the agent CLI gracefully so the normal post-exit cascade proceeds — and
+ * returns. Unlike {@link handleCancelCommand}, this handler never exits the
+ * process and has no SIGTERM fallback: responding to a shutdown request is
+ * entirely the callbacks' job, and with no callback registered the command
+ * is a no-op. Callback rejections are reported via the logger only.
+ *
+ * @param _callback - The registered agentShutdown callback, if any
+ * @throws Always — contract not yet implemented.
+ *
+ * @internal
+ */
+function handleAgentShutdownCommand(_callback: (() => void | Promise<void>) | undefined): void {
+  throw new Error('Not Implemented');
 }

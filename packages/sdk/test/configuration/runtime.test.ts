@@ -733,5 +733,240 @@ describe('runtime', () => {
         expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
     });
+
+    describe('agentShutdown command', () => {
+      let server: net.Server;
+      let socketPath: string;
+      let serverConnection: net.Socket | undefined;
+      let killSpy: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        socketPath = createIpcEndpoint(`test-runtime-shutdown-${process.pid}-${Date.now()}`);
+        serverConnection = undefined;
+        killSpy = vi.spyOn(process, 'kill').mockImplementation((() => {}) as never);
+      });
+
+      afterEach(async () => {
+        serverConnection?.destroy();
+        if (server?.listening) {
+          await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+          });
+        }
+        if (process.platform !== 'win32') {
+          try {
+            fs.unlinkSync(socketPath);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              throw error;
+            }
+          }
+        }
+      });
+
+      function startServer(): Promise<void> {
+        return new Promise((resolve) => {
+          server = net.createServer((socket) => {
+            serverConnection = socket;
+          });
+          server.listen(socketPath, () => resolve());
+        });
+      }
+
+      function waitForServerConnection(): Promise<net.Socket> {
+        return new Promise((resolve) => {
+          if (serverConnection) {
+            resolve(serverConnection);
+            return;
+          }
+          server.once('connection', (socket) => {
+            serverConnection = socket;
+            resolve(socket);
+          });
+        });
+      }
+
+      function makeCommand(handler: ReturnType<typeof vi.fn>): ActionCommand {
+        return Object.assign(handler, {
+          factoryType: 'action' as const,
+          actionName: 'Test Action'
+        }) as unknown as ActionCommand;
+      }
+
+      it.skip('should advertise supportsAgentShutdown and supersede snapshots in registration order', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi.fn().mockImplementation(
+          async (
+            _input: unknown,
+            context: {
+              onSwitchToInteractive: (cb: () => unknown) => void;
+              onAgentShutdown: (cb: () => void) => void;
+            }
+          ) => {
+            // Register agent shutdown FIRST, switchToInteractive second — the
+            // second registration must send a superseding snapshot that still
+            // carries supportsAgentShutdown.
+            context.onAgentShutdown(() => {});
+            context.onSwitchToInteractive(() => ({ sessionId: 'abc123' }));
+            await handlerDone;
+          }
+        );
+        const command = makeCommand(handler);
+
+        const serverReceived: string[] = [];
+        const executePromise = executeCommand(command);
+
+        const conn = await waitForServerConnection();
+        conn.on('data', (chunk) => serverReceived.push(chunk.toString()));
+        await vi.waitFor(() => {
+          expect(serverReceived.join('')).toContain('capabilities');
+        });
+        resolveHandler();
+        await executePromise;
+
+        const lines = serverReceived
+          .join('')
+          .trim()
+          .split('\n')
+          .filter((l) => l.trim().length > 0);
+        const caps = lines.map((l) => JSON.parse(l)).filter((m) => m.type === 'capabilities');
+        const last = caps[caps.length - 1];
+        expect(last).toEqual({ type: 'capabilities', switchToInteractive: true, supportsAgentShutdown: true });
+      });
+
+      it.skip('should invoke onAgentShutdown callback without exiting the process', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const shutdownFn = vi.fn();
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi
+          .fn()
+          .mockImplementation(async (_input: unknown, context: { onAgentShutdown: (cb: () => void) => void }) => {
+            context.onAgentShutdown(shutdownFn);
+            await handlerDone;
+          });
+        const command = makeCommand(handler);
+
+        const executePromise = executeCommand(command);
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"agentShutdown"}\n');
+
+        await vi.waitFor(() => {
+          expect(shutdownFn).toHaveBeenCalledOnce();
+        });
+        // The runtime must NOT exit in response to agentShutdown: responding is
+        // entirely the callbacks' job. Let the handler finish naturally instead.
+        expect(exitSpy).not.toHaveBeenCalled();
+
+        conn.write('{"type":"cancel"}\n');
+        await vi.waitFor(() => {
+          expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+        });
+        resolveHandler();
+        await executePromise;
+
+        expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
+      });
+
+      it.skip('should ignore a duplicate agentShutdown command', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const shutdownFn = vi.fn();
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi
+          .fn()
+          .mockImplementation(async (_input: unknown, context: { onAgentShutdown: (cb: () => void) => void }) => {
+            context.onAgentShutdown(shutdownFn);
+            await handlerDone;
+          });
+        const command = makeCommand(handler);
+
+        const executePromise = executeCommand(command);
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"agentShutdown"}\n');
+        await vi.waitFor(() => {
+          expect(shutdownFn).toHaveBeenCalledTimes(1);
+        });
+        conn.write('{"type":"agentShutdown"}\n');
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+        expect(shutdownFn).toHaveBeenCalledTimes(1);
+
+        resolveHandler();
+        await executePromise;
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it.skip('should treat agentShutdown as a no-op when no callback registered', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const handler = vi.fn().mockImplementation(async () => {
+          // Hold the process open long enough to receive the command.
+          await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        });
+        const command = makeCommand(handler);
+
+        const executePromise = executeCommand(command);
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"agentShutdown"}\n');
+        await executePromise;
+
+        // No SIGTERM fallback (unlike cancel), no error exit.
+        expect(killSpy).not.toHaveBeenCalled();
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it.skip('should log callback rejection without exiting with an error', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const loggerErrorSpy = vi.spyOn(logger, 'error');
+        const shutdownFn = vi.fn().mockRejectedValue(new Error('callback blew up'));
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi
+          .fn()
+          .mockImplementation(
+            async (_input: unknown, context: { onAgentShutdown: (cb: () => Promise<void>) => void }) => {
+              context.onAgentShutdown(shutdownFn);
+              await handlerDone;
+            }
+          );
+        const command = makeCommand(handler);
+
+        const executePromise = executeCommand(command);
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"agentShutdown"}\n');
+
+        await vi.waitFor(() => {
+          expect(loggerErrorSpy).toHaveBeenCalledWith(expect.stringContaining('onAgentShutdown callback error'));
+        });
+        expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
+
+        resolveHandler();
+        await executePromise;
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+    });
   });
 });

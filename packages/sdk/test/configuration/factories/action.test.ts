@@ -41,7 +41,8 @@ describe('defineAction', () => {
     logger: mockLogger,
     cwd: '/workspace',
     onCancel: vi.fn(),
-    onSwitchToInteractive: vi.fn()
+    onSwitchToInteractive: vi.fn(),
+    onAgentShutdown: vi.fn()
   };
 
   describe('basic functionality', () => {

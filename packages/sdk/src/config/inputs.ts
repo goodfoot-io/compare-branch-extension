@@ -140,6 +140,10 @@ export interface ActionInput {
  *     return { sessionId: 'abc123' };
  *   });
  *
+ *   context.onAgentShutdown(() => {
+ *     context.logger.info('Agent signalled shutdown');
+ *   });
+ *
  *   // Use cwd for file operations
  *   const configPath = path.join(context.cwd, 'config.json');
  *   if (await fs.exists(configPath)) {
@@ -196,6 +200,23 @@ export interface ActionContext {
    * @param callback - Function that returns data to pass to the relaunched handler
    */
   onSwitchToInteractive(callback: () => unknown | Promise<unknown>): void;
+
+  /**
+   * Register a callback to be invoked when the agent requests shutdown.
+   *
+   * The callback is called when the runtime receives an `agentShutdown`
+   * command via the socket connection — relayed by the dispatcher after any
+   * process inside the action tree ran `cards <card-id> shutdown`. The
+   * callback owns the response policy (typically terminating the agent CLI
+   * gracefully); the runtime invokes callbacks and returns without exiting,
+   * leaving the normal post-exit cascade untouched.
+   *
+   * Registration also advertises `supportsAgentShutdown` to the dispatcher.
+   * If no callback is registered when the command arrives, it is a no-op.
+   *
+   * @param callback - Function to call on agent-requested shutdown
+   */
+  onAgentShutdown(callback: () => void | Promise<void>): void;
 }
 
 // ============================================================================
