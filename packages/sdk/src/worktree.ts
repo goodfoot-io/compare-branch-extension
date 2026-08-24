@@ -14,6 +14,7 @@
 
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import type { Dirent } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -1722,6 +1723,383 @@ async function removeOmittedDestination(destPath: string): Promise<void> {
   await fs.rm(destPath, { recursive: true, force: true });
 }
 
+/**
+ * State threaded through the node_modules reroute helpers.
+ *
+ * @property policy - Path policy query driving per-entry classification.
+ *   Classification is skipped entirely when absent — every entry is share.
+ */
+interface RerouteWalkContext {
+  policy?: WorktreePathQuery;
+}
+
+/**
+ * Policy-driven skip: an entry must be left unlinked when the policy does not
+ * classify it share — omitted entries stay absent, and copied descendants are
+ * materialized as real files by the include copy executor
+ * ({@link applyWorktreeInclude}).
+ *
+ * @param policy - Path policy query, or undefined when no policy applies.
+ * @param entryRel - Repository-relative POSIX path of the entry, or undefined
+ *   when the caller passed no relative path (classification is skipped).
+ * @returns True when the entry must not be linked.
+ */
+function policySkips(policy: WorktreePathQuery | undefined, entryRel: string | undefined): boolean {
+  return entryRel !== undefined && policy !== undefined && policy.classify(entryRel) !== 'share';
+}
+
+/**
+ * Whether `entryRel` is itself a directly copied path (in the policy's copy
+ * set) rather than merely an ancestor of one.
+ *
+ * A directly copied symlink is written by the include copy executor, which
+ * recreates the link from the source at the destination path; the walk must
+ * leave that path untouched or the executor's write rejects with EEXIST.
+ * Ancestor-only copy classification means the interior is what the executor
+ * writes, which is exactly what a materialized tree provides.
+ *
+ * @param policy - Path policy query, or undefined when no policy applies.
+ * @param entryRel - Repository-relative POSIX path of the entry, or undefined
+ *   when the caller passed no relative path (classification is skipped).
+ * @returns True when the full policy's copy set contains `entryRel`.
+ */
+function directlyCopiedEntry(policy: WorktreePathQuery | undefined, entryRel: string | undefined): boolean {
+  return entryRel !== undefined && isFullPolicy(policy) && policy.copy.includes(entryRel);
+}
+
+/**
+ * Whether a path resolves to a directory, tolerating a missing or
+ * un-stat-able target like a non-directory.
+ *
+ * A dangling link or a target that vanished mid-walk is treated like a file
+ * target so the entry falls through to the existing per-entry behavior
+ * instead of failing the whole reroute.
+ *
+ * @param absPath - Absolute path to test (symlinks followed).
+ * @returns True when `absPath` resolves to a directory.
+ */
+async function targetIsDirectory(absPath: string): Promise<boolean> {
+  try {
+    return (await fs.stat(absPath)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Link target for a share-classified child of a materialized directory.
+ *
+ * Without a worktree-side root (a real-dir source package) the child links
+ * absolutely to its source path. Inside a materialized symlink entry with an
+ * internal target the child links relatively into the worktree's own
+ * counterpart of the target — the isolation the workspace shape provides,
+ * kept per-file — so a write through the child lands in the worktree's
+ * checkout, never the source.
+ *
+ * @param worktreeSideRoot - Absolute worktree-side counterpart of the
+ *   materialized source directory, or undefined when share children link
+ *   absolutely to their source paths.
+ * @param childSource Source-side path of the share-classified child.
+ * @param childDest Destination-side path the child is being linked at.
+ * @param childName Name of the child inside its materialized parent.
+ * @returns Link target for the child at `childDest`.
+ */
+function shareLinkTarget(
+  worktreeSideRoot: string | undefined,
+  childSource: string,
+  childDest: string,
+  childName: string
+): string {
+  return worktreeSideRoot !== undefined
+    ? path.relative(path.dirname(childDest), path.join(worktreeSideRoot, childName))
+    : childSource;
+}
+
+/**
+ * Classifies one node_modules entry against the walk's policy and provisions
+ * it. This is the single per-entry decision shared by every level of the walk:
+ * top-level entries, @-scope members, and children of materialized trees (via
+ * {@link rerouteCopiedDir}).
+ *
+ * Decision order, each outcome preserved from the pre-decomposition inline
+ * branches:
+ *
+ * 1. Omitted (`classify === 'omit'`): never provisioned — and when the git
+ *    checkout already materialized it (TRACKED node_modules content: a
+ *    committed symlink, file, or real package tree), the materialized entry is
+ *    removed so the omit contract holds on the committed shape too instead of
+ *    leaving the ruled path present. Copy-classified entries are still
+ *    processed — descending lets copied descendants stay unlinked while share
+ *    siblings keep their symlinks.
+ * 2. Symlink entries delegate to {@link rerouteSymlinkEntry}.
+ * 3. Files (and any non-directory): skipped when not share-classified,
+ *    otherwise linked to their source path — relatively into
+ *    `worktreeSideRoot` when set (see {@link shareLinkTarget}).
+ * 4. Directories that are an ancestor of a matcher-matched omitted path or
+ *    copy-classified are materialized as real trees ({@link rerouteCopiedDir})
+ *    — symlinking either wholesale would expose ruled descendants to
+ *    worktree-side writes that mutate the source. Remaining directories are
+ *    linked like files.
+ *
+ * @param ctx - Walk state carrying the policy query.
+ * @param entry - Dirent of the entry being provisioned.
+ * @param sourcePath - Absolute source-side path of the entry.
+ * @param destPath - Absolute destination-side path of the entry.
+ * @param entryRelativePath - Repository-relative POSIX path of the entry, or
+ *   undefined when the caller passed no relative path (classification is
+ *   skipped and the entry is provisioned as share).
+ * @param worktreeSideRoot - Absolute worktree-side counterpart of the entry's
+ *   parent (set only inside a materialized internal-target tree); share
+ *   children link relatively into it.
+ * @returns Count of internal workspace symlinks recreated for the entry.
+ */
+async function provisionRerouteEntry(
+  ctx: RerouteWalkContext,
+  entry: Dirent,
+  sourcePath: string,
+  destPath: string,
+  entryRelativePath: string | undefined,
+  worktreeSideRoot?: string
+): Promise<number> {
+  const { policy } = ctx;
+
+  if (policy !== undefined && entryRelativePath !== undefined && policy.classify(entryRelativePath) === 'omit') {
+    await removeOmittedDestination(destPath);
+    return 0;
+  }
+
+  if (entry.isSymbolicLink()) {
+    return rerouteSymlinkEntry(ctx, sourcePath, destPath, entryRelativePath);
+  }
+
+  const linkTarget = (): string => shareLinkTarget(worktreeSideRoot, sourcePath, destPath, entry.name);
+
+  if (!entry.isDirectory()) {
+    if (policySkips(policy, entryRelativePath)) {
+      return 0;
+    }
+    await replaceSymlink(linkTarget(), destPath);
+    return 0;
+  }
+
+  if (
+    entryRelativePath !== undefined &&
+    policy !== undefined &&
+    (policy.isOmitAncestor(entryRelativePath) || policy.classify(entryRelativePath) !== 'share')
+  ) {
+    return rerouteCopiedDir(
+      ctx,
+      sourcePath,
+      destPath,
+      entryRelativePath,
+      worktreeSideRoot !== undefined ? path.join(worktreeSideRoot, entry.name) : undefined
+    );
+  }
+  await replaceSymlink(linkTarget(), destPath);
+  return 0;
+}
+
+/**
+ * Provisions one `@`-scope directory: an omitted scope is removed without
+ * being created; otherwise the scope becomes a real directory whose members
+ * are classified and provisioned one by one by
+ * {@link provisionRerouteEntry} — per-package classification keeps
+ * specialized provisioning from bypassing the repository policy.
+ *
+ * @param ctx - Walk state carrying the policy query.
+ * @param sourcePath - Absolute source path of the scope directory.
+ * @param destPath - Absolute destination path of the scope directory.
+ * @param entryRelativePath - Repository-relative POSIX path of the scope
+ *   directory, or undefined when the caller passed no relative path.
+ * @returns Count of internal workspace symlinks recreated below `destPath`.
+ */
+async function rerouteScopeDir(
+  ctx: RerouteWalkContext,
+  sourcePath: string,
+  destPath: string,
+  entryRelativePath: string | undefined
+): Promise<number> {
+  const { policy } = ctx;
+
+  // An omitted scope member check mirrors the top-level omit handling: a
+  // checkout-materialized tracked scope is removed so the omit contract holds
+  // on the committed shape too.
+  if (policy !== undefined && entryRelativePath !== undefined && policy.classify(entryRelativePath) === 'omit') {
+    await removeOmittedDestination(destPath);
+    return 0;
+  }
+
+  await fs.mkdir(destPath, { recursive: true });
+  const scopeEntries = await fs.readdir(sourcePath, { withFileTypes: true });
+  const scopeCounts = await Promise.all(
+    scopeEntries.map(async (scopeEntry): Promise<number> => {
+      const scopeSourcePath = path.join(sourcePath, scopeEntry.name);
+      const scopeDestPath = path.join(destPath, scopeEntry.name);
+      const scopeRelativePath = entryRelativePath !== undefined ? `${entryRelativePath}/${scopeEntry.name}` : undefined;
+      return provisionRerouteEntry(ctx, scopeEntry, scopeSourcePath, scopeDestPath, scopeRelativePath);
+    })
+  );
+  return scopeCounts.reduce((sum, c) => sum + c, 0);
+}
+
+/**
+ * Mirrors the children of a materialized directory into the worktree.
+ *
+ * A directory classified 'copy' cannot be symlinked wholesale — the policy
+ * prevents any symlink above a copied descendant — and neither can a
+ * directory that is an ancestor of a matcher-matched omitted path (the
+ * symlink would expose the omitted path to worktree-side writes). Instead
+ * the destination is created as a real directory and each child is decided on
+ * its own by {@link provisionRerouteEntry}: share children are symlinked, a
+ * share directory that is an ancestor of a matcher-matched omitted path is
+ * created real and descended into rather than linked, copied files are left
+ * to the include copy executor ({@link applyWorktreeInclude}) in wave 3,
+ * copied directories are created real and descended into, omitted children
+ * are never provisioned, and symlink children with a ruled interior are
+ * materialized the same way at their own path.
+ *
+ * When `worktreeSideRoot` is set, share children link relatively into it
+ * (the worktree's own counterpart of the materialized source subtree) so
+ * every write stays inside the worktree; without it they link absolutely to
+ * their source paths, the behavior for real-dir source packages.
+ *
+ * @param ctx - Walk state carrying the policy query.
+ * @param sourceDir - Absolute source directory whose children are mirrored.
+ * @param destDir - Absolute destination directory populated in the worktree.
+ * @param dirRelativePath - Repository-relative POSIX path of `sourceDir`.
+ * @param worktreeSideRoot - Absolute worktree-side counterpart of `sourceDir`
+ *   (set when materializing a symlink entry with an internal target); share
+ *   children link relatively into it.
+ * @returns Count of internal workspace symlinks recreated below `destDir`.
+ */
+async function rerouteCopiedDir(
+  ctx: RerouteWalkContext,
+  sourceDir: string,
+  destDir: string,
+  dirRelativePath: string,
+  worktreeSideRoot?: string
+): Promise<number> {
+  await fs.mkdir(destDir, { recursive: true });
+  const childEntries = await fs.readdir(sourceDir, { withFileTypes: true });
+  const childCounts = await Promise.all(
+    childEntries.map(
+      async (child): Promise<number> =>
+        provisionRerouteEntry(
+          ctx,
+          child,
+          path.join(sourceDir, child.name),
+          path.join(destDir, child.name),
+          `${dirRelativePath}/${child.name}`,
+          worktreeSideRoot
+        )
+    )
+  );
+  return childCounts.reduce((sum, c) => sum + c, 0);
+}
+
+/**
+ * Materializes a symlink entry whose target is a directory as a real tree.
+ *
+ * The policy ruled the entry's interior (it is an ancestor of a
+ * matcher-matched omitted path, or copy-classified), so a link would expose
+ * the ruled paths to worktree-side writes that mutate the source. The
+ * destination becomes a real directory and the target's children are walked
+ * with the same per-entry decision order applied to every materialized
+ * directory. For an internal (relative) target the worktree mirrors the
+ * source layout, so the recreated link's destination-side resolution —
+ * `path.resolve(path.dirname(destPath), target)` — is the worktree's own
+ * counterpart of the target directory, and share children link relatively
+ * into it (see {@link rerouteCopiedDir}); for an external (absolute) target
+ * the worktree has no counterpart, so share children link absolutely to the
+ * resolved target, reproducing the original link shape per file.
+ *
+ * @param ctx - Walk state carrying the policy query.
+ * @param sourcePath - Absolute path of the symlink entry in the source.
+ * @param destPath - Absolute destination path (becomes a real directory).
+ * @param entryRelPath - Repository-relative POSIX path of the entry.
+ * @param target - Symlink target read from `sourcePath`.
+ * @returns Count of internal workspace symlinks recreated below `destPath`.
+ */
+async function materializeSymlinkEntry(
+  ctx: RerouteWalkContext,
+  sourcePath: string,
+  destPath: string,
+  entryRelPath: string,
+  target: string
+): Promise<number> {
+  // A previous run may have recreated the entry as a link; the materialized
+  // tree replaces it (a non-symlink at `destPath` is left untouched).
+  try {
+    const destStats = await fs.lstat(destPath);
+    if (destStats.isSymbolicLink()) {
+      await fs.unlink(destPath);
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+  const resolvedTarget = path.resolve(path.dirname(sourcePath), target);
+  // A link's target resolves relative to the link's own directory, so the
+  // destination-side counterpart of the target is resolved from
+  // `path.dirname(destPath)` — the path the recreated link would point at.
+  const worktreeSideRoot = isInternalSymlink(target) ? path.resolve(path.dirname(destPath), target) : undefined;
+  return rerouteCopiedDir(ctx, resolvedTarget, destPath, entryRelPath, worktreeSideRoot);
+}
+
+/**
+ * Mirrors one symlink entry of the source node_modules tree into the
+ * worktree.
+ *
+ * A share-classified entry is recreated as a link: internal (relative)
+ * targets keep their original target so the link resolves into the
+ * worktree's own counterpart of the source layout, and external targets
+ * point at the source entry. An entry whose interior the policy rules is
+ * materialized as a real tree when its target is a directory: an ancestor
+ * of a matcher-matched omitted path — even when the entry is itself a
+ * directly copied path, because omit wins over copy and the include copy
+ * executor skips the materialized destination — or copy-classified unless
+ * the entry itself is a directly copied path (which the include copy
+ * executor writes). A file-target link keeps the current per-entry
+ * behavior.
+ *
+ * @param ctx - Walk state carrying the policy query.
+ * @param sourcePath - Absolute path of the symlink entry in the source.
+ * @param destPath - Absolute destination path.
+ * @param entryRelPath - Repository-relative POSIX path of the entry, or
+ *   undefined when the caller passed no relative path.
+ * @returns Count of internal workspace symlinks recreated at `destPath`.
+ */
+async function rerouteSymlinkEntry(
+  ctx: RerouteWalkContext,
+  sourcePath: string,
+  destPath: string,
+  entryRelPath?: string
+): Promise<number> {
+  const { policy } = ctx;
+  const target = await fs.readlink(sourcePath);
+  if (
+    policy !== undefined &&
+    entryRelPath !== undefined &&
+    (policy.isOmitAncestor(entryRelPath) ||
+      (policySkips(policy, entryRelPath) && !directlyCopiedEntry(policy, entryRelPath)))
+  ) {
+    const resolvedTarget = path.resolve(path.dirname(sourcePath), target);
+    if (await targetIsDirectory(resolvedTarget)) {
+      return materializeSymlinkEntry(ctx, sourcePath, destPath, entryRelPath, target);
+    }
+  }
+  if (policySkips(policy, entryRelPath)) {
+    return 0;
+  }
+  if (isInternalSymlink(target)) {
+    await replaceSymlink(target, destPath);
+    return 1;
+  }
+  await replaceSymlink(sourcePath, destPath);
+  return 0;
+}
+
 interface RerouteNodeModulesOptions {
   sourceNodeModules: string;
   destNodeModules: string;
@@ -1796,249 +2174,7 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
 
   await fs.mkdir(destNodeModules, { recursive: true });
 
-  // Policy-driven skip: an entry must be left unlinked when the policy does
-  // not classify it share — omitted entries stay absent, and copied
-  // descendants are materialized as real files by the include copy executor.
-  // Entries inside an @-scope are classified again with their own relative
-  // path.
-  const policySkips = (entryRel: string | undefined): boolean =>
-    entryRel !== undefined && policy !== undefined && policy.classify(entryRel) !== 'share';
-
-  /**
-   * Mirrors the children of a materialized directory into the worktree.
-   *
-   * A directory classified 'copy' cannot be symlinked wholesale — the policy
-   * prevents any symlink above a copied descendant — and neither can a
-   * directory that is an ancestor of a matcher-matched omitted path (the
-   * symlink would expose the omitted path to worktree-side writes). Instead
-   * the destination is created as a real directory and each child is decided
-   * on its own: share children are symlinked (a share-classified path can
-   * have no copied descendant — though it may hide an omitted one, so a share
-   * directory that is an ancestor of a matcher-matched omitted path is
-   * created real and descended into rather than linked), copied files are
-   * left to the include copy executor ({@link applyWorktreeInclude}) in wave 3,
-   * copied directories are created real and descended into, omitted children
-   * are never provisioned, and symlink children with a ruled interior are
-   * materialized the same way at their own path.
-   *
-   * When `worktreeSideRoot` is set, share children link relatively into it
-   * (the worktree's own counterpart of the materialized source subtree) so
-   * every write stays inside the worktree; without it they link absolutely to
-   * their source paths, the behavior for real-dir source packages.
-   *
-   * @param sourceDir - Absolute source directory whose children are mirrored.
-   * @param destDir - Absolute destination directory populated in the worktree.
-   * @param dirRelativePath - Repository-relative POSIX path of `sourceDir`.
-   * @param worktreeSideRoot - Absolute worktree-side counterpart of `sourceDir`
-   *   (set when materializing a symlink entry with an internal target); share
-   *   children link relatively into it.
-   * @returns Count of internal workspace symlinks recreated below `destDir`.
-   */
-  const rerouteCopiedDir = async (
-    sourceDir: string,
-    destDir: string,
-    dirRelativePath: string,
-    worktreeSideRoot?: string
-  ): Promise<number> => {
-    await fs.mkdir(destDir, { recursive: true });
-    const childEntries = await fs.readdir(sourceDir, { withFileTypes: true });
-
-    /**
-     * Link target for a share-classified child of this materialized directory.
-     *
-     * Without a worktree-side root (a real-dir source package) the child links
-     * absolutely to its source path. Inside a materialized symlink entry with
-     * an internal target the child links relatively into the worktree's own
-     * counterpart of the target — the isolation the workspace shape provides,
-     * kept per-file — so a write through the child lands in the worktree's
-     * checkout, never the source.
-     *
-     * @param childSource Source-side path of the share-classified child.
-     * @param childDest Destination-side path the child is being linked at.
-     * @param childName Name of the child inside its materialized parent.
-     * @returns Link target for the child at `childDest`.
-     */
-    const shareLinkTarget = (childSource: string, childDest: string, childName: string): string =>
-      worktreeSideRoot !== undefined
-        ? path.relative(path.dirname(childDest), path.join(worktreeSideRoot, childName))
-        : childSource;
-
-    const childCounts = await Promise.all(
-      childEntries.map(async (child): Promise<number> => {
-        const childSource = path.join(sourceDir, child.name);
-        const childDest = path.join(destDir, child.name);
-        const childRelativePath = `${dirRelativePath}/${child.name}`;
-
-        if (policy !== undefined && policy.classify(childRelativePath) === 'omit') {
-          // The checkout may have materialized a TRACKED child here (a
-          // committed real package tree being materialized for a copy rule
-          // with an interior omit); the omitted child must be absent, so the
-          // materialized entry is removed rather than left in place.
-          await removeOmittedDestination(childDest);
-          return 0;
-        }
-
-        if (child.isSymbolicLink()) {
-          return rerouteSymlinkEntry(childSource, childDest, childRelativePath);
-        } else if (child.isDirectory()) {
-          // A copied directory is materialized as a real tree (E6), and so is
-          // a directory that is an ancestor of a matcher-matched omitted path
-          // (E7) — symlinking it wholesale would expose the omitted descendant
-          // to worktree-side writes that mutate the source.
-          if (policySkips(childRelativePath) || policy?.isOmitAncestor(childRelativePath)) {
-            return rerouteCopiedDir(
-              childSource,
-              childDest,
-              childRelativePath,
-              worktreeSideRoot !== undefined ? path.join(worktreeSideRoot, child.name) : undefined
-            );
-          }
-          await replaceSymlink(shareLinkTarget(childSource, childDest, child.name), childDest);
-          return 0;
-        } else {
-          if (policySkips(childRelativePath)) {
-            return 0;
-          }
-          await replaceSymlink(shareLinkTarget(childSource, childDest, child.name), childDest);
-          return 0;
-        }
-      })
-    );
-    return childCounts.reduce((sum, c) => sum + c, 0);
-  };
-
-  /**
-   * Whether `entryRel` is itself a directly copied path (in the policy's copy
-   * set) rather than merely an ancestor of one.
-   *
-   * A directly copied symlink is written by the include copy executor, which
-   * recreates the link from the source at the destination path; the walk must
-   * leave that path untouched or the executor's write rejects with EEXIST.
-   * Ancestor-only copy classification means the interior is what the executor
-   * writes, which is exactly what a materialized tree provides.
-   *
-   * @param entryRel - Repository-relative POSIX path of the entry.
-   * @returns True when the full policy's copy set contains `entryRel`.
-   */
-  const directlyCopiedEntry = (entryRel: string | undefined): boolean =>
-    entryRel !== undefined && isFullPolicy(policy) && policy.copy.includes(entryRel);
-
-  /**
-   * Whether a path resolves to a directory, tolerating a missing or
-   * un-stat-able target like a non-directory.
-   *
-   * A dangling link or a target that vanished mid-walk is treated like a file
-   * target so the entry falls through to the existing per-entry behavior
-   * instead of failing the whole reroute.
-   *
-   * @param absPath - Absolute path to test (symlinks followed).
-   * @returns True when `absPath` resolves to a directory.
-   */
-  const targetIsDirectory = async (absPath: string): Promise<boolean> => {
-    try {
-      return (await fs.stat(absPath)).isDirectory();
-    } catch {
-      return false;
-    }
-  };
-
-  /**
-   * Materializes a symlink entry whose target is a directory as a real tree.
-   *
-   * The policy ruled the entry's interior (it is an ancestor of a
-   * matcher-matched omitted path, or copy-classified), so a link would expose
-   * the ruled paths to worktree-side writes that mutate the source. The
-   * destination becomes a real directory and the target's children are walked
-   * with the same per-entry decision order applied to every materialized
-   * directory. For an internal (relative) target the worktree mirrors the
-   * source layout, so the recreated link's destination-side resolution —
-   * `path.resolve(path.dirname(destPath), target)` — is the worktree's own
-   * counterpart of the target directory, and share children link relatively
-   * into it (see {@link rerouteCopiedDir}); for an external (absolute) target
-   * the worktree has no counterpart, so share children link absolutely to the
-   * resolved target, reproducing the original link shape per file.
-   *
-   * @param sourcePath - Absolute path of the symlink entry in the source.
-   * @param destPath - Absolute destination path (becomes a real directory).
-   * @param entryRelPath - Repository-relative POSIX path of the entry.
-   * @param target - Symlink target read from `sourcePath`.
-   * @returns Count of internal workspace symlinks recreated below `destPath`.
-   */
-  const materializeSymlinkEntry = async (
-    sourcePath: string,
-    destPath: string,
-    entryRelPath: string,
-    target: string
-  ): Promise<number> => {
-    // A previous run may have recreated the entry as a link; the materialized
-    // tree replaces it (a non-symlink at `destPath` is left untouched).
-    try {
-      const destStats = await fs.lstat(destPath);
-      if (destStats.isSymbolicLink()) {
-        await fs.unlink(destPath);
-      }
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
-    const resolvedTarget = path.resolve(path.dirname(sourcePath), target);
-    // A link's target resolves relative to the link's own directory, so the
-    // destination-side counterpart of the target is resolved from
-    // `path.dirname(destPath)` — the path the recreated link would point at.
-    const worktreeSideRoot = isInternalSymlink(target) ? path.resolve(path.dirname(destPath), target) : undefined;
-    return rerouteCopiedDir(resolvedTarget, destPath, entryRelPath, worktreeSideRoot);
-  };
-
-  /**
-   * Mirrors one symlink entry of the source node_modules tree into the
-   * worktree.
-   *
-   * A share-classified entry is recreated as a link: internal (relative)
-   * targets keep their original target so the link resolves into the
-   * worktree's own counterpart of the source layout, and external targets
-   * point at the source entry. An entry whose interior the policy rules is
-   * materialized as a real tree when its target is a directory: an ancestor
-   * of a matcher-matched omitted path — even when the entry is itself a
-   * directly copied path, because omit wins over copy and the include copy
-   * executor skips the materialized destination — or copy-classified unless
-   * the entry itself is a directly copied path (which the include copy
-   * executor writes). A file-target link keeps the current per-entry
-   * behavior.
-   *
-   * @param sourcePath - Absolute path of the symlink entry in the source.
-   * @param destPath - Absolute destination path.
-   * @param entryRelPath - Repository-relative POSIX path of the entry, or
-   *   undefined when the caller passed no relative path.
-   * @returns Count of internal workspace symlinks recreated at `destPath`.
-   */
-  const rerouteSymlinkEntry = async (
-    sourcePath: string,
-    destPath: string,
-    entryRelPath: string | undefined
-  ): Promise<number> => {
-    const target = await fs.readlink(sourcePath);
-    if (
-      policy !== undefined &&
-      entryRelPath !== undefined &&
-      (policy.isOmitAncestor(entryRelPath) || (policySkips(entryRelPath) && !directlyCopiedEntry(entryRelPath)))
-    ) {
-      const resolvedTarget = path.resolve(path.dirname(sourcePath), target);
-      if (await targetIsDirectory(resolvedTarget)) {
-        return materializeSymlinkEntry(sourcePath, destPath, entryRelPath, target);
-      }
-    }
-    if (policySkips(entryRelPath)) {
-      return 0;
-    }
-    if (isInternalSymlink(target)) {
-      await replaceSymlink(target, destPath);
-      return 1;
-    }
-    await replaceSymlink(sourcePath, destPath);
-    return 0;
-  };
-
+  const ctx: RerouteWalkContext = { policy };
   const entries = await fs.readdir(sourceNodeModules, { withFileTypes: true });
   const counts = await Promise.all(
     entries.map(async (entry): Promise<number> => {
@@ -2046,100 +2182,12 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
       const destPath = path.join(destNodeModules, entry.name);
       const entryRelativePath = relativePath !== undefined ? `${relativePath}/${entry.name}` : undefined;
 
-      // Policy-driven skip: an entry the policy omits outright is never
-      // provisioned — and when the git checkout already materialized it
-      // (TRACKED node_modules content: a committed symlink, file, or real
-      // package tree), the materialized entry is removed so the omit
-      // contract holds on the committed shape too instead of leaving the
-      // ruled path present. Copy-classified entries are still processed — a
-      // copied path under @scope/pkgA classifies the whole @scope directory
-      // as 'copy', and descending lets the per-entry checks below leave
-      // copied descendants unlinked while share siblings keep their symlinks.
-      if (entryRelativePath !== undefined && policy !== undefined && policy.classify(entryRelativePath) === 'omit') {
-        await removeOmittedDestination(destPath);
-        return 0;
+      // @-scope directories are always real with per-package classification,
+      // so specialized provisioning never bypasses the repository policy.
+      if (entry.isDirectory() && entry.name.startsWith('@')) {
+        return rerouteScopeDir(ctx, sourcePath, destPath, entryRelativePath);
       }
-
-      if (entry.isSymbolicLink()) {
-        return rerouteSymlinkEntry(sourcePath, destPath, entryRelativePath);
-      } else if (entry.isDirectory() && entry.name.startsWith('@')) {
-        await fs.mkdir(destPath, { recursive: true });
-        const scopeEntries = await fs.readdir(sourcePath, { withFileTypes: true });
-        const scopeCounts = await Promise.all(
-          scopeEntries.map(async (scopeEntry): Promise<number> => {
-            const scopeSourcePath = path.join(sourcePath, scopeEntry.name);
-            const scopeDestPath = path.join(destPath, scopeEntry.name);
-            const scopeRelativePath =
-              entryRelativePath !== undefined ? `${entryRelativePath}/${scopeEntry.name}` : undefined;
-
-            // Omitted scope members are never provisioned (mirrors the
-            // top-level omit check), and a checkout-materialized tracked
-            // member is removed so the omit contract holds on the committed
-            // shape.
-            if (
-              scopeRelativePath !== undefined &&
-              policy !== undefined &&
-              policy.classify(scopeRelativePath) === 'omit'
-            ) {
-              await removeOmittedDestination(scopeDestPath);
-              return 0;
-            }
-
-            if (scopeEntry.isSymbolicLink()) {
-              return rerouteSymlinkEntry(scopeSourcePath, scopeDestPath, scopeRelativePath);
-            } else if (
-              scopeEntry.isDirectory() &&
-              scopeRelativePath !== undefined &&
-              policy?.isOmitAncestor(scopeRelativePath)
-            ) {
-              // An ancestor of a matcher-matched omitted path (e.g. a
-              // file-level `node_modules/@scope/a/.cache/tmp` rule): the
-              // package is materialized as a real tree with per-entry
-              // decisions — symlinking it wholesale would expose the omitted
-              // path to worktree-side writes that mutate the source.
-              return rerouteCopiedDir(scopeSourcePath, scopeDestPath, scopeRelativePath);
-            } else if (
-              scopeRelativePath !== undefined &&
-              policy !== undefined &&
-              policy.classify(scopeRelativePath) !== 'share'
-            ) {
-              // Copy-classified member: a copied package directory is
-              // materialized as a real tree so share files inside it keep
-              // their symlinks; a copied file is owned by the include copy
-              // executor (applyWorktreeInclude, wave 3).
-              if (scopeEntry.isDirectory()) {
-                return rerouteCopiedDir(scopeSourcePath, scopeDestPath, scopeRelativePath);
-              }
-              return 0;
-            } else {
-              await replaceSymlink(scopeSourcePath, scopeDestPath);
-              return 0;
-            }
-          })
-        );
-        return scopeCounts.reduce((sum, c) => sum + c, 0);
-      } else {
-        // An ancestor of a matcher-matched omitted path (e.g. a file-level
-        // `node_modules/pkgA/.cache/x.js` rule): the package is materialized
-        // as a real tree with per-entry decisions — symlinking it wholesale
-        // would expose the omitted path to worktree-side writes that mutate
-        // the source.
-        if (entry.isDirectory() && entryRelativePath !== undefined && policy?.isOmitAncestor(entryRelativePath)) {
-          return rerouteCopiedDir(sourcePath, destPath, entryRelativePath);
-        }
-        if (entryRelativePath !== undefined && policy !== undefined && policy.classify(entryRelativePath) !== 'share') {
-          // Copy-classified entry (the omit check above already returned): a
-          // copied directory is materialized as a real tree so share files
-          // inside it keep their symlinks; a copied file is owned by the
-          // include copy executor (applyWorktreeInclude, wave 3).
-          if (entry.isDirectory()) {
-            return rerouteCopiedDir(sourcePath, destPath, entryRelativePath);
-          }
-          return 0;
-        }
-        await replaceSymlink(sourcePath, destPath);
-        return 0;
-      }
+      return provisionRerouteEntry(ctx, entry, sourcePath, destPath, entryRelativePath);
     })
   );
 

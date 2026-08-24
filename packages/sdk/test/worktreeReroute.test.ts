@@ -27,6 +27,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createWorktree, removeWorktree, rerouteNodeModules } from '../src/worktree.js';
+import type { WorktreePathPolicy, WorktreePathQuery } from '../src/worktreePathPolicy.js';
 
 const CARDS_WORKTREES_DIR_KEY = 'CARDS_WORKTREES_DIR';
 
@@ -1294,5 +1295,293 @@ describe('policy-aware rerouting of TRACKED symlinked workspace packages', () =>
     await expect(settle).rejects.toThrow(/vendor\/x\/node_modules\/link/);
     // The failed settle removes the worktree itself (fail-closed cleanup), so
     // no removeWorktree call is needed here.
+  });
+});
+
+/**
+ * Table-driven pinning of the per-entry provisioning decisions the decomposed
+ * reroute walk applies identically at every tree level (top-level entries,
+ * `@`-scope members, materialized children via rerouteCopiedDir).
+ *
+ * Each row runs rerouteNodeModules directly against a fixture holding one
+ * entry per source shape and asserts that entry's outcome kind: linked to its
+ * source, left absent for the policy or the include copy executor, or
+ * materialized as a real directory. Child-level nuances of the materialized
+ * trees — share-child link shapes, including the worktree-side relative links
+ * of an internal-target symlink — get focused assertions alongside the table.
+ */
+describe('rerouteNodeModules entry-shape provisioning', () => {
+  type StubPolicy = WorktreePathQuery & Pick<WorktreePathPolicy, 'copy'>;
+
+  interface PolicyRules {
+    /** Paths classified omit outright. */
+    omitted: string[];
+    /** Leaf paths written by the include copy executor; the paths themselves
+     * and their ancestor directories classify copy (mirrors the real
+     * policy's matcher-derived copy set). */
+    copied: string[];
+  }
+
+  function stubPolicy(rules: PolicyRules): StubPolicy {
+    const copyAncestors = new Set<string>();
+    for (const copied of rules.copied) {
+      const parts = copied.split('/');
+      for (let i = 1; i < parts.length; i += 1) {
+        copyAncestors.add(parts.slice(0, i).join('/'));
+      }
+    }
+    return {
+      copy: rules.copied,
+      isOmitAncestor: (rel: string): boolean => rules.omitted.some((o) => o.startsWith(`${rel}/`)),
+      classify: (rel: string): 'omit' | 'copy' | 'share' => {
+        if (rules.omitted.includes(rel)) {
+          return 'omit';
+        }
+        if (rules.copied.includes(rel) || copyAncestors.has(rel)) {
+          return 'copy';
+        }
+        return 'share';
+      }
+    };
+  }
+
+  let seq = 0;
+
+  interface RerouteFixture {
+    sourceNm: string;
+    destNm: string;
+    extVendor: string;
+  }
+
+  /**
+   * Builds a source node_modules tree holding every entry shape, a matching
+   * destination pre-materialized with the entries the policy must remove,
+   * internal workspace targets under `packages/`, and external targets under
+   * `ext-vendor/`; runs one reroute pass and returns the relevant roots.
+   *
+   * @param policy - Path policy query driving classification, or undefined
+   *   when the row exercises the no-policy behavior.
+   * @returns The source and destination node_modules roots and the external
+   *   vendor root used by the symlink fixtures.
+   */
+  async function runReroute(policy?: WorktreePathQuery): Promise<RerouteFixture> {
+    seq += 1;
+    const root = path.join(tmpBase, `shape-${seq}`);
+    const sourceNm = path.join(root, 'node_modules');
+    const destNm = path.join(root, 'dest', 'node_modules');
+    const packagesRoot = path.join(root, 'packages');
+    const extVendor = path.join(tmpBase, `ext-${seq}`);
+
+    await fs.mkdir(path.join(sourceNm, '@scope'), { recursive: true });
+    await fs.mkdir(path.join(packagesRoot, 'a'), { recursive: true });
+    await fs.writeFile(path.join(packagesRoot, 'a', 'index.js'), 'a\n');
+    await fs.mkdir(path.join(packagesRoot, 'b', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(packagesRoot, 'b', 's.js'), 'b\n');
+    await fs.writeFile(path.join(packagesRoot, 'b', '.cache', 'x.js'), 'ruled\n');
+    await fs.mkdir(path.join(extVendor, 'ext-pkg'), { recursive: true });
+    await fs.writeFile(path.join(extVendor, 'ext-pkg', 'share.js'), 'ext\n');
+
+    // Top-level shapes.
+    await fs.mkdir(path.join(sourceNm, 'plain-dir'));
+    await fs.writeFile(path.join(sourceNm, 'plain-dir', 'index.js'), 'dir\n');
+    await fs.writeFile(path.join(sourceNm, 'plain-file.js'), 'file\n');
+    await fs.writeFile(path.join(sourceNm, 'copied-cache.js'), 'cache\n');
+    await fs.mkdir(path.join(sourceNm, 'copied-pkg', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceNm, 'copied-pkg', 'index.js'), 'copied\n');
+    await fs.writeFile(path.join(sourceNm, 'copied-pkg', '.cache', 'blob'), 'cache\n');
+    await fs.mkdir(path.join(sourceNm, 'pkg-with-ruled-interior', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceNm, 'pkg-with-ruled-interior', 'share.js'), 'share\n');
+    await fs.writeFile(path.join(sourceNm, 'pkg-with-ruled-interior', '.cache', 'x.js'), 'ruled\n');
+
+    // Scope-member shapes.
+    await fs.mkdir(path.join(sourceNm, '@scope', 'scope-share'));
+    await fs.writeFile(path.join(sourceNm, '@scope', 'scope-share', 'index.js'), 'scope\n');
+    await fs.writeFile(path.join(sourceNm, '@scope', 'scope-file.js'), 'scope-file\n');
+    await fs.mkdir(path.join(sourceNm, '@scope', 'scope-copied', '.cache'), { recursive: true });
+    await fs.writeFile(path.join(sourceNm, '@scope', 'scope-copied', 'index.js'), 'scope-copied\n');
+    await fs.writeFile(path.join(sourceNm, '@scope', 'scope-copied', '.cache', 'blob'), 'cache\n');
+    await fs.mkdir(path.join(sourceNm, '@scope', 'scope-omitted'));
+    await fs.writeFile(path.join(sourceNm, '@scope', 'scope-omitted', 'index.js'), 'omitted\n');
+    await fs.mkdir(path.join(sourceNm, 'omitted-entry'));
+    await fs.writeFile(path.join(sourceNm, 'omitted-entry', 'tracked.txt'), 'omitted\n');
+
+    // Symlink shapes: internal workspace targets, external targets, a directly
+    // copied link, and dangling links whose interiors are ruled — the
+    // materialize guard requires a directory target, so these fall through.
+    await fs.symlink('../packages/a', path.join(sourceNm, 'internal-link'));
+    await fs.symlink('../packages/b', path.join(sourceNm, 'internal-link-ruled'));
+    await fs.symlink(path.join(extVendor, 'ext-pkg'), path.join(sourceNm, 'external-link'));
+    await fs.symlink(path.join(extVendor, 'ext-pkg'), path.join(sourceNm, 'external-link-ruled'));
+    await fs.symlink(path.join(extVendor, 'ext-pkg', 'share.js'), path.join(sourceNm, 'copied-link'));
+    await fs.symlink('../missing/pkg', path.join(sourceNm, 'dangling-internal-ruled'));
+    await fs.symlink(path.join(extVendor, 'gone'), path.join(sourceNm, 'dangling-external-ruled'));
+
+    // Entries the checkout has already materialized on the committed shape:
+    // the omit branches must actively remove exactly these.
+    await fs.mkdir(path.join(destNm, 'omitted-entry'), { recursive: true });
+    await fs.writeFile(path.join(destNm, 'omitted-entry', 'tracked.txt'), 'tracked\n');
+    await fs.mkdir(path.join(destNm, '@scope', 'scope-omitted'), { recursive: true });
+    await fs.writeFile(path.join(destNm, '@scope', 'scope-omitted', 'index.js'), 'tracked\n');
+
+    await rerouteNodeModules({
+      sourceNodeModules: sourceNm,
+      destNodeModules: destNm,
+      relativePath: 'node_modules',
+      policy
+    });
+    return { sourceNm, destNm, extVendor };
+  }
+
+  const ruledPolicy = stubPolicy({
+    omitted: [
+      'node_modules/omitted-entry',
+      'node_modules/pkg-with-ruled-interior/.cache/x.js',
+      'node_modules/@scope/scope-omitted',
+      'node_modules/internal-link-ruled/.cache/x.js',
+      'node_modules/dangling-internal-ruled/deep/x.js',
+      'node_modules/dangling-external-ruled/gone-deep/x.js',
+      'node_modules/external-link-ruled/ruled/x.js'
+    ],
+    copied: [
+      'node_modules/copied-cache.js',
+      'node_modules/copied-pkg/.cache/blob',
+      'node_modules/@scope/scope-copied/.cache/blob',
+      'node_modules/copied-link'
+    ]
+  });
+
+  type LinkRow = {
+    expect: 'link';
+    rel: string;
+    name: string;
+    linkTarget: (fixture: RerouteFixture) => string;
+  };
+  type AbsentRow = { expect: 'absent'; rel: string; name: string };
+  type RealDirRow = { expect: 'realDir'; rel: string; name: string };
+  type OutcomeRow = LinkRow | AbsentRow | RealDirRow;
+
+  it.each<OutcomeRow>([
+    {
+      expect: 'link',
+      rel: 'plain-dir',
+      name: 'share top-level directory links absolutely to its source',
+      linkTarget: (f) => path.join(f.sourceNm, 'plain-dir')
+    },
+    {
+      expect: 'link',
+      rel: 'plain-file.js',
+      name: 'share top-level file links absolutely to its source',
+      linkTarget: (f) => path.join(f.sourceNm, 'plain-file.js')
+    },
+    {
+      expect: 'link',
+      rel: 'internal-link',
+      name: 'unruled internal workspace link keeps its relative target',
+      linkTarget: () => '../packages/a'
+    },
+    {
+      expect: 'link',
+      rel: 'external-link',
+      name: 'unruled external link points at the source entry',
+      linkTarget: (f) => path.join(f.sourceNm, 'external-link')
+    },
+    {
+      expect: 'link',
+      rel: 'dangling-internal-ruled',
+      name: 'dangling internal link with a ruled interior falls through to target recreation',
+      linkTarget: () => '../missing/pkg'
+    },
+    {
+      expect: 'link',
+      rel: 'dangling-external-ruled',
+      name: 'dangling external link with a ruled interior falls through to a source link',
+      linkTarget: (f) => path.join(f.sourceNm, 'dangling-external-ruled')
+    },
+    {
+      expect: 'absent',
+      rel: 'copied-cache.js',
+      name: 'directly copied cache file stays absent for the include copy executor'
+    },
+    {
+      expect: 'absent',
+      rel: 'copied-link',
+      name: 'directly copied symlink stays absent for the include copy executor'
+    },
+    { expect: 'absent', rel: 'omitted-entry', name: 'checkout-materialized omitted entry is removed' },
+    { expect: 'absent', rel: '@scope/scope-omitted', name: 'omitted scope member is removed on the committed shape' },
+    { expect: 'realDir', rel: 'copied-pkg', name: 'copy-classified package materializes as a real tree' },
+    { expect: 'realDir', rel: 'pkg-with-ruled-interior', name: 'interior-omit package materializes as a real tree' },
+    { expect: 'realDir', rel: '@scope/scope-copied', name: 'copy-classified scope member materializes as a real tree' },
+    {
+      expect: 'realDir',
+      rel: 'external-link-ruled',
+      name: 'external-target symlink with a ruled interior materializes as a real tree'
+    },
+    {
+      expect: 'realDir',
+      rel: 'internal-link-ruled',
+      name: 'internal-target symlink with a ruled interior materializes as a real tree'
+    }
+  ])('$name', async (row) => {
+    const fixture = await runReroute(ruledPolicy);
+    const entryPath = path.join(fixture.destNm, row.rel);
+    if (row.expect === 'absent') {
+      await expect(fs.lstat(entryPath)).rejects.toMatchObject({ code: 'ENOENT' });
+      return;
+    }
+    if (row.expect === 'realDir') {
+      const stats = await fs.lstat(entryPath);
+      expect(stats.isDirectory()).toBe(true);
+      return;
+    }
+    await expect(fs.readlink(entryPath)).resolves.toBe(row.linkTarget(fixture));
+  });
+
+  it('without a policy share directories and files link absolutely to their sources', async () => {
+    const fixture = await runReroute();
+    for (const rel of ['plain-dir', 'plain-file.js', '@scope/scope-share', '@scope/scope-file.js']) {
+      await expect(fs.readlink(path.join(fixture.destNm, rel))).resolves.toBe(path.join(fixture.sourceNm, rel));
+    }
+  });
+
+  it('materialized copy and scope-copy trees keep share children linked to their source paths', async () => {
+    const fixture = await runReroute(ruledPolicy);
+    await expect(fs.readlink(path.join(fixture.destNm, 'copied-pkg', 'index.js'))).resolves.toBe(
+      path.join(fixture.sourceNm, 'copied-pkg', 'index.js')
+    );
+    await expect(fs.readlink(path.join(fixture.destNm, '@scope', 'scope-copied', 'index.js'))).resolves.toBe(
+      path.join(fixture.sourceNm, '@scope', 'scope-copied', 'index.js')
+    );
+  });
+
+  it('interior omit keeps the share sibling linked and the ruled path absent inside the materialized tree', async () => {
+    const fixture = await runReroute(ruledPolicy);
+    await expect(fs.readlink(path.join(fixture.destNm, 'pkg-with-ruled-interior', 'share.js'))).resolves.toBe(
+      path.join(fixture.sourceNm, 'pkg-with-ruled-interior', 'share.js')
+    );
+    await expect(
+      fs.lstat(path.join(fixture.destNm, 'pkg-with-ruled-interior', '.cache', 'x.js'))
+    ).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+  });
+
+  it('external materialization reproduces the target shape per file', async () => {
+    const fixture = await runReroute(ruledPolicy);
+    await expect(fs.readlink(path.join(fixture.destNm, 'external-link-ruled', 'share.js'))).resolves.toBe(
+      path.join(fixture.extVendor, 'ext-pkg', 'share.js')
+    );
+  });
+
+  it('internal materialization links share children relatively into the worktree-side counterpart', async () => {
+    const fixture = await runReroute(ruledPolicy);
+    const linkPath = path.join(fixture.destNm, 'internal-link-ruled', 's.js');
+    const counterpart = path.resolve(path.dirname(path.join(fixture.destNm, 'internal-link-ruled')), '../packages/b');
+    await expect(fs.readlink(linkPath)).resolves.toBe(
+      path.relative(path.dirname(linkPath), path.join(counterpart, 's.js'))
+    );
+    await expect(fs.lstat(path.join(fixture.destNm, 'internal-link-ruled', '.cache', 'x.js'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
   });
 });
