@@ -71,16 +71,21 @@ describe('cards shutdown verb', () => {
   }
 
   function runCli(args: string[], env: NodeJS.ProcessEnv): { stdout: string; stderr: string; status: number } {
-    const cwd = join(import.meta.dirname, '..', '..', '..');
-    const result = execFileSync(process.execPath, [tsxCli, 'src/bin/cards.ts', 'test-card', 'shutdown', ...args], {
-      cwd,
-      env: { ...process.env, ...env },
-      encoding: 'utf8'
-    }) as unknown as { stdout: string; stderr: string; status: number };
-    return result;
+    const cwd = join(import.meta.dirname, '..', '..');
+    try {
+      const stdout = execFileSync(process.execPath, [tsxCli, 'src/bin/cards.ts', 'test-card', 'shutdown', ...args], {
+        cwd,
+        env: { ...process.env, ...env },
+        encoding: 'utf8'
+      });
+      return { stdout, stderr: '', status: 0 };
+    } catch (error) {
+      const e = error as { stdout?: string; stderr?: string; status?: number };
+      return { stdout: e.stdout ?? '', stderr: e.stderr ?? '', status: e.status ?? 1 };
+    }
   }
 
-  it.skip('delivers the shutdownRequest NDJSON line and exits 0', async () => {
+  it('delivers the shutdownRequest NDJSON line and exits 0', async () => {
     await startServer();
     process.env['SOCKET_PATH'] = socketPath;
 
@@ -97,7 +102,7 @@ describe('cards shutdown verb', () => {
     });
   });
 
-  it.skip('defaults the outcome to success when omitted', async () => {
+  it('defaults the outcome to success when omitted', async () => {
     await startServer();
     process.env['SOCKET_PATH'] = socketPath;
 
@@ -110,7 +115,7 @@ describe('cards shutdown verb', () => {
     expect(JSON.parse(serverReceived[0]!)).toEqual({ type: 'shutdownRequest', outcome: 'success' });
   });
 
-  it.skip('rejects an invalid outcome without touching the socket', async () => {
+  it('rejects an invalid outcome without touching the socket', async () => {
     await startServer();
     process.env['SOCKET_PATH'] = socketPath;
 
@@ -128,7 +133,7 @@ describe('cards shutdown verb', () => {
     expect(serverReceived).toHaveLength(0);
   });
 
-  it.skip('fails closed with guidance when SOCKET_PATH is not set', async () => {
+  it('fails closed with guidance when SOCKET_PATH is not set', async () => {
     delete process.env['SOCKET_PATH'];
 
     let result: { stderr: string; status: number };
@@ -142,7 +147,7 @@ describe('cards shutdown verb', () => {
     expect(result.stderr).toContain('SOCKET_PATH');
   });
 
-  it.skip('fails closed when nothing listens on SOCKET_PATH', async () => {
+  it('fails closed when nothing listens on SOCKET_PATH', async () => {
     process.env['SOCKET_PATH'] = join(tmpdir(), `cards-shutdown-missing-${process.pid}-${Date.now()}.sock`);
 
     let result: { stderr: string; status: number };

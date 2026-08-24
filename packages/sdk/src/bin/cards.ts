@@ -10,6 +10,7 @@
 
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import * as net from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve as resolvePath } from 'node:path';
 import { promisify } from 'node:util';
@@ -30,6 +31,7 @@ import {
   NetworkError
 } from '@cards.management/sdk/client';
 import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
+import { CARDS_ENV_VARS, getSocketPath } from '@cards.management/sdk/config/env';
 import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
 import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards.management/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards.management/sdk/search-utils';
@@ -99,6 +101,7 @@ Commands:
   <card-id> action <action-id> [options]  Execute an action on a card
   <card-id> watch [glob...]     Wait for next unattributed commit
   <card-id> bind [options]      Bind an existing card to the current worktree
+  <card-id> shutdown [options]  Signal agent shutdown to the running action
   html check [path...]          Validate card-repo HTML files
 
 Get:
@@ -229,9 +232,26 @@ Html:
     0  All checks passed
     1  Content failure — fix the HTML file or sidecar
 
+Shutdown:
+  Tells Cards the agent reached a terminal state (after a merge, after
+  recording a blocker, after all tasks are complete). Only works from inside
+  a running action: the signal rides the per-action socket named by
+  $SOCKET_PATH. Exit 0 means the request was sent, not that it has been
+  processed; the extension records the outcome and relays it to the running
+  handler, which owns any termination policy.
+
+  Options:
+    --outcome <value>        One of success | blocked | error (default success)
+    --message <text>         Optional free-text detail recorded with the outcome
+
+  Examples:
+    cards "$CARD_ID" shutdown
+    cards "$CARD_ID" shutdown --outcome blocked --message "waiting on review"
+
 Exit codes:
   0  Success
-  1  Error (missing arguments, invalid input, discovery failure, API error)
+  1  Error (missing arguments, invalid input, discovery failure, API error,
+     or shutdown delivery failure)
   130  Interrupted (SIGINT)
   143  Terminated (SIGTERM)`;
 
@@ -1233,13 +1253,56 @@ export const SHUTDOWN_OUTCOMES: readonly ShutdownOutcome[] = ['success', 'blocke
  * been processed. Without `$SOCKET_PATH` (or on any delivery failure) the
  * verb fails closed with guidance; no fallback surface exists.
  *
- * @param _args - Flags after the verb: `--outcome <success|blocked|error>`
+ * @param args - Flags after the verb: `--outcome <success|blocked|error>`
  *   (default `success`) and `--message <text>`.
- * @throws When the socket write cannot be delivered and the failure is
- *   surfaced through the top-level catch instead of a graceful exit code.
  */
-export async function runShutdownVerb(_args: string[]): Promise<void> {
-  throw new Error('Not Implemented');
+export async function runShutdownVerb(args: string[]): Promise<void> {
+  const flags = parseFlags(args);
+  const outcome = (flags['outcome']?.[0] ?? 'success') as ShutdownOutcome;
+  if (!SHUTDOWN_OUTCOMES.includes(outcome)) {
+    console.error(`cards shutdown: invalid --outcome "${outcome}". Valid outcomes: ${SHUTDOWN_OUTCOMES.join(', ')}`);
+    process.exitCode = 1;
+    return;
+  }
+  const message = flags['message']?.[0];
+
+  let socketPath: string;
+  try {
+    socketPath = getSocketPath();
+  } catch {
+    console.error(
+      `cards shutdown: ${CARDS_ENV_VARS.SOCKET_PATH} is not set — this command can only signal a shutdown ` +
+        'from inside a running action (the action handler creates the per-action socket).'
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const socket = net.createConnection(socketPath, () => {
+      const payload: { type: 'shutdownRequest'; outcome: ShutdownOutcome; message?: string } = {
+        type: 'shutdownRequest',
+        outcome,
+        ...(message !== undefined ? { message } : {})
+      };
+      socket.write(`${JSON.stringify(payload)}\n`, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        // Flush confirmed: the line reached the dispatcher's kernel buffer.
+        socket.end(() => resolve());
+      });
+    });
+    socket.on('error', reject);
+  }).catch((error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(
+      `cards shutdown: failed to deliver shutdownRequest to ${socketPath} — ${detail}. ` +
+        'The signal only works while the owning action is still running.'
+    );
+    process.exitCode = 1;
+  });
 }
 
 /**
