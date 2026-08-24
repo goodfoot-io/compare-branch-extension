@@ -104,6 +104,8 @@ beforeEach(async () => {
     if (typeof cb === 'function') {
       if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
         cb(null, { stdout: 'main\n', stderr: '' });
+      } else if (key === 'which claude' || key === 'where claude') {
+        cb(null, { stdout: '/usr/local/bin/claude\n', stderr: '' });
       } else {
         cb(new Error(`mock: unhandled command: ${key}`));
       }

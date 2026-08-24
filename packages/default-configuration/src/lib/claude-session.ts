@@ -41,11 +41,29 @@ const execFileAsync = execFileNoWindowAsync;
 let _cliExecutable: string | undefined;
 
 /**
+ * Error thrown when the `claude` CLI cannot be resolved before a session spawn.
+ */
+export class ClaudeCliMissingError extends Error {
+  override readonly name = 'ClaudeCliMissingError';
+
+  constructor(cause: unknown) {
+    super(
+      'The `claude` CLI was not found on PATH. Install Claude Code and make sure `claude` resolves on PATH, ' +
+        'or switch cards.defaultCodingAgent to another coding agent.'
+    );
+    this.cause = cause;
+  }
+}
+
+/**
  * Resolves the CLI executable to use for spawning sessions.
- * Returns `'deepseek'` if it is available on the path, otherwise `'claude'`.
- * The result is cached for the process lifetime.
+ * Probes PATH for the `claude` CLI and fails closed when it is absent — the
+ * session must launch the configured binary or error out explicitly, never an
+ * unrelated substitute invoked with claude-specific flags it does not
+ * understand. The result is cached for the process lifetime.
  *
  * @returns The CLI executable name.
+ * @throws {ClaudeCliMissingError} When `claude` does not resolve on PATH.
  */
 async function resolveCliExecutable(): Promise<string> {
   if (_cliExecutable !== undefined) return _cliExecutable;
@@ -54,10 +72,10 @@ async function resolveCliExecutable(): Promise<string> {
     // Mirrors packages/extension/src/utils/nodeRuntime.ts. `where` prints to
     // stderr and exits non-zero when the executable is not found, which the
     // catch handles; on success it may print multiple lines (one per match).
-    await execFileAsync(process.platform === 'win32' ? 'where' : 'which', ['deepseek']);
-    _cliExecutable = 'deepseek';
-  } catch {
+    await execFileAsync(process.platform === 'win32' ? 'where' : 'which', ['claude']);
     _cliExecutable = 'claude';
+  } catch (error) {
+    throw new ClaudeCliMissingError(error);
   }
   return _cliExecutable;
 }

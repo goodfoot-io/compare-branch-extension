@@ -74,7 +74,7 @@ const originalFetch = globalThis.fetch;
  */
 async function setupDefaultMocks(): Promise<void> {
   // Default: resolveBaseBranch → 'main', and resolveCliExecutable's `where/which
-  // deepseek` probe falls through to the unhandled-command branch (→ 'claude').
+  // claude` probe succeeds so sessions spawn the real `claude` binary.
   const { execFile } = await import('node:child_process');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
     const cb = args[args.length - 1];
@@ -85,6 +85,8 @@ async function setupDefaultMocks(): Promise<void> {
     if (typeof cb === 'function') {
       if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
         cb(null, { stdout: 'main\n', stderr: '' });
+      } else if (key === 'which claude' || key === 'where claude') {
+        cb(null, { stdout: '/usr/local/bin/claude\n', stderr: '' });
       } else {
         cb(new Error(`mock: unhandled command: ${key}`));
       }
@@ -1534,7 +1536,7 @@ describe('claude-session shared utilities', () => {
         await promise;
       });
 
-      it('selects the deepseek launcher on win32 when deepseek resolves on PATH', async () => {
+      it('spawns claude on win32 when the CLI resolves on PATH', async () => {
         vi.resetModules();
         await setupDefaultMocks();
         forcePlatform('win32');
@@ -1542,16 +1544,16 @@ describe('claude-session shared utilities', () => {
         const { spawn, execFile } = await import('node:child_process');
         const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
-        // resolveCliExecutable probes `where deepseek` via execFileAsync; success
-        // selects deepseek over the claude default.
+        // resolveCliExecutable probes `where claude` via execFileAsync; success
+        // selects claude as the spawn target.
         vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
           const cb = args[args.length - 1];
           const cmd = args[0] as string;
           const cmdArgs = args[1] as string[];
           const key = `${cmd} ${cmdArgs.join(' ')}`;
           if (typeof cb === 'function') {
-            if (key.startsWith('where deepseek')) {
-              cb(null, { stdout: 'C:\\bin\\deepseek.cmd\r\n', stderr: '' });
+            if (key.startsWith('where claude')) {
+              cb(null, { stdout: 'C:\\bin\\claude.cmd\r\n', stderr: '' });
             } else if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
               cb(null, { stdout: 'main\n', stderr: '' });
             } else {
@@ -1573,11 +1575,50 @@ describe('claude-session shared utilities', () => {
         await flushMicrotasks();
 
         const [command, , spawnOpts] = vi.mocked(spawn).mock.calls[0]! as [string, string[], Record<string, unknown>];
-        expect(command).toBe('deepseek');
+        expect(command).toBe('claude');
         expect(spawnOpts['shell']).toBeUndefined();
 
         child.emit('close', 0);
         await promise;
+      });
+
+      it('fails closed naming `claude` when the CLI is absent from PATH and spawns nothing', async () => {
+        vi.resetModules();
+        await setupDefaultMocks();
+        forcePlatform('win32');
+
+        const { spawn, execFile } = await import('node:child_process');
+        const { ClaudeCliMissingError, spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+        // resolveCliExecutable's probe fails — no substitute binary may be
+        // spawned with claude-specific flags it does not understand.
+        vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+          const cb = args[args.length - 1];
+          const cmd = args[0] as string;
+          const cmdArgs = args[1] as string[];
+          const key = `${cmd} ${cmdArgs.join(' ')}`;
+          if (typeof cb === 'function') {
+            if (key.startsWith('where claude')) {
+              cb(new Error('where: could not find claude'));
+            } else if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
+              cb(null, { stdout: 'main\n', stderr: '' });
+            } else {
+              cb(new Error(`mock: unhandled command: ${key}`));
+            }
+          }
+          return {} as ReturnType<typeof execFile>;
+        });
+
+        await expect(
+          spawnClaudeSession(baseInput(), createMockContext(), {
+            prompt: 'test prompt',
+            sessionId: 'session-123',
+            resume: false,
+            supportsSwitchToInteractive: false
+          })
+        ).rejects.toBeInstanceOf(ClaudeCliMissingError);
+
+        expect(vi.mocked(spawn)).not.toHaveBeenCalled();
       });
 
       it('spawns the bare CLI name with no shell on posix', async () => {
