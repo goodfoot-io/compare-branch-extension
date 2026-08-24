@@ -225,3 +225,21 @@ describe('applyCodexConfig — trustProjects', () => {
     expect(projects[repoRoot]).toEqual({ trust_level: 'trusted' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fixture 7: fail-closed plugin-entry validation
+// ---------------------------------------------------------------------------
+
+describe('applyCodexConfig — malformed enablePlugins entry', () => {
+  it('throws when an entry does not end with @local', () => {
+    expect(() =>
+      applyCodexConfig(
+        {},
+        {
+          enablePlugins: ['cards@npmjs'],
+          featuresPlugins: true
+        }
+      )
+    ).toThrow('Unexpected plugin entry "cards@npmjs"');
+  });
+});
