@@ -561,7 +561,7 @@ describe('claude-session shared utilities', () => {
         const { readdir } = await import('node:fs/promises');
         vi.mocked(readdir).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
-        await expect(readBranchEntries('/test/repo')).resolves.toEqual([]);
+        await expect(readBranchEntries('/test/repo', createMockLogger())).resolves.toEqual([]);
       });
 
       it("parses populated branch entry files, keyed by the file contents' name field", async () => {
@@ -578,7 +578,7 @@ describe('claude-session shared utilities', () => {
           }
         });
 
-        const entries = await readBranchEntries('/test/repo');
+        const entries = await readBranchEntries('/test/repo', createMockLogger());
 
         expect(entries).toEqual([
           [
@@ -599,8 +599,190 @@ describe('claude-session shared utilities', () => {
         const { readdir } = await import('node:fs/promises');
         vi.mocked(readdir).mockRejectedValue(new Error('EACCES: permission denied'));
 
-        await expect(readBranchEntries('/test/repo')).rejects.toThrow('EACCES');
+        await expect(readBranchEntries('/test/repo', createMockLogger())).rejects.toThrow('EACCES');
       });
+
+      it('skips an unparseable record with a warning and still parses healthy records', async () => {
+        const { readBranchEntries } = await import('../src/lib/claude-session.js');
+        const { readFile, readdir } = await import('node:fs/promises');
+        const logger = createMockLogger();
+        const warnSpy = vi.spyOn(logger, 'warn');
+
+        vi.mocked(readdir).mockResolvedValue(['good.json', 'corrupt.json'] as unknown as Awaited<
+          ReturnType<typeof readdir>
+        >);
+        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+          const p = String(filePath);
+          if (p.endsWith('good.json')) {
+            return Promise.resolve(
+              JSON.stringify({ name: 'cards/card-123/1', parentBranch: 'main', addedAt: '2025-01-01T00:00:00Z' })
+            );
+          }
+          if (p.endsWith('corrupt.json')) {
+            return Promise.resolve('{ not json');
+          }
+          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        });
+
+        await expect(readBranchEntries('/test/repo', logger)).resolves.toEqual([
+          ['cards/card-123/1', { name: 'cards/card-123/1', parentBranch: 'main', addedAt: '2025-01-01T00:00:00Z' }]
+        ]);
+        expect(warnSpy).toHaveBeenCalledWith(
+          'Skipping unreadable branch record',
+          expect.objectContaining({ file: expect.stringContaining('corrupt.json') })
+        );
+      });
+
+      it('skips a single unreadable record file with a warning and keeps the rest', async () => {
+        const { readBranchEntries } = await import('../src/lib/claude-session.js');
+        const { readFile, readdir } = await import('node:fs/promises');
+        const logger = createMockLogger();
+        const warnSpy = vi.spyOn(logger, 'warn');
+
+        vi.mocked(readdir).mockResolvedValue(['good.json', 'locked.json'] as unknown as Awaited<
+          ReturnType<typeof readdir>
+        >);
+        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+          const p = String(filePath);
+          if (p.endsWith('good.json')) {
+            return Promise.resolve(
+              JSON.stringify({ name: 'cards/card-123/1', parentBranch: 'main', addedAt: '2025-01-01T00:00:00Z' })
+            );
+          }
+          if (p.endsWith('locked.json')) {
+            return Promise.reject(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
+          }
+          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        });
+
+        await expect(readBranchEntries('/test/repo', logger)).resolves.toEqual([
+          ['cards/card-123/1', { name: 'cards/card-123/1', parentBranch: 'main', addedAt: '2025-01-01T00:00:00Z' }]
+        ]);
+        expect(warnSpy).toHaveBeenCalledWith(
+          'Skipping unreadable branch record',
+          expect.objectContaining({ file: expect.stringContaining('locked.json') })
+        );
+      });
+
+      it.each([
+        ['missing name', { parentBranch: 'main', addedAt: '2025-01-01T00:00:00Z' }],
+        ['empty-string name', { name: '', parentBranch: 'main', addedAt: '2025-01-01T00:00:00Z' }],
+        ['non-string name', { name: 42, parentBranch: 'main', addedAt: '2025-01-01T00:00:00Z' }]
+      ])('ignores a record with a %s and warns', async (_label, record) => {
+        const { readBranchEntries } = await import('../src/lib/claude-session.js');
+        const { readFile, readdir } = await import('node:fs/promises');
+        const logger = createMockLogger();
+        const warnSpy = vi.spyOn(logger, 'warn');
+
+        vi.mocked(readdir).mockResolvedValue(['nameless.json'] as unknown as Awaited<ReturnType<typeof readdir>>);
+        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+          if (String(filePath).endsWith('nameless.json')) {
+            return Promise.resolve(JSON.stringify(record));
+          }
+          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        });
+
+        await expect(readBranchEntries('/test/repo', logger)).resolves.toEqual([]);
+        expect(warnSpy).toHaveBeenCalledWith(
+          'Ignoring branch record without a usable name',
+          expect.objectContaining({ file: expect.stringContaining('nameless.json') })
+        );
+      });
+    });
+
+    it('contains one corrupt record: healthy branches still clean up without a throw', async () => {
+      const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
+      const { execFile } = await import('node:child_process');
+      const { readFile, readdir } = await import('node:fs/promises');
+      const logger = createMockLogger();
+      const warnSpy = vi.spyOn(logger, 'warn');
+
+      vi.mocked(readdir).mockImplementation(((dirPath: unknown) => {
+        if (String(dirPath).endsWith('branches')) {
+          return Promise.resolve([
+            `${encodeURIComponent('cards/card-123/1')}.json`,
+            `${encodeURIComponent('cards/card-456/2')}.json`
+          ]);
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      }) as unknown as typeof readdir);
+
+      vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+        const p = String(filePath);
+        if (p.endsWith('CARD.meta.json')) {
+          return Promise.resolve(JSON.stringify({ status: 'needs_review' }));
+        }
+        if (p.endsWith(`${encodeURIComponent('cards/card-123/1')}.json`)) {
+          return Promise.resolve(
+            JSON.stringify({
+              name: 'cards/card-123/1',
+              worktree: '/test/workspace/.worktrees/cards/card-123/1',
+              parentBranch: 'main',
+              addedAt: '2025-01-01T00:00:00Z'
+            })
+          );
+        }
+        if (p.endsWith(`${encodeURIComponent('cards/card-456/2')}.json`)) {
+          return Promise.resolve('{ "name": broken');
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      });
+
+      vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1];
+        const cmdArgs = args[1] as string[];
+        if (typeof cb === 'function') {
+          if (cmdArgs?.includes('--list')) {
+            cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+          } else {
+            cb(null, { stdout: '', stderr: '' });
+          }
+        }
+        return {} as ReturnType<typeof execFile>;
+      });
+
+      const outcomes = await cleanupMergedBranches(baseInput(), '/test/repo', logger);
+
+      expect(outcomes).toEqual([
+        { cardId: 'card-123', branch: 'cards/card-123/1', action: 'cleaned', reason: 'merged' }
+      ]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Skipping unreadable branch record',
+        expect.objectContaining({ file: expect.stringContaining(`${encodeURIComponent('cards/card-456/2')}.json`) })
+      );
+      expect(vi.mocked(execFile).mock.calls.some((c) => String(c[1]?.join(' ')).includes('card-456/2'))).toBe(false);
+    });
+
+    it('treats an all-corrupt branches/ directory as a warned no-op', async () => {
+      const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
+      const { execFile } = await import('node:child_process');
+      const { readFile, readdir } = await import('node:fs/promises');
+      const logger = createMockLogger();
+      const warnSpy = vi.spyOn(logger, 'warn');
+
+      vi.mocked(readdir).mockImplementation(((dirPath: unknown) => {
+        if (String(dirPath).endsWith('branches')) {
+          return Promise.resolve(['a.json', 'b.json']);
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      }) as unknown as typeof readdir);
+
+      vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+        const p = String(filePath);
+        if (p.endsWith('CARD.meta.json')) {
+          return Promise.resolve(JSON.stringify({ status: 'needs_review' }));
+        }
+        if (p.endsWith('.json')) {
+          return Promise.resolve('not json at all');
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      });
+
+      const outcomes = await cleanupMergedBranches(baseInput(), '/test/repo', logger);
+
+      expect(outcomes).toEqual([]);
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(execFile)).not.toHaveBeenCalled();
     });
 
     it('skips the entire sweep with zero git calls when the card is active', async () => {

@@ -495,19 +495,37 @@ export interface BranchEntry {
  *
  * The authoritative branch name lives in each file's `name` field, never the
  * filename. A missing `branches/` directory (nothing tracked yet) is treated
- * as no candidates, not an error; other read/parse failures propagate.
+ * as no candidates, not an error. A single unreadable or malformed record is
+ * contained to itself — it is skipped with a warning naming the file while
+ * the remaining healthy records still parse; records whose `name` is not a
+ * non-empty string are ignored for the same reason. Directory-level failures
+ * still propagate.
  *
  * @param cardRepoPath - Absolute path to the card's git repository.
+ * @param logger - Logger for per-record skip diagnostics.
  * @returns Parsed `[branchName, entry]` pairs, or `[]` if `branches/` does not exist.
  */
-export async function readBranchEntries(cardRepoPath: string): Promise<Array<[string, BranchEntry]>> {
+export async function readBranchEntries(
+  cardRepoPath: string,
+  logger: ActionContext['logger']
+): Promise<Array<[string, BranchEntry]>> {
   const branchesDir = path.join(cardRepoPath, BRANCHES_DIR);
   try {
     const files = (await fs.readdir(branchesDir)).filter((f) => f.endsWith('.json'));
     const parsed: Array<[string, BranchEntry]> = [];
     for (const file of files) {
-      const content = await fs.readFile(path.join(branchesDir, file), 'utf-8');
-      const record = JSON.parse(content) as { name: string } & BranchEntry;
+      const filePath = path.join(branchesDir, file);
+      let record: ({ name: string } & BranchEntry) | null;
+      try {
+        record = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+      } catch (error) {
+        logger.warn('Skipping unreadable branch record', { file: filePath, error: errorMessage(error) });
+        continue;
+      }
+      if (record === null || typeof record.name !== 'string' || record.name.length === 0) {
+        logger.warn('Ignoring branch record without a usable name', { file: filePath });
+        continue;
+      }
       parsed.push([record.name, record]);
     }
     return parsed;
@@ -560,7 +578,10 @@ export interface BranchCleanupOutcome {
  * self-referential `parentBranch`, or any git/read error mid-branch) are
  * contained, recorded as an `error` outcome for that branch, and the sweep
  * continues to the next branch, always returning every accumulated outcome.
- * Only an unrecoverable setup failure before any branch mutation (e.g. an
+ * Unreadable or malformed `branches/*.json` records are contained even
+ * earlier — skipped with a warning during the entry read ({@link readBranchEntries})
+ * so one corrupt record can never wedge the whole card's cleanup. Only an
+ * unrecoverable setup failure before any branch mutation (e.g. an
  * unusable `cardRepoPath` / `branches/` directory) propagates as a throw.
  *
  * @param input - Action input containing cardId and workspace paths.
@@ -593,7 +614,7 @@ export async function cleanupMergedBranches(
   const outcomes: BranchCleanupOutcome[] = [];
   let t0 = performance.now();
 
-  const entries = await readBranchEntries(cardRepoPath);
+  const entries = await readBranchEntries(cardRepoPath, logger);
   if (entries.length === 0) {
     logger.debug(`No ${BRANCHES_DIR}/ found, nothing to clean up`);
     return outcomes;
@@ -1042,7 +1063,7 @@ export async function spawnClaudeSession(
     try {
       let candidates: Array<[string, BranchEntry]> = [];
       try {
-        candidates = await readBranchEntries(input.cardRepoPath);
+        candidates = await readBranchEntries(input.cardRepoPath, context.logger);
       } catch (error) {
         context.logger.warn('Failed to read branch entries before spawning watcher (non-fatal)', {
           error: errorMessage(error),
