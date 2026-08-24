@@ -130,6 +130,49 @@ describe('isSessionIdle', () => {
     });
   });
 
+  describe('wrong-shape store content', () => {
+    it.each([
+      ['{}'],
+      ['"a string"'],
+      ['42']
+    ])('stays enabled — returns true (not wedged false) for stored JSON %s', (content) => {
+      const sessionId = uniqueSessionId();
+      sessionIds.push(sessionId);
+
+      mkdirSync(SUBAGENTS_DIR, { recursive: true, mode: 0o700 });
+      writeFileSync(subagentsPath(sessionId), content);
+
+      // Regression: valid-JSON-but-wrong-shape content used to be cast to
+      // string[], making getActiveSubagentCount return undefined and
+      // isSessionIdle permanently false — exit-when-done never fired.
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      expect(isSessionIdle(sessionId)).toBe(true);
+      warn.mockRestore();
+    });
+
+    it('detection still evaluates later valid state after wrong-shape content', async () => {
+      const sessionId = uniqueSessionId();
+      sessionIds.push(sessionId);
+
+      mkdirSync(SUBAGENTS_DIR, { recursive: true, mode: 0o700 });
+      writeFileSync(subagentsPath(sessionId), '{}');
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      // Wrong shape degrades to empty — idle.
+      expect(isSessionIdle(sessionId)).toBe(true);
+
+      // A subsequent dispatch rewrites a canonical array and is honored.
+      await addActiveSubagent(sessionId, 'agent-1');
+      expect(isSessionIdle(sessionId)).toBe(false);
+
+      await removeActiveSubagent(sessionId, 'agent-1');
+      expect(isSessionIdle(sessionId)).toBe(true);
+
+      warn.mockRestore();
+    });
+  });
+
   describe('concurrent add/remove sequences', () => {
     it('produces correct idle state across interleaved add and remove operations', async () => {
       const sessionId = uniqueSessionId();

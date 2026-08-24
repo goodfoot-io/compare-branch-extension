@@ -14,13 +14,16 @@ vi.mock('node:os', () => ({
 
 import { tmpdir as realTmpdir } from 'node:os';
 import {
+  addActiveSubagent,
   appendCommitToSession,
+  getActiveSubagentCount,
   getSessionCommits,
   hasSessionExitWhenDoneNudgeFired,
   hasSessionRouteNudgeFired,
   markSessionExitWhenDoneNudgeFired,
   markSessionRouteNudgeFired,
   readSessionHeadSha,
+  removeActiveSubagent,
   removeSessionCsv,
   removeSessionExitWhenDoneNudge,
   removeSessionHeadSha,
@@ -318,6 +321,65 @@ describe('card-repo', () => {
     it('exit-when-done marker does not affect route-nudge marker', () => {
       markSessionExitWhenDoneNudgeFired(sessionId);
       expect(hasSessionRouteNudgeFired(sessionId)).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Active subagent tracking
+  // -------------------------------------------------------------------------
+
+  describe('active subagent tracking', () => {
+    function subagentsPath(): string {
+      return join(cardRepoCommitsDir, `${sessionId}.subagents`);
+    }
+
+    it('add/count/remove round-trip', async () => {
+      await addActiveSubagent(sessionId, 'agent-1');
+      expect(getActiveSubagentCount(sessionId)).toBe(1);
+
+      await removeActiveSubagent(sessionId, 'agent-1');
+      expect(getActiveSubagentCount(sessionId)).toBe(0);
+      expect(existsSync(subagentsPath())).toBe(false);
+    });
+
+    it('count returns 0 when file is absent', () => {
+      expect(getActiveSubagentCount(sessionId)).toBe(0);
+    });
+
+    it.each([
+      ['{}'],
+      ['"a string"'],
+      ['42'],
+      ['["agent-1", 2]']
+    ])('treats wrong-shape JSON %s as empty — count is 0 and detection stays enabled', (content) => {
+      mkdirSync(cardRepoCommitsDir, { recursive: true });
+      writeFileSync(subagentsPath(), content);
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      expect(getActiveSubagentCount(sessionId)).toBe(0);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('unexpected shape'));
+      warn.mockRestore();
+    });
+
+    it('add after wrong-shape file rewrites a canonical array and count reflects it', async () => {
+      mkdirSync(cardRepoCommitsDir, { recursive: true });
+      writeFileSync(subagentsPath(), '{}');
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      await addActiveSubagent(sessionId, 'agent-1');
+      expect(readFileSync(subagentsPath(), 'utf-8')).toBe('["agent-1"]');
+      expect(getActiveSubagentCount(sessionId)).toBe(1);
+      warn.mockRestore();
+    });
+
+    it('remove against wrong-shape file does not throw and leaves count at 0', async () => {
+      mkdirSync(cardRepoCommitsDir, { recursive: true });
+      writeFileSync(subagentsPath(), '{}');
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      await expect(removeActiveSubagent(sessionId, 'agent-1')).resolves.toBeUndefined();
+      expect(getActiveSubagentCount(sessionId)).toBe(0);
+      warn.mockRestore();
     });
   });
 });

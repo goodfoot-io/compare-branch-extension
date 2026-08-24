@@ -323,20 +323,39 @@ function getSessionSubagentsLockPath(sessionId: string): string {
 }
 
 /**
+ * Returns whether the value is a well-formed subagent list — an array of strings.
+ *
+ * @param value - Parsed JSON value to validate.
+ * @returns `true` when the value can be used as the active subagent set.
+ */
+function isSubagentList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+/**
  * Reads the subagents array for a session from its JSON file.
- * Returns an empty array when the file does not exist or is corrupt.
+ * Returns an empty array when the file does not exist, is corrupt, or has an
+ * unexpected shape.
  *
  * Corrupt files (truncated JSON from a mid-crash write) are self-healed by
- * returning `[]` — the next atomic write replaces the corrupt file.
+ * returning `[]` — the next atomic write replaces the corrupt file. Valid
+ * JSON with a non-array (or non-string-element) shape is likewise treated as
+ * empty-with-warning so a single bad read cannot disable downstream idle
+ * detection; the next add rewrites the file as a canonical array.
  *
  * @param sessionId - Session whose subagents should be read.
- * @returns Array of active agent IDs. Returns `[]` when the file is absent or unreadable.
+ * @returns Array of active agent IDs. Returns `[]` when the file is absent, unreadable, or malformed.
  * @throws Error when the read fails for reasons other than `ENOENT` or `SyntaxError`.
  */
 function readSubagents(sessionId: string): string[] {
   try {
     const content = readFileSync(getSessionSubagentsPath(sessionId), 'utf-8');
-    return JSON.parse(content) as string[];
+    const parsed: unknown = JSON.parse(content);
+    if (!isSubagentList(parsed)) {
+      console.warn(`readSubagents: unexpected shape in ${sessionId}.subagents, treating as empty`);
+      return [];
+    }
+    return parsed;
   } catch (error) {
     if (hasErrnoCode(error, 'ENOENT')) return [];
     if (error instanceof SyntaxError) return []; // self-heal corrupt JSON
@@ -424,11 +443,11 @@ export async function removeActiveSubagent(sessionId: string, agentId: string): 
  * Returns the count of active subagents for a session.
  *
  * Reads the session's subagents JSON file and returns the length of the
- * agent ID array. Returns `0` when the file is absent (no subagents have
- * been dispatched).
+ * agent ID array. Returns `0` when the file is absent, corrupt, or has an
+ * unexpected shape (no subagents considered active).
  *
  * @param sessionId - Session to count active subagents for.
- * @returns Number of active subagents. Returns `0` on `ENOENT` or `SyntaxError`.
+ * @returns Number of active subagents. Returns `0` on `ENOENT`, `SyntaxError`, or malformed content.
  * @throws Error when the read fails for reasons other than `ENOENT` or `SyntaxError`.
  */
 export function getActiveSubagentCount(sessionId: string): number {
