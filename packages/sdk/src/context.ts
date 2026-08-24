@@ -102,6 +102,12 @@ interface WorkspaceData {
 /**
  * Reads workspace data from separate files in the card repository.
  *
+ * A single unreadable or unparseable branch record is contained to itself:
+ * it is skipped with a warning naming the file while the remaining healthy
+ * records still populate both sections. Directory-level failures keep the
+ * fail-closed `null` return, and so does total absence of branches and
+ * commits.
+ *
  * @param cardRepoPath - Root directory of the card repository.
  * @returns Parsed workspace data, or `null` when unavailable.
  */
@@ -109,11 +115,21 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   const branches: WorkspaceData['branches'] = {};
   let commits: string[] = [];
 
+  let files: string[];
   try {
-    const files = readdirSync(join(cardRepoPath, BRANCHES_DIR));
-    for (const file of files) {
-      if (!file.endsWith('.json')) continue;
-      const raw = readFileSync(join(cardRepoPath, BRANCHES_DIR, file), 'utf-8');
+    files = readdirSync(join(cardRepoPath, BRANCHES_DIR));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      return null;
+    }
+    files = [];
+  }
+
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    const filePath = join(cardRepoPath, BRANCHES_DIR, file);
+    try {
+      const raw = readFileSync(filePath, 'utf-8');
       const meta = JSON.parse(raw) as { name?: string; parentBranch?: string; addedAt?: string };
       if (meta && typeof meta === 'object' && typeof meta.name === 'string') {
         branches[meta.name] = {
@@ -121,10 +137,8 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
           addedAt: typeof meta.addedAt === 'string' ? meta.addedAt : ''
         };
       }
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      return null;
+    } catch (error) {
+      console.warn('[cards-sdk] Skipping unreadable branch record %s: %s', filePath, (error as Error).message);
     }
   }
 
