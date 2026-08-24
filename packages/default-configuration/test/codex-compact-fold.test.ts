@@ -224,8 +224,22 @@ describe('reconcileFolded — cross-batch state carried forward', () => {
     const folded = buildFoldedState(base, false);
     expect(folded.state.hasErrors).toBe(false);
 
-    const resolved = reconcileFolded(folded, [...base, shellFunctionCallLine('shell-010')], false);
+    const all = [...base, shellFunctionCallLine('shell-010')];
+    const resolved = reconcileFolded(folded, all, false);
     expect(resolved.state.hasErrors).toBe(true);
+    expect(resolved.state.tail.find((e) => e.callId === 'shell-010')?.severity).toBe('error');
+    expect(resolved.state).toEqual(buildCodexCompactState(all, false));
+  });
+
+  it('escalates tail severity when an errored patch_apply_end arrives before its tool call', () => {
+    const base = [sessionMetaLine(), patchApplyEndLine('patch-011', false)];
+    const folded = buildFoldedState(base, false);
+
+    const all = [...base, functionCallLine('apply_patch', 'patch-011')];
+    const reconciled = reconcileFolded(folded, all, false);
+    expect(reconciled.state.hasErrors).toBe(true);
+    expect(reconciled.state.tail.find((e) => e.callId === 'patch-011')?.severity).toBe('error');
+    expect(reconciled.state).toEqual(buildCodexCompactState(all, false));
   });
 
   it('suppresses an event_msg mirror that arrives in a later batch than its response_item', () => {

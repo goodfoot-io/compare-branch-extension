@@ -662,6 +662,30 @@ describe('buildCodexCompactState — error detection', () => {
     expect(state.hasErrors).toBe(true);
   });
 
+  it('escalates tail severity when a shell output arrives before its function_call', () => {
+    const lines = [
+      sessionMetaLine(),
+      functionCallOutputLine('shell-020', 'Exit code: 1', '2026-06-04T10:00:00.000Z'),
+      shellFunctionCallLine('shell-020', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    const toolEntry = state.tail.find((e) => e.callId === 'shell-020');
+    expect(toolEntry).toBeDefined();
+    expect(toolEntry!.severity).toBe('error');
+  });
+
+  it('escalates tail severity when an errored patch_apply_end arrives before its function_call', () => {
+    const lines = [
+      sessionMetaLine(),
+      patchApplyEndLine('patch-020', false, '2026-06-04T10:00:00.000Z'),
+      functionCallLine('apply_patch', 'patch-020', '2026-06-04T10:01:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    const toolEntry = state.tail.find((e) => e.callId === 'patch-020');
+    expect(toolEntry).toBeDefined();
+    expect(toolEntry!.severity).toBe('error');
+  });
+
   // F3: custom_tool_call_output branch previously had zero test coverage.
   // custom_tool_call with name='shell' is tracked in shellCallIds (same as
   // function_call with name='shell'), and its paired output is classified.

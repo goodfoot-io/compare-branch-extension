@@ -342,13 +342,23 @@ function processLine(fold: CodexFoldState, raw: string): void {
 /**
  * Derives the bounded {@link CodexCompactState} snapshot from a fold
  * accumulator. Derived values (headline, duration, error flag) stay computed
- * here so appending never needs a post-pass over already-folded history.
+ * here so appending never needs a pass over already-folded history; the only
+ * per-snapshot work past the array copy is the ≤5-entry error escalation.
  *
  * @param fold - The fold accumulator to snapshot.
  * @param isActive - Whether the underlying stream is still live.
  * @returns The bounded compact-view state snapshot.
  */
 function snapshot(fold: CodexFoldState, isActive: boolean): CodexCompactState {
+  const tail = [...fold.tail];
+  // Error signals can arrive before their tool call (reverse persistence
+  // order), so mark-time back-patching alone misses entries pushed later.
+  // Escalate here against erroredCallIds so ordering never matters.
+  for (const entry of tail) {
+    if (entry.callId !== undefined && fold.erroredCallIds.has(entry.callId)) {
+      entry.severity = 'error';
+    }
+  }
   return {
     isActive,
     headlineText: fold.latestAssistantText ?? fold.latestToolName ?? '',
@@ -359,7 +369,7 @@ function snapshot(fold: CodexFoldState, isActive: boolean): CodexCompactState {
     durationMs: durationBetween(fold.firstTimestamp, fold.lastTimestamp),
     // Fresh array reference so React sees a changed snapshot; entries may be
     // shared with the accumulator's tail and back-patched in place later.
-    tail: [...fold.tail],
+    tail,
     hasErrors: fold.erroredCallIds.size > 0 || fold.sessionHasError
   };
 }
