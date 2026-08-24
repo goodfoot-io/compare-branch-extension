@@ -83,7 +83,7 @@ function buildProcessInfoInvocation(pid: number): { file: string; args: string[]
 }
 
 /**
- * Parses the raw output of {@link buildProcessInfoCommand} into a {@link ProcessInfo}.
+ * Parses the raw output of {@link buildProcessInfoInvocation} into a {@link ProcessInfo}.
  *
  * Windows output is `Name|ParentProcessId`. POSIX `ps` output is the command
  * name followed by the parent PID, whitespace-separated; the parent PID is the
