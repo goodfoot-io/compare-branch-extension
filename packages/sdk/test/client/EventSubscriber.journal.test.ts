@@ -2,8 +2,9 @@
  * Tests for EventSubscriber's per-card journal subscribe/replay support:
  * `subscribeToCard`/`unsubscribeFromCard`, automatic re-subscribe with
  * `sinceSeq` on reconnect, gap detection on live `card:journalEvent`
- * messages, and `onStaleness` surfacing a fail-closed state when the server
- * cannot assemble a snapshot.
+ * messages, `onStaleness` surfacing a fail-closed state when the server
+ * cannot assemble a snapshot, and fail-closed rejection of malformed
+ * journal envelopes before any state mutation.
  *
  * @summary Tests for EventSubscriber's journal subscribe/replay support
  * @module test/client/EventSubscriber.journal
@@ -37,6 +38,10 @@ describe('EventSubscriber journal subscribe/replay', () => {
     });
     await subscriber.connect();
     return subscriber;
+  }
+
+  function malformedDropWarnings(): number {
+    return warnSpy.mock.calls.filter((call: unknown[]) => String(call[0]).includes('Dropping malformed')).length;
   }
 
   it('sends card:subscribe with no sinceSeq on the first subscribe', async () => {
@@ -427,6 +432,196 @@ describe('EventSubscriber journal subscribe/replay', () => {
     subscriber.subscribeToCard('card-1');
     const resubscribe = await server.awaitMessage();
     expect(resubscribe).toEqual({ type: 'card:subscribe', cardId: 'card-1' });
+    subscriber.disconnect();
+  });
+
+  it('drops a card:snapshot with a string seq: no state mutation, no warn/re-subscribe loop', async () => {
+    const subscriber = await connectSubscriber();
+    const received: unknown[] = [];
+    const stalenessEvents: CardStalenessEvent[] = [];
+    subscriber.on('card:journalEvent', (event) => received.push(event));
+    subscriber.onStaleness((event) => stalenessEvents.push(event));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+    server.clearReceivedMessages();
+
+    // A string "7" previously reached cardSeq, turning expected into "71"
+    // and every later live event into a spurious gap + re-subscribe.
+    server.broadcast({
+      type: 'card:snapshot',
+      cardId: 'card-1',
+      card: {},
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
+      seq: '7'
+    });
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(malformedDropWarnings()).toBe(1);
+
+    // No seq was recorded and staleness never flipped: a fresh subscribe
+    // omits sinceSeq.
+    subscriber.subscribeToCard('card-1');
+    const message = await server.awaitMessage();
+    expect(message).toEqual({ type: 'card:subscribe', cardId: 'card-1' });
+    expect(stalenessEvents).toHaveLength(0);
+    server.clearReceivedMessages();
+
+    // Live events apply cleanly from a clean slate — no gap loop.
+    server.broadcast({
+      type: 'card:journalEvent',
+      cardId: 'card-1',
+      seq: 1,
+      entryType: 'cards:metadata',
+      payload: { title: 'after' },
+      timestamp: new Date().toISOString()
+    });
+    await vi.waitFor(() => {
+      expect(received).toHaveLength(1);
+    });
+    expect(server.getReceivedMessages()).toHaveLength(0);
+    subscriber.disconnect();
+  });
+
+  it('drops a card:journalEvent with a string seq without advancing seq or losing the next valid event', async () => {
+    const subscriber = await connectSubscriber();
+    const received: Array<{ seq: unknown }> = [];
+    subscriber.on('card:journalEvent', (event) => received.push(event as { seq: unknown }));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+    server.broadcast({
+      type: 'card:snapshot',
+      cardId: 'card-1',
+      card: {},
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
+      seq: 5
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    server.clearReceivedMessages();
+
+    server.broadcast({
+      type: 'card:journalEvent',
+      cardId: 'card-1',
+      seq: '6',
+      entryType: 'cards:metadata',
+      payload: {},
+      timestamp: new Date().toISOString()
+    });
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Dropped before gap detection could misread the string seq: no dispatch,
+    // no re-subscribe request, exactly one diagnostic.
+    expect(received).toHaveLength(0);
+    expect(server.getReceivedMessages()).toHaveLength(0);
+    expect(malformedDropWarnings()).toBe(1);
+
+    // The malformed event neither advanced nor wedged seq: the valid successor
+    // still applies.
+    server.broadcast({
+      type: 'card:journalEvent',
+      cardId: 'card-1',
+      seq: 6,
+      entryType: 'cards:metadata',
+      payload: { title: 'valid' },
+      timestamp: new Date().toISOString()
+    });
+    await vi.waitFor(() => {
+      expect(received).toHaveLength(1);
+    });
+
+    // Seq advanced exactly once (via the valid event only).
+    subscriber.subscribeToCard('card-1');
+    const message = await server.awaitMessage();
+    expect(message).toEqual({ type: 'card:subscribe', cardId: 'card-1', sinceSeq: 6 });
+    subscriber.disconnect();
+  });
+
+  it('drops a card:replay with missing entries without throwing or advancing seq', async () => {
+    const subscriber = await connectSubscriber();
+    const replays: unknown[] = [];
+    subscriber.on('card:replay', (event) => replays.push(event));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+    server.broadcast({
+      type: 'card:snapshot',
+      cardId: 'card-1',
+      card: {},
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
+      seq: 5
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    server.clearReceivedMessages();
+
+    // Previously advanced cardSeq to latestSeq first, then threw a TypeError
+    // on entries.filter — an uncaught exception mid-listener.
+    server.broadcast({ type: 'card:replay', cardId: 'card-1', latestSeq: 9 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(replays).toHaveLength(0);
+    expect(malformedDropWarnings()).toBe(1);
+
+    // Seq did not move: catch-up resumes from where it was.
+    subscriber.subscribeToCard('card-1');
+    const resubscribe = await server.awaitMessage();
+    expect(resubscribe).toEqual({ type: 'card:subscribe', cardId: 'card-1', sinceSeq: 5 });
+    subscriber.disconnect();
+  });
+
+  it('drops a card:replay containing a wrong-shape entry before mutating seq, then applies a valid replay', async () => {
+    const subscriber = await connectSubscriber();
+    const replays: Array<{ entries: Array<{ seq: unknown }> }> = [];
+    subscriber.on('card:replay', (event) => replays.push(event as { entries: Array<{ seq: unknown }> }));
+
+    subscriber.subscribeToCard('card-1');
+    await server.awaitMessage();
+    server.broadcast({
+      type: 'card:snapshot',
+      cardId: 'card-1',
+      card: {},
+      mergeStatus: { isMerged: null, hasPlanDrift: false },
+      seq: 5
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    const stalenessEvents: CardStalenessEvent[] = [];
+    subscriber.onStaleness((event) => stalenessEvents.push(event));
+    server.clearReceivedMessages();
+
+    server.broadcast({
+      type: 'card:replay',
+      cardId: 'card-1',
+      entries: [
+        { seq: 6, type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() },
+        { seq: '7', type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() }
+      ],
+      latestSeq: 8
+    });
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Whole message rejected — no partial application, no staleness flip,
+    // seq still at 5 despite the tempting latestSeq 8.
+    expect(replays).toHaveLength(0);
+    expect(stalenessEvents).toHaveLength(0);
+    expect(server.getReceivedMessages()).toHaveLength(0);
+    expect(malformedDropWarnings()).toBe(1);
+
+    subscriber.subscribeToCard('card-1');
+    const resubscribe = await server.awaitMessage();
+    expect(resubscribe).toEqual({ type: 'card:subscribe', cardId: 'card-1', sinceSeq: 5 });
+    server.clearReceivedMessages();
+
+    // Subsequent fully well-formed catch-up still applies.
+    server.broadcast({
+      type: 'card:replay',
+      cardId: 'card-1',
+      entries: [{ seq: 6, type: 'cards:metadata', payload: {}, timestamp: new Date().toISOString() }],
+      latestSeq: 6
+    });
+    await vi.waitFor(() => {
+      expect(replays).toHaveLength(1);
+    });
+    expect(replays[0]!.entries.map((e) => e.seq)).toEqual([6]);
     subscriber.disconnect();
   });
 });

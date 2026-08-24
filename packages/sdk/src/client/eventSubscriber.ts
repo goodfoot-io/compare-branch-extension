@@ -7,6 +7,7 @@
  */
 
 import type {
+  CardJournalEntry,
   CardJournalEventMessage,
   CardReplayMessage,
   CardSnapshotMessage,
@@ -31,6 +32,38 @@ import type {
  */
 export function calculateBackoffMs(attempt: number, maxMs = 30000): number {
   return Math.min(1000 * 2 ** attempt, maxMs);
+}
+
+/**
+ * True when `value` is a safe integer usable as a journal sequence number.
+ *
+ * Numeric strings are rejected rather than coerced: a string `seq` that
+ * reached `cardSeq` would corrupt gap arithmetic (`"7" + 1 === "71"`), making
+ * every subsequent live event look like a gap and looping
+ * warn/re-subscribe forever.
+ *
+ * @param value - Value decoded from an untrusted WebSocket payload.
+ * @returns True when `value` is a safe integer number.
+ */
+function isValidSeq(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value);
+}
+
+/**
+ * True when `value` carries the fields {@link CardJournalEntry} documents as
+ * required: an integer `seq`, a string `type`, and a string `timestamp`.
+ *
+ * @param value - Value decoded from an untrusted WebSocket payload.
+ * @returns True when `value` satisfies the journal-entry shape.
+ */
+function isWellFormedJournalEntry(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    isValidSeq((value as CardJournalEntry).seq) &&
+    typeof (value as CardJournalEntry).type === 'string' &&
+    typeof (value as CardJournalEntry).timestamp === 'string'
+  );
 }
 
 /**
@@ -598,13 +631,79 @@ export class EventSubscriber {
   }
 
   /**
+   * Runtime shape guard for the card-scoped journal envelopes that drive
+   * sequence state (`card:snapshot`, `card:replay`, `card:journalEvent`;
+   * other card-scoped types pass untouched). Runs BEFORE any state mutation
+   * so a malformed message can neither advance `cardSeq`, flip staleness,
+   * nor throw mid-listener (e.g. `.filter` on missing replay `entries`).
+   * Non-numeric sequence numbers are rejected outright — a string `seq` that
+   * reached `cardSeq` would make `"7" + 1 === "71"` in the gap check and
+   * warn/re-subscribe on every live event.
+   *
+   * Malformed messages are rejected fail-closed: logged once, then dropped
+   * without touching `cardSeq`, staleness, or callbacks. Well-formed
+   * messages pass unchanged.
+   *
+   * @param message - Parsed message whose card-scoped `type` and subscribed
+   *   string `cardId` have already been verified by {@link handleMessage}.
+   * @param message.type - Discriminator naming which journal envelope shape to enforce.
+   * @returns True when the message is safe to process.
+   */
+  private _isValidJournalEnvelope(message: { type: string; [key: string]: unknown }): boolean {
+    const reject = (detail: string): boolean => {
+      this.logger.warn(
+        `[EventSubscriber] Dropping malformed '${message.type}' for card ${String(message['cardId'])}: ${detail}`
+      );
+      return false;
+    };
+    switch (message.type) {
+      case 'card:snapshot':
+        if (!isValidSeq(message['seq'])) {
+          return reject('snapshot seq must be an integer');
+        }
+        return true;
+      case 'card:replay': {
+        const entries = message['entries'];
+        if (!isValidSeq(message['latestSeq'])) {
+          return reject('replay latestSeq must be an integer');
+        }
+        if (!Array.isArray(entries)) {
+          return reject('replay entries must be an array');
+        }
+        for (let i = 0; i < entries.length; i++) {
+          if (!isWellFormedJournalEntry(entries[i])) {
+            return reject(`replay entry ${i} must carry an integer seq, a string type, and a string timestamp`);
+          }
+        }
+        return true;
+      }
+      case 'card:journalEvent':
+        if (!isValidSeq(message['seq'])) {
+          return reject('journalEvent seq must be an integer');
+        }
+        if (typeof message['entryType'] !== 'string') {
+          return reject('journalEvent entryType must be a string');
+        }
+        if (typeof message['timestamp'] !== 'string') {
+          return reject('journalEvent timestamp must be a string');
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  /**
    * Handles incoming WebSocket messages and dispatches to registered callbacks.
    *
    * Messages are expected to be JSON with a `type` field matching {@link EventMap}.
    * Per-card journal messages ({@link _isCardScopedMessageType}) are dropped
    * unless their `cardId` is in {@link subscribedCardIds} — the server
    * broadcasts these for every card to every client, and this subscriber only
-   * asked about the cards passed to {@link subscribeToCard}.
+   * asked about the cards passed to {@link subscribeToCard}. Subscribed-card
+   * messages that fail envelope shape validation
+   * ({@link _isValidJournalEnvelope}) are likewise logged once and dropped,
+   * before any state mutation.
    *
    * @param event - Browser WebSocket message event containing the serialized payload.
    */
@@ -636,6 +735,12 @@ export class EventSubscriber {
     if (this._isCardScopedMessageType(message.type)) {
       const cardId = (message as { cardId?: unknown }).cardId;
       if (typeof cardId !== 'string' || !this.subscribedCardIds.has(cardId)) {
+        return;
+      }
+      // Shape-validate the envelope BEFORE any handler runs so a malformed
+      // message neither mutates seq/staleness state nor throws out of this
+      // listener — logged once here, then dropped.
+      if (!this._isValidJournalEnvelope(message)) {
         return;
       }
     }
