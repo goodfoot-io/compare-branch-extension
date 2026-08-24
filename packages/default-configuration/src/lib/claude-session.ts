@@ -28,7 +28,6 @@ export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 import type { CreateWorktreeResult } from '@cards.management/sdk/worktree';
 import { checkWorktreeExists, findGitRoots } from '@cards.management/sdk/worktree';
 import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
-import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { spawnAgentCli } from './spawn-cli.js';
 
 // The branch-cleanup watcher (branch-cleanup-watcher.ts) runs these helpers in a
@@ -1099,6 +1098,7 @@ export async function spawnClaudeSession(
         candidateBranches: candidates.map(([name]) => name)
       });
 
+      const { spawnBranchCleanupWatcher } = await import('./branch-cleanup-watcher.js');
       await spawnBranchCleanupWatcher(
         {
           cardId: input.cardId,
