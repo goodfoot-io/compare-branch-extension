@@ -292,6 +292,65 @@ describe('CardsClient', () => {
     });
   });
 
+  describe('path segment encoding', () => {
+    const hostileCardId = 'a b/../c';
+    const encodedHostileCardId = 'a%20b%2F..%2Fc';
+
+    it('should leave a plain cardId unchanged on the wire', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.getCard('card-123');
+      expect(httpClient.requests[0]?.url).toBe('http://localhost:3000/cards/card-123');
+    });
+
+    it('should encode cardId so reserved characters cannot alter the route shape', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.getCard(hostileCardId);
+      expect(new URL(httpClient.requests[0]!.url).pathname).toBe(`/cards/${encodedHostileCardId}`);
+    });
+
+    it('should encode commentId as a single path segment', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.getComment('card-123', 'comment/1 ?#');
+      expect(new URL(httpClient.requests[0]!.url).pathname).toBe('/cards/card-123/comments/comment%2F1%20%3F%23');
+    });
+
+    const cardIdCallers: Array<[string, (client: CardsClient, cardId: string) => Promise<unknown>]> = [
+      ['updateCard', (client, cardId) => client.updateCard(cardId, { title: 'x' })],
+      ['deleteCard', (client, cardId) => client.deleteCard(cardId)],
+      ['getComments', (client, cardId) => client.getComments(cardId)],
+      ['getComment', (client, cardId) => client.getComment(cardId, 'comment-456')],
+      ['createComment', (client, cardId) => client.createComment(cardId, { content: 'x' })],
+      ['updateComment', (client, cardId) => client.updateComment(cardId, 'comment-456', { content: 'x' })],
+      ['deleteComment', (client, cardId) => client.deleteComment(cardId, 'comment-456')],
+      ['listAttachments', (client, cardId) => client.listAttachments(cardId)],
+      ['getTimeline', (client, cardId) => client.getTimeline(cardId)],
+      ['putFile', (client, cardId) => client.putFile(cardId, 'PLAN.md', 'content')],
+      ['approveGate', (client, cardId) => client.approveGate(cardId, 'plan')],
+      ['getCommits', (client, cardId) => client.getCommits(cardId)],
+      ['addCommit', (client, cardId) => client.addCommit(cardId, 'abc123')],
+      ['removeCommit', (client, cardId) => client.removeCommit(cardId, 'abc123')],
+      ['getBranches', (client, cardId) => client.getBranches(cardId)],
+      ['addBranch', (client, cardId) => client.addBranch(cardId, { name: 'feature/test', parentBranch: 'main' })],
+      ['removeBranch', (client, cardId) => client.removeBranch(cardId, 'feature/test')],
+      ['getTypeSchemas', (client, cardId) => client.getTypeSchemas(cardId)],
+      ['listStreams', (client, cardId) => client.listStreams(cardId)],
+      ['getStream', (client, cardId) => client.getStream(cardId, 'claude-session', 'session.log')],
+      ['executeAction', (client, cardId) => client.executeAction(cardId, 'launch')]
+    ];
+
+    it.each(cardIdCallers)('encodes the cardId segment in %s', async (_method, call) => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await call(client, hostileCardId);
+      const url = httpClient.requests[0]!.url;
+      expect(url).toContain(encodedHostileCardId);
+      expect(url).not.toContain(`/${hostileCardId}`);
+    });
+  });
+
   describe('Gate Operations', () => {
     it('should POST /cards/:id/gates/:gateName/approve when approving gate', async () => {
       const httpClient = new TestHttpClient();

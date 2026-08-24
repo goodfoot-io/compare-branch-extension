@@ -581,7 +581,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getCard(cardId: string): Promise<Card> {
-    const url = this.buildUrl(`/cards/${cardId}`, {
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}`, {
       workspacePath: this.options.workspacePath
     });
     return this.request(() => this.getHttpClient().get<Card>(url));
@@ -615,7 +615,7 @@ export class CardsClient {
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
   async updateCard(cardId: string, data: CardUpdateData): Promise<Card> {
-    const url = this.buildUrl(`/cards/${cardId}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}`);
     return this.request(() => this.getHttpClient().patch<Card>(url, data));
   }
 
@@ -629,7 +629,7 @@ export class CardsClient {
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
   async deleteCard(cardId: string): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}`);
     return this.request(() => this.getHttpClient().delete(url));
   }
 
@@ -644,7 +644,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getComments(cardId: string): Promise<Comment[]> {
-    const url = this.buildUrl(`/cards/${cardId}/comments`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments`);
     return this.request(() => this.getHttpClient().get<Comment[]>(url));
   }
 
@@ -658,7 +658,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getComment(cardId: string, commentId: string): Promise<Comment> {
-    const url = this.buildUrl(`/cards/${cardId}/comments/${commentId}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments/${encodeURIComponent(commentId)}`);
     return this.request(() => this.getHttpClient().get<Comment>(url));
   }
 
@@ -673,7 +673,7 @@ export class CardsClient {
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
   async createComment(cardId: string, data: CommentCreateData): Promise<Comment> {
-    const url = this.buildUrl(`/cards/${cardId}/comments`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments`);
     return this.request(() => this.getHttpClient().post<Comment>(url, data), false);
   }
 
@@ -689,7 +689,7 @@ export class CardsClient {
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
   async updateComment(cardId: string, commentId: string, data: CommentUpdateData): Promise<Comment> {
-    const url = this.buildUrl(`/cards/${cardId}/comments/${commentId}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments/${encodeURIComponent(commentId)}`);
     return this.request(() => this.getHttpClient().patch<Comment>(url, data));
   }
 
@@ -704,7 +704,7 @@ export class CardsClient {
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
   async deleteComment(cardId: string, commentId: string): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}/comments/${commentId}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments/${encodeURIComponent(commentId)}`);
     return this.request(() => this.getHttpClient().delete(url));
   }
 
@@ -724,7 +724,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async uploadAttachment(cardId: string, name: string, data: Blob | ArrayBuffer | string): Promise<AttachmentResponse> {
-    const url = this.buildUrl(`/cards/${cardId}/attachments/${encodeURIComponent(name)}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/attachments/${encodeURIComponent(name)}`);
 
     // Convert data to Blob for fetch body
     let body: Blob;
@@ -769,7 +769,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getAttachment(cardId: string, attachmentId: string): Promise<Blob> {
-    const url = this.buildUrl(`/cards/${cardId}/attachments/${attachmentId}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/attachments/${attachmentId}`);
     return this.request(async () => {
       const response = await this.fetchWithUrlContext(url, {
         headers: this.getHeaders(),
@@ -789,7 +789,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async listAttachments(cardId: string): Promise<AttachmentResponse[]> {
-    const url = this.buildUrl(`/cards/${cardId}/attachments`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/attachments`);
     return this.request(() => this.getHttpClient().get<AttachmentResponse[]>(url));
   }
 
@@ -805,7 +805,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getTimeline(cardId: string, options?: TimelineOptions): Promise<TimelineItem[]> {
-    const url = this.buildUrl(`/cards/${cardId}/timeline`, {
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/timeline`, {
       before: options?.before,
       limit: options?.limit
     });
@@ -833,7 +833,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async putFile(cardId: string, filePath: string, content: string): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}/fs/${filePath}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/fs/${filePath}`);
     return this.request(() => this.getHttpClient().put<void>(url, content));
   }
 
@@ -850,7 +850,7 @@ export class CardsClient {
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
   async approveGate(cardId: string, gateName: 'plan' | 'mergeRequest'): Promise<GateApprovalResponse> {
-    const url = this.buildUrl(`/cards/${cardId}/gates/${gateName}/approve`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/gates/${gateName}/approve`);
     return this.request(() => this.getHttpClient().post<GateApprovalResponse>(url, undefined));
   }
 
@@ -865,7 +865,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getCommits(cardId: string): Promise<CommitInfo[]> {
-    const url = this.buildUrl(`/cards/${cardId}/commits`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/commits`);
     return this.request(() => this.getHttpClient().get<CommitInfo[]>(url));
   }
 
@@ -879,7 +879,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async addCommit(cardId: string, sha: string): Promise<CommitInfo> {
-    const url = this.buildUrl(`/cards/${cardId}/commits`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/commits`);
     return this.request(() => this.getHttpClient().post<CommitInfo>(url, { sha }), false);
   }
 
@@ -895,7 +895,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async removeCommit(cardId: string, sha: string, options?: { sessionId?: string }): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}/commits/${sha}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/commits/${sha}`);
     const headers: Record<string, string> = {};
     if (options?.sessionId) {
       headers['X-Cards-Session-Id'] = options.sessionId;
@@ -914,7 +914,7 @@ export class CardsClient {
    * @returns Promise resolving to branches response.
    */
   async getBranches(cardId: string, options?: { workspacePath?: string }): Promise<BranchesResponse> {
-    const url = this.buildUrl(`/cards/${cardId}/branches`, {
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/branches`, {
       workspacePath: options?.workspacePath
     });
     return this.request(() => this.getHttpClient().get<BranchesResponse>(url));
@@ -930,7 +930,7 @@ export class CardsClient {
    * @returns Promise resolving when the branch is added.
    */
   async addBranch(cardId: string, data: AddBranchRequest, options?: { sessionId?: string }): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}/branches`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/branches`);
     const headers: Record<string, string> = {};
     if (options?.sessionId) {
       headers['X-Cards-Session-Id'] = options.sessionId;
@@ -948,7 +948,7 @@ export class CardsClient {
    * @returns Promise resolving when the branch is removed.
    */
   async removeBranch(cardId: string, name: string, options?: { sessionId?: string }): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}/branches/${encodeURIComponent(name)}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/branches/${encodeURIComponent(name)}`);
     const headers: Record<string, string> = {};
     if (options?.sessionId) {
       headers['X-Cards-Session-Id'] = options.sessionId;
@@ -1002,7 +1002,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getTypeSchemas(cardId: string): Promise<TypeSchemasResponse> {
-    const url = this.buildUrl(`/cards/${cardId}/schema`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/schema`);
     return this.request(() => this.getHttpClient().get<TypeSchemasResponse>(url));
   }
 
@@ -1017,7 +1017,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async listStreams(cardId: string): Promise<StreamMeta[]> {
-    const url = this.buildUrl(`/cards/${cardId}/streams`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/streams`);
     return this.request(() => this.getHttpClient().get<StreamMeta[]>(url));
   }
 
@@ -1053,7 +1053,7 @@ export class CardsClient {
   ): Promise<{ meta: StreamMeta; lines: string[] }> {
     const encodedRelPath = relPath.split('/').map(encodeURIComponent).join('/');
     const url = this.buildUrl(
-      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodedRelPath}`,
+      `/cards/${encodeURIComponent(cardId)}/streams/${encodeURIComponent(streamType)}/${encodedRelPath}`,
       tail !== undefined ? { tail } : undefined
     );
     return this.request(() => this.getHttpClient().get<{ meta: StreamMeta; lines: string[] }>(url));
@@ -1081,7 +1081,7 @@ export class CardsClient {
     mode?: ExecutionMode,
     exitWhenDone?: boolean
   ): Promise<ActionResult> {
-    const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
+    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/actions/${encodeURIComponent(actionName)}`);
     const body: ExecuteActionRequest = {};
     if (mode) body.mode = mode;
     if (exitWhenDone) body.exitWhenDone = true;
