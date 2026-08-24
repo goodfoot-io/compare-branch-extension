@@ -60,9 +60,10 @@ done
   its work and moving to `needs_review` is the process working correctly —
   do not pause the queue or flag it as a concern.
 - When the agent signals shutdown (`cards <id> shutdown --outcome ...`, per the
-  runbook), the recorded success/blocked/error outcome travels on the action's
-  completion event; status still settles to `needs_review` either way — the
-  signal is informational and never gates this transition.
+  runbook), the dispatcher logs the record/relay decision and the outcome is
+  recorded on the action — but no agent-reachable command returns it this
+  iteration, so keep polling `$.status` as documented: status still settles to
+  `needs_review` either way, and the signal never gates that transition.
 
 ## 4. Track and Report
 

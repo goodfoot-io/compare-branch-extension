@@ -236,12 +236,15 @@ Shutdown:
   Tells Cards the agent reached a terminal state (after a merge, after
   recording a blocker, after all tasks are complete). Only works from inside
   a running action: the signal rides the per-action socket named by
-  $SOCKET_PATH. Exit 0 means the request was sent, not that it has been
-  processed; the extension records the outcome and relays it to the running
-  handler, which owns any termination policy.
+  $SOCKET_PATH. The <card-id> argument is informational — delivery is
+  addressed by $SOCKET_PATH alone, which identifies the running action.
+  Exit 0 means the request was sent, not that it has been processed; the
+  extension records the outcome and relays it to the running handler, which
+  owns any termination policy.
 
   Options:
-    --outcome <value>        One of success | blocked | error (default success)
+    --outcome <value>        One of success | blocked | error (default success;
+                             last value wins if repeated)
     --message <text>         Optional free-text detail recorded with the outcome
 
   Examples:
@@ -1258,13 +1261,14 @@ export const SHUTDOWN_OUTCOMES: readonly ShutdownOutcome[] = ['success', 'blocke
  */
 export async function runShutdownVerb(args: string[]): Promise<void> {
   const flags = parseFlags(args);
-  const outcome = (flags['outcome']?.[0] ?? 'success') as ShutdownOutcome;
+  // Last value wins when a flag repeats, matching common CLI convention.
+  const outcome = (flags['outcome']?.at(-1) ?? 'success') as ShutdownOutcome;
   if (!SHUTDOWN_OUTCOMES.includes(outcome)) {
     console.error(`cards shutdown: invalid --outcome "${outcome}". Valid outcomes: ${SHUTDOWN_OUTCOMES.join(', ')}`);
     process.exitCode = 1;
     return;
   }
-  const message = flags['message']?.[0];
+  const message = flags['message']?.at(-1);
 
   let socketPath: string;
   try {

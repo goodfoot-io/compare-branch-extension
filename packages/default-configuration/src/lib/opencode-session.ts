@@ -123,9 +123,9 @@ export interface OpencodeSessionOptions {
   appendSystemPrompt?: string;
   /**
    * When true, overrides `EXIT_WHEN_DONE` to `'false'` in the child process
-   * environment. The runtime plugin's exit-when-done handler degrades to
-   * notify-only under OpenCode (a plugin cannot cleanly terminate its host),
-   * so this suppresses that path exactly as the sibling agents do.
+   * environment. The runtime plugin's exit-when-done handler then never
+   * nudges toward `cards shutdown`, so the agent-driven termination path is
+   * suppressed exactly as the sibling agents do.
    */
   suppressExitWhenDone?: boolean;
 }

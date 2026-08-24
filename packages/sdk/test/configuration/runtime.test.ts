@@ -978,6 +978,46 @@ describe('runtime', () => {
         await executePromise;
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
       });
+
+      it('should contain a synchronously-throwing callback as a logged error, not protocol corruption', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const loggerErrorSpy = vi.spyOn(logger, 'error');
+        const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+        // Sync throw inside the callback body: without containment it escapes
+        // into SocketClient's NDJSON parse loop and is misreported as a
+        // malformed line while the shutdown event is silently consumed.
+        const shutdownFn = vi.fn(() => {
+          throw new Error('sync boom');
+        });
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi
+          .fn()
+          .mockImplementation(async (_input: unknown, context: { onAgentShutdown: (cb: () => void) => void }) => {
+            context.onAgentShutdown(shutdownFn);
+            await handlerDone;
+          });
+        const command = makeCommand(handler);
+
+        const executePromise = executeCommand(command);
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"agentShutdown"}\n');
+
+        await vi.waitFor(() => {
+          expect(loggerErrorSpy).toHaveBeenCalledWith(expect.stringContaining('onAgentShutdown callback error'));
+        });
+        expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('malformed line'));
+        expect(exitSpy).not.toHaveBeenCalled();
+
+        resolveHandler();
+        await executePromise;
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
     });
   });
 });

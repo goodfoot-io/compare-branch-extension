@@ -394,17 +394,26 @@ function handleCancelCommand(
     return;
   }
 
-  toPromise(callback()).then(
-    () => {
-      socketClient?.close();
-      cleanupAndExit(EXIT_CODES.SUCCESS);
-    },
-    (error) => {
-      logger.error(`onCancel callback error: ${getErrorMessage(error)}`);
-      socketClient?.close();
-      cleanupAndExit(EXIT_CODES.SUCCESS);
-    }
-  );
+  try {
+    // Same sync-throw containment as handleAgentShutdownCommand: a throwing
+    // callback must not escape into the socket parse loop as a bogus
+    // "malformed line" diagnostic.
+    toPromise(callback()).then(
+      () => {
+        socketClient?.close();
+        cleanupAndExit(EXIT_CODES.SUCCESS);
+      },
+      (error) => {
+        logger.error(`onCancel callback error: ${getErrorMessage(error)}`);
+        socketClient?.close();
+        cleanupAndExit(EXIT_CODES.SUCCESS);
+      }
+    );
+  } catch (error) {
+    logger.error(`onCancel callback error: ${getErrorMessage(error)}`);
+    socketClient?.close();
+    cleanupAndExit(EXIT_CODES.SUCCESS);
+  }
 }
 
 /**
@@ -462,10 +471,17 @@ function handleAgentShutdownCommand(callback: (() => void | Promise<void>) | und
     return;
   }
 
-  toPromise(callback()).then(
-    () => {},
-    (error) => {
-      logger.error(`onAgentShutdown callback error: ${getErrorMessage(error)}`);
-    }
-  );
+  try {
+    // A synchronously-throwing callback would otherwise propagate into
+    // SocketClient's NDJSON parse loop and be misreported as protocol
+    // corruption while the shutdown event is silently consumed.
+    toPromise(callback()).then(
+      () => {},
+      (error) => {
+        logger.error(`onAgentShutdown callback error: ${getErrorMessage(error)}`);
+      }
+    );
+  } catch (error) {
+    logger.error(`onAgentShutdown callback error: ${getErrorMessage(error)}`);
+  }
 }

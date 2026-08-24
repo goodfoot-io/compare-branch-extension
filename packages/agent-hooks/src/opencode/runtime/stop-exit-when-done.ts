@@ -1,10 +1,11 @@
 /**
- * OpenCode plugin entry: exit-when-done nudge (notify-only).
+ * OpenCode plugin entry: exit-when-done nudge.
  *
  * On `event`/`session.idle` for a root card session launched with
- * `EXIT_WHEN_DONE=true`, announces the shutdown runbook through the log
- * channels with a named warning: a plugin cannot terminate its host process,
- * so v1 degrades to notify-only. See the factory for behavior.
+ * `EXIT_WHEN_DONE=true`, announces the shutdown protocol through the log
+ * channels: the plugin only instructs the model to run `cards "$CARD_ID"
+ * shutdown` — the action handler, parent of this process, performs the
+ * graceful termination. See the factory for behavior.
  *
  * Exports exactly one plugin factory function — OpenCode invokes every
  * exported function value in a plugin module, so nothing else may be exported.

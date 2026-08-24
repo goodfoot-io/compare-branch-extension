@@ -13,9 +13,11 @@
  * - **SessionStart(compact)** (`createSessionStartAfterCompactionPlugin`)
  *   pushes the routing reminder into `experimental.session.compacting`.
  * - **Stop** (`createStopRouteNudgePlugin`, `createStopExitWhenDonePlugin`)
- *   degrades to notify-only on `event`/`session.idle`: a plugin cannot block
- *   the turn or terminate the host, so both nudges are announced through the
- *   log channels with named warnings instead of `decision: block`.
+ *   announce their nudges through the log channels on `event`/`session.idle`:
+ *   a plugin cannot block the turn or terminate the host, so both are
+ *   delivered as named warnings — the exit-when-done nudge now points at
+ *   `cards "$CARD_ID" shutdown`, whose relay lets the action handler perform
+ *   the termination.
  * - **SubagentStart/Stop** (`createSubagentStartPlugin`,
  *   `createSubagentStopPlugin`) track child sessions from
  *   `session.created`/`session.idle` parent linkage, best-effort.
@@ -413,7 +415,7 @@ export function createSessionStartAfterCompactionPlugin(
 }
 
 // ---------------------------------------------------------------------------
-// Stop (notify-only degradations)
+// Stop nudges (log-channel announcements)
 // ---------------------------------------------------------------------------
 
 /** Shape of CARD.meta.json fields the merge nudge consults. */

@@ -115,6 +115,19 @@ describe('cards shutdown verb', () => {
     expect(JSON.parse(serverReceived[0]!)).toEqual({ type: 'shutdownRequest', outcome: 'success' });
   });
 
+  it('resolves a repeated --outcome flag to the last value', async () => {
+    await startServer();
+    process.env['SOCKET_PATH'] = socketPath;
+
+    const result = runCli(['--outcome', 'blocked', '--outcome', 'success'], process.env);
+
+    expect(result.status).toBe(0);
+    await vi.waitFor(() => {
+      expect(serverReceived).toHaveLength(1);
+    });
+    expect(JSON.parse(serverReceived[0]!)).toEqual({ type: 'shutdownRequest', outcome: 'success' });
+  });
+
   it('rejects an invalid outcome without touching the socket', async () => {
     await startServer();
     process.env['SOCKET_PATH'] = socketPath;
