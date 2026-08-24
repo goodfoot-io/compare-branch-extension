@@ -350,7 +350,7 @@ describe('cards-assistant handler', () => {
     expect(errorSpy).toHaveBeenCalledWith('Failed to spawn codex', { error: 'spawn codex ENOENT' });
   });
 
-  it('routes the opencode branch through cross-spawn with run argv, staged config env, and the opening turn', async () => {
+  it('routes the opencode branch through cross-spawn with interactive TUI argv, staged config env, and the opening turn', async () => {
     forcePlatform('win32');
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
@@ -374,15 +374,18 @@ describe('cards-assistant handler', () => {
     // CODEX_HOME-style replacement of the config dir.
     expect(opts.env?.OPENCODE_CONFIG).toBe('/test/cards-opencode-staging/cards-assistant.config.json');
 
-    // Headless run contract pinned at the repo root; the interview
-    // instructions are the opening positional turn.
+    // Interactive TUI contract pinned at the repo root; the interview
+    // instructions are the seeded opening turn (`--prompt`) and the repo root
+    // is the project positional — mirroring the action path's interactive
+    // launch surface (the TUI accepts neither `run` nor `--dir`).
     const args = vi.mocked(spawn).mock.calls[0][1] as string[];
-    expect(args.slice(0, 3)).toEqual(['run', '--dir', '/test/workspace']);
-    expect(args[3]).toContain('Load the `cards:cards` skill');
-    expect(args[3].trimStart().startsWith('<instructions>')).toBe(true);
+    expect(args[0]).toBe('--prompt');
+    expect(args[1]).toContain('Load the `cards:cards` skill');
+    expect(args[1].trimStart().startsWith('<instructions>')).toBe(true);
+    expect(args[2]).toBe('/test/workspace');
     // The assistant session runs prompt-less beyond that — initialPrompt is
     // not read by this branch (unreachable via cards.startCardsAssistant).
-    expect(args).toHaveLength(4);
+    expect(args).toHaveLength(3);
 
     child.emit('close', 0);
     await promise;

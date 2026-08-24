@@ -11,8 +11,9 @@
  *   `developer_instructions` override via `-c`.
  * - OpenCode: stages the `cards` and `cards-assistant` plugins into the
  *   content-addressed cache, writes the per-set staged config document, and
- *   spawns `opencode run --dir <repoRoot>` with the interview instructions as
- *   the opening positional turn and the document passed via `OPENCODE_CONFIG`.
+ *   spawns the `opencode` TUI with the interview instructions seeded as the
+ *   opening turn via `--prompt` and the repo root as the project positional,
+ *   passing the document via `OPENCODE_CONFIG`.
  *
  * When `input.initialPrompt` is set, it is appended to the Claude branch's
  * `cliArgs` after a `--` end-of-options terminator, so `claude` treats it as
@@ -136,12 +137,15 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
       pluginCachePaths
     );
 
-    // `opencode run` has no system-prompt override flag, so the interview
-    // instructions ride the opening positional turn. `input.initialPrompt` is
+    // Interactive TUI launch, mirroring the action path's live-verified argv
+    // shape (`buildOpencodeArgs` in ./lib/opencode-session.js): the TUI
+    // accepts neither `--dir` nor a system-prompt override flag, so the
+    // interview instructions seed the opening turn via `--prompt` and the
+    // repo root rides as the project positional. `input.initialPrompt` is
     // not read by this branch — it is unreachable via
     // `cards.startCardsAssistant` in this release (same gap as the codex
     // branch, named there).
-    const args = ['run', '--dir', input.repoRoot, INTERVIEW_INSTRUCTIONS];
+    const args = ['--prompt', INTERVIEW_INSTRUCTIONS, input.repoRoot];
 
     logger.info('Starting cards assistant (opencode)', {
       cwd: input.repoRoot,
