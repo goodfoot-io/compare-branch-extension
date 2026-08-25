@@ -80,7 +80,7 @@ export default userPromptSubmitHook({}, async (input, { logger }) => {
       cardIds
     });
 
-    const additionalContext = buildNudgeContext(cardIds, hasCreationIntent);
+    const additionalContext = buildNudgeContext(cardIds, hasCreationIntent, 'cards:cards');
 
     return userPromptSubmitOutput({ additionalContext });
   } catch (error) {

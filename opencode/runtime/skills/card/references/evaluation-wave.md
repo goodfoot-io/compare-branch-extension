@@ -20,7 +20,7 @@ Read the diff and the card before writing the spawn messages — each must refle
 For the `failure_mode` child (`task_name: failure_mode`), the `message`:
 
 ```
-Use the $runtime:card-failure-mode skill and follow it from the top. Record each finding with a `FINDING:` marker and report a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` as your final message to me, the orchestrator that spawned you. On Deep depth I relay the experience-evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
+Use the $card-failure-mode skill and follow it from the top. Record each finding with a `FINDING:` marker and report a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` as your final message to me, the orchestrator that spawned you. On Deep depth I relay the experience-evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -40,7 +40,7 @@ All validation has passed. Focus on runtime behavior, semantic failures, and gap
 For **Deep**, also spawn the `experience_evaluator` child (`task_name: experience_evaluator`) with the `message`:
 
 ```
-Use the $runtime:card-experience-evaluator skill and follow it from the top. Record each finding with a `FINDING:` marker and report a verdict as your final message to me, the orchestrator that spawned you. I relay the failure-mode evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
+Use the $card-experience-evaluator skill and follow it from the top. Record each finding with a `FINDING:` marker and report a verdict as your final message to me, the orchestrator that spawned you. I relay the failure-mode evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -57,7 +57,7 @@ All validation has passed. Focus on what a user would experience as broken, wron
 [Translate the card's requirements into user scenarios this implementation must satisfy: acceptance criteria to verify, user-facing entry points, what a user testing against the card should do and observe.]
 ```
 
-When an evaluator needs to compare behavior against the pre-implementation state, spawn a `$runtime:card-pre-existing-condition` child with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.
+When an evaluator needs to compare behavior against the pre-implementation state, spawn a `$card-pre-existing-condition` child with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.
 
 ## 2. Collect Verdicts and Route
 

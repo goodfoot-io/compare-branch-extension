@@ -85,7 +85,7 @@ describe('CardsUserPromptSubmit (core)', () => {
     // a bare UUID crashes the live message pipeline (binary-gate regression).
     expect(nudge?.id).toMatch(/^prt_[0-9a-f]{26}$/);
     expect(nudge?.text).toContain('<cards-extension>');
-    expect(nudge?.text).toContain('Load the `cards:cards` skill.');
+    expect(nudge?.text).toContain('Load the `cards` skill.');
     expect(nudge?.text).toContain('</cards-extension>');
   });
 

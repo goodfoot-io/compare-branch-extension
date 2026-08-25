@@ -1,5 +1,5 @@
 /**
- * OpenCode plugin entry: silent `cards:cards` skill-load recorder.
+ * OpenCode plugin entry: silent cards skill-load recorder.
  *
  * Persists the per-session skill marker through `tool.execute.after` so the
  * prompt nudge stops asking once the skill is loaded. See the factory for

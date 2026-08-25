@@ -76,8 +76,8 @@ describe('TASK_NOTIFICATION_RE', () => {
 
 describe('buildNudgeContext', () => {
   it('builds the generic skill-load nudge with repo paths', () => {
-    const context = buildNudgeContext(['main-453'], false, homeDir);
-    expect(context).toContain('Load the `cards:cards` skill.');
+    const context = buildNudgeContext(['main-453'], false, 'cards', homeDir);
+    expect(context).toContain('Load the `cards` skill.');
     expect(context).toContain(join(homeDir, '.cards', 'cards-repos', 'main-453'));
     expect(context).toContain('Read CARD.md in the repository for more information.');
     expect(context.startsWith('<cards-extension>')).toBe(true);
@@ -85,7 +85,7 @@ describe('buildNudgeContext', () => {
   });
 
   it('builds the stronger creation-intent nudge', () => {
-    const context = buildNudgeContext([], true, homeDir);
+    const context = buildNudgeContext([], true, 'cards', homeDir);
     expect(context).toContain('The user appears to want a new card created.');
     expect(context).not.toContain('is available in the');
   });

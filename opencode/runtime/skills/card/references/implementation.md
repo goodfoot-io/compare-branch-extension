@@ -31,7 +31,7 @@ When all units are complete, pass the `<final-validation-gate>` before proceedin
 
 Every commit in this flow follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$runtime:tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 ## 3. Evaluate Quality
 
@@ -68,7 +68,7 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 <implementation-discipline>
 
-**Scope is the card's scope.** Implement only what the card (or plan) specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `$cards:cards`) for discoveries in code the change does not interact with before finalizing.
+**Scope is the card's scope.** Implement only what the card (or plan) specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `$cards`) for discoveries in code the change does not interact with before finalizing.
 
 **Zero errors in affected packages.** Fix priority: pre-existing errors, then direct implementation, then test infrastructure, then environment.
 
@@ -102,10 +102,10 @@ After all logical units are complete, run validation per the workspace validatio
 
 <pre-existing-diagnosis>
 
-Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$runtime:card-pre-existing-condition` — it reproduces on baseline, repairs pre-existing root causes, and reports back `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise:
+Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$card-pre-existing-condition` — it reproduces on baseline, repairs pre-existing root causes, and reports back `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise:
 
 ```
-Use the $runtime:card-pre-existing-condition skill.
+Use the $card-pre-existing-condition skill.
 
 ## Failing Command
 [the failing command]

@@ -3,11 +3,14 @@
  * prompt-nudge hooks.
  *
  * Pure predicates deciding when a prompt should trigger a `<cards-extension>`
- * nudge toward the `cards:cards` skill: whitespace-bounded card terms,
+ * nudge toward the cards skill: whitespace-bounded card terms,
  * verb-anchored creation intent within a five-token proximity window, and
  * last-hyphen card-ID validation confirmed against `~/.cards/cards-repos/`.
  * The home directory is injectable so tests can point repo confirmation at a
- * temporary tree; production callers use the `os.homedir()` default.
+ * temporary tree; production callers use the `os.homedir()` default. The
+ * nudge's skill address is caller-supplied because the harnesses resolve it
+ * differently — `cards:cards` under Claude Code/Codex namespacing, bare
+ * `cards` under OpenCode's flat registry.
  *
  * @summary Card-mention detection predicates shared by all three agents
  * @module shared/card-mention
@@ -174,16 +177,24 @@ export function promptHasCreationIntent(prompt: string): boolean {
  *
  * @param cardIds - Confirmed card IDs to include in the nudge.
  * @param hasCreationIntent - Whether the prompt signaled creation intent.
+ * @param skillAddress - The cards skill address the calling harness resolves:
+ * `cards:cards` under Claude Code and Codex plugin namespacing, bare `cards`
+ * under OpenCode's flat skill registry.
  * @param homeDir - Home directory override for tests; defaults to `os.homedir()`.
  * @returns The formatted nudge context string.
  */
-export function buildNudgeContext(cardIds: string[], hasCreationIntent: boolean, homeDir: string = homedir()): string {
+export function buildNudgeContext(
+  cardIds: string[],
+  hasCreationIntent: boolean,
+  skillAddress: string,
+  homeDir: string = homedir()
+): string {
   const lines: string[] = [];
 
   lines.push(
     hasCreationIntent
-      ? 'The user appears to want a new card created. Load the `cards:cards` skill and follow its create-card flow.'
-      : 'Load the `cards:cards` skill.'
+      ? `The user appears to want a new card created. Load the \`${skillAddress}\` skill and follow its create-card flow.`
+      : `Load the \`${skillAddress}\` skill.`
   );
 
   for (const id of cardIds) {

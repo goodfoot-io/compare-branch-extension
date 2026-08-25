@@ -123,6 +123,6 @@ git commit -m "[single sentence summarizing which requirements are missing and w
 
 ## 4. Re-route After Enrichment
 
-Use the `$runtime:card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.
+Use the `$card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.
 
 </instructions>

@@ -76,7 +76,7 @@ describe('CardsPostToolUseSkill (core)', () => {
   it('logs the recorded load', async () => {
     await runTool('skill', { skill: 'cards' });
     expect(
-      logEntries.some((entry) => entry.level === 'info' && entry.message.includes('Recorded cards:cards skill load'))
+      logEntries.some((entry) => entry.level === 'info' && entry.message.includes('Recorded cards skill load'))
     ).toBe(true);
   });
 

@@ -28,7 +28,7 @@ You are one of several planners spawned in parallel by a single orchestrator, co
 
 - **Every research finding is reported to the orchestrator** (Step 2), which relays it to the reviewer and the other live planners but does not adjudicate it — the orchestrator routes, the reviewer judges. Sharing research is the shape of participating, not a favor.
 - **Every `PLAN: READY` report carries a per-planner monotonic round number** (Step 3). Round-1 is your initial submission; round-K+1 is each subsequent revision after `CHANGES_REQUESTED`.
-- **Every critique of a peer plan is reported to the orchestrator for relay to the reviewer (`$runtime:card-plan-failure-mode`) only** (§4.3). The reviewer adjudicates; you do not critique peers directly.
+- **Every critique of a peer plan is reported to the orchestrator for relay to the reviewer (`$card-plan-failure-mode`) only** (§4.3). The reviewer adjudicates; you do not critique peers directly.
 - **Every reviewer verdict reaches you through the orchestrator** with the marker and the rationale in the body (§4.2).
 - **Revisions to your own plan go in your plan file**, committed with a single sentence summarizing the change (§4.1). The reviewer reads your commits.
 - **Approval is sticky-but-revocable.** After your plan earns `VERDICT: APPROVED for:[PLANNER_NAME] round-K`, you either revise — because a peer's plan changed your answer to a real risk — or do nothing further (§4.4).
@@ -51,9 +51,9 @@ Distill commander's intent from the card — what the situation looks like when 
 
 Write your plan to `[PLAN_FILE] = plans/[PLANNER_NAME].md` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), consult the `$runtime:tdd-bootstrap` skill and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), consult the `$tdd-bootstrap` skill and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
 
-For load-bearing assumptions you cannot resolve from the workspace alone, load `$runtime:spike` and follow its procedure to investigate. Revise `[PLAN_FILE]` after spikes return.
+For load-bearing assumptions you cannot resolve from the workspace alone, load `$spike` and follow its procedure to investigate. Revise `[PLAN_FILE]` after spikes return.
 
 While doing this work, report research findings as required by Step 2. Peer findings reach you the same way — the orchestrator relays them; read them and use them.
 
@@ -104,14 +104,14 @@ After Step 3, continue to handle messages the orchestrator sends you until the c
 
 **Message ordering.** Process inbound messages serially in arrival order. Do not batch findings: each streamed finding (§4.1) gets its own revise-and-commit before the next is processed — the reviewer reads commit history and benefits from per-finding granularity. If a relayed peer message or new finding arrives while you are mid-revision on an earlier finding, finish the current revise-and-commit first, then handle the next message. The single exception is a `VERDICT: BLOCKED for:[PLANNER_NAME]` arriving mid-revision: that is terminal and overrides any in-flight work; stop and proceed to §4.6 immediately.
 
-**Drain before reporting `PLAN: READY round-K+1`.** When §4.2 sends you back to Step 3 to re-report, drain every pending finding the orchestrator has relayed from the reviewer first. A `PLAN: READY` report invites the reviewer to evaluate your current round; reporting it while findings remain unaddressed wastes the reviewer's attention and forces the reviewer to discard its in-flight verdict via the round-tag race (`$runtime:card-plan-failure-mode` §5). Process the queue to empty, commit each finding, then report.
+**Drain before reporting `PLAN: READY round-K+1`.** When §4.2 sends you back to Step 3 to re-report, drain every pending finding the orchestrator has relayed from the reviewer first. A `PLAN: READY` report invites the reviewer to evaluate your current round; reporting it while findings remain unaddressed wastes the reviewer's attention and forces the reviewer to discard its in-flight verdict via the round-tag race (`$card-plan-failure-mode` §5). Process the queue to empty, commit each finding, then report.
 
 ### 4.1 Streamed Finding from the Reviewer
 
 The reviewer streams findings as it discovers them, before any verdict; the orchestrator relays each to you. The marker `FINDING: <label> for:[PLANNER_NAME] round-K` opens the relayed message (round-tagged so you can match each finding to the round being reviewed under sticky-but-revocable approval); the cause/mode/effect body and the severity/occurrence/detection tags follow. Act on each finding immediately — do not wait for the verdict:
 
 - Understand the concern and whether the plan's approach addresses it.
-- Route empirically-testable uncertainties through the `$runtime:spike` skill before revising.
+- Route empirically-testable uncertainties through the `$spike` skill before revising.
 - For each finding, decide which axis to attack: reduce **occurrence** (change the mechanism so the bet is no longer fragile), narrow **severity** (shrink the blast radius), or add **detection** (a test, assertion, or runtime check that surfaces the failure).
 - Revise `[PLAN_FILE]` directly and commit. Write the commit message as a single sentence per `<card-repo-commit-style>` that summarizes the change, prefixed with the axis you attacked: `occurrence:`, `severity:`, `detection:`, or `accepted:` (the last when you accept the finding without changing the plan and want the reviewer to see it on the record). The reviewer reads commits when re-reviewing — the axis label tells it where on the failure-mode triangle the revision landed.
 - A **class finding** (the reviewer names a flaw class with constructible siblings) closes only by construction over the whole class, witnessed by a committed PoC test, fixture, or exhaustive argument — patching the cited instance or claiming closure in prose reopens it next round. Commit fixture witnesses under `notes/` and PoC-test witnesses under `spike/` in the card repo.
@@ -140,7 +140,7 @@ A `MONOCULTURE: [question]` message relayed from the reviewer means every live p
 Relayed peer `PLAN: READY for:planner_N round-K` reports open two moves, both legitimate:
 
 - **Steal good ideas.** Incorporate a sharper mechanism, cleaner ordering, or a scenario you missed into `[PLAN_FILE]` directly and commit.
-- **Report critiques up to the orchestrator for the reviewer.** When you find an error in a peer plan — an unverified claim, a missed consumer, a fragile bet, a silent wrong-result pattern, an acceptance criterion narrowed away from user intent — send the orchestrator a critique for relay to `$runtime:card-plan-failure-mode`:
+- **Report critiques up to the orchestrator for the reviewer.** When you find an error in a peer plan — an unverified claim, a missed consumer, a fragile bet, a silent wrong-result pattern, an acceptance criterion narrowed away from user intent — send the orchestrator a critique for relay to `$card-plan-failure-mode`:
 
 ```
 CRITIQUE: [short label] for:planner_N

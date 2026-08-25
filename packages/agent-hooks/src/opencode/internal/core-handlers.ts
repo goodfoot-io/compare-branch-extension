@@ -2,11 +2,11 @@
  * Factories for the OpenCode `cards` (core) plugin handlers.
  *
  * - **UserPromptSubmit** (`createUserPromptSubmitPlugin`) nudges toward the
- *   `cards:cards` skill via a `chat.message` parts-append when the prompt
+ *   `cards` skill via a `chat.message` parts-append when the prompt
  *   mentions card concepts — OpenCode has no hook-output channel, so the nudge
  *   rides a synthetic text part appended to the outgoing user message.
  * - **PostToolUse(Skill)** (`createPostToolUseSkillPlugin`) silently records
- *   `cards:cards` skill loads through `tool.execute.after`, short-circuiting
+ *   cards skill loads through `tool.execute.after`, short-circuiting
  *   the prompt nudge once the skill is in play.
  *
  * Both handlers gate on the root-session registry built from
@@ -33,6 +33,15 @@ import { defaultOpencodeHandlerDeps, type OpencodeHandlerDeps } from './deps.js'
 
 /** Marker key recorded and consulted for the cards skill. */
 const CARDS_SKILL = 'cards:cards';
+
+/**
+ * Cards skill address emitted in nudge text.
+ *
+ * OpenCode registers skills in one flat namespace keyed by SKILL.md
+ * frontmatter name, so the shipped skill resolves as bare `cards` — the
+ * Claude/Codex `plugin:skill` spelling does not resolve here.
+ */
+const CARDS_SKILL_ADDRESS = 'cards';
 
 /**
  * Builds the bundle-wide logger for a plugin factory.
@@ -174,7 +183,7 @@ export function createUserPromptSubmitPlugin(deps: OpencodeHandlerDeps = default
             return;
           }
 
-          await log.info('Nudging to load cards:cards', {
+          await log.info('Nudging to load cards', {
             sessionId: input.sessionID,
             hasTerm,
             hasCreationIntent,
@@ -187,7 +196,7 @@ export function createUserPromptSubmitPlugin(deps: OpencodeHandlerDeps = default
             sessionID: input.sessionID,
             messageID: input.messageID ?? output.message.id,
             type: 'text',
-            text: buildNudgeContext(cardIds, hasCreationIntent),
+            text: buildNudgeContext(cardIds, hasCreationIntent, CARDS_SKILL_ADDRESS),
             synthetic: true
           });
         })
@@ -260,7 +269,7 @@ export function createPostToolUseSkillPlugin(deps: OpencodeHandlerDeps = default
           }
 
           deps.markers.markSkillLoaded(input.sessionID, CARDS_SKILL);
-          await log.info('Recorded cards:cards skill load', {
+          await log.info('Recorded cards skill load', {
             sessionId: input.sessionID,
             skill: input.args.skill
           });

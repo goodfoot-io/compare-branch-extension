@@ -167,7 +167,7 @@ describe.skipIf(binary === null)('real-binary gate (installed opencode v1.18.x)'
     // The standalone word "card" trips the detection predicates.
     const result = runBundle(bundles.cards, 'reply with ok and think about the card concept');
     expect(result.status).toBe(0);
-    expect(result.anchorText).toContain('Nudging to load cards:cards');
+    expect(result.anchorText).toContain('Nudging to load cards');
   }, 180000);
 
   it('assistant bundle: capability menu injection fires on the first turn', () => {

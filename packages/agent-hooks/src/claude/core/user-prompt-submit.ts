@@ -90,7 +90,7 @@ export default userPromptSubmitHook({}, async (input, { logger }) => {
       cardIds
     });
 
-    const additionalContext = buildNudgeContext(cardIds, hasCreationIntent);
+    const additionalContext = buildNudgeContext(cardIds, hasCreationIntent, 'cards:cards');
 
     // systemMessage surfaces to the user, additionalContext is injected into the agent's context.
     return userPromptSubmitOutput({

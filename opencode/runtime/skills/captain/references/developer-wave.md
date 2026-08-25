@@ -24,10 +24,10 @@ Every worker report carries its marker as the first line, then the task's identi
 
 Reassess the effort tier per task: for a system-level or cross-cutting task, spawn a one-off worker at the deepest effort tier. Never `HOLD` an in-flight task for it — wait for a green `REPORT:` from every worker whose package it touches, send them no new task until the one-off reports, then inline its report into their next task message.
 
-Each worker's spawn `message` tells it to use `$runtime:card-developer` and `$runtime:tdd-bootstrap`:
+Each worker's spawn `message` tells it to use `$card-developer` and `$tdd-bootstrap`:
 
 ```
-Use the $runtime:card-developer and $runtime:tdd-bootstrap skills.
+Use the $card-developer and $tdd-bootstrap skills.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -48,7 +48,7 @@ You own [absolute paths]. Do not touch files outside this set without a message 
 [Signatures, wire formats, flag names, storage keys this task must produce or consume — state explicitly when another worker builds the other side]
 
 ## Workflow
-When this task adds new behavior worth validating ahead of implementation, follow `$runtime:tdd-bootstrap`: Phase 1 contract + stubs → checkpoint below (if required) → Phase 2 skipped checks → Phase 3 implement and unskip. Bug fixes skip the bootstrap — reproduce first. [Task-specific additions]
+When this task adds new behavior worth validating ahead of implementation, follow `$tdd-bootstrap`: Phase 1 contract + stubs → checkpoint below (if required) → Phase 2 skipped checks → Phase 3 implement and unskip. Bug fixes skip the bootstrap — reproduce first. [Task-specific additions]
 
 ## Checkpoint
 [Required | Not required]. When required: after Phase 1, report `CHECKPOINT: contract-ready` to me and hold — no tests, no implementation — until I send `PROCEED`. Silence is a stall, not a green light. If you discover a cross-package coupling this brief didn't flag, report `CHECKPOINT: unanticipated-contract` and hold the same way, even when marked "Not required."
@@ -80,7 +80,7 @@ A `CHECKPOINT:` report (`contract-ready` or `unanticipated-contract`) holds the 
 
 When a task's `REVISE:` rounds stop producing new information (usually by the third), stop correcting: split it, re-scope it, or replace the worker with a fresh one given the restated task and the failed attempts.
 
-Route contract questions and integration bugs to the worker that owns the affected package; bug fixes skip `$runtime:tdd-bootstrap` — reproduce first. Workers do not message each other — contract questions come to you.
+Route contract questions and integration bugs to the worker that owns the affected package; bug fixes skip `$tdd-bootstrap` — reproduce first. Workers do not message each other — contract questions come to you.
 
 </checkpoints>
 

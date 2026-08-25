@@ -37,7 +37,7 @@ On validation failure, fix and retry rather than reporting the first failure.
 
 **Validate after each logical unit per the project's AGENTS.md validation conventions.** Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Do not proceed if validation fails.
 
-When a scope item introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$runtime:tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+When a scope item introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 ## Output Contract
 

@@ -1,10 +1,10 @@
 # Card References
 
-Per-condition reference files for the `$runtime:card` skill. The router in `../SKILL.md` evaluates card state, selects one condition, and reads the matched file.
+Per-condition reference files for the `$card` skill. The router in `../SKILL.md` evaluates card state, selects one condition, and reads the matched file.
 
 ## Consumer
 
-**`$runtime:card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. The skill is self-contained: it shares no reference files with `$runtime:captain`. Protocol references spawn the plugin's shared `$runtime:card-*` agent skills, which are plugin assets, not card-skill dependencies.
+**`$card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. The skill is self-contained: it shares no reference files with `$captain`. Protocol references spawn the plugin's shared `$card-*` agent skills, which are plugin assets, not card-skill dependencies.
 
 ## Routing Map
 

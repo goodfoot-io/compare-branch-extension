@@ -21,7 +21,7 @@ The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before creating a card, load the `$cards:markdown` skill, `./references/commanders-intent.md`, and both references for the matched card type. Two references load together:
+Before creating a card, load the `$markdown` skill, `./references/commanders-intent.md`, and both references for the matched card type. Two references load together:
 - An **interview** guide describing how to reach enough signal for the card.
 - A **writing** guide describing the target CARD.md structure.
 
@@ -65,8 +65,8 @@ EOF
 
 Then, in order:
 
-1. Load the `$cards:markdown` skill before writing CARD.md.
-2. When the card has something worth rendering — a mockup, diagram, data model, flow, or comparison of options — author an HTML page and commit its `.html`/`.meta.json` pair in a commit of its own; load `$cards:html-files` for mechanics and `$cards:design` for styling. Timeline position follows commit order: commit before CARD.md to open the card with a hero the reader takes in first, after CARD.md to elaborate what the description lays out.
+1. Load the `$markdown` skill before writing CARD.md.
+2. When the card has something worth rendering — a mockup, diagram, data model, flow, or comparison of options — author an HTML page and commit its `.html`/`.meta.json` pair in a commit of its own; load `$html-files` for mechanics and `$design` for styling. Timeline position follows commit order: commit before CARD.md to open the card with a hero the reader takes in first, after CARD.md to elaborate what the description lays out.
 
 ```bash
 cards html check "$REPO/proposed-panel.html"
@@ -82,7 +82,7 @@ CARD_EOF
 cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
-4. Load the `$cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
+4. Load the `$notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
 
 Include `relations` when the new card relates to an existing one. Each entry has a `type` (only `"related"` is valid) and a `cardId`. The CLI sets relations only at creation; edit `CARD.meta.json` afterward.
 

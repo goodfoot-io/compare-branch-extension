@@ -13,8 +13,8 @@ Two non-type references loaded on demand from the skill body:
 
 ## Consumers
 
-1. **Card creation** (`$cards:cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `cards create` time.
-2. **Post-creation interview** (`$runtime:interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`.
+1. **Card creation** (`$cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `cards create` time.
+2. **Post-creation interview** (`$interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`.
 
 ## Symlinks
 
@@ -32,8 +32,8 @@ commanders-intent.md -> ../../../../cards/skills/cards/references/commanders-int
 
 Edit those files here; the symlinks keep both consumers on the same content.
 
-The `interview-<type>.md` files are **not** symlinked, and must not be. The copies here are pre-creation — no card exists yet. `$runtime:interview` keeps its own post-creation copies, which interview against an existing CARD.md. The two sets are deliberately different documents.
+The `interview-<type>.md` files are **not** symlinked, and must not be. The copies here are pre-creation — no card exists yet. `$interview` keeps its own post-creation copies, which interview against an existing CARD.md. The two sets are deliberately different documents.
 
 ## Markdown Formatting
 
-Fragment links, mermaid diagrams, collapsible sections, and code blocks are consolidated in the `$cards:markdown` skill; each card-type guide references those guidelines in its writing principles.
+Fragment links, mermaid diagrams, collapsible sections, and code blocks are consolidated in the `$markdown` skill; each card-type guide references those guidelines in its writing principles.
