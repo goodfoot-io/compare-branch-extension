@@ -844,7 +844,7 @@ export function createStopRouteNudgePlugin(deps: OpencodeHandlerDeps = defaultOp
               `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`.`,
               'If validation and evaluation have passed and no scope remains, read',
               `${deps.mergeRunbookPath()} and follow its <instructions> to merge.`,
-              'Otherwise load the `runtime:card` skill and follow its <routing-instructions>.'
+              'Otherwise load the `card` skill and follow its <routing-instructions>.'
             ].join('\n'),
             { sessionId, workspaceBranch, baseBranch, unmergedCount: count }
           );

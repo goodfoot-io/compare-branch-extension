@@ -137,9 +137,9 @@ export interface OpencodeHandlerDeps {
   markers: OpencodeMarkerDeps;
   /** Counts commits on `workspaceBranch` missing from `baseBranch`. */
   unmergedCommitCount(workspacePath: string, baseBranch: string, workspaceBranch: string): number;
-  /** Absolute path of the installed merge runbook (`runtime:card` references). */
+  /** Absolute path of the installed merge runbook (`card` skill references). */
   mergeRunbookPath(): string;
-  /** Absolute path of the installed shutdown runbook (`runtime:card` references). */
+  /** Absolute path of the installed shutdown runbook (`card` skill references). */
   shutdownRunbookPath(): string;
   /** Directory root for materialized transcripts. */
   transcriptsRoot(): string;
