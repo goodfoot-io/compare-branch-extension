@@ -541,4 +541,87 @@ describe('build-unchanged', () => {
       expect(stderr).toContain('--manifest');
     });
   });
+
+  describe('foreign-checkout provenance (regression)', () => {
+    /**
+     * Two checkouts whose output trees are shared: each package directory has
+     * an `out` symlink pointing at one shared directory, mirroring the
+     * worktree policy that symlinks `dist` trees across worktrees. Checkout A
+     * builds first; checkout B's sources carry different content but older
+     * mtimes, so A's outputs are newer than every input B can present — the
+     * exact state that fooled the mtime-plus-path-set proof.
+     *
+     * @returns Paths for both checkouts, the shared output tree, and its manifest.
+     */
+    async function makeSharedOutputFixture(): Promise<{
+      checkoutA: string;
+      checkoutB: string;
+      sharedOut: string;
+      manifestPath: string;
+    }> {
+      const dir = await makeTmpDir();
+      const checkoutA = join(dir, 'checkout-a');
+      const checkoutB = join(dir, 'checkout-b');
+      const sharedOut = join(dir, 'shared-out');
+      await mkdir(join(checkoutA, 'src'), { recursive: true });
+      await mkdir(join(checkoutB, 'src'), { recursive: true });
+      await mkdir(sharedOut);
+      // Same relative layout, different content: only a content binding can
+      // tell these sources apart.
+      await writeFileAt(join(checkoutA, 'src', 'a.ts'), 1000, 'export const vintage = "A";');
+      await writeFileAt(join(checkoutB, 'src', 'a.ts'), 1000, 'export const vintage = "B";');
+      await symlink(sharedOut, join(checkoutA, 'out'));
+      await symlink(sharedOut, join(checkoutB, 'out'));
+      const manifestPath = join(sharedOut, '.build-unchanged.json');
+      return { checkoutA, checkoutB, sharedOut, manifestPath };
+    }
+
+    /** Gate argv for one checkout, matching the production wiring shape. */
+    function gateArgs(command: string): string[] {
+      return ['--input', 'src', '--output', 'out', '--manifest', 'out/.build-unchanged.json', '--', command];
+    }
+
+    it('does not bless outputs recorded from different input contents (unit proof)', async () => {
+      const { checkoutA, checkoutB } = await makeSharedOutputFixture();
+      const buildA = "node -e \"require('node:fs').writeFileSync('out/bundle.mjs','built-from-A')\"";
+      const first = runBin(checkoutA, gateArgs(buildA));
+      expect(first.status).toBe(0);
+
+      // Simulate the foreign rebuild's aftermath: outputs newer than every
+      // input either checkout can present.
+      await utimes(join(checkoutA, 'out', 'bundle.mjs'), new Date(5000), new Date(5000));
+
+      // Manifest addressed the way checkout B's gate resolves it — through
+      // B's own `out` symlink — so path-set matching alone cannot object.
+      const result = await isFresh(
+        {
+          inputRoots: [join(checkoutB, 'src')],
+          outputRoots: [join(checkoutB, 'out')],
+          manifestPath: join(checkoutB, 'out', '.build-unchanged.json')
+        },
+        checkoutB
+      );
+
+      expect(result.fresh).toBe(false);
+      expect(result.reason).not.toBeNull();
+    });
+
+    it('rebuilds instead of skipping when shared outputs were produced by another checkout', async () => {
+      const { checkoutA, checkoutB, sharedOut } = await makeSharedOutputFixture();
+      const buildA = "node -e \"require('node:fs').writeFileSync('out/bundle.mjs','built-from-A')\"";
+      const first = runBin(checkoutA, gateArgs(buildA));
+      expect(first.status).toBe(0);
+      expect(first.stdout).toContain('rebuilding');
+      await utimes(join(sharedOut, 'bundle.mjs'), new Date(5000), new Date(5000));
+
+      const second = runBin(checkoutB, gateArgs(MARKER_COMMAND));
+
+      // B's inputs are older than the shared outputs, but the outputs were
+      // built from A's sources: the gate must run the command (or fail), never
+      // bless the foreign artifacts as fresh.
+      expect(second.stdout).toContain('rebuilding');
+      expect(second.status).toBe(0);
+      await expect(readFile(join(checkoutB, 'marker.txt'))).resolves.toBeDefined();
+    });
+  });
 });
