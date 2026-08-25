@@ -13,7 +13,7 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { discoverIgnoredPaths } from '../src/worktree.js';
 import { WorktreeIncludeError } from '../src/worktreeInclude.js';
 import { loadWorktreePathPolicy, type WorktreePathPolicy } from '../src/worktreePathPolicy.js';
@@ -825,16 +825,27 @@ describe('loadWorktreePathPolicy', () => {
     const timeoutKey = 'CARDS_WORKTREE_POLICY_TIMEOUT_MS';
     const previous = process.env[timeoutKey];
     process.env[timeoutKey] = '1';
+    // Deterministic expiry: every Date.now() reading advances simulated time
+    // by 10ms, so whatever instant the 1ms budget is stamped at, the very next
+    // reading — including the deadline check itself — is already past it. The
+    // previous wall-clock-only version passed only when the host was slow
+    // enough to lose a 1ms race against its own git spawn: on a fast, idle box
+    // the whole enumeration (one tracked-symlink scan, no ignored paths) fit
+    // between two real readings and the test failed with a null error.
+    let simulatedNow = Date.now();
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => (simulatedNow += 10));
     try {
       const ignored = await discoverIgnoredPaths(sourceRoot);
       const error = await loadWorktreePathPolicy({ sourceRoot, ignored }).then(
         () => null,
         (e: unknown) => e
       );
-      expect(error).not.toBeNull();
+      expect(error).toBeInstanceOf(WorktreeIncludeError);
+      expect((error as Error).message).toContain('enumeration timed out');
       expect((error as Error).message).toContain(timeoutKey);
       expect((error as Error).message).toContain('30000');
     } finally {
+      nowSpy.mockRestore();
       if (previous === undefined) {
         delete process.env[timeoutKey];
       } else {
