@@ -7,7 +7,8 @@
  * `mkdir -p`, `cp -r`, `find … -delete`, or `WS_ROOT=$(…)` env-prefix). The
  * steps, in order, are identical to the former shell pipeline:
  *
- *   1. rm -rf dist
+ *   1. rm -rf dist (then regenerate dist/www-entry/opencode-session/index.html,
+ *      which the settings build's fail-closed wwwRoot check requires)
  *   2. cards-sdk build -c settings.config.ts -o dist --loader .md=text
  *      (regenerates settings.json incl. the per-platform action command strings)
  *   3. yarn build:www                          (bun-built stream webview)
@@ -18,26 +19,10 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateOpencodeEntry } from './generate-opencode-entry.mjs';
 import { publishBundle } from './publishBundle.mjs';
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-/**
- * Run a command, inheriting stdio, failing closed on a non-zero exit.
- *
- * `shell: true` lets Windows resolve the workspace-bin shims (`cards-sdk.cmd`,
- * `yarn.cmd`, `git`) via PATHEXT; on POSIX it uses /bin/sh. Arguments here are
- * fixed literals with no untrusted interpolation.
- *
- * @param command - Full command line to run from the package root.
- */
-function run(command) {
-  const result = spawnSync(command, { cwd: pkgRoot, shell: true, stdio: 'inherit' });
-  if (result.status !== 0) {
-    process.stderr.write(`[build] command failed (exit ${result.status}): ${command}\n`);
-    process.exit(result.status ?? 1);
-  }
-}
 
 /**
  * Run a command with bounded retries.
@@ -84,6 +69,13 @@ const dist = join(pkgRoot, 'dist');
 
 // 1. Clean dist.
 rmSync(dist, { recursive: true, force: true });
+
+// 1b. Materialize the opencode-session renderer's generated entrypoint. Its
+// configured wwwRoot is `./dist/www-entry/opencode-session` (the entrypoint
+// cannot be committed under src/ — see generate-opencode-entry.mjs), and the
+// settings build below fails closed when a stream's wwwRoot entrypoint is
+// missing, so it must exist before cards-sdk runs.
+generateOpencodeEntry(pkgRoot);
 
 // 2. Generate the configuration bundle (settings.json + compiled handlers).
 //

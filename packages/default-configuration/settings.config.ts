@@ -41,7 +41,13 @@ export default defineConfig({
         },
         'opencode-session': {
           version: 1,
-          wwwRoot: './src/streams/opencode-session/www',
+          // Unlike the sibling streams, this entrypoint is generated (it
+          // cannot be committed under src/ — see
+          // scripts/generate-opencode-entry.mjs). scripts/build.mjs
+          // materializes it here before the settings build runs; pointing at
+          // the src/ directory instead would ship a wwwRoot that resolves to
+          // nothing at runtime.
+          wwwRoot: './dist/www-entry/opencode-session',
           // The Cards runtime exporter appends one normalized envelope per
           // line; OpenCode truncates tool output before it reaches the part,
           // so lines stay well under 1 MiB.

@@ -452,6 +452,12 @@ export default {
       `.trim()
     );
 
+    // The build fails closed on a missing wwwRoot entrypoint, so the renderer
+    // directory must exist for the streams section to be generated at all.
+    const rendererDir = join(testDir, 'renderers', 'test-stream');
+    mkdirSync(rendererDir, { recursive: true });
+    writeFileSync(join(rendererDir, 'index.html'), '<html><body>test</body></html>');
+
     const outdir = join(testDir, 'output');
     const result = await build({ config: configPath, outdir });
 
@@ -463,7 +469,7 @@ export default {
       expect(settings.environments.default.streams).toBeDefined();
       expect(settings.environments.default.streams['test-stream']).toBeDefined();
       expect(settings.environments.default.streams['test-stream'].version).toBe(1);
-      expect(settings.environments.default.streams['test-stream'].wwwRoot).toBe('./renderers/test-stream');
+      expect(settings.environments.default.streams['test-stream'].wwwRoot).toBe('./www/test-stream');
     }
   });
 
@@ -506,6 +512,11 @@ export default {
       `.trim()
     );
 
+    // Fail-closed wwwRoot check: the configured entrypoint (app.html) must exist.
+    const rendererDir = join(testDir, 'renderers', 'metadata');
+    mkdirSync(rendererDir, { recursive: true });
+    writeFileSync(join(rendererDir, 'app.html'), '<html><body>metadata</body></html>');
+
     const outdir = join(testDir, 'output');
     const result = await build({ config: configPath, outdir });
 
@@ -516,7 +527,7 @@ export default {
 
       const stream = settings.environments.default.streams.metadata;
       expect(stream.version).toBe(1);
-      expect(stream.wwwRoot).toBe('./renderers/metadata');
+      expect(stream.wwwRoot).toBe('./www/metadata');
       expect(stream.entrypoint).toBe('app.html');
       expect(stream.maxLineLength).toBe(2048);
       expect(stream.maxStreamSize).toBe(1048576);
@@ -601,6 +612,11 @@ export default {
       `.trim()
     );
 
+    // Fail-closed wwwRoot check: the entrypoint must exist before the build.
+    const rendererDir = join(testDir, 'renderers', 'full');
+    mkdirSync(rendererDir, { recursive: true });
+    writeFileSync(join(rendererDir, 'index.html'), '<html><body>full</body></html>');
+
     const outdir = join(testDir, 'output');
     const result = await build({ config: configPath, outdir });
 
@@ -614,7 +630,7 @@ export default {
 
       expect(settings.environments.default.actions).toHaveLength(1);
       expect(settings.environments.default.streams.full).toBeDefined();
-      expect(settings.environments.default.streams.full.wwwRoot).toBe('./renderers/full');
+      expect(settings.environments.default.streams.full.wwwRoot).toBe('./www/full');
     }
   });
 });
@@ -764,7 +780,7 @@ export default {
     expect(result.error).toContain('production');
   });
 
-  it('should pass through wwwRoot path unchanged when directory does not exist', async () => {
+  it('should fail closed when the wwwRoot entrypoint does not exist', async () => {
     const actionHandlerPath = join(testDir, 'action.ts');
     writeFileSync(
       actionHandlerPath,
@@ -797,12 +813,15 @@ export default {
     const outdir = join(testDir, 'output');
     const result = await build({ config: configPath, outdir });
 
-    expect(result.success).toBe(true);
-    if (!result.success) return;
+    // Passing the source path through would deploy a wwwRoot that resolves to
+    // nothing at runtime — the build must refuse and name the offending
+    // stream, environment, and resolved entrypoint path.
+    expect(result.success).toBe(false);
+    if (result.success) return;
 
-    // When wwwRoot doesn't exist, the original path is preserved
-    const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
-    expect(settings.environments.default.streams.missing.wwwRoot).toBe('./renderers/nonexistent');
+    expect(result.error).toContain('missing');
+    expect(result.error).toContain('default');
+    expect(result.error).toContain(join(testDir, 'renderers', 'nonexistent', 'index.html'));
   });
 });
 

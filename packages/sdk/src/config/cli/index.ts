@@ -372,10 +372,19 @@ async function processAllWwwRoots(
       const entrypoint = streamConfig.entrypoint ?? 'index.html';
       const entrypointPath = path.resolve(wwwRootDir, entrypoint);
 
-      // Skip processing if the wwwRoot directory or entrypoint doesn't exist —
-      // the original path passes through unchanged in settings.json.
+      // Fail closed when the entrypoint is missing. This used to pass the raw
+      // source path through into settings.json, which deploys a wwwRoot that
+      // resolves to nothing at runtime (the extension logs `renderer HTML load
+      // failed ENOENT` on every renderer-map build) — a broken renderer
+      // shipped silently. A generated entrypoint must be materialized before
+      // the settings build runs.
       if (!fs.existsSync(entrypointPath)) {
-        continue;
+        throw new Error(
+          `wwwRoot entrypoint not found for stream "${streamName}" (environment "${envName}"): ` +
+            `${entrypointPath}. The settings build bundles each stream's wwwRoot into the output, ` +
+            `so the entrypoint must exist before the build runs — generate or commit it first, ` +
+            `or remove the stream's wwwRoot.`
+        );
       }
 
       const priorOwner = outputDirOwner.get(streamName);

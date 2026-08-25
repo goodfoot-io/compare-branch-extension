@@ -919,8 +919,22 @@ describe('builder CLI: stream wwwRoot builds', () => {
     fs.rmSync(testDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
+  /**
+   * Creates a renderer directory with an entrypoint so the build's fail-closed
+   * wwwRoot check passes.
+   *
+   * @param name - Renderer directory name under `renderers/`.
+   * @param entrypoint - Entrypoint filename (defaults to `index.html`).
+   */
+  function writeRenderer(name: string, entrypoint = 'index.html'): void {
+    const rendererDir = path.join(testDir, 'renderers', name);
+    fs.mkdirSync(rendererDir, { recursive: true });
+    fs.writeFileSync(path.join(rendererDir, entrypoint), `<html><body>${name}</body></html>`);
+  }
+
   it('should build config with stream wwwRoot and include streams section in settings.json', async () => {
     writeHandler(testDir, 'action-start.ts', createActionHandler('Test Action', testDir));
+    writeRenderer('test-stream');
 
     const configPath = writeConfig(
       testDir,
@@ -954,11 +968,12 @@ export default {
     expect(settings.environments['default']!.streams).toBeDefined();
     expect(settings.environments['default']!.streams?.['test-stream']).toBeDefined();
     expect(settings.environments['default']!.streams?.['test-stream']!.version).toBe(1);
-    expect(settings.environments['default']!.streams?.['test-stream']!.wwwRoot).toBe('./renderers/test-stream');
+    expect(settings.environments['default']!.streams?.['test-stream']!.wwwRoot).toBe('./www/test-stream');
   });
 
   it('should support streams coexisting with actions', async () => {
     writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
+    writeRenderer('test-stream');
 
     const configPath = writeConfig(
       testDir,
@@ -1002,6 +1017,7 @@ export default {
 
   it('should preserve stream metadata in settings.json', async () => {
     writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
+    writeRenderer('metadata', 'app.html');
 
     const configPath = writeConfig(
       testDir,
@@ -1036,7 +1052,7 @@ export default {
     const streamConfig = settings.environments['default']!.streams?.['stream-with-metadata'];
     expect(streamConfig).toBeDefined();
     expect(streamConfig?.version).toBe(2);
-    expect(streamConfig?.wwwRoot).toBe('./renderers/metadata');
+    expect(streamConfig?.wwwRoot).toBe('./www/stream-with-metadata');
     expect(streamConfig?.entrypoint).toBe('app.html');
     expect(streamConfig?.maxLineLength).toBe(2048);
     expect(streamConfig?.maxStreamSize).toBe(1048576);
