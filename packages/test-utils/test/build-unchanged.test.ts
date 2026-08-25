@@ -4,7 +4,10 @@
  * Why: the gate must never skip a build it cannot prove fresh — missing or
  * empty outputs, missing or empty inputs, or any error must fall through to
  * running the command — and its file walk must handle the workspace's real
- * shapes (symlinked roots, nested directory symlinks, hidden files).
+ * shapes (symlinked roots, nested directory symlinks, hidden files). A
+ * foreign-checkout regression suite pins the provenance binding: outputs
+ * rebuilt by another checkout must read as stale even when their mtimes and
+ * paths look fresh.
  *
  * Behavior: runs against real files in per-test mkdtemp directories under
  * os.tmpdir(), with mtimes set explicitly via utimes so freshness
@@ -22,7 +25,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { collectFiles, isFresh } from '../src/bin/build-unchanged.js';
+import { collectFiles, fingerprintInputs, isFresh } from '../src/bin/build-unchanged.js';
 
 /** Absolute path of the bin under test, run as `node --experimental-transform-types`. */
 const BIN_PATH = fileURLToPath(new URL('../src/bin/build-unchanged.ts', import.meta.url));
@@ -377,6 +380,29 @@ describe('build-unchanged', () => {
       return { dir, manifestPath: join(dir, 'manifest.json') };
     }
 
+    /**
+     * Write a manifest fixture whose recorded fingerprint matches the given
+     * input roots' real contents, so each test isolates exactly one mismatch
+     * (a deleted set entry, or none at all) rather than tripping the
+     * malformed-manifest check.
+     *
+     * @param manifestPath - Where to write the manifest record.
+     * @param inputRoots - Roots whose current contents the fingerprint covers.
+     * @param cwd - The directory recorded paths are relative to.
+     * @param sets - The recorded path sets (hand-specified per test).
+     * @param sets.inputFiles - The recorded input paths.
+     * @param sets.outputFiles - The recorded output paths.
+     */
+    async function writeManifestFixture(
+      manifestPath: string,
+      inputRoots: string[],
+      cwd: string,
+      sets: { inputFiles: string[]; outputFiles: string[] }
+    ): Promise<void> {
+      const fingerprint = await fingerprintInputs(await collectFiles(inputRoots), cwd);
+      await writeFile(manifestPath, JSON.stringify({ inputFingerprint: fingerprint, ...sets }));
+    }
+
     it('rebuilds when the completion manifest is missing', async () => {
       const { dir, manifestPath } = await makeManifestFixture();
 
@@ -391,10 +417,10 @@ describe('build-unchanged', () => {
 
     it('rebuilds when an input recorded in the manifest was deleted', async () => {
       const { dir, manifestPath } = await makeManifestFixture();
-      await writeFile(
-        manifestPath,
-        JSON.stringify({ inputFiles: ['src/a.ts', 'src/gone.ts'], outputFiles: ['out/a.js'] })
-      );
+      await writeManifestFixture(manifestPath, [join(dir, 'src')], dir, {
+        inputFiles: ['src/a.ts', 'src/gone.ts'],
+        outputFiles: ['out/a.js']
+      });
 
       const result = await isFresh(
         { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath },
@@ -407,10 +433,10 @@ describe('build-unchanged', () => {
 
     it('rebuilds when an output recorded in the manifest was deleted', async () => {
       const { dir, manifestPath } = await makeManifestFixture();
-      await writeFile(
-        manifestPath,
-        JSON.stringify({ inputFiles: ['src/a.ts'], outputFiles: ['out/a.js', 'out/gone.js'] })
-      );
+      await writeManifestFixture(manifestPath, [join(dir, 'src')], dir, {
+        inputFiles: ['src/a.ts'],
+        outputFiles: ['out/a.js', 'out/gone.js']
+      });
 
       const result = await isFresh(
         { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath },
@@ -423,7 +449,10 @@ describe('build-unchanged', () => {
 
     it('skips when the manifest matches and outputs are fresh', async () => {
       const { dir, manifestPath } = await makeManifestFixture();
-      await writeFile(manifestPath, JSON.stringify({ inputFiles: ['src/a.ts'], outputFiles: ['out/a.js'] }));
+      await writeManifestFixture(manifestPath, [join(dir, 'src')], dir, {
+        inputFiles: ['src/a.ts'],
+        outputFiles: ['out/a.js']
+      });
 
       const result = await isFresh(
         { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath },
@@ -436,7 +465,10 @@ describe('build-unchanged', () => {
     it('ignores the manifest file itself when it lives inside an output root', async () => {
       const { dir } = await makeManifestFixture();
       const innerManifest = join(dir, 'out', '.build-unchanged.json');
-      await writeFile(innerManifest, JSON.stringify({ inputFiles: ['src/a.ts'], outputFiles: ['out/a.js'] }));
+      await writeManifestFixture(innerManifest, [join(dir, 'src')], dir, {
+        inputFiles: ['src/a.ts'],
+        outputFiles: ['out/a.js']
+      });
 
       const result = await isFresh(
         { inputRoots: [join(dir, 'src')], outputRoots: [join(dir, 'out')], manifestPath: innerManifest },
@@ -576,7 +608,13 @@ describe('build-unchanged', () => {
       return { checkoutA, checkoutB, sharedOut, manifestPath };
     }
 
-    /** Gate argv for one checkout, matching the production wiring shape. */
+    /**
+     * Gate argv for one checkout, matching the production wiring shape:
+     * package-relative roots and a manifest inside the symlinked output tree.
+     *
+     * @param command - The shell command the gate spawns on a rebuild.
+     * @returns The argv slice to pass to the bin runner.
+     */
     function gateArgs(command: string): string[] {
       return ['--input', 'src', '--output', 'out', '--manifest', 'out/.build-unchanged.json', '--', command];
     }

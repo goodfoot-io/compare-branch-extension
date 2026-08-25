@@ -9,9 +9,7 @@
  * must exist and be at least as new as the newest input file — and skips the
  * build only then. It is fail-closed: missing or empty outputs, missing or
  * empty input roots, any stat/read error, or any throw during the proof all
- * fall through to running the command, with the reason logged. Unlike a
- * content-hash cache, an mtime proof checks the actual on-disk output pair
- * the build produced rather than trusting a hash of the inputs.
+ * fall through to running the command, with the reason logged.
  *
  * Usage:
  * ```sh
@@ -32,22 +30,31 @@
  *
  * With `--manifest <file>`, the gate also keeps a depfile-style completion
  * record: after a successful build it writes the exact input and output file
- * sets there, and a skip additionally requires the manifest to exist and
- * both sets to match the current walk exactly. That is what lets the gate
- * see what an mtime walk alone cannot — a build that failed partway after
- * cleaning its outputs leaves no manifest (it is written only after the
- * command exits 0), and a source or output file deleted since the last
- * build changes its recorded set — so both force a rebuild instead of
- * blessing partial or stale outputs. The manifest belongs inside a
- * directory the build itself wipes on rebuild: the clean step is what
- * invalidates it when a build starts, making a stale manifest impossible.
+ * sets there plus a SHA-256 fingerprint over the producing inputs' contents,
+ * and a skip additionally requires the manifest to exist, both sets to match
+ * the current walk exactly, and the recorded fingerprint to equal a fresh
+ * fingerprint of the current inputs. That is what lets the gate see what an
+ * mtime walk alone cannot — a build that failed partway after cleaning its
+ * outputs leaves no manifest (it is written only after the command exits 0),
+ * a source or output file deleted since the last build changes its recorded
+ * set, and outputs rebuilt by a *foreign checkout* carry mtimes and paths
+ * that look fresh while their producing sources differ from this tree's —
+ * so all three force a rebuild instead of blessing partial or stale
+ * payloads. The fingerprint is what binds outputs to their producing
+ * sources: worktrees share output trees through symlinks by design, so
+ * whoever built last decided what the artifacts contain, and only a match
+ * between the recorded fingerprint and the local inputs proves those
+ * artifacts correspond to this tree. The manifest belongs inside a directory
+ * the build itself wipes on rebuild: the clean step is what invalidates it
+ * when a build starts, making a stale manifest impossible.
  *
  * @summary Skip a build command when outputs are newer than inputs, fail-closed
  * @module test-utils/src/bin/build-unchanged
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -72,10 +79,14 @@ export interface FreshnessInputs {
   outputRoots: string[];
   /**
    * Absolute path of the completion manifest recording the previous build's
-   * input/output file sets. When provided, a skip additionally requires the
-   * manifest to exist and both recorded sets to match the current walk
-   * exactly — that is what detects a build that failed partway (no manifest
-   * was written) and files deleted since the last build (set mismatch).
+   * input/output file sets and the fingerprint of the producing inputs'
+   * contents. When provided, a skip additionally requires the manifest to
+   * exist, both recorded sets to match the current walk exactly, and the
+   * recorded input fingerprint to equal a fresh fingerprint of the current
+   * inputs — that is what detects a build that failed partway (no manifest
+   * was written), files deleted since the last build (set mismatch), and
+   * outputs produced by a foreign checkout whose sources differ from this
+   * tree's (fingerprint mismatch).
    */
   manifestPath?: string;
 }
@@ -227,9 +238,9 @@ async function walkDirectory(root: string, files: CollectedFile[]): Promise<void
  * Decide whether every output file is at least as new as every input file.
  *
  * Fail-closed: missing or empty outputs, missing or empty inputs, any error
- * during collection, or (when a completion manifest is provided) a missing
- * or mismatched manifest all resolve to `fresh: false` with a reason
- * describing the failure, never to a skip.
+ * during collection, or (when a completion manifest is provided) a missing,
+ * malformed, set-mismatched, or provenance-mismatched manifest all resolve
+ * to `fresh: false` with a reason describing the failure, never to a skip.
  *
  * @param inputs - The input and output roots to compare.
  * @param cwd - The directory recorded paths are relative to.
@@ -269,10 +280,44 @@ export async function isFresh(inputs: FreshnessInputs, cwd: string = process.cwd
   return { fresh: true, reason: null };
 }
 
-/** The recorded input/output sets of one completed build. */
+/** The recorded input/output sets and input-content fingerprint of one completed build. */
 interface ManifestRecord {
+  /**
+   * SHA-256 over the producing build's input files — sorted package-relative
+   * paths and content bytes. A skip requires this to equal a fresh
+   * fingerprint of the current inputs, which is what proves the on-disk
+   * outputs were produced from exactly these sources: mtimes and path sets
+   * alone cannot tell a foreign checkout's rebuild from a local one.
+   */
+  inputFingerprint: string;
   inputFiles: string[];
   outputFiles: string[];
+}
+
+/**
+ * Fingerprint the contents of the given input files.
+ *
+ * SHA-256 over each file's package-relative path and raw bytes, in sorted
+ * path order with NUL separators so neither concatenation nor rename can
+ * alias a different input set to the same digest. The manifest itself is
+ * excluded by the caller on both the write and check sides — it lives
+ * beside the outputs it describes, and folding its own bytes into the
+ * fingerprint would make every rewrite invalidate the next check.
+ *
+ * @param files - The input files to fingerprint (absolute paths).
+ * @param cwd - The directory relative paths are taken against.
+ * @returns The hex digest of the input set.
+ */
+export async function fingerprintInputs(files: CollectedFile[], cwd: string): Promise<string> {
+  const hash = createHash('sha256');
+  const sorted = [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  for (const file of sorted) {
+    hash.update(relative(cwd, file.path));
+    hash.update('\0');
+    hash.update(await readFile(file.path));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
 }
 
 /**
@@ -303,8 +348,8 @@ function setDiff(current: string[], recorded: string[]): string | null {
 }
 
 /**
- * Compare the recorded input/output sets of the last completed build
- * against the current walk.
+ * Compare the recorded input/output sets and input fingerprint of the last
+ * completed build against the current walk.
  *
  * A missing manifest means the previous build did not finish (or never
  * ran): the build scripts wipe the manifest directory as their first
@@ -312,13 +357,17 @@ function setDiff(current: string[], recorded: string[]): string | null {
  * so its absence is proof that no complete build exists to bless. A
  * recorded set that differs from the current walk detects deletions and
  * additions on either side — exactly what a pure mtime comparison cannot
- * see.
+ * see. A recorded fingerprint that differs from a fresh fingerprint of
+ * the current inputs proves the outputs were produced from different
+ * source contents — the foreign-checkout case, where another worktree's
+ * rebuild leaves shared outputs that are newer than every local input yet
+ * built from sources this tree never had.
  *
  * @param manifestPath - Absolute path of the completion manifest.
  * @param inputFiles - Currently collected input files.
  * @param outputFiles - Currently collected output files.
  * @param cwd - The directory recorded paths are relative to.
- * @returns Fresh when the manifest exists, parses, and matches both sets.
+ * @returns Fresh when the manifest exists, parses, and matches both sets plus the input fingerprint.
  */
 async function checkManifest(
   manifestPath: string,
@@ -339,7 +388,11 @@ async function checkManifest(
     }
     return { fresh: false, reason: `completion manifest unreadable at ${manifestPath}: ${describeError(error)}` };
   }
-  if (!Array.isArray(record.inputFiles) || !Array.isArray(record.outputFiles)) {
+  if (
+    !Array.isArray(record.inputFiles) ||
+    !Array.isArray(record.outputFiles) ||
+    typeof record.inputFingerprint !== 'string'
+  ) {
     return { fresh: false, reason: `completion manifest malformed at ${manifestPath}` };
   }
   const relativePaths = (files: CollectedFile[]): string[] => files.map((file) => relative(cwd, file.path)).sort();
@@ -351,13 +404,26 @@ async function checkManifest(
   if (outputDiff !== null) {
     return { fresh: false, reason: `output set changed since the last completed build: ${outputDiff}` };
   }
+  const currentFingerprint = await fingerprintInputs(inputFiles, cwd);
+  if (record.inputFingerprint !== currentFingerprint) {
+    return {
+      fresh: false,
+      reason: `inputs changed since the last completed build: recorded fingerprint ${record.inputFingerprint.slice(0, 12)} does not match current ${currentFingerprint.slice(0, 12)} — outputs may have been produced by another checkout's sources`
+    };
+  }
   return { fresh: true, reason: null };
 }
 
 /**
- * Write the completion manifest recording this build's input and output sets.
- * Called only after the build command exits 0, so a manifest on disk is proof
- * a complete build ran with exactly the recorded sets.
+ * Write the completion manifest recording this build's input and output sets
+ * plus the fingerprint of the producing inputs' contents. Called only after
+ * the build command exits 0, so a manifest on disk is proof a complete build
+ * ran with exactly the recorded sets from exactly these sources.
+ *
+ * The write is atomic (temp file plus rename): sibling worktrees build
+ * concurrently through shared output trees, and a torn manifest read would
+ * fail closed as "unreadable" — correct but wasteful, so rename keeps every
+ * reader on a whole record.
  *
  * @param manifestPath - Absolute path of the manifest to write.
  * @param inputRoots - The input roots to record files from.
@@ -371,15 +437,22 @@ async function writeManifest(
   cwd: string
 ): Promise<void> {
   const [inputFiles, outputFiles] = await Promise.all([collectFiles(inputRoots), collectFiles(outputRoots)]);
+  const isNotManifest = (file: CollectedFile): boolean => file.path !== manifestPath;
   const record: ManifestRecord = {
-    inputFiles: inputFiles.map((file) => relative(cwd, file.path)).sort(),
+    inputFingerprint: await fingerprintInputs(inputFiles.filter(isNotManifest), cwd),
+    inputFiles: inputFiles
+      .filter(isNotManifest)
+      .map((file) => relative(cwd, file.path))
+      .sort(),
     outputFiles: outputFiles
-      .filter((file) => file.path !== manifestPath)
+      .filter(isNotManifest)
       .map((file) => relative(cwd, file.path))
       .sort()
   };
   await mkdir(dirname(manifestPath), { recursive: true });
-  await writeFile(manifestPath, JSON.stringify(record, null, 2));
+  const tmpPath = `${manifestPath}.tmp-${process.pid}`;
+  await writeFile(tmpPath, JSON.stringify(record, null, 2));
+  await rename(tmpPath, manifestPath);
 }
 
 /**
