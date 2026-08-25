@@ -7,11 +7,12 @@
  * @summary Tests for the OpenCode runtime session-start handler
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActionInput } from '@cards.management/sdk/config';
 import { addActiveSubagent } from '@cards.management/sessions/card-repo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OpencodeSessionHistoryEntry } from '../../../src/opencode/internal/deps.js';
 import { createSessionStartPlugin } from '../../../src/opencode/internal/runtime-handlers.js';
 import {
   type LogEntry,
@@ -88,6 +89,65 @@ function readLines(sessionId: string): Array<Record<string, unknown>> {
     .split('\n')
     .filter((line) => line.length > 0)
     .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+/**
+ * Reads a child session's materialized transcript under its root's
+ * subagents directory.
+ *
+ * @param rootId - Top-level root session id owning the directory.
+ * @param childId - Child (or grandchild) session whose file is parsed.
+ * @returns Parsed JSON objects, one per NDJSON line; empty when absent.
+ */
+function readChildLines(rootId: string, childId: string): Array<Record<string, unknown>> {
+  const path = join(tempDir, 'transcripts', rootId, 'subagents', `${childId}.jsonl`);
+  if (!existsSync(path)) {
+    return [];
+  }
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+/**
+ * Builds one history entry shaped like the session messages API payload.
+ *
+ * @param id - Message identifier (`data.id` of the exported message line).
+ * @param created - `info.time.created` epoch-ms.
+ * @param text - Text carried by the entry's single synthetic part.
+ * @returns One `{info, parts}` payload as the backfill loader would return it.
+ */
+function historyEntry(id: string, created: number, text: string): OpencodeSessionHistoryEntry {
+  return {
+    info: { id, sessionID: 'ses-resumed', role: 'user', time: { created } },
+    parts: [{ id: `prt-${id}`, sessionID: 'ses-resumed', messageID: id, type: 'text', text }]
+  };
+}
+
+/**
+ * Seeds the resumed session's transcript file with prior-run envelope lines.
+ *
+ * @param lines - Envelope objects written one per NDJSON line.
+ */
+function seedTranscript(lines: Array<Record<string, unknown>>): void {
+  mkdirSync(join(tempDir, 'transcripts'), { recursive: true });
+  writeFileSync(
+    join(tempDir, 'transcripts', 'ses-resumed.jsonl'),
+    `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`
+  );
+}
+
+function metaSeed(): Record<string, unknown> {
+  return { v: 1, ts: 'seeded', seq: 0, sessionId: 'ses-resumed', type: 'meta', data: {} };
+}
+
+function messageSeed(id: string): Record<string, unknown> {
+  return { v: 1, ts: 'seeded', seq: 0, sessionId: 'ses-resumed', type: 'message', data: { id } };
+}
+
+function partSeed(id: string): Record<string, unknown> {
+  return { v: 1, ts: 'seeded', seq: 0, sessionId: 'ses-resumed', type: 'part', data: { id, messageID: id } };
 }
 
 describe('runtime session-start plugin', () => {
@@ -181,15 +241,340 @@ describe('runtime session-start plugin', () => {
     expect(transcriptPath).toBe('ses-card.jsonl');
   });
 
-  it('ignores child sessions even inside an action', async () => {
+  it('keeps skipping children whose parent never classifies in this bundle (retained pin)', async () => {
     const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
     const plugin = createSessionStartPlugin(deps);
     const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
 
-    await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-card' }));
+    // Parent is never classified in this bundle: the child stays unexported
+    // (fail-closed until a known root resolves above it).
+    await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-never-seen' }));
+    await hooks.event?.(partUpdatedEvent('ses-child', 'subagent work'));
 
-    expect(readLines('ses-child')).toHaveLength(0);
+    expect(readChildLines('ses-never-seen', 'ses-child')).toHaveLength(0);
+    expect(existsSync(join(tempDir, 'transcripts', 'ses-never-seen'))).toBe(false);
     expect(recorders.watcherSpawns).toHaveLength(0);
+  });
+
+  describe('child session transcript export', () => {
+    it('streams child activity under <rootId>/subagents/ once the root is classified', async () => {
+      const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-card'));
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-card', version: '1.18.22' }));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'subagent work'));
+
+      const childPath = join(tempDir, 'transcripts', 'ses-card', 'subagents', 'ses-child.jsonl');
+      expect(existsSync(childPath)).toBe(true);
+      const lines = readChildLines('ses-card', 'ses-child');
+      expect(lines.map((line) => line['type'])).toEqual(['meta', 'part']);
+      expect(lines[0]).toMatchObject({
+        v: 1,
+        seq: 1,
+        sessionId: 'ses-child',
+        type: 'meta',
+        data: { runtime: 'opencode', opencodeVersion: '1.18.22', parentSessionId: 'ses-card' }
+      });
+      expect((lines[1]?.['data'] as Record<string, unknown>)['text']).toBe('subagent work');
+
+      // Child transcripts ride the SAME manifest/watcher as their root —
+      // the adapter's subagents glob picks the files up; nothing re-spawns.
+      expect(recorders.manifests).toHaveLength(1);
+      expect(recorders.manifests[0]?.sessionId).toBe('ses-card');
+      expect(recorders.watcherSpawns).toHaveLength(1);
+    });
+
+    it('writes exactly one child meta line and logs the start once despite repeated activity', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-card'));
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-card' }));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'one'));
+      await hooks.event?.(messageUpdatedEvent('ses-child'));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'two'));
+
+      const types = readChildLines('ses-card', 'ses-child').map((line) => line['type']);
+      expect(types).toEqual(['meta', 'part', 'message', 'part']);
+      expect(logEntries.filter((e) => e.message.includes('Streaming child session'))).toHaveLength(1);
+    });
+
+    it('heals a child announced before its parent classified: next activity exports', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      // Child announces created while ses-root is unclassified: dropped.
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'early subagent work'));
+      expect(readChildLines('ses-root', 'ses-child')).toHaveLength(0);
+
+      // Parent's first activity classifies it (rule b) and starts startup…
+      await hooks.event?.(partUpdatedEvent('ses-root', 'parent begins'));
+
+      // …and the child's NEXT activity flows into the child exporter.
+      await hooks.event?.(partUpdatedEvent('ses-child', 'late subagent work'));
+      const lines = readChildLines('ses-root', 'ses-child');
+      expect(lines.map((line) => line['type'])).toEqual(['meta', 'part']);
+      expect(lines[0]).toMatchObject({ data: { parentSessionId: 'ses-root' } });
+    });
+
+    it('exports grandchildren into the top-level root directory', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
+      await hooks.event?.(sessionCreatedEvent('ses-grandchild', { parentID: 'ses-child' }));
+      await hooks.event?.(partUpdatedEvent('ses-grandchild', 'nested agent work'));
+
+      const lines = readChildLines('ses-root', 'ses-grandchild');
+      expect(lines.map((line) => line['type'])).toEqual(['meta', 'part']);
+      expect(lines[0]).toMatchObject({ data: { parentSessionId: 'ses-root' } });
+      // The middle session opened an exporter at its created but streamed no
+      // content of its own.
+      expect(readChildLines('ses-root', 'ses-child').map((line) => line['type'])).toEqual(['meta']);
+    });
+
+    it('closes a deleted child exporter and drops subsequent child writes', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'before delete'));
+      await hooks.event?.(sessionDeletedEvent('ses-child'));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'after delete'));
+
+      expect(readChildLines('ses-root', 'ses-child').map((line) => line['type'])).toEqual(['meta', 'part']);
+    });
+
+    it('closes all child exporters when their root is deleted', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionCreatedEvent('ses-child-a', { parentID: 'ses-root' }));
+      await hooks.event?.(sessionCreatedEvent('ses-grandchild', { parentID: 'ses-child-a' }));
+      await hooks.event?.(partUpdatedEvent('ses-child-a', 'work'));
+      await hooks.event?.(partUpdatedEvent('ses-grandchild', 'nested work'));
+      await hooks.event?.(sessionDeletedEvent('ses-root'));
+      await hooks.event?.(partUpdatedEvent('ses-child-a', 'after root delete'));
+      await hooks.event?.(partUpdatedEvent('ses-grandchild', 'after root delete'));
+
+      expect(readChildLines('ses-root', 'ses-child-a').map((line) => line['type'])).toEqual(['meta', 'part']);
+      expect(readChildLines('ses-root', 'ses-grandchild').map((line) => line['type'])).toEqual(['meta', 'part']);
+    });
+
+    it('stays fully inert outside Cards actions, including children of classified roots', async () => {
+      const { deps } = makeDeps(tempDir);
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-user'));
+      await hooks.event?.(sessionCreatedEvent('ses-user-child', { parentID: 'ses-user' }));
+      await hooks.event?.(partUpdatedEvent('ses-user-child', 'user subagent work'));
+
+      expect(existsSync(join(tempDir, 'transcripts'))).toBe(false);
+      expect(logEntries.some((e) => e.message.includes('streaming child session'))).toBe(false);
+    });
+  });
+
+  describe('resume replay (backfill reconciliation)', () => {
+    const twoMessageHistory = (): Array<OpencodeSessionHistoryEntry> => [
+      historyEntry('msg-h1', 100, 'old question'),
+      historyEntry('msg-h2', 200, 'old answer')
+    ];
+
+    function lineTypes(): Array<string> {
+      return readLines('ses-resumed').map((line) => line['type'] as string);
+    }
+
+    it('replays [meta][history][live] into a fresh file in exactly that order', async () => {
+      let loaderCalls = 0;
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: async (sessionId) => {
+          expect(sessionId).toBe('ses-resumed');
+          loaderCalls += 1;
+          return twoMessageHistory();
+        }
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      // The triggering event itself is a live write: it must land after history.
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'live now'));
+
+      await vi.waitFor(() => expect(readLines('ses-resumed')).toHaveLength(6));
+
+      expect(loaderCalls).toBe(1);
+      const lines = readLines('ses-resumed');
+      expect(lineTypes()).toEqual(['meta', 'message', 'part', 'message', 'part', 'part']);
+      expect((lines[1]?.['data'] as Record<string, unknown>)['id']).toBe('msg-h1');
+      expect((lines[3]?.['data'] as Record<string, unknown>)['id']).toBe('msg-h2');
+      expect((lines[5]?.['data'] as Record<string, unknown>)['text']).toBe('live now');
+      expect(logEntries.some((e) => e.message.includes('reconciled 2 historical messages (2 parts)'))).toBe(true);
+    });
+
+    it('writes zero new lines when the file already holds the full history', async () => {
+      seedTranscript([
+        metaSeed(),
+        messageSeed('msg-h1'),
+        partSeed('prt-msg-h1'),
+        messageSeed('msg-h2'),
+        partSeed('prt-msg-h2')
+      ]);
+      let loaderCalls = 0;
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: async () => {
+          loaderCalls += 1;
+          return twoMessageHistory();
+        }
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'fresh turn'));
+
+      // Suppression covers history only — this run still appends its own
+      // meta header first, then the live tail. Seeded history stays intact.
+      await vi.waitFor(() => expect(readLines('ses-resumed')).toHaveLength(7));
+
+      expect(loaderCalls).toBe(1);
+      const lines = readLines('ses-resumed');
+      expect(lineTypes()).toEqual(['meta', 'message', 'part', 'message', 'part', 'meta', 'part']);
+      // Seeded history intact and untouched; only this run's header + live tail appended.
+      expect((lines[1]?.['data'] as Record<string, unknown>)['id']).toBe('msg-h1');
+      expect(lines[5]?.['type']).toBe('meta');
+      expect((lines[6]?.['data'] as Record<string, unknown>)['text']).toBe('fresh turn');
+      expect(logEntries.some((e) => e.message.includes('reconciled'))).toBe(false);
+    });
+
+    it('heals only the missing tail of a partially-populated file', async () => {
+      seedTranscript([metaSeed(), messageSeed('msg-h1'), partSeed('prt-msg-h1')]);
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: async () => twoMessageHistory()
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'live tail'));
+
+      await vi.waitFor(() => expect(readLines('ses-resumed')).toHaveLength(7));
+
+      const lines = readLines('ses-resumed');
+      // [seeded meta+history][this run's meta][missing history tail][live]
+      expect(lineTypes()).toEqual(['meta', 'message', 'part', 'meta', 'message', 'part', 'part']);
+      expect((lines[4]?.['data'] as Record<string, unknown>)['id']).toBe('msg-h2');
+      expect((lines[6]?.['data'] as Record<string, unknown>)['text']).toBe('live tail');
+      expect(logEntries.some((e) => e.message.includes('reconciled 1 historical messages (1 parts)'))).toBe(true);
+    });
+
+    it('keeps every live line strictly after all reconciled lines when the loader is deferred', async () => {
+      let resolveHistory!: (value: Array<OpencodeSessionHistoryEntry>) => void;
+      const gated = new Promise<Array<OpencodeSessionHistoryEntry>>((resolve) => {
+        resolveHistory = resolve;
+      });
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: () => gated
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'early live'));
+      await hooks.event?.(messageUpdatedEvent('ses-resumed'));
+      // Fetch still in flight: nothing but the header exists yet.
+      expect(lineTypes()).toEqual(['meta']);
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'late live'));
+      expect(lineTypes()).toEqual(['meta']);
+
+      resolveHistory([historyEntry('msg-h9', 5, 'backfilled turn')]);
+      await vi.waitFor(() => expect(readLines('ses-resumed')).toHaveLength(6));
+
+      const lines = readLines('ses-resumed');
+      expect(lineTypes()).toEqual(['meta', 'message', 'part', 'part', 'message', 'part']);
+      expect((lines[2]?.['data'] as Record<string, unknown>)['text']).toBe('backfilled turn');
+      expect((lines[3]?.['data'] as Record<string, unknown>)['text']).toBe('early live');
+      // The buffered message line keeps its arrival slot between the two parts.
+      expect(lines[4]?.['type']).toBe('message');
+      expect((lines[5]?.['data'] as Record<string, unknown>)['text']).toBe('late live');
+    });
+
+    it('warns and keeps streaming when the loader throws', async () => {
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: () => Promise.reject(new Error('db locked'))
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'during failure'));
+
+      await vi.waitFor(() => {
+        expect(lineTypes()).toEqual(['meta', 'part']);
+        expect(
+          logEntries.some((e) => e.level === 'warn' && e.message.includes('Failed to reconcile historical messages'))
+        ).toBe(true);
+      });
+      expect(stderrWrites.join('')).not.toContain('failed (fail-open)');
+      // The loader's error detail rides the warn entry's structured extra.
+      expect(logEntries.some((e) => e.level === 'warn' && JSON.stringify(e.extra ?? {}).includes('db locked'))).toBe(
+        true
+      );
+
+      // Live streaming continues unaffected.
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'still streaming'));
+      expect(lineTypes()).toEqual(['meta', 'part', 'part']);
+      expect(logEntries.some((e) => e.message.includes('reconciled'))).toBe(false);
+    });
+
+    it('writes meta only for an empty history result', async () => {
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: async () => []
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'first live'));
+
+      await vi.waitFor(() => expect(readLines('ses-resumed')).toHaveLength(2));
+      expect(lineTypes()).toEqual(['meta', 'part']);
+      expect(logEntries.some((e) => e.message.includes('reconciled'))).toBe(false);
+    });
+
+    it('never reconciles child sessions', async () => {
+      const requested: string[] = [];
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: async (sessionId) => {
+          requested.push(sessionId);
+          return [];
+        }
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-card'));
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-card' }));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'child work'));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'more child work'));
+
+      await vi.waitFor(() => expect(readChildLines('ses-card', 'ses-child').length).toBeGreaterThanOrEqual(2));
+
+      expect(requested).toEqual(['ses-card']);
+    });
   });
 
   describe('resumed sessions (I5 correction): never re-emit session.created', () => {
@@ -261,23 +646,26 @@ describe('runtime session-start plugin', () => {
       expect(output.system[0]).toContain('CARD_ID=main-453');
     });
 
-    it('keeps child sessions skipped even when their activity arrives first in this bundle', async () => {
-      const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+    it('exports a child whose resumed parent classifies first; shell.env stays root-only', async () => {
+      // Converted child-skip pin: the resumed parent heals via rule (b) from
+      // its own activity, after which the child exports under its directory.
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
       const plugin = createSessionStartPlugin(deps);
       const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
 
-      // Child announces created(parentID); its activity must stay ignored.
+      await hooks.event?.(partUpdatedEvent('ses-root', 'resumed parent begins'));
       await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
       await hooks.event?.(partUpdatedEvent('ses-child', 'subagent work'));
 
+      const lines = readChildLines('ses-root', 'ses-child');
+      expect(lines.map((line) => line['type'])).toEqual(['meta', 'part']);
+
+      // Identity injection remains strictly root-gated.
       const output = { env: {} as Record<string, string> };
       await (hooks as { 'shell.env'?: (i: unknown, o: unknown) => Promise<void> })['shell.env']?.(
         { cwd: tempDir, sessionID: 'ses-child' },
         output
       );
-
-      expect(readLines('ses-child')).toHaveLength(0);
-      expect(recorders.watcherSpawns).toHaveLength(0);
       expect(Object.keys(output.env)).toHaveLength(0);
     });
 

@@ -6,14 +6,16 @@
  * appending one normalized envelope per line:
  *
  * ```
- * {"v":1,"ts":"<iso>","seq":<n>,"sessionId":"<id>","type":"meta"|"message"|"part","data":{…}}
+ * {"v":1,"ts":"<iso>","seq":<n>,"sessionId":"<id>","type":"meta"|"message"|"part"|"idle","data":{…}}
  * ```
  *
- * - `meta` — written once at session start: `{runtime, opencodeVersion}`.
+ * - `meta` — written at session start (and again on every resume): `{runtime, opencodeVersion}`.
  * - `message` — the OpenCode message info record from `message.updated`
  *   (role, model/provider ids, timestamps; no content).
  * - `part` — an OpenCode message part from `message.part.updated`
  *   (`text` / `reasoning` / `tool` / structural variants).
+ * - `idle` — written when the bus reports `session.idle`: the session's turn
+ *   loop ended. Payload is empty; the envelope timestamp is the marker.
  *
  * All nested shapes are modeled defensively: unknown part types and unknown
  * fields are preserved as raw fallbacks rather than rejected. Malformed JSON —
@@ -101,6 +103,7 @@ export type OpencodeLine =
   | { kind: 'meta'; ts: string; seq: number; sessionId: string; data: OpencodeSessionMeta }
   | { kind: 'message'; ts: string; seq: number; sessionId: string; data: OpencodeMessageInfo }
   | { kind: 'part'; ts: string; seq: number; sessionId: string; data: OpencodePart }
+  | { kind: 'idle'; ts: string; seq: number; sessionId: string }
   | { kind: 'unknown'; ts?: string; raw: Record<string, unknown> }
   | { kind: 'malformed'; raw: string };
 
@@ -167,6 +170,9 @@ export function parseOpencodeLine(raw: string): OpencodeLine {
           ? envelope['data']
           : {}) as OpencodePart
       };
+    case 'idle':
+      // The payload is empty by contract; only the envelope timestamp matters.
+      return { kind: 'idle', ts, seq, sessionId };
     default:
       return { kind: 'unknown', ts: ts || undefined, raw: envelope };
   }

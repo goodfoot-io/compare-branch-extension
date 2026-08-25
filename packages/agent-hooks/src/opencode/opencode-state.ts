@@ -244,6 +244,20 @@ export interface RootSessionRegistry {
   forget(sessionId: string): void;
   /** `true` when the id names a known root session. */
   isRoot(sessionId: string): boolean;
+  /**
+   * Resolves the top-level root ancestor of a child session by walking
+   * `childLinks` upward until a known root is reached (grandchildren resolve
+   * to their top-level root).
+   *
+   * Pure lookup: unlinked sessions — including roots themselves and unknown
+   * ids — return `null`, as does any chain that tops out at a session that
+   * has not classified as a root yet. A contradictory payload cycle fails
+   * closed with `null`.
+   *
+   * @param sessionId - Child session identifier to resolve from.
+   * @returns The top-level root id, or `null` when none is reachable.
+   */
+  rootAncestorOf(sessionId: string): string | null;
   /** Known root ids in first-seen order. */
   rootIds(): string[];
   /** Number of tracked root sessions. */
@@ -311,6 +325,27 @@ export function createRootSessionRegistry(): RootSessionRegistry {
       }
     },
     isRoot: (sessionId) => roots.has(sessionId),
+    rootAncestorOf: (sessionId) => {
+      let current = childLinks.get(sessionId);
+      if (current === undefined) {
+        return null;
+      }
+      const visited = new Set<string>([sessionId]);
+      while (!roots.has(current)) {
+        if (visited.has(current)) {
+          // Contradictory created payloads formed a cycle — fail closed.
+          return null;
+        }
+        visited.add(current);
+        const parent = childLinks.get(current);
+        if (parent === undefined) {
+          // The chain tops out at an unclassified session; no known root above.
+          return null;
+        }
+        current = parent;
+      }
+      return current;
+    },
     rootIds: () => [...order],
     get size() {
       return roots.size;

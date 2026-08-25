@@ -117,6 +117,57 @@ describe('root session registry', () => {
       expect(registry.size).toBe(0);
     });
   });
+
+  describe('rootAncestorOf', () => {
+    it('resolves a direct child to its classified root', () => {
+      const registry = createRootSessionRegistry();
+      registry.observe({ id: 'ses-root' });
+      registry.observe({ id: 'ses-child', parentID: 'ses-root' });
+      expect(registry.rootAncestorOf('ses-child')).toBe('ses-root');
+    });
+
+    it('resolves a grandchild to the top-level root', () => {
+      const registry = createRootSessionRegistry();
+      registry.observe({ id: 'ses-root' });
+      registry.observe({ id: 'ses-child', parentID: 'ses-root' });
+      registry.observe({ id: 'ses-grandchild', parentID: 'ses-child' });
+      expect(registry.rootAncestorOf('ses-grandchild')).toBe('ses-root');
+    });
+
+    it('returns null for unlinked sessions, including roots themselves', () => {
+      const registry = createRootSessionRegistry();
+      registry.observe({ id: 'ses-root' });
+      expect(registry.rootAncestorOf('ses-root')).toBeNull();
+      expect(registry.rootAncestorOf('ses-unknown')).toBeNull();
+      expect(registry.rootAncestorOf('')).toBeNull();
+    });
+
+    it('returns null while no ancestor in the chain has classified as root yet', () => {
+      const registry = createRootSessionRegistry();
+      registry.observe({ id: 'ses-child', parentID: 'ses-root' });
+      // Linked but ses-root is not (yet) a known root.
+      expect(registry.rootAncestorOf('ses-child')).toBeNull();
+      registry.observe({ id: 'ses-root' });
+      expect(registry.rootAncestorOf('ses-child')).toBe('ses-root');
+    });
+
+    it('returns null when the chain tops out at an unclassified middle session', () => {
+      const registry = createRootSessionRegistry();
+      registry.observe({ id: 'ses-root' });
+      registry.observe({ id: 'ses-grandchild', parentID: 'ses-middle' });
+      // ses-middle never announced created and never classified: dead end.
+      expect(registry.rootAncestorOf('ses-grandchild')).toBeNull();
+    });
+
+    it('stops resolving after forget drops the root link', () => {
+      const registry = createRootSessionRegistry();
+      registry.observe({ id: 'ses-root' });
+      registry.observe({ id: 'ses-child', parentID: 'ses-root' });
+      expect(registry.rootAncestorOf('ses-child')).toBe('ses-root');
+      registry.forget('ses-root');
+      expect(registry.rootAncestorOf('ses-child')).toBeNull();
+    });
+  });
 });
 
 describe('CONTRACT-C transcript exporter', () => {

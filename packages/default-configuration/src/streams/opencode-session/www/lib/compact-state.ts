@@ -50,6 +50,10 @@ export interface OpencodeCompactState {
   tail: OpencodeTailEvent[];
   /** `true` when at least one tool call in the session errored. */
   hasErrors: boolean;
+  /** `true` when the primary stream's sidecar role marks a child transcript (`'subagent'`/`'auxiliary'`). */
+  isSubagent: boolean;
+  /** Sidecar `agentId` of a subagent/auxiliary stream; absent for main streams. */
+  agentId?: string;
 }
 
 /** Maximum number of items retained in the bounded recent-activity tail. */
@@ -275,13 +279,17 @@ function processLine(fold: OpencodeFoldState, raw: string): void {
 /**
  * Derives the bounded {@link OpencodeCompactState} snapshot from a fold
  * accumulator. Derived values (headline, duration) stay computed here so
- * appending never needs a post-pass over already-folded history.
+ * appending never needs a post-pass over already-folded history. Sidecar
+ * identity arrives per call (never folded from lines), mirroring
+ * claude-code-session's labeling source.
  *
  * @param fold - The fold accumulator to snapshot.
  * @param isActive - Whether the underlying stream is still live.
+ * @param role - The primary stream's sidecar `role`.
+ * @param agentId - The primary stream's sidecar `agentId`, present for subagent/auxiliary streams.
  * @returns The bounded compact-view state snapshot.
  */
-function snapshot(fold: OpencodeFoldState, isActive: boolean): OpencodeCompactState {
+function snapshot(fold: OpencodeFoldState, isActive: boolean, role?: string, agentId?: string): OpencodeCompactState {
   return {
     isActive,
     headlineText: fold.latestAssistantText ?? fold.latestToolName ?? '',
@@ -294,7 +302,9 @@ function snapshot(fold: OpencodeFoldState, isActive: boolean): OpencodeCompactSt
     // shared with the accumulator's tail and mutated in place by later
     // streaming updates.
     tail: [...fold.tail],
-    hasErrors: fold.hasErrors
+    hasErrors: fold.hasErrors,
+    isSubagent: role === 'subagent' || role === 'auxiliary',
+    agentId
   };
 }
 
@@ -307,14 +317,21 @@ function snapshot(fold: OpencodeFoldState, isActive: boolean): OpencodeCompactSt
  *
  * @param lines - The authoritative accumulated transcript NDJSON lines.
  * @param isActive - Whether the underlying stream is still live.
+ * @param role - The primary stream's sidecar `role` (`'main'`/`'subagent'`/`'auxiliary'`).
+ * @param agentId - The primary stream's sidecar `agentId`, present for subagent/auxiliary streams.
  * @returns The bounded compact-view state.
  */
-export function buildOpencodeCompactState(lines: string[], isActive: boolean): OpencodeCompactState {
+export function buildOpencodeCompactState(
+  lines: string[],
+  isActive: boolean,
+  role?: string,
+  agentId?: string
+): OpencodeCompactState {
   const fold = makeFold();
   for (const raw of lines) {
     processLine(fold, raw);
   }
-  return snapshot(fold, isActive);
+  return snapshot(fold, isActive, role, agentId);
 }
 
 /**
@@ -323,14 +340,16 @@ export function buildOpencodeCompactState(lines: string[], isActive: boolean): O
  *
  * @param lines - The authoritative accumulated transcript NDJSON lines.
  * @param isActive - Whether the underlying stream is still live.
+ * @param role - The primary stream's sidecar `role`.
+ * @param agentId - The primary stream's sidecar `agentId`, present for subagent/auxiliary streams.
  * @returns The folded state with its line watermark.
  */
-export function buildFoldedState(lines: string[], isActive: boolean): FoldedState {
+export function buildFoldedState(lines: string[], isActive: boolean, role?: string, agentId?: string): FoldedState {
   const fold = makeFold();
   for (const raw of lines) {
     processLine(fold, raw);
   }
-  return { state: snapshot(fold, isActive), fold, lineCount: lines.length };
+  return { state: snapshot(fold, isActive, role, agentId), fold, lineCount: lines.length };
 }
 
 /**
@@ -345,22 +364,39 @@ export function buildFoldedState(lines: string[], isActive: boolean): FoldedStat
  * New trailing lines (the common append, and the initial history fold) are
  * folded incrementally onto the prior accumulator; a shrink — `lines` shorter
  * than what was folded — triggers a full rebuild so no stale tally survives.
- * When the line count and liveness are unchanged the previous folded value is
- * returned by reference so React can bail out of a re-render.
+ * When the line count, liveness, and sidecar identity are unchanged the
+ * previous folded value is returned by reference so React can bail out of a
+ * re-render.
  *
  * @param prev - The previously folded state and its line watermark.
  * @param lines - The authoritative current lines from the store.
  * @param isActive - Whether the underlying stream is still live.
+ * @param role - The primary stream's sidecar `role`.
+ * @param agentId - The primary stream's sidecar `agentId`, present for subagent/auxiliary streams.
  * @returns The reconciled folded state; `prev` by reference when nothing changed.
  */
-export function reconcileFolded(prev: FoldedState, lines: string[], isActive: boolean): FoldedState {
+export function reconcileFolded(
+  prev: FoldedState,
+  lines: string[],
+  isActive: boolean,
+  role?: string,
+  agentId?: string
+): FoldedState {
   const n = lines.length;
-  if (n === prev.lineCount && isActive === prev.state.isActive) return prev;
-  if (n < prev.lineCount) return buildFoldedState(lines, isActive);
+  const isSubagent = role === 'subagent' || role === 'auxiliary';
+  if (
+    n === prev.lineCount &&
+    isActive === prev.state.isActive &&
+    isSubagent === prev.state.isSubagent &&
+    agentId === prev.state.agentId
+  ) {
+    return prev;
+  }
+  if (n < prev.lineCount) return buildFoldedState(lines, isActive, role, agentId);
   const fold = prev.fold;
   for (let i = prev.lineCount; i < n; i++) {
     const line = lines[i];
     if (line !== undefined) processLine(fold, line);
   }
-  return { state: snapshot(fold, isActive), fold, lineCount: n };
+  return { state: snapshot(fold, isActive, role, agentId), fold, lineCount: n };
 }

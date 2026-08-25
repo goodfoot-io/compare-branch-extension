@@ -15,7 +15,8 @@
  *   `message` line records its message id's role, and a `text` part renders as
  *   a user or assistant message according to that role. The `session_header`
  *   item is back-patched in place with model/provider/cwd once a message
- *   record carrying them arrives.
+ *   record carrying them arrives, and `idle` lines mark its `idleAt` so the
+ *   status derivation can tell "turn loop ended" from stream liveness.
  * - **Part updates**: `message.part.updated` re-fires for the same part id as
  *   a tool or text part progresses, and the exporter appends every update.
  *   Later updates for an already-emitted part replace that item in place
@@ -49,6 +50,8 @@ export type TranscriptItem =
       provider?: string;
       cwd?: string;
       timestamp?: string;
+      /** Envelope timestamp of the latest `idle` line — the session's turn loop has ended. */
+      idleAt?: string;
     }
   | { kind: 'user_message'; text: string; timestamp?: string }
   | { kind: 'assistant_message'; text: string; timestamp?: string }
@@ -349,6 +352,17 @@ export function renderOpencodeTranscript(lines: string[]): TranscriptItem[] {
           if (header.cwd === undefined && typeof line.data.path?.cwd === 'string') {
             header.cwd = line.data.path.cwd;
           }
+        }
+        break;
+      }
+
+      case 'idle': {
+        // Live idle marker: fold onto the existing header rather than append a
+        // row. Before any meta has arrived there is nothing to mark — drop. A
+        // ts-less envelope cannot timestamp the marker, so it stays unmarked
+        // (mirrors meta's defensive empty-ts read).
+        if (header !== undefined && line.ts.length > 0) {
+          header.idleAt = line.ts;
         }
         break;
       }

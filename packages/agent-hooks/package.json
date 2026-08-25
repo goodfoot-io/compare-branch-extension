@@ -27,6 +27,7 @@
     "@biomejs/biome": "^2.4.14",
     "@cards.management/test-utils": "workspace:*",
     "@opencode-ai/plugin": "1.18.21",
+    "@opencode-ai/sdk": "1.18.21",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",

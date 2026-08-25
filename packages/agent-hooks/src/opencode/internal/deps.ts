@@ -29,11 +29,70 @@ import {
   markSessionSkillLoaded,
   removeActiveSubagent
 } from '@cards.management/sessions/card-repo';
+import type { Plugin } from '@opencode-ai/plugin';
 import { defaultOpencodeStateIo, type OpencodeStateIo } from '../opencode-state.js';
+
+/**
+ * One stored message with its parts, shaped like the session messages API
+ * payload (`GET /session/{id}/message` → `Array<{info, parts[]}>`).
+ *
+ * @summary History entry for resume backfill
+ */
+export interface OpencodeSessionHistoryEntry {
+  /** Message record (`info.time.created` orders the backfill). */
+  info: Record<string, unknown>;
+  /** Parts belonging to this message; exported riding their message. */
+  parts: Array<Record<string, unknown>>;
+}
+
+/** Loads the stored history of one session, any order (callers normalize). */
+export type LoadSessionHistory = (sessionId: string) => Promise<Array<OpencodeSessionHistoryEntry>>;
+
+/**
+ * Sorts history entries ascending by `info.time.created ?? 0`, with a stable
+ * tiebreak on input order. The API is observed pre-sorted (spike S1); this is
+ * the plan's safety net against ordering regressions.
+ *
+ * @param entries - Entries in any order.
+ * @returns A new array in export order.
+ */
+export function sortSessionHistory(entries: Array<OpencodeSessionHistoryEntry>): Array<OpencodeSessionHistoryEntry> {
+  const createdOf = (info: Record<string, unknown>): number => {
+    const time = info['time'] as { created?: unknown } | undefined;
+    return typeof time?.created === 'number' ? time.created : 0;
+  };
+  return entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => createdOf(a.entry.info) - createdOf(b.entry.info) || a.index - b.index)
+    .map((wrapped) => wrapped.entry);
+}
+
+/**
+ * Builds the default session-history loader over the plugin's captured
+ * OpenCode client (loopback into the co-located server).
+ *
+ * @param client - Live SDK client handed to the plugin at init.
+ * @returns A loader resolving the full sorted history for one session.
+ */
+export function createSdkSessionHistory(client: Parameters<Plugin>[0]['client']): LoadSessionHistory {
+  return async (sessionId) => {
+    const result = await client.session.messages({ path: { id: sessionId } });
+    if (!result.data) {
+      const detail = (() => {
+        try {
+          return JSON.stringify(result.error);
+        } catch {
+          return 'unserializable error';
+        }
+      })();
+      throw new Error(`opencode session messages failed: ${detail}`);
+    }
+    return sortSessionHistory(result.data as unknown as Array<OpencodeSessionHistoryEntry>);
+  };
+}
 
 /** Session marker operations persisted under `~/.cards/card-repo-commits/`. */
 export interface OpencodeMarkerDeps {
-  /** `true` when the skill-load marker exists for the session. */
   hasSkillLoaded(sessionId: string, skillName: string): boolean;
   /** Records the skill-load marker. */
   markSkillLoaded(sessionId: string, skillName: string): void;
@@ -84,6 +143,15 @@ export interface OpencodeHandlerDeps {
   shutdownRunbookPath(): string;
   /** Directory root for materialized transcripts. */
   transcriptsRoot(): string;
+  /**
+   * Loads the stored history of one session for resume backfill.
+   *
+   * Optional: when absent, the session-start plugin builds the SDK-backed
+   * default ({@link createSdkSessionHistory}) over its captured OpenCode
+   * client — full `{info, parts[]}` history sorted ascending by
+   * `info.time.created ?? 0` with a stable input-order tiebreak.
+   */
+  loadSessionHistory?(sessionId: string): Promise<Array<OpencodeSessionHistoryEntry>>;
 }
 
 /**

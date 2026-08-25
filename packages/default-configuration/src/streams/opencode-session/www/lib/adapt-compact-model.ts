@@ -2,9 +2,10 @@
  * Adapts opencode-session {@link OpencodeCompactState} into the provider-neutral
  * {@link CompactCardModel} the shared `CompactCard` component renders.
  *
- * Mirrors the codex-session adapter's shape with OpenCode's signal set: no
- * subagent concept, one shared duration string for both the stacked and split
- * meta slots. Tail severity is derived from the compact state's error
+ * Mirrors the codex-session adapter's shape with OpenCode's signal set, plus
+ * claude-code-session's subagent labeling: a stream whose sidecar `role`
+ * marks it a child transcript surfaces its sidecar `agentId` as the card's
+ * subagent label. Tail severity is derived from the compact state's error
  * detection: failed tool calls map to `'error'`; everything else is
  * `'neutral'`.
  *
@@ -54,10 +55,14 @@ export function opencodeToCompactCardModel(state: OpencodeCompactState, isActive
     severity: event.severity === 'error' ? 'error' : 'neutral'
   }));
 
+  // Claude parity: the label surfaces only when the sidecar marks the stream
+  // a child transcript AND carries an agentId.
+  const subagentLabel = state.isSubagent && state.agentId ? state.agentId : undefined;
+
   return {
     dotClass,
     statusWord,
-    subagentLabel: undefined,
+    subagentLabel,
     metaStacked: meta,
     metaSplit: meta,
     headline: state.headlineText,

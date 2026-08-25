@@ -29,26 +29,33 @@ import type { FoldedState } from '../../lib/compact-state';
 import { buildFoldedState, reconcileFolded } from '../../lib/compact-state';
 
 /**
- * Reads the primary stream file's lines and liveness from the store.
- * @returns The primary file's lines and `isActive` flag.
+ * Reads the primary stream file's lines, liveness, and sidecar identity
+ * fields from the store.
+ * @returns The primary file's lines, `isActive` flag, and sidecar `role`/`agentId`.
  */
-function readPrimary(): { lines: string[]; isActive: boolean } {
+function readPrimary(): { lines: string[]; isActive: boolean; role: string | undefined; agentId: string | undefined } {
   const s = streamStore.getState();
   const file = s.files.get(s.primary);
-  return { lines: file ? file.lines : [], isActive: file?.meta.isActive ?? false };
+  return {
+    lines: file ? file.lines : [],
+    isActive: file?.meta.isActive ?? false,
+    role: file?.meta.role,
+    agentId: file?.meta.agentId
+  };
 }
 
 /**
  * Compact OpenCode session card. Folds the primary stream into a
  * {@link FoldedState}, adapts its snapshot into a `CompactCardModel`, and ticks
  * while the stream is active. Closes the renderer when the primary file has
- * zero lines.
+ * zero lines. Sidecar `role`/`agentId` flow through to the adapter so a child
+ * transcript's card surfaces its subagent label (claude parity).
  * @returns Rendered compact card.
  */
 export function OpencodeCompactView(): React.ReactElement {
   const [folded, setFolded] = useState<FoldedState>(() => {
-    const { lines, isActive } = readPrimary();
-    return buildFoldedState(lines, isActive);
+    const { lines, isActive, role, agentId } = readPrimary();
+    return buildFoldedState(lines, isActive, role, agentId);
   });
   const [isActive, setIsActive] = useState<boolean>(() => readPrimary().isActive);
 
@@ -59,9 +66,9 @@ export function OpencodeCompactView(): React.ReactElement {
   // so steady-state updates parse just the new lines; shrink/reset rebuilds.
   useEffect(() => {
     const sync = (): void => {
-      const { lines, isActive: active } = readPrimary();
+      const { lines, isActive: active, role, agentId } = readPrimary();
       setIsActive(active);
-      setFolded((prev) => reconcileFolded(prev, lines, active));
+      setFolded((prev) => reconcileFolded(prev, lines, active, role, agentId));
     };
     sync();
     return streamStore.subscribe(sync);
@@ -89,8 +96,8 @@ export function OpencodeCompactView(): React.ReactElement {
   useEffect(() => {
     if (!isActive) return;
     const id = setInterval(() => {
-      const { lines, isActive: active } = readPrimary();
-      setFolded((prev) => reconcileFolded(prev, lines, active));
+      const { lines, isActive: active, role, agentId } = readPrimary();
+      setFolded((prev) => reconcileFolded(prev, lines, active, role, agentId));
     }, 1000);
     return () => clearInterval(id);
   }, [isActive]);

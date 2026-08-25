@@ -187,6 +187,8 @@ export function makeDeps(
     mergeRunbookPath: () => join(root, 'skills', 'card', 'references', 'merge.md'),
     shutdownRunbookPath: () => join(root, 'skills', 'card', 'references', 'shutdown.md'),
     transcriptsRoot: () => join(root, 'transcripts'),
+    // Resume backfill baseline: no stored history. Backfill tests override.
+    loadSessionHistory: async () => [],
     ...overrides
   };
 

@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { type OpencodeLine, parseOpencodeLine } from '../src/streams/opencode-session/www/lib/parser.js';
 import { renderOpencodeTranscript } from '../src/streams/opencode-session/www/lib/render-transcript.js';
+import { deriveStatus } from '../src/streams/opencode-session/www/lib/to-thread-messages.js';
 
 /**
  * Wraps a payload in the exporter's envelope.
@@ -308,5 +309,83 @@ describe('opencode line type narrowing', () => {
       default:
         throw new Error(`unexpected kind: ${parsed.kind}`);
     }
+  });
+});
+
+describe('opencode idle surfacing (R-2)', () => {
+  const IDLE_META = envelope('meta', { runtime: 'opencode', opencodeVersion: '1.18.21' }, 1);
+  const IDLE_ASSISTANT = envelope(
+    'message',
+    { id: 'msg-a', role: 'assistant', modelID: 'claude-x', providerID: 'anthropic' },
+    2
+  );
+
+  it('parses an idle envelope to kind idle carrying envelope fields', () => {
+    const line = parseOpencodeLine(envelope('idle', {}, 9));
+
+    expect(line.kind).toBe('idle');
+    if (line.kind === 'idle') {
+      expect(line.seq).toBe(9);
+      expect(line.sessionId).toBe('ses-123');
+    }
+  });
+
+  it('marks the existing header with idleAt and a later meta merge preserves it', () => {
+    const items = renderOpencodeTranscript([
+      IDLE_META,
+      IDLE_ASSISTANT,
+      envelope('part', { id: 'p20', messageID: 'msg-a', type: 'text', text: 'done' }, 4),
+      envelope('idle', {}, 5),
+      envelope('meta', { runtime: 'opencode', opencodeVersion: '1.18.22' }, 6)
+    ]);
+
+    const headers = items.filter((item) => item.kind === 'session_header');
+    expect(headers).toHaveLength(1);
+    // The idle marker survives the later resume-meta merge…
+    expect(headers[0]).toMatchObject({ idleAt: '2026-06-04T12:00:00.000Z' });
+    // …and the merge still patches identity fields.
+    expect(headers[0]).toMatchObject({ opencodeVersion: '1.18.22' });
+    // An idle marker is not a transcript row.
+    expect(items.every((item) => item.kind !== 'unknown_item')).toBe(true);
+  });
+
+  it('drops an idle line silently when no header exists yet', () => {
+    const items = renderOpencodeTranscript([envelope('idle', {}, 1)]);
+
+    expect(items).toEqual([]);
+  });
+
+  it('derives not-running from active + idle, with error still winning', () => {
+    const idleHeader = { kind: 'session_header' as const, idleAt: '2026-06-04T12:00:00.000Z' };
+    const plainHeader = { kind: 'session_header' as const };
+    const erroredTool = {
+      kind: 'tool_call' as const,
+      name: 'bash',
+      callId: 'call-1',
+      argumentsText: '',
+      prettyPrinted: false,
+      hasOutput: false,
+      severity: 'error' as const
+    };
+
+    // Active stream without an idle marker still reads running…
+    expect(deriveStatus([plainHeader], true)).toBe('running');
+    // …while active + idle means the turn loop ended (file liveness lags).
+    expect(deriveStatus([idleHeader], true)).toBe('success');
+    // An errored tool call escalates even past idle.
+    expect(deriveStatus([idleHeader, erroredTool], true)).toBe('error');
+    // Inactive behavior unchanged by the marker.
+    expect(deriveStatus([plainHeader], false)).toBe('success');
+  });
+
+  it('derives success end-to-end from a rendered transcript that ended idle while the file reads live', () => {
+    const items = renderOpencodeTranscript([
+      IDLE_META,
+      IDLE_ASSISTANT,
+      envelope('part', { id: 'p21', messageID: 'msg-a', type: 'text', text: 'ok' }, 4),
+      envelope('idle', {}, 5)
+    ]);
+
+    expect(deriveStatus(items, true)).toBe('success');
   });
 });

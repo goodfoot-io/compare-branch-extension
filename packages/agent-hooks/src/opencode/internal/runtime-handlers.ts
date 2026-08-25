@@ -49,7 +49,12 @@ import {
   type SessionLike,
   type TranscriptExporter
 } from '../opencode-state.js';
-import { defaultOpencodeHandlerDeps, type OpencodeHandlerDeps } from './deps.js';
+import {
+  createSdkSessionHistory,
+  defaultOpencodeHandlerDeps,
+  type LoadSessionHistory,
+  type OpencodeHandlerDeps
+} from './deps.js';
 
 /** Routing reminder re-injected after compaction (Codex parity). */
 const ROUTING_REMINDER = '**IMPORTANT: Immediately load skills based on the `<routing-instructions>`.**';
@@ -102,16 +107,25 @@ async function guarded<T>(log: OpencodeLog | null, name: string, body: () => Pro
 // SessionStart
 // ---------------------------------------------------------------------------
 
-/** Bookkeeping the runtime session-start plugin keeps per root card session. */
+/** Bookkeeping the runtime session-start plugin keeps per tracked session. */
 interface RuntimeSessionRecord {
-  /** Card the action launched against. */
+  /** Card the action launched against (root records only). */
   cardId?: string;
   /** Materialized transcript path (also injected as `CARDS_TRANSCRIPT_PATH`). */
   transcriptPath?: string;
   /** Exporter handle appending CONTRACT-C lines. */
   exporter?: TranscriptExporter;
+  /**
+   * Present on child (subagent) records: the top-level root the child streams
+   * under (`<transcriptsRoot>/<parentId>/subagents/<childId>.jsonl`).
+   */
+  parentId?: string;
   /** Cached every-turn context fragment (env block + repo logs). */
   contextFragment?: string;
+  /** `true` while resume-backfill reconciliation is in flight for this root. */
+  reconciling?: boolean;
+  /** Live writes buffered while {@link reconciling}, flushed in arrival order. */
+  pending?: Array<{ kind: 'part' | 'message'; payload: unknown }>;
 }
 
 /**
@@ -151,6 +165,12 @@ export function createInertRuntimePlugin(): Plugin {
  * transform) that classifies a **resumed** session as root under registry
  * rule (b), since resumed sessions never re-emit `created` (I5 probe).
  *
+ * Child (subagent) sessions resolve to their top-level root via the registry
+ * and stream their own transcript under
+ * `<transcriptsRoot>/<rootId>/subagents/<childId>.jsonl`, riding the same
+ * manifest and watcher as their root. Identity (`shell.env`) and context
+ * injection stay strictly root-gated.
+ *
  * @param deps - Injectable edges; defaults wire the real SDK.
  * @returns An OpenCode plugin registering `event`, `shell.env`, and the
  *   `experimental.chat.system.transform` hooks.
@@ -160,6 +180,11 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
   const records = new Map<string, RuntimeSessionRecord>();
   /** Sessions whose startup sequence already ran (or was declined). */
   const started = new Set<string>();
+  /**
+   * History loader, wired at plugin init from the captured OpenCode client
+   * (or the injected override); reconciliation never runs before init.
+   */
+  let loadSessionHistory: LoadSessionHistory | null = null;
 
   /**
    * Runs the Cards-action startup sequence for one root session, at most once.
@@ -193,6 +218,13 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
       const exporter = createTranscriptExporter(sessionId, record.transcriptPath, deps.io);
       exporter.writeMeta({ runtime: 'opencode', opencodeVersion: version ?? 'unknown' });
       record.exporter = exporter;
+      // The header exists on disk before anything else — a mid-backfill
+      // failure still leaves it. Live writes are held from this point until
+      // reconciliation settles so backfilled history strictly precedes every
+      // live line, whatever the bus dispatch timing.
+      record.reconciling = true;
+      record.pending = [];
+      void reconcileHistory(sessionId, record, log);
     } catch (error) {
       await log.warn('Failed to open the Cards transcript exporter; streaming disabled', {
         sessionId,
@@ -256,8 +288,196 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
     }
   }
 
+  /**
+   * Opens the child transcript exporter for one subagent of a tracked root,
+   * at most once per child (one meta line, one log entry — including after a
+   * failed open, so a broken disk cannot turn every event into a retry loop).
+   *
+   * @param rootId - Top-level root session owning the subagents directory.
+   * @param childId - Child (or grandchild) session identifier.
+   * @param log - Bundle logger.
+   * @param version - Runtime version when known (fresh `created` payloads).
+   */
+  async function ensureChildStarted(
+    rootId: string,
+    childId: string,
+    log: OpencodeLog,
+    version?: string
+  ): Promise<void> {
+    const existing = records.get(childId);
+    if (existing?.parentId === rootId) {
+      return;
+    }
+    // Children stream only under a root whose Cards-action startup ran;
+    // outside an action the whole integration stays inert, children included.
+    if (!records.has(rootId)) {
+      return;
+    }
+    const transcriptPath = join(deps.transcriptsRoot(), rootId, 'subagents', `${childId}.jsonl`);
+    const record: RuntimeSessionRecord = { ...(existing ?? {}), parentId: rootId };
+    try {
+      const exporter = createTranscriptExporter(childId, transcriptPath, deps.io);
+      exporter.writeMeta({
+        runtime: 'opencode',
+        opencodeVersion: version ?? 'unknown',
+        parentSessionId: rootId
+      });
+      record.exporter = exporter;
+      records.set(childId, record);
+      await log.info(`Streaming child session ${childId} of ${rootId}`, {
+        sessionId: childId,
+        parentSessionId: rootId
+      });
+    } catch (error) {
+      records.set(childId, record);
+      await log.warn('Failed to open the child transcript exporter; child streaming disabled', {
+        sessionId: childId,
+        parentSessionId: rootId,
+        path: transcriptPath,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Routes one content line for a tracked session: buffered while resume
+   * reconciliation is in flight, written straight through otherwise.
+   *
+   * @param sessionId - Owning (root or child) session id.
+   * @param kind - Which exporter method the payload rides.
+   * @param payload - The raw event payload to serialize.
+   */
+  function writeToExporter(sessionId: string, kind: 'part' | 'message', payload: unknown): void {
+    const record = records.get(sessionId);
+    if (!record) {
+      return;
+    }
+    if (record.reconciling) {
+      record.pending?.push({ kind, payload });
+      return;
+    }
+    if (kind === 'part') {
+      record.exporter?.writePart(payload);
+    } else {
+      record.exporter?.writeMessage(payload);
+    }
+  }
+
+  /**
+   * Drains a record's pending buffer in arrival order. Synchronous — no bus
+   * event can interleave between the flush and clearing the flag.
+   *
+   * @param record - Record whose buffer is flushed to its exporter.
+   */
+  function flushPending(record: RuntimeSessionRecord): void {
+    const pending = record.pending ?? [];
+    record.pending = [];
+    for (const entry of pending) {
+      if (!record.exporter) {
+        return;
+      }
+      if (entry.kind === 'part') {
+        record.exporter.writePart(entry.payload);
+      } else {
+        record.exporter.writeMessage(entry.payload);
+      }
+    }
+  }
+
+  /**
+   * Collects message ids already present in a transcript file, tolerating
+   * missing files and torn/unparseable lines (single pass).
+   *
+   * @param transcriptPath - Transcript file to scan, when known.
+   * @returns Seen message ids (`data.id` of `message`-type lines).
+   */
+  function collectSeenMessageIds(transcriptPath: string | undefined): Set<string> {
+    const seen = new Set<string>();
+    if (!transcriptPath) {
+      return seen;
+    }
+    let content: string;
+    try {
+      content = deps.io.readTextFileSync(transcriptPath);
+    } catch {
+      // Absent or unreadable file — nothing has been exported yet.
+      return seen;
+    }
+    for (const line of content.split('\n')) {
+      if (line.length === 0) {
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(line) as { type?: unknown; data?: { id?: unknown } } | null;
+        if (parsed?.type === 'message' && typeof parsed.data?.id === 'string') {
+          seen.add(parsed.data.id);
+        }
+      } catch {
+        // Torn tail tolerance mirrors CONTRACT-C readers.
+      }
+    }
+    return seen;
+  }
+
+  /**
+   * Resume backfill: replays stored history that previous runs never
+   * exported, then releases the buffered live lines. Children never
+   * reconcile (plan non-goal). Any failure degrades to live-only; partial
+   * imports self-heal at the next start's reconciliation because suppression
+   * is message-granularity over what the file already holds.
+   *
+   * @param sessionId - Root session being reconciled.
+   * @param record - The session's tracking record (exporter + buffer).
+   * @param log - Bundle logger.
+   */
+  async function reconcileHistory(sessionId: string, record: RuntimeSessionRecord, log: OpencodeLog): Promise<void> {
+    try {
+      if (!loadSessionHistory) {
+        return;
+      }
+      const seen = collectSeenMessageIds(record.transcriptPath);
+      const history = await loadSessionHistory(sessionId);
+      let messages = 0;
+      let parts = 0;
+      for (const entry of history) {
+        const id = entry.info['id'];
+        if (typeof id === 'string' && seen.has(id)) {
+          continue;
+        }
+        record.exporter?.writeMessage(entry.info);
+        messages += 1;
+        for (const part of entry.parts) {
+          record.exporter?.writePart(part);
+          parts += 1;
+        }
+      }
+      if (messages > 0) {
+        await log.info(`reconciled ${messages} historical messages (${parts} parts)`, { sessionId });
+      }
+    } catch (error) {
+      try {
+        await log.warn('Failed to reconcile historical messages; continuing live-only', {
+          sessionId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      } catch {
+        // Logging must never escalate a degraded backfill into a host crash.
+      }
+    } finally {
+      try {
+        flushPending(record);
+      } catch {
+        // A failing flush must not mask the outcome or kill the host.
+      }
+      record.reconciling = false;
+    }
+  }
+
   return async ({ client, directory }) => {
     const log = buildLogger(directory, deps, client);
+    // Resume backfill source: injected override or the SDK client captured
+    // from this plugin's init input (loopback into the co-located server).
+    loadSessionHistory = deps.loadSessionHistory ?? createSdkSessionHistory(client);
 
     return {
       event: async ({ event }) =>
@@ -271,6 +491,14 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
               };
               registry.observe(info);
               if (!registry.isRoot(info.id)) {
+                // Child created: no content lines yet, but open its exporter
+                // (meta with parentSessionId) once the root has started. A
+                // child announcing created before its parent classifies drops
+                // here benignly and heals at the child's next activity.
+                const rootId = registry.rootAncestorOf(info.id);
+                if (rootId !== null) {
+                  await ensureChildStarted(rootId, info.id, log, info.version);
+                }
                 return;
               }
               await ensureStarted(info.id, log, info.version);
@@ -283,9 +511,17 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
                 await ensureStarted(sessionId, log);
               }
               if (!registry.isRoot(sessionId)) {
+                // Child activity streams into the child's own transcript
+                // under its top-level root's subagents directory.
+                const rootId = registry.rootAncestorOf(sessionId);
+                if (rootId === null) {
+                  return;
+                }
+                await ensureChildStarted(rootId, sessionId, log);
+                writeToExporter(sessionId, 'part', event.properties.part);
                 return;
               }
-              records.get(sessionId)?.exporter?.writePart(event.properties.part);
+              writeToExporter(sessionId, 'part', event.properties.part);
               return;
             }
             case 'message.updated': {
@@ -294,9 +530,15 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
                 await ensureStarted(sessionId, log);
               }
               if (!registry.isRoot(sessionId)) {
+                const rootId = registry.rootAncestorOf(sessionId);
+                if (rootId === null) {
+                  return;
+                }
+                await ensureChildStarted(rootId, sessionId, log);
+                writeToExporter(sessionId, 'message', event.properties.info);
                 return;
               }
-              records.get(sessionId)?.exporter?.writeMessage(event.properties.info);
+              writeToExporter(sessionId, 'message', event.properties.info);
               return;
             }
             case 'session.idle': {
@@ -321,11 +563,23 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
               // itself stays (append-only history — age-based reaping is the
               // exporter reaper's job), and watcher close rides PID death.
               const deletedId = event.properties.info.id;
+              const wasRoot = registry.isRoot(deletedId);
               const record = records.get(deletedId);
               registry.forget(deletedId);
               if (record) {
                 record.exporter?.close();
                 records.delete(deletedId);
+              }
+              if (wasRoot) {
+                // Deleting a root tears down every child exporter hanging off
+                // it — grandchildren too, whose parentId stores the top-level
+                // root they stream under.
+                for (const [childId, childRecord] of Array.from(records)) {
+                  if (childRecord.parentId === deletedId) {
+                    childRecord.exporter?.close();
+                    records.delete(childId);
+                  }
+                }
               }
               return;
             }

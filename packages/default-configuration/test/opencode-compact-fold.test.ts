@@ -12,6 +12,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { opencodeToCompactCardModel } from '../src/streams/opencode-session/www/lib/adapt-compact-model.js';
 import {
   buildFoldedState,
   buildOpencodeCompactState,
@@ -88,6 +89,10 @@ function filePartLine(messageId: string, partId: string, filename: string, ts = 
     },
     ts
   );
+}
+
+function idleLine(ts = '2026-06-04T10:12:00.000Z'): string {
+  return envelope('idle', {}, ts);
 }
 
 /**
@@ -275,5 +280,100 @@ describe('reconcileFolded — patch and file parts fold without breaking the pin
     const updated = reconcileFolded(folded, all, false);
 
     expect(updated.state).toEqual(buildOpencodeCompactState(all, false));
+  });
+});
+
+describe('reconcileFolded — idle lines fold without breaking the pins', () => {
+  it('matches a one-shot rebuild when idle markers arrive across batches', () => {
+    const batch1 = [metaLine(), userMessageLine('msg-u'), textPartLine('msg-u', 'p1', 'please look')];
+    const batch2 = [assistantMessageLine('msg-a'), textPartLine('msg-a', 'p2', 'done')];
+    const batch3 = [idleLine()];
+
+    const all = [...batch1, ...batch2, ...batch3];
+    let folded = buildFoldedState(batch1, true);
+    folded = reconcileFolded(folded, [...batch1, ...batch2], true);
+    folded = reconcileFolded(folded, all, true);
+
+    expect(folded.state).toEqual(buildOpencodeCompactState(all, true));
+    expect(folded.lineCount).toBe(all.length);
+  });
+
+  it('parses a newly appended idle line exactly once on a steady-state append (watermark intact)', () => {
+    const base = [metaLine(), assistantMessageLine('msg-a'), textPartLine('msg-a', 'p2', 'working…')];
+
+    const folded = buildFoldedState(base, true);
+    expect(countParses(() => reconcileFolded(folded, [...base, idleLine()], true))).toBe(1);
+  });
+
+  it('keeps incremental and one-shot folds equal across repeated idle markers', () => {
+    const base = [metaLine(), idleLine()];
+    const again = idleLine('2026-06-04T10:13:00.000Z');
+
+    const all = [...base, again];
+    const folded = buildFoldedState(base, false);
+    const updated = reconcileFolded(folded, all, false);
+
+    expect(updated.state).toEqual(buildOpencodeCompactState(all, false));
+  });
+});
+
+describe('compact subagent labeling (R-3)', () => {
+  it('keeps main-stream state unlabeled whether role is undefined or main', () => {
+    const lines = [metaLine(), assistantMessageLine('msg-a'), textPartLine('msg-a', 'p1', 'main work')];
+
+    const noRole = buildFoldedState(lines, false).state;
+    const mainRole = buildFoldedState(lines, false, 'main').state;
+
+    expect(noRole.isSubagent).toBe(false);
+    expect(noRole.agentId).toBeUndefined();
+    expect(mainRole).toEqual(noRole);
+  });
+
+  it('marks subagent streams with their agentId and carries identity across appends', () => {
+    const base = [metaLine(), assistantMessageLine('msg-a'), textPartLine('msg-a', 'p1', 'child work')];
+    const folded = buildFoldedState(base, true, 'subagent', 'child-7');
+
+    expect(folded.state.isSubagent).toBe(true);
+    expect(folded.state.agentId).toBe('child-7');
+
+    const appended = reconcileFolded(
+      folded,
+      [...base, textPartLine('msg-a', 'p2', 'more', '2026-06-04T10:14:00.000Z')],
+      true,
+      'subagent',
+      'child-7'
+    );
+    expect(appended.state.isSubagent).toBe(true);
+    expect(appended.state.agentId).toBe('child-7');
+  });
+
+  it('treats auxiliary role as a labeled child stream (claude parity)', () => {
+    const folded = buildFoldedState([metaLine()], false, 'auxiliary', 'aux-1');
+
+    expect(folded.state.isSubagent).toBe(true);
+    expect(folded.state.agentId).toBe('aux-1');
+  });
+
+  it('applies an identity change even when the line watermark and liveness are unchanged', () => {
+    const lines = [metaLine()];
+    const folded = buildFoldedState(lines, false);
+
+    const relabeled = reconcileFolded(folded, lines, false, 'subagent', 'late-id');
+    expect(relabeled.state.isSubagent).toBe(true);
+    expect(relabeled.state.agentId).toBe('late-id');
+
+    // Same identity + liveness + watermark still bails out by reference.
+    expect(reconcileFolded(relabeled, lines, false, 'subagent', 'late-id')).toBe(relabeled);
+  });
+
+  it('adapts into a labeled CompactCardModel only for identified child streams', () => {
+    const sub = buildFoldedState([metaLine()], false, 'subagent', 'ses-child').state;
+    expect(opencodeToCompactCardModel(sub, false).subagentLabel).toBe('ses-child');
+
+    const anonymousChild = buildFoldedState([metaLine()], false, 'subagent').state;
+    expect(opencodeToCompactCardModel(anonymousChild, false).subagentLabel).toBeUndefined();
+
+    const main = buildFoldedState([metaLine()], false, 'main').state;
+    expect(opencodeToCompactCardModel(main, false).subagentLabel).toBeUndefined();
   });
 });
