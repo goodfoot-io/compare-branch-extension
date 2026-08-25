@@ -15,8 +15,10 @@
  *   `message` line records its message id's role, and a `text` part renders as
  *   a user or assistant message according to that role. The `session_header`
  *   item is back-patched in place with model/provider/cwd once a message
- *   record carrying them arrives, and `idle` lines mark its `idleAt` so the
- *   status derivation can tell "turn loop ended" from stream liveness.
+ *   record carrying them arrives. `idle` lines mark its `idleAt` so the
+ *   status derivation can tell "turn loop ended" from stream liveness — and
+ *   idleness is positional: any later message/part line clears the mark again
+ *   until the next idle (meta merges never touch it).
  * - **Part updates**: `message.part.updated` re-fires for the same part id as
  *   a tool or text part progresses, and the exporter appends every update.
  *   Later updates for an already-emitted part replace that item in place
@@ -324,6 +326,12 @@ export function renderOpencodeTranscript(lines: string[]): TranscriptItem[] {
       }
 
       case 'message': {
+        // Idleness is positional, not existential: a message record is live
+        // activity, so it supersedes a recorded idle until the NEXT idle
+        // line. Meta merges never touch the mark (see the meta case).
+        if (header !== undefined) {
+          header.idleAt = undefined;
+        }
         if (typeof line.data.id === 'string' && typeof line.data.role === 'string') {
           roles.set(line.data.id, line.data.role);
         }
@@ -368,6 +376,12 @@ export function renderOpencodeTranscript(lines: string[]): TranscriptItem[] {
       }
 
       case 'part': {
+        // Same positional rule as messages: any part line — including a
+        // replace-in-place update — is post-idle content activity and clears
+        // the mark until the next idle line.
+        if (header !== undefined) {
+          header.idleAt = undefined;
+        }
         const key = `${partMessageId(line.data)}:${typeof line.data.id === 'string' ? line.data.id : ''}`;
         const role = roles.get(partMessageId(line.data)) ?? 'assistant';
         const item = partToItem(line.data, role, line.ts);

@@ -25,12 +25,13 @@ import type { OpencodeAttachmentData, OpencodeEditedFilesData } from '../../lib/
 
 /**
  * Derives a display basename from a path: the final segment after the last
- * `/`; unchanged when no separator exists.
+ * `/` or `\` (OpenCode runs cross-platform, so Windows paths occur);
+ * unchanged when no separator exists.
  * @param path - The absolute or relative path.
  * @returns The final path segment.
  */
 function basename(path: string): string {
-  const idx = path.lastIndexOf('/');
+  const idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
   return idx >= 0 ? path.slice(idx + 1) : path;
 }
 

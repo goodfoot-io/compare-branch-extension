@@ -539,6 +539,55 @@ describe('runtime session-start plugin', () => {
       expect(logEntries.some((e) => e.message.includes('reconciled'))).toBe(false);
     });
 
+    it('buffers an idle arriving during the fetch behind replayed history', async () => {
+      let resolveHistory!: (value: Array<OpencodeSessionHistoryEntry>) => void;
+      const gated = new Promise<Array<OpencodeSessionHistoryEntry>>((resolve) => {
+        resolveHistory = resolve;
+      });
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: () => gated
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'live during fetch'));
+      await hooks.event?.(sessionIdleEvent('ses-resumed'));
+      // Both live lines are held while the fetch is in flight.
+      expect(lineTypes()).toEqual(['meta']);
+
+      resolveHistory([historyEntry('msg-h1', 100, 'replayed turn')]);
+      await vi.waitFor(() => expect(readLines('ses-resumed')).toHaveLength(5));
+
+      expect(lineTypes()).toEqual(['meta', 'message', 'part', 'part', 'idle']);
+      const lines = readLines('ses-resumed');
+      expect((lines[2]?.['data'] as Record<string, unknown>)['text']).toBe('replayed turn');
+      expect((lines[3]?.['data'] as Record<string, unknown>)['text']).toBe('live during fetch');
+    });
+
+    it('still flushes the buffered idle when the loader throws', async () => {
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: () => Promise.reject(new Error('db locked again'))
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'during failure'));
+      await hooks.event?.(sessionIdleEvent('ses-resumed'));
+
+      await vi.waitFor(() => {
+        expect(lineTypes()).toEqual(['meta', 'part', 'idle']);
+        expect(
+          logEntries.some((e) => e.level === 'warn' && e.message.includes('Failed to reconcile historical messages'))
+        ).toBe(true);
+      });
+
+      // Live streaming continues after the degraded settle.
+      await hooks.event?.(partUpdatedEvent('ses-resumed', 'still streaming'));
+      expect(lineTypes()).toEqual(['meta', 'part', 'idle', 'part']);
+    });
+
     it('writes meta only for an empty history result', async () => {
       const { deps } = makeDeps(tempDir, {
         loadActionInput: () => actionInput(),
@@ -574,6 +623,85 @@ describe('runtime session-start plugin', () => {
       await vi.waitFor(() => expect(readChildLines('ses-card', 'ses-child').length).toBeGreaterThanOrEqual(2));
 
       expect(requested).toEqual(['ses-card']);
+    });
+  });
+
+  describe('deleted-session tombstones', () => {
+    it('never resurrects a deleted child: no ghost transcript, no second watcher', async () => {
+      let loaderCalls = 0;
+      const { deps, recorders } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: async () => {
+          loaderCalls += 1;
+          return [];
+        }
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'before delete'));
+      await hooks.event?.(sessionDeletedEvent('ses-child'));
+      await hooks.event?.(partUpdatedEvent('ses-child', 'trailing activity'));
+
+      // No phantom top-level transcript for the dead id…
+      expect(existsSync(join(tempDir, 'transcripts', 'ses-child.jsonl'))).toBe(false);
+      // …its nested file stays frozen at the pre-delete content,
+      expect(readChildLines('ses-root', 'ses-child').map((line) => line['type'])).toEqual(['meta', 'part']);
+      // …no reconciliation refetch fired, and watcher/manifest state stays the root's.
+      expect(loaderCalls).toBe(1);
+      expect(recorders.watcherSpawns).toHaveLength(1);
+      expect(recorders.manifests.map((manifest) => manifest.sessionId)).toEqual(['ses-root']);
+
+      // Identity injection stays closed for the dead id too.
+      const output = { env: {} as Record<string, string> };
+      await (hooks as { 'shell.env'?: (i: unknown, o: unknown) => Promise<void> })['shell.env']?.(
+        { cwd: tempDir, sessionID: 'ses-child' },
+        output
+      );
+      expect(Object.keys(output.env)).toHaveLength(0);
+    });
+
+    it('never resurrects a deleted root on trailing activity', async () => {
+      let loaderCalls = 0;
+      const { deps, recorders } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(),
+        loadSessionHistory: async () => {
+          loaderCalls += 1;
+          return [];
+        }
+      });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(partUpdatedEvent('ses-root', 'before delete'));
+      await hooks.event?.(sessionDeletedEvent('ses-root'));
+      await hooks.event?.(partUpdatedEvent('ses-root', 'trailing activity'));
+
+      expect(readLines('ses-root').map((line) => line['type'])).toEqual(['meta', 'part']);
+      expect(loaderCalls).toBe(1);
+      expect(recorders.watcherSpawns).toHaveLength(1);
+      expect(recorders.manifests.map((manifest) => manifest.sessionId)).toEqual(['ses-root']);
+    });
+
+    it('does not leak tombstones across unrelated sessions', async () => {
+      const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-gone'));
+      await hooks.event?.(sessionDeletedEvent('ses-gone'));
+
+      // A different session classifies and exports completely normally.
+      await hooks.event?.(partUpdatedEvent('ses-other', 'fresh work'));
+
+      // ses-gone keeps exactly what it exported before deletion (append-only
+      // history) and gains nothing; the unrelated session is unaffected.
+      expect(readLines('ses-gone').map((line) => line['type'])).toEqual(['meta']);
+      expect(readLines('ses-other').map((line) => line['type'])).toEqual(['meta', 'part']);
+      expect(recorders.manifests.map((manifest) => manifest.sessionId)).toEqual(['ses-gone', 'ses-other']);
     });
   });
 

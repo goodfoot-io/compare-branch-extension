@@ -131,3 +131,24 @@ describe('runbook resolver layouts (A3)', () => {
     expect(existsSync(shutdown)).toBe(true);
   });
 });
+
+describe('build freshness control', () => {
+  /**
+   * The emitted `.mjs` payloads are build products whose mtimes
+   * `build-unchanged` treats as proof of freshness — a source change without a
+   * rebuild leaves them silently stale. This control greps the REAL emitted
+   * runtime bundle for marker strings introduced by card main-605's plugin
+   * work; a stale payload predating those strings fails loudly here.
+   *
+   * Path assumption: `<packageRoot>/../../opencode/runtime/plugin/session-start.mjs`
+   * — the same repo-layout emission the binary-gate tier executes. Skipped
+   * when no payload has been emitted at all.
+   */
+  it.skipIf(!existsSync(emittedRuntimeBundle))('emitted runtime bundle carries main-605 marker strings', () => {
+    const bundle = readFileSync(emittedRuntimeBundle, 'utf8');
+    // Contiguous literals from createSessionStartPlugin: the child-exporter
+    // start log and the backfill failure warn.
+    expect(bundle).toContain('Streaming child session');
+    expect(bundle).toContain('Failed to reconcile historical messages');
+  });
+});

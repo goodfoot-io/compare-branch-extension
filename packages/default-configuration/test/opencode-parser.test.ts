@@ -9,10 +9,16 @@
  * @summary Unit tests for the opencode-session NDJSON parser + renderer
  */
 
+import { type ComponentProps, createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { EditedFilesPart } from '../src/streams/opencode-session/www/components/expanded/OpencodeDataParts.js';
 import { type OpencodeLine, parseOpencodeLine } from '../src/streams/opencode-session/www/lib/parser.js';
 import { renderOpencodeTranscript } from '../src/streams/opencode-session/www/lib/render-transcript.js';
-import { deriveStatus } from '../src/streams/opencode-session/www/lib/to-thread-messages.js';
+import {
+  deriveStatus,
+  type OpencodeEditedFilesData
+} from '../src/streams/opencode-session/www/lib/to-thread-messages.js';
 
 /**
  * Wraps a payload in the exporter's envelope.
@@ -387,5 +393,141 @@ describe('opencode idle surfacing (R-2)', () => {
     ]);
 
     expect(deriveStatus(items, true)).toBe('success');
+  });
+});
+
+describe('positional idle supersession (round-1 fix)', () => {
+  const M = envelope('meta', { runtime: 'opencode', opencodeVersion: '1.18.21' }, 1);
+  const msgLine = (id: string, seq: number): string =>
+    envelope('message', { id, role: 'user', time: { created: 1 } }, seq);
+  const textPart = (partId: string, messageId: string, text: string, seq: number): string =>
+    envelope('part', { id: partId, messageID: messageId, type: 'text', text }, seq);
+
+  it('witness (a): a post-idle turn reads running even while the stream is live', () => {
+    const items = renderOpencodeTranscript([
+      M,
+      msgLine('msg-a', 2),
+      textPart('p1', 'msg-a', 'turn one', 3),
+      envelope('idle', {}, 4),
+      msgLine('msg-b', 5),
+      textPart('p2', 'msg-b', 'turn two', 6),
+      textPart('p3', 'msg-b', 'still going', 7)
+    ]);
+
+    expect(deriveStatus(items, true)).toBe('running');
+  });
+
+  it('witness (b): the identical stream without the idle also reads running', () => {
+    const items = renderOpencodeTranscript([
+      M,
+      msgLine('msg-a', 2),
+      textPart('p1', 'msg-a', 'turn one', 3),
+      msgLine('msg-b', 5),
+      textPart('p2', 'msg-b', 'turn two', 6),
+      textPart('p3', 'msg-b', 'still going', 7)
+    ]);
+
+    expect(deriveStatus(items, true)).toBe('running');
+  });
+
+  it('witness (c): full lifecycle — idle completes turn one, turn two runs, next idle completes', () => {
+    const turn1 = [M, msgLine('msg-a', 2), textPart('p1', 'msg-a', 'turn one', 3)];
+
+    let items = renderOpencodeTranscript([...turn1, envelope('idle', {}, 4)]);
+    expect(deriveStatus(items, true)).toBe('success');
+
+    items = renderOpencodeTranscript([
+      ...turn1,
+      envelope('idle', {}, 4),
+      msgLine('msg-b', 5),
+      textPart('p2', 'msg-b', 'turn two', 6)
+    ]);
+    expect(deriveStatus(items, true)).toBe('running');
+
+    items = renderOpencodeTranscript([
+      ...turn1,
+      envelope('idle', {}, 4),
+      msgLine('msg-b', 5),
+      textPart('p2', 'msg-b', 'turn two', 6),
+      envelope('idle', {}, 7)
+    ]);
+    expect(deriveStatus(items, true)).toBe('success');
+  });
+
+  it('witness (d): an errored tool call after idle escalates to error regardless of liveness', () => {
+    const erroredTool = envelope(
+      'part',
+      {
+        id: 'p9',
+        messageID: 'msg-b',
+        type: 'tool',
+        callID: 'call-1',
+        tool: 'bash',
+        state: { status: 'error', input: { command: 'ls' }, error: { message: 'boom' } }
+      },
+      6
+    );
+    const items = renderOpencodeTranscript([
+      M,
+      msgLine('msg-a', 2),
+      textPart('p1', 'msg-a', 'go', 3),
+      envelope('idle', {}, 4),
+      msgLine('msg-b', 5),
+      erroredTool
+    ]);
+
+    expect(deriveStatus(items, true)).toBe('error');
+    expect(deriveStatus(items, false)).toBe('error');
+  });
+
+  it('witness (f): a re-fired part update post-idle counts as content and clears the mark in place', () => {
+    const base = [M, msgLine('msg-a', 2), textPart('p1', 'msg-a', 'draft', 3), envelope('idle', {}, 4)];
+
+    const items = renderOpencodeTranscript([...base, textPart('p1', 'msg-a', 'draft v2', 5)]);
+
+    expect(deriveStatus(items, true)).toBe('running');
+    // The update replaced in place rather than stacking.
+    expect(items.filter((item) => item.kind === 'user_message')).toHaveLength(1);
+    expect(items).toContainEqual({ kind: 'user_message', text: 'draft v2', timestamp: expect.any(String) });
+  });
+});
+
+describe('OpencodeDataParts basename derivation (round-1 fix)', () => {
+  /**
+   * Builds minimal props for a registered data-part component: the runtime
+   * supplies the `MessagePartState` side; only `data` matters here.
+   * @param data - The data-part payload.
+   * @returns Props shaped for `EditedFilesPart`.
+   */
+  function partProps<T>(data: T): ComponentProps<typeof EditedFilesPart> {
+    return { data } as unknown as ComponentProps<typeof EditedFilesPart>;
+  }
+
+  it('witness: windows and posix paths both render as `<basename> edited` leaf rows', () => {
+    const posix = renderToStaticMarkup(
+      createElement(EditedFilesPart, partProps<OpencodeEditedFilesData>({ files: ['/w/src/one.ts'] }))
+    );
+    expect(posix).toContain('one.ts edited');
+
+    const windows = renderToStaticMarkup(
+      createElement(EditedFilesPart, partProps<OpencodeEditedFilesData>({ files: ['C:\\Users\\dev\\proj\\one.ts'] }))
+    );
+    expect(windows).toContain('one.ts edited');
+    // No directory segments leak into the row.
+    expect(windows).not.toContain('Users');
+    expect(windows).not.toContain('proj');
+  });
+
+  it('derives basenames separator-agnostically in the multi-file disclosure body', () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        EditedFilesPart,
+        partProps<OpencodeEditedFilesData>({ files: ['/w/src/two.ts', 'D:\\repo\\lib\\three.ts'] })
+      )
+    );
+    expect(html).toContain('Edited 2 file(s)');
+    expect(html).toContain('two.ts');
+    expect(html).toContain('three.ts');
+    expect(html).not.toContain('repo');
   });
 });

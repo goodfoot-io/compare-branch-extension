@@ -125,7 +125,7 @@ interface RuntimeSessionRecord {
   /** `true` while resume-backfill reconciliation is in flight for this root. */
   reconciling?: boolean;
   /** Live writes buffered while {@link reconciling}, flushed in arrival order. */
-  pending?: Array<{ kind: 'part' | 'message'; payload: unknown }>;
+  pending?: Array<{ kind: 'part' | 'message' | 'idle'; payload: unknown }>;
 }
 
 /**
@@ -185,6 +185,14 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
    * (or the injected override); reconciliation never runs before init.
    */
   let loadSessionHistory: LoadSessionHistory | null = null;
+  /**
+   * Ids seen through `session.deleted`, for the plugin lifetime. A deleted
+   * session's trailing events must never reclassify it as a resumed root
+   * (rule b) — that resurrected phantom transcripts, reconciliation fetches,
+   * and a second stream-sync-watcher spawn for a session that no longer
+   * exists. OpenCode ids are unique, so the memory never needs clearing.
+   */
+  const deletedSessions = new Set<string>();
 
   /**
    * Runs the Cards-action startup sequence for one root session, at most once.
@@ -341,13 +349,15 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
 
   /**
    * Routes one content line for a tracked session: buffered while resume
-   * reconciliation is in flight, written straight through otherwise.
+   * reconciliation is in flight, written straight through otherwise. Every
+   * live line kind rides this path so nothing can land ahead of replayed
+   * history.
    *
    * @param sessionId - Owning (root or child) session id.
    * @param kind - Which exporter method the payload rides.
    * @param payload - The raw event payload to serialize.
    */
-  function writeToExporter(sessionId: string, kind: 'part' | 'message', payload: unknown): void {
+  function writeToExporter(sessionId: string, kind: 'part' | 'message' | 'idle', payload: unknown): void {
     const record = records.get(sessionId);
     if (!record) {
       return;
@@ -358,6 +368,8 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
     }
     if (kind === 'part') {
       record.exporter?.writePart(payload);
+    } else if (kind === 'idle') {
+      record.exporter?.writeIdle(payload as Record<string, unknown>);
     } else {
       record.exporter?.writeMessage(payload);
     }
@@ -378,6 +390,8 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
       }
       if (entry.kind === 'part') {
         record.exporter.writePart(entry.payload);
+      } else if (entry.kind === 'idle') {
+        record.exporter.writeIdle(entry.payload as Record<string, unknown>);
       } else {
         record.exporter.writeMessage(entry.payload);
       }
@@ -489,6 +503,10 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
                 parentID: event.properties.info.parentID,
                 version: event.properties.info.version
               };
+              // A deleted id never re-enters classification (fail-closed).
+              if (deletedSessions.has(info.id)) {
+                return;
+              }
               registry.observe(info);
               if (!registry.isRoot(info.id)) {
                 // Child created: no content lines yet, but open its exporter
@@ -506,6 +524,9 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
             }
             case 'message.part.updated': {
               const sessionId = event.properties.part.sessionID;
+              if (deletedSessions.has(sessionId)) {
+                return;
+              }
               // Resumed sessions surface here first — classify and start.
               if (registry.noteObserved(sessionId)) {
                 await ensureStarted(sessionId, log);
@@ -526,6 +547,9 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
             }
             case 'message.updated': {
               const sessionId = event.properties.info.sessionID;
+              if (deletedSessions.has(sessionId)) {
+                return;
+              }
               if (registry.noteObserved(sessionId)) {
                 await ensureStarted(sessionId, log);
               }
@@ -554,15 +578,21 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
               if (!registry.isRoot(sessionId)) {
                 return;
               }
-              records.get(sessionId)?.exporter?.writeIdle({});
+              // Rides the same reconciling hold as part/message lines: an idle
+              // landing inside the backfill fetch must not precede history.
+              writeToExporter(sessionId, 'idle', {});
               return;
             }
             case 'session.deleted': {
               // No session-end event exists on this surface beyond deletion;
-              // close the exporter and drop the tracking record. The file
-              // itself stays (append-only history — age-based reaping is the
-              // exporter reaper's job), and watcher close rides PID death.
+              // close the exporter and drop the tracking record. The id is
+              // tombstoned for the plugin lifetime — trailing events for a
+              // deleted session must never reclassify it as a resumed root.
+              // The file itself stays (append-only history — age-based reaping
+              // is the exporter reaper's job), and watcher close rides PID
+              // death.
               const deletedId = event.properties.info.id;
+              deletedSessions.add(deletedId);
               const wasRoot = registry.isRoot(deletedId);
               const record = records.get(deletedId);
               registry.forget(deletedId);
@@ -596,6 +626,10 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
           // execution to the sole tracked root session when exactly one is
           // live (the Cards launcher spawns one session at a time).
           let sessionId = input.sessionID;
+          if (sessionId && deletedSessions.has(sessionId)) {
+            // Deleted id: never reclassify, never inject.
+            return;
+          }
           if (sessionId && registry.noteObserved(sessionId)) {
             // Resumed sessions first surface here — classify, then start so
             // the transcript path this call injects actually exists.
@@ -624,6 +658,10 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
             // optional session id. Without it there is no way to attribute the
             // request — skip with a named warning rather than guessing.
             await log.warn('system.transform fired without a sessionID; card context injection skipped');
+            return;
+          }
+          if (deletedSessions.has(input.sessionID)) {
+            // Deleted id: never reclassify, never inject.
             return;
           }
           if (registry.noteObserved(input.sessionID)) {

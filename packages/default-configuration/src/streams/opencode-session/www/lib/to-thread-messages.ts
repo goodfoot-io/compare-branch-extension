@@ -71,21 +71,25 @@ export interface ToThreadMessagesResult {
 /**
  * Derives the sticky `SessionHeader`'s live status from stream liveness,
  * idle markers, and whether the rendered transcript contains any error signal.
- * While the stream is active and no `idle` line has arrived the status reads
- * `running`; an idle marker means the session's turn loop ended even if the
- * stream file has not been committed as inactive yet. An errored tool call
- * escalates to `error` regardless of liveness or idleness.
+ * An errored tool call escalates to `error` regardless of liveness or
+ * idleness. Otherwise, while the stream is active and no `idle` line awaits a
+ * superseding turn the status reads `running`; an idle marker means the
+ * session's turn loop ended even if the stream file has not been committed as
+ * inactive yet (idleness itself is positional — later content clears it).
  * @param items - The rendered transcript items.
  * @param isActive - Whether the underlying stream is still live.
  * @returns The session status for the header's indicator dot.
  */
 export function deriveStatus(items: TranscriptItem[], isActive: boolean): SessionStatus {
+  const hasError = items.some((item) => item.kind === 'tool_call' && item.severity === 'error');
+  if (hasError) {
+    return 'error';
+  }
   const isIdle = items.some((item) => item.kind === 'session_header' && item.idleAt !== undefined);
   if (isActive && !isIdle) {
     return 'running';
   }
-  const hasError = items.some((item) => item.kind === 'tool_call' && item.severity === 'error');
-  return hasError ? 'error' : 'success';
+  return 'success';
 }
 
 /**
