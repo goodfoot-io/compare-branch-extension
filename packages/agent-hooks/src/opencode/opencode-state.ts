@@ -323,11 +323,11 @@ export function createRootSessionRegistry(): RootSessionRegistry {
 // ---------------------------------------------------------------------------
 
 /** Line types allowed in the materialized transcript stream. */
-export type ExporterLineType = 'meta' | 'message' | 'part';
+export type ExporterLineType = 'meta' | 'message' | 'part' | 'idle';
 
 /**
  * Appends normalized lines to a session's transcript file:
- * `{"v":1,"ts":"<ISO>","seq":<n>,"sessionId":"…","type":"meta"|"message"|"part","data":{...}}`.
+ * `{"v":1,"ts":"<ISO>","seq":<n>,"sessionId":"…","type":"meta"|"message"|"part"|"idle","data":{...}}`.
  *
  * **`seq` semantics (pinned):** the counter is per-process — it starts at 1
  * for every exporter instance and therefore **restarts when a session is
@@ -357,6 +357,16 @@ export interface TranscriptExporter {
   writePart(part: unknown): void;
   /** Emits a `message.updated` payload. */
   writeMessage(message: unknown): void;
+  /**
+   * Emits an `idle` marker recording that the session's turn loop ended.
+   *
+   * Renderers fold these header-style (later markers update, never append);
+   * `session.idle` is bus-only, so idle lines are purely live appends and
+   * never appear in backfilled history.
+   *
+   * @param data - Optional payload; defaults to `{}`.
+   */
+  writeIdle(data?: Record<string, unknown>): void;
   /** Stops further writes; safe to call repeatedly. */
   close(): void;
 }
@@ -416,6 +426,7 @@ export function createTranscriptExporter(
     writeMeta: (data) => writeLine('meta', data),
     writePart: (part) => writeLine('part', part as Record<string, unknown>),
     writeMessage: (message) => writeLine('message', message as Record<string, unknown>),
+    writeIdle: (data) => writeLine('idle', data ?? {}),
     close: () => {
       closed = true;
     }

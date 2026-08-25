@@ -195,8 +195,18 @@ function processLine(fold: OpencodeFoldState, raw: string): void {
 
   switch (line.kind) {
     case 'message': {
-      if (fold.model === undefined && typeof line.data.modelID === 'string') {
-        fold.model = line.data.modelID;
+      // Assistant messages carry flat `modelID`; user messages nest it under
+      // `model.modelID` — accept both shapes.
+      if (fold.model === undefined) {
+        const model =
+          typeof line.data.modelID === 'string'
+            ? line.data.modelID
+            : typeof line.data.model?.modelID === 'string'
+              ? line.data.model.modelID
+              : undefined;
+        if (model !== undefined) {
+          fold.model = model;
+        }
       }
       const tokens = line.data.tokens;
       if (tokens !== undefined && typeof tokens['input'] === 'number' && typeof tokens['output'] === 'number') {

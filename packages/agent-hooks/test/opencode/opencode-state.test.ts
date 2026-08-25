@@ -166,6 +166,65 @@ describe('CONTRACT-C transcript exporter', () => {
     expect(lines[0]).toMatchObject({ type: 'message', data: { id: 'msg-1' } });
   });
 
+  it('writes an idle line in the shared envelope with empty data and an incremented seq', () => {
+    const path = join(tempDir, 'ses-idle.jsonl');
+    const exporter = createTranscriptExporter('ses-idle', path, io);
+    exporter.writeMeta({ runtime: 'opencode', opencodeVersion: '1.18.21' });
+    exporter.writeIdle();
+
+    const lines = readLines(path);
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toMatchObject({
+      v: 1,
+      seq: 2,
+      sessionId: 'ses-idle',
+      type: 'idle',
+      data: {}
+    });
+    expect(typeof lines[1]?.['ts']).toBe('string');
+    expect(exporter.seq).toBe(2);
+  });
+
+  it('keeps counting seq across interleaved idle lines', () => {
+    const path = join(tempDir, 'ses-idle-seq.jsonl');
+    const exporter = createTranscriptExporter('ses-idle-seq', path, io);
+    exporter.writePart({ id: 'prt-1' });
+    exporter.writeIdle();
+    exporter.writePart({ id: 'prt-2' });
+
+    const types = readLines(path).map((line) => [line['seq'], line['type']]);
+    expect(types).toEqual([
+      [1, 'part'],
+      [2, 'idle'],
+      [3, 'part']
+    ]);
+  });
+
+  it('serializes an explicit idle payload through the same envelope', () => {
+    const path = join(tempDir, 'ses-idle-data.jsonl');
+    const exporter = createTranscriptExporter('ses-idle-data', path, io);
+    exporter.writeIdle({ reason: 'turn-loop-ended' });
+    const lines = readLines(path);
+    expect(lines[0]).toMatchObject({
+      v: 1,
+      seq: 1,
+      sessionId: 'ses-idle-data',
+      type: 'idle',
+      data: { reason: 'turn-loop-ended' }
+    });
+  });
+
+  it('drops idle writes after close', () => {
+    const path = join(tempDir, 'ses-idle-closed.jsonl');
+    const exporter = createTranscriptExporter('ses-idle-closed', path, io);
+    exporter.writeMeta({});
+    exporter.close();
+    exporter.writeIdle();
+    const lines = readLines(path);
+    expect(lines).toHaveLength(1);
+    expect(exporter.seq).toBe(1);
+  });
+
   it('heals a torn trailing line by prefixing a newline before the next append', () => {
     const path = join(tempDir, 'ses-3.jsonl');
     writeFileSync(path, '{"v":1,"ts":"torn","seq":9,"sessionId":"ses-3","type":"part","dat');

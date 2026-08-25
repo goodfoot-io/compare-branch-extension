@@ -51,6 +51,16 @@ export interface OpencodePart {
   callID?: string;
   state?: OpencodeToolState;
   time?: { end?: number; created?: number; completed?: number; [key: string]: unknown };
+  /** `patch` parts (v1.18.22): absolute paths of the files changed by this step. */
+  files?: string[];
+  /** `patch` parts: content hash of the change set. */
+  hash?: string;
+  /** `file` parts (prompt attachments): display filename. */
+  filename?: string;
+  /** `file` parts: MIME type, when OpenCode reports one. */
+  mime?: string;
+  /** `file` parts: `data:`/`file:` URL carrying or locating the content. */
+  url?: string;
   [key: string]: unknown;
 }
 
@@ -60,6 +70,11 @@ export interface OpencodeMessageInfo {
   role?: string;
   modelID?: string;
   providerID?: string;
+  /**
+   * User messages nest the model selection under `model` while assistant
+   * messages carry flat `modelID`/`providerID` (verified against v1.18.22).
+   */
+  model?: { providerID?: string; modelID?: string };
   agent?: string;
   mode?: string;
   path?: { cwd?: string; root?: string; [key: string]: unknown };

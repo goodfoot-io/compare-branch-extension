@@ -299,6 +299,22 @@ export function createSessionStartPlugin(deps: OpencodeHandlerDeps = defaultOpen
               records.get(sessionId)?.exporter?.writeMessage(event.properties.info);
               return;
             }
+            case 'session.idle': {
+              // Idle means "the session's turn loop ended", full stop. The
+              // gate is deliberately ONLY isRoot — not isSessionIdle(), which
+              // reads active-subagent marker files owned by other plugin
+              // bundles: a still-active child would suppress the line here and
+              // OpenCode never re-fires idle, leaving the header "running"
+              // forever. Idle also does not classify (no noteObserved): a
+              // session with no prior activity has no exporter to write to,
+              // and its idle drops benignly.
+              const sessionId = event.properties.sessionID;
+              if (!registry.isRoot(sessionId)) {
+                return;
+              }
+              records.get(sessionId)?.exporter?.writeIdle({});
+              return;
+            }
             case 'session.deleted': {
               // No session-end event exists on this surface beyond deletion;
               // close the exporter and drop the tracking record. The file

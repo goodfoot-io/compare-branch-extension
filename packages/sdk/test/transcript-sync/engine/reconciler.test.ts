@@ -73,6 +73,41 @@ describe('Reconciler', () => {
     expect(readFileSync(destPath, 'utf-8')).toBe('sub-line\n');
   });
 
+  it('syncs an opencode-shaped main + subagent pair to streams/opencode-session with subagent sidecar metadata', async () => {
+    const sid = 'oc-sess-9';
+    const opencodeManifest: SessionSyncManifest = {
+      version: 1,
+      sessionId: sid,
+      cardId: 'card-opencode',
+      runtime: 'opencode',
+      streamType: 'opencode-session',
+      watchRoot,
+      sources: [
+        { pattern: `${sid}.jsonl`, role: 'main', mode: 'jsonl-tail' },
+        { pattern: `${sid}/subagents/*.jsonl`, role: 'subagent', mode: 'jsonl-tail' }
+      ],
+      monitorPid: process.pid,
+      cardRepoPath
+    };
+    mkdirSync(join(watchRoot, sid, 'subagents'), { recursive: true });
+    writeFileSync(join(watchRoot, `${sid}.jsonl`), 'main-line\n');
+    writeFileSync(join(watchRoot, sid, 'subagents', 'child-1.jsonl'), 'child-line\n');
+
+    const reconciler = new Reconciler(opencodeManifest);
+    await reconciler.reconcileOnce(warnFn, errorFn);
+
+    const opDestRoot = join(cardRepoPath, 'streams', 'opencode-session');
+    expect(readFileSync(join(opDestRoot, `${sid}.jsonl`), 'utf-8')).toBe('main-line\n');
+    const childDest = join(opDestRoot, sid, 'subagents', 'child-1.jsonl');
+    expect(readFileSync(childDest, 'utf-8')).toBe('child-line\n');
+
+    const meta = JSON.parse(readFileSync(`${childDest}.meta.json`, 'utf-8')) as StreamMetaFile;
+    expect(meta.role).toBe('subagent');
+    expect(meta.agentId).toBe('child-1');
+    expect(meta.runtime).toBe('opencode');
+    expect(meta.streamType).toBe('opencode-session');
+  });
+
   it('writes the sidecar once, with the full StreamMetaFile shape, and never overwrites it', async () => {
     writeFileSync(join(watchRoot, 'sess-1.jsonl'), 'line1\n');
     const reconciler = new Reconciler(manifest);

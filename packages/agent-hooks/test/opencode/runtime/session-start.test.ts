@@ -10,6 +10,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActionInput } from '@cards.management/sdk/config';
+import { addActiveSubagent } from '@cards.management/sessions/card-repo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSessionStartPlugin } from '../../../src/opencode/internal/runtime-handlers.js';
 import {
@@ -23,7 +24,8 @@ import {
   partUpdatedEvent,
   removeTempDir,
   sessionCreatedEvent,
-  sessionDeletedEvent
+  sessionDeletedEvent,
+  sessionIdleEvent
 } from '../helpers.js';
 
 let tempDir: string;
@@ -320,6 +322,94 @@ describe('runtime session-start plugin', () => {
 
     const types = readLines('ses-card').map((line) => line['type']);
     expect(types).toEqual(['meta', 'part']);
+  });
+
+  describe('session.idle export', () => {
+    it('writes an idle line for a tracked root session', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-card'));
+      await hooks.event?.(partUpdatedEvent('ses-card', 'working'));
+      await hooks.event?.(sessionIdleEvent('ses-card'));
+
+      const lines = readLines('ses-card');
+      expect(lines.map((line) => line['type'])).toEqual(['meta', 'part', 'idle']);
+      expect(lines[2]).toMatchObject({
+        v: 1,
+        seq: 3,
+        sessionId: 'ses-card',
+        type: 'idle',
+        data: {}
+      });
+    });
+
+    it('drops idle events for sessions never classified in this bundle', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      // Idle is deliberately NOT a classifying observation (no noteObserved):
+      // an untracked session's idles drop benignly without starting startup.
+      await hooks.event?.(sessionIdleEvent('ses-unknown'));
+
+      expect(existsSync(join(tempDir, 'transcripts'))).toBe(false);
+    });
+
+    it('drops idle events for child sessions of a tracked root', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionCreatedEvent('ses-child', { parentID: 'ses-root' }));
+      await hooks.event?.(sessionIdleEvent('ses-child'));
+
+      expect(readLines('ses-child')).toHaveLength(0);
+      expect(readLines('ses-root').map((line) => line['type'])).toEqual(['meta']);
+    });
+
+    it('still writes the idle line while subagents are active (no marker-file coupling)', async () => {
+      const { deps, recorders } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      // Seed the deps marker seam as createSubagentStartPlugin would.
+      recorders.markers.addSubagent('ses-card', 'ses-child');
+      // Seed the REAL active-subagent state isSessionIdle() reads, so a
+      // regression that adds that gate here would suppress the line and fail
+      // this pin. HOME redirected → real leaf files land under tempDir.
+      const originalHome = process.env['HOME'];
+      process.env['HOME'] = tempDir;
+      try {
+        await addActiveSubagent('ses-card', 'ses-child');
+
+        const plugin = createSessionStartPlugin(deps);
+        const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+        await hooks.event?.(sessionCreatedEvent('ses-card'));
+        await hooks.event?.(sessionIdleEvent('ses-card'));
+      } finally {
+        if (originalHome === undefined) {
+          delete process.env['HOME'];
+        } else {
+          process.env['HOME'] = originalHome;
+        }
+      }
+
+      expect(recorders.markers.count('ses-card')).toBe(1);
+      expect(readLines('ses-card').map((line) => line['type'])).toEqual(['meta', 'idle']);
+    });
+
+    it('tolerates repeated idle events by appending one line each', async () => {
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput() });
+      const plugin = createSessionStartPlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+
+      await hooks.event?.(sessionCreatedEvent('ses-card'));
+      await hooks.event?.(sessionIdleEvent('ses-card'));
+      await hooks.event?.(partUpdatedEvent('ses-card', 'second turn'));
+      await hooks.event?.(sessionIdleEvent('ses-card'));
+
+      expect(readLines('ses-card').map((line) => line['type'])).toEqual(['meta', 'idle', 'part', 'idle']);
+    });
   });
 
   describe('shell.env identity injection', () => {

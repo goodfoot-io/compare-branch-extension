@@ -26,7 +26,10 @@ describe('buildOpencodeManifest', () => {
       runtime: 'opencode',
       streamType: 'opencode-session',
       watchRoot: '/home/user/.cards/opencode-transcripts',
-      sources: [{ pattern: `${SESSION_ID}.jsonl`, role: 'main', mode: 'jsonl-tail' }],
+      sources: [
+        { pattern: `${SESSION_ID}.jsonl`, role: 'main', mode: 'jsonl-tail' },
+        { pattern: `${SESSION_ID}/subagents/*.jsonl`, role: 'subagent', mode: 'jsonl-tail' }
+      ],
       monitorPid: 4242,
       cardRepoPath: '/home/user/cards/repo'
     });

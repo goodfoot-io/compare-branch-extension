@@ -53,7 +53,10 @@ describe('buildManifestForRuntime', () => {
 
     expect(manifest.runtime).toBe('opencode');
     expect(manifest.streamType).toBe('opencode-session');
-    expect(manifest.sources).toEqual([{ pattern: `${sessionId}.jsonl`, role: 'main', mode: 'jsonl-tail' }]);
+    expect(manifest.sources).toEqual([
+      { pattern: `${sessionId}.jsonl`, role: 'main', mode: 'jsonl-tail' },
+      { pattern: `${sessionId}/subagents/*.jsonl`, role: 'subagent', mode: 'jsonl-tail' }
+    ]);
   });
 
   it('propagates the underlying adapter error for a mismatched sessionId', () => {

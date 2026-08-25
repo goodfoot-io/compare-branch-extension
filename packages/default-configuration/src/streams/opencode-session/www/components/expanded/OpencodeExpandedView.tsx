@@ -16,8 +16,9 @@
  * lives in the store-free {@link ../../lib/to-thread-messages} module so it
  * stays unit-testable without a live `window.__STREAM_INIT__` host context.
  * The messages render through the shared `StreamThread` (../../../../lib/aui)
- * with no provider-specific data parts — every OpenCode item kind maps onto
- * the shared four or onto tool-call/text/reasoning parts.
+ * with OpenCode's own data parts (./OpencodeDataParts) registered for
+ * `patch`/`file` rows — every other OpenCode item kind maps onto the shared
+ * four or onto tool-call/text/reasoning parts.
  *
  * @summary Expanded OpenCode session view: sticky header + shared StreamThread
  * @module streams/opencode-session/www/components/expanded/OpencodeExpandedView
@@ -31,6 +32,13 @@ import { SessionHeader } from '../../../../lib/SessionHeader';
 import type { TranscriptItem } from '../../lib/render-transcript';
 import { renderOpencodeTranscript } from '../../lib/render-transcript';
 import { deriveStatus, toThreadMessages } from '../../lib/to-thread-messages';
+import { AttachmentPart, EditedFilesPart } from './OpencodeDataParts';
+
+/** The OpenCode-specific data parts, merged over the four shared ones by `StreamThread`. */
+const OPENCODE_DATA_COMPONENTS = {
+  'edited-files': EditedFilesPart,
+  attachment: AttachmentPart
+};
 
 /**
  * Reads the primary stream file's lines and liveness from the store.
@@ -84,7 +92,12 @@ export function OpencodeExpandedView(): React.ReactElement {
         {items.length === 0 ? (
           <div className="oc-empty">No OpenCode session activity yet.</div>
         ) : (
-          <StreamThread messages={messages} isRunning={isRunning} assistantName="OpenCode" />
+          <StreamThread
+            messages={messages}
+            isRunning={isRunning}
+            assistantName="OpenCode"
+            dataComponents={OPENCODE_DATA_COMPONENTS}
+          />
         )}
       </div>
     </div>

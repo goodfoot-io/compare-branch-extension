@@ -2,10 +2,11 @@
  * OpenCode runtime adapter for {@link SessionSyncManifest} construction.
  *
  * OpenCode v1.18.21 stores sessions in SQLite and has no tailable native
- * transcript, so the Cards runtime plugin materializes one as NDJSON at
- * `~/.cards/opencode-transcripts/<sessionId>.jsonl`. This adapter translates
- * that fixed layout into a manifest the runtime-agnostic transcript-sync
- * engine can consume.
+ * transcript, so the Cards runtime plugin materializes the main session as
+ * NDJSON at `~/.cards/opencode-transcripts/<sessionId>.jsonl` and any
+ * subagent transcripts under `<sessionId>/subagents/*.jsonl`. This adapter
+ * translates that fixed layout into a manifest the runtime-agnostic
+ * transcript-sync engine can consume.
  *
  * @summary Builds a SessionSyncManifest for an OpenCode session
  * @module
@@ -58,7 +59,10 @@ export function buildOpencodeManifest(input: OpencodeManifestInput): SessionSync
     runtime: 'opencode',
     streamType: 'opencode-session',
     watchRoot: dirname(transcriptPath),
-    sources: [{ pattern: expectedBasename, role: 'main', mode: 'jsonl-tail' }],
+    sources: [
+      { pattern: expectedBasename, role: 'main', mode: 'jsonl-tail' },
+      { pattern: `${sessionId}/subagents/*.jsonl`, role: 'subagent', mode: 'jsonl-tail' }
+    ],
     monitorPid,
     cardRepoPath
   };

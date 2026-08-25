@@ -71,6 +71,25 @@ function completedToolPartLine(
   );
 }
 
+function patchPartLine(messageId: string, partId: string, files: string[], ts = '2026-06-04T10:08:00.000Z'): string {
+  return envelope('part', { id: partId, messageID: messageId, type: 'patch', hash: 'abc123', files }, ts);
+}
+
+function filePartLine(messageId: string, partId: string, filename: string, ts = '2026-06-04T10:09:00.000Z'): string {
+  return envelope(
+    'part',
+    {
+      id: partId,
+      messageID: messageId,
+      type: 'file',
+      filename,
+      mime: 'text/plain',
+      url: 'data:text/plain;base64,aGk='
+    },
+    ts
+  );
+}
+
 /**
  * Spies on `JSON.parse`, returning a spy whose call count measures fold work.
  * @returns A fresh `JSON.parse` spy.
@@ -217,5 +236,44 @@ describe('reconcileFolded — cross-batch state carried forward', () => {
     const again = reconcileFolded(folded, [...base, userMessageLine('msg-u')], false);
     expect(again.lineCount).toBe(base.length + 1);
     expect(again.state.turnCount).toBe(1);
+  });
+});
+
+describe('reconcileFolded — patch and file parts fold without breaking the pins', () => {
+  it('matches a one-shot rebuild when patch and file parts arrive across batches', () => {
+    const batch1 = [metaLine(), userMessageLine('msg-u'), filePartLine('msg-u', 'p10', 'notes.txt')];
+    const batch2 = [assistantMessageLine('msg-a'), patchPartLine('msg-a', 'p9', ['/w/src/one.ts'])];
+    const batch3 = [
+      textPartLine('msg-a', 'p2', 'edited one file', '2026-06-04T10:05:00.000Z'),
+      patchPartLine('msg-a', 'p11', ['/w/src/two.ts', '/w/src/three.ts'], '2026-06-04T10:10:00.000Z'),
+      completedToolPartLine('msg-a', 'p3', 'call-1', 'ls', 'file.txt', '2026-06-04T10:07:00.000Z')
+    ];
+
+    const all = [...batch1, ...batch2, ...batch3];
+    let folded = buildFoldedState(batch1, true);
+    folded = reconcileFolded(folded, [...batch1, ...batch2], true);
+    folded = reconcileFolded(folded, all, true);
+
+    expect(folded.state).toEqual(buildOpencodeCompactState(all, true));
+    expect(folded.lineCount).toBe(all.length);
+  });
+
+  it('parses only newly appended patch/file lines on a steady-state append (watermark intact)', () => {
+    const base = [metaLine(), assistantMessageLine('msg-a'), textPartLine('msg-a', 'p2', 'working…')];
+    const appended = [patchPartLine('msg-a', 'p9', ['/w/src/one.ts']), filePartLine('msg-u', 'p10', 'notes.txt')];
+
+    const folded = buildFoldedState(base, true);
+    expect(countParses(() => reconcileFolded(folded, [...base, ...appended], true))).toBe(appended.length);
+  });
+
+  it('keeps incremental and one-shot folds equal across a re-fired patch line', () => {
+    const base = [metaLine(), assistantMessageLine('msg-a'), patchPartLine('msg-a', 'p9', ['/w/src/one.ts'])];
+    const refire = patchPartLine('msg-a', 'p9', ['/w/src/one.ts', '/w/src/four.ts'], '2026-06-04T10:11:00.000Z');
+
+    const all = [...base, refire];
+    const folded = buildFoldedState(base, false);
+    const updated = reconcileFolded(folded, all, false);
+
+    expect(updated.state).toEqual(buildOpencodeCompactState(all, false));
   });
 });

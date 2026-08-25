@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildClaudeCodeManifest } from '../../src/transcript-sync/adapters/claude-code.js';
 import { buildCodexManifest } from '../../src/transcript-sync/adapters/codex.js';
+import { buildOpencodeManifest } from '../../src/transcript-sync/adapters/opencode.js';
 import type { SessionSyncManifest } from '../../src/transcript-sync/manifest.js';
 import { ManifestValidationError, parseManifest, serializeManifest } from '../../src/transcript-sync/manifest.js';
 
@@ -40,6 +41,17 @@ describe('parseManifest / serializeManifest', () => {
       sessionId: 'a1ad5eb8-752f-4739-b02d-c587ae7134d0',
       cardId: 'card-123',
       transcriptPath: '/home/user/.claude/projects/foo/a1ad5eb8-752f-4739-b02d-c587ae7134d0.jsonl',
+      monitorPid: 12345,
+      cardRepoPath: '/home/user/cards/repo'
+    });
+    expect(parseManifest(serializeManifest(manifest))).toEqual(manifest);
+  });
+
+  it('round-trips a manifest built by buildOpencodeManifest', () => {
+    const manifest = buildOpencodeManifest({
+      sessionId: 'b7e6c2a1-9d34-4f8e-a1c2-3d5b7f9e0a12',
+      cardId: 'card-123',
+      transcriptPath: '/home/user/.cards/opencode-transcripts/b7e6c2a1-9d34-4f8e-a1c2-3d5b7f9e0a12.jsonl',
       monitorPid: 12345,
       cardRepoPath: '/home/user/cards/repo'
     });

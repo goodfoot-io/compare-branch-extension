@@ -24,6 +24,28 @@ import { STREAM_DATA_PART_NAME, type ThreadMessageLike } from '../../../lib/aui/
 import type { SessionStatus } from '../../../lib/SessionHeader';
 import type { TranscriptItem } from './render-transcript';
 
+/** Data payload for the `edited-files` data part (a `patch` part's change set). */
+export interface OpencodeEditedFilesData {
+  /** Full absolute paths of the files changed by this step. */
+  files: string[];
+}
+
+/** Data payload for the `attachment` data part (a `file` part prompt attachment). */
+export interface OpencodeAttachmentData {
+  /** Display filename. */
+  filename: string;
+  /** MIME type, when OpenCode reports one. */
+  mime?: string;
+  /** `data:`/`file:` URL carrying or locating the content — never rendered raw. */
+  url?: string;
+}
+
+/** The exact `data` part names this converter emits for OpenCode-specific rows. */
+const OPENCODE_DATA_PART_NAME = {
+  editedFiles: 'edited-files',
+  attachment: 'attachment'
+} as const;
+
 /** One content part of a ThreadMessageLike message being assembled by this converter. */
 type ThreadPart =
   | { type: 'text'; text: string }
@@ -89,7 +111,11 @@ function buildToolArgs(item: Extract<TranscriptItem, { kind: 'tool_call' }>): Re
 }
 
 /** `data` part names classified as "service" (structural/system) content. */
-const SERVICE_DATA_PART_NAMES = new Set<string>([STREAM_DATA_PART_NAME.raw]);
+const SERVICE_DATA_PART_NAMES = new Set<string>([
+  STREAM_DATA_PART_NAME.raw,
+  OPENCODE_DATA_PART_NAME.editedFiles,
+  OPENCODE_DATA_PART_NAME.attachment
+]);
 
 /**
  * Categorizes a part for the content/service run split.
@@ -210,6 +236,22 @@ export function toThreadMessages(items: TranscriptItem[], isActive: boolean): To
         });
         break;
       }
+
+      case 'edited_files':
+        pushPart({
+          type: 'data',
+          name: OPENCODE_DATA_PART_NAME.editedFiles,
+          data: { files: item.files } satisfies OpencodeEditedFilesData
+        });
+        break;
+
+      case 'attachment':
+        pushPart({
+          type: 'data',
+          name: OPENCODE_DATA_PART_NAME.attachment,
+          data: { filename: item.filename, mime: item.mime, url: item.url } satisfies OpencodeAttachmentData
+        });
+        break;
 
       case 'unknown_item':
         pushPart({

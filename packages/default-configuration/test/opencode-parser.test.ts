@@ -89,6 +89,25 @@ describe('opencode render-transcript', () => {
     },
     7
   );
+  // Live v1.18.22 shape: patch parts carry the edited file list as absolute paths.
+  const PATCH_PART = envelope(
+    'part',
+    { id: 'p7', messageID: 'msg-a', type: 'patch', hash: 'abc123', files: ['/w/src/one.ts', '/w/src/two.ts'] },
+    8
+  );
+  // Reconstructed v1.18.22 shape: file parts are prompt attachments; fields may be absent.
+  const FILE_PART = envelope(
+    'part',
+    {
+      id: 'p8',
+      messageID: 'msg-u',
+      type: 'file',
+      filename: 'notes.txt',
+      mime: 'text/plain',
+      url: 'data:text/plain;base64,aGk='
+    },
+    9
+  );
 
   function lines(...bodies: string[]): string[] {
     return [META, ...bodies];
@@ -173,6 +192,109 @@ describe('opencode render-transcript', () => {
 
     expect(items.every((item) => item.kind !== 'unknown_item')).toBe(true);
     expect(items).toHaveLength(1); // header only — step markers render nothing
+  });
+
+  it('renders a patch part as an edited_files item preserving the full absolute paths', () => {
+    const items = renderOpencodeTranscript(lines(ASSISTANT_MESSAGE, PATCH_PART));
+
+    expect(items).toContainEqual({
+      kind: 'edited_files',
+      files: ['/w/src/one.ts', '/w/src/two.ts'],
+      timestamp: expect.any(String)
+    });
+    expect(items.every((item) => item.kind !== 'unknown_item')).toBe(true);
+  });
+
+  it('renders a file part as an attachment item with filename and optional mime/url', () => {
+    const items = renderOpencodeTranscript(lines(USER_MESSAGE, FILE_PART));
+
+    expect(items).toContainEqual({
+      kind: 'attachment',
+      filename: 'notes.txt',
+      mime: 'text/plain',
+      url: 'data:text/plain;base64,aGk=',
+      timestamp: expect.any(String)
+    });
+  });
+
+  it('renders an attachment item even when mime and url are absent (defensive file shape)', () => {
+    const bareFile = envelope('part', { id: 'p8b', messageID: 'msg-u', type: 'file', filename: 'bare.bin' }, 10);
+
+    const items = renderOpencodeTranscript(lines(USER_MESSAGE, bareFile));
+
+    expect(items).toContainEqual({ kind: 'attachment', filename: 'bare.bin', timestamp: expect.any(String) });
+  });
+
+  it('falls back to unknown_item for malformed or empty patch/file parts without dropping neighbors', () => {
+    const emptyPatch = envelope('part', { id: 'p10', messageID: 'msg-a', type: 'patch', hash: 'h', files: [] }, 11);
+    const malformedPatch = envelope('part', { id: 'p11', messageID: 'msg-a', type: 'patch', files: '/w/one.ts' }, 12);
+    const nonStringFiles = envelope(
+      'part',
+      { id: 'p11b', messageID: 'msg-a', type: 'patch', files: ['/w/one.ts', 42] },
+      13
+    );
+    const noFilenameFile = envelope(
+      'part',
+      { id: 'p12', messageID: 'msg-u', type: 'file', url: 'data:text/plain,aGk=' },
+      14
+    );
+
+    const items = renderOpencodeTranscript(
+      lines(ASSISTANT_MESSAGE, emptyPatch, malformedPatch, nonStringFiles, noFilenameFile)
+    );
+
+    expect(items.filter((item) => item.kind === 'unknown_item')).toHaveLength(4);
+    expect(items.some((item) => item.kind === 'session_header')).toBe(true);
+  });
+
+  it('replaces a file part in place when its update re-fires with the same stable id', () => {
+    const updatedFile = envelope(
+      'part',
+      { id: 'p8', messageID: 'msg-u', type: 'file', filename: 'renamed.txt', mime: 'application/json' },
+      10
+    );
+
+    const items = renderOpencodeTranscript(lines(USER_MESSAGE, FILE_PART, updatedFile));
+
+    const attachments = items.filter((item) => item.kind === 'attachment');
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0]).toMatchObject({ kind: 'attachment', filename: 'renamed.txt', mime: 'application/json' });
+  });
+
+  it('merges a second meta line into the existing header instead of pushing a duplicate', () => {
+    const assistantWithCwd = envelope(
+      'message',
+      { id: 'msg-a', role: 'assistant', modelID: 'claude-x', providerID: 'anthropic', path: { cwd: '/w' } },
+      2
+    );
+
+    const items = renderOpencodeTranscript([
+      META,
+      assistantWithCwd,
+      envelope('meta', { runtime: 'opencode', opencodeVersion: '1.18.22' }, 3)
+    ]);
+
+    const headers = items.filter((item) => item.kind === 'session_header');
+    expect(headers).toHaveLength(1);
+    // Identity fields patch from the later meta…
+    expect(headers[0]).toMatchObject({ sessionId: 'ses-123', opencodeVersion: '1.18.22' });
+    // …while accumulated model/provider/cwd survive.
+    expect(headers[0]).toMatchObject({ model: 'claude-x', provider: 'anthropic', cwd: '/w' });
+  });
+
+  it('back-patches the header from a nested user-message model shape when flat fields are absent', () => {
+    const nestedModelUser = envelope(
+      'message',
+      { id: 'msg-u2', role: 'user', model: { providerID: 'openai', modelID: 'gpt-5' } },
+      2
+    );
+
+    const items = renderOpencodeTranscript([META, nestedModelUser]);
+
+    const header = items.find(
+      (item): item is Extract<typeof item, { kind: 'session_header' }> => item.kind === 'session_header'
+    );
+    expect(header).toMatchObject({ model: 'gpt-5', provider: 'openai' });
   });
 });
 

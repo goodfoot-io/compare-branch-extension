@@ -53,6 +53,10 @@ export type TranscriptItem =
   | { kind: 'user_message'; text: string; timestamp?: string }
   | { kind: 'assistant_message'; text: string; timestamp?: string }
   | { kind: 'reasoning'; summaryText: string; timestamp?: string }
+  /** A `patch` part's change set — full absolute paths; components derive basenames. */
+  | { kind: 'edited_files'; files: string[]; timestamp?: string }
+  /** A `file` part (prompt attachment); fields are optional per OpenCode v1.18.22. */
+  | { kind: 'attachment'; filename: string; mime?: string; url?: string; timestamp?: string }
   | {
       kind: 'tool_call';
       name: string;
@@ -242,6 +246,27 @@ function partToItem(part: OpencodePart, role: string, ts: string): TranscriptIte
       };
     }
 
+    case 'patch': {
+      const files = part.files;
+      if (!Array.isArray(files) || files.length === 0 || !files.every((file) => typeof file === 'string')) {
+        return { kind: 'unknown_item', raw: part, timestamp };
+      }
+      return { kind: 'edited_files', files, timestamp };
+    }
+
+    case 'file': {
+      if (typeof part.filename !== 'string' || part.filename.length === 0) {
+        return { kind: 'unknown_item', raw: part, timestamp };
+      }
+      return {
+        kind: 'attachment',
+        filename: part.filename,
+        mime: typeof part.mime === 'string' ? part.mime : undefined,
+        url: typeof part.url === 'string' ? part.url : undefined,
+        timestamp
+      };
+    }
+
     // Structural markers fired around every model step — pure noise here.
     case 'step-start':
     case 'step-finish':
@@ -274,27 +299,52 @@ export function renderOpencodeTranscript(lines: string[]): TranscriptItem[] {
     }
 
     switch (line.kind) {
-      case 'meta':
-        header = {
+      case 'meta': {
+        const identity: SessionHeaderItem = {
           kind: 'session_header',
           sessionId: line.sessionId.length > 0 ? line.sessionId : undefined,
           opencodeVersion: line.data.opencodeVersion,
           timestamp: line.ts.length > 0 ? line.ts : undefined
         };
-        items.push(header);
+        if (header === undefined) {
+          header = identity;
+          items.push(header);
+        } else {
+          // A later meta (every resume appends one) merges into the existing
+          // header: patch the identity fields it carries, never clearing the
+          // accumulated model/provider/cwd facts.
+          if (identity.sessionId !== undefined) header.sessionId = identity.sessionId;
+          if (identity.opencodeVersion !== undefined) header.opencodeVersion = identity.opencodeVersion;
+          if (identity.timestamp !== undefined) header.timestamp = identity.timestamp;
+        }
         break;
+      }
 
       case 'message': {
         if (typeof line.data.id === 'string' && typeof line.data.role === 'string') {
           roles.set(line.data.id, line.data.role);
         }
         // Back-patch the header in place from the first informative record.
+        // Assistant messages carry flat `modelID`/`providerID`; user messages
+        // nest them under `model.{providerID, modelID}` — accept both shapes.
+        const model =
+          typeof line.data.modelID === 'string'
+            ? line.data.modelID
+            : typeof line.data.model?.modelID === 'string'
+              ? line.data.model.modelID
+              : undefined;
+        const provider =
+          typeof line.data.providerID === 'string'
+            ? line.data.providerID
+            : typeof line.data.model?.providerID === 'string'
+              ? line.data.model.providerID
+              : undefined;
         if (header !== undefined) {
-          if (header.model === undefined && typeof line.data.modelID === 'string') {
-            header.model = line.data.modelID;
+          if (header.model === undefined && model !== undefined) {
+            header.model = model;
           }
-          if (header.provider === undefined && typeof line.data.providerID === 'string') {
-            header.provider = line.data.providerID;
+          if (header.provider === undefined && provider !== undefined) {
+            header.provider = provider;
           }
           if (header.cwd === undefined && typeof line.data.path?.cwd === 'string') {
             header.cwd = line.data.path.cwd;
