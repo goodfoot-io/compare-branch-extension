@@ -87,7 +87,7 @@ Based on discovery file + PID + TCP probe + health check result. Schema details 
 
 ## Escalation
 
-File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
+File a bug report — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Server won't start after 3 window reloads**: Include the last 100 lines of the Cards output channel and `find ~/.vscode-server/data/logs -name 'Cards.log' -exec tail -50 {} \;`.
 - **Database corruption recurs after rebuild**: Include `ls -la ~/.cards/cards.db*` and the server startup log showing the corruption error.
 - **Port conflict persists across reloads**: Include `lsof -i :<port>` output and the discovery file contents.

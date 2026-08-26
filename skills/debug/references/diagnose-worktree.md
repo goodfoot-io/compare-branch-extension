@@ -130,7 +130,7 @@ Fix the pattern or file permissions, then re-run `create-worktree` — the polic
 
 ## Escalation
 
-File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
+File a bug report — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Bind lock persists after confirming no bind operation is running**: Include `ls -la ~/.cards/bind-locks/` and `git worktree list`.
 - **Worktree creation consistently fails with no collision**: Include `create-worktree` stderr output and the worktree directory listing.
 - **Worktree contents wrong or creation exits 3 (path policy)**: Include `cat .worktreeignore` / `cat .worktreeinclude` (redacted), the `create-worktree` stderr, and `ls -la` of the affected worktree paths.

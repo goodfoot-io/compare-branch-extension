@@ -168,7 +168,7 @@ In both branches, an empty `CLAUDE_CODE_HOOKS_LOG_FILE` means logging is deliber
 
 ## Escalation
 
-File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
+File a bug report — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Hook binary exists and is executable but agent still can't find it**: Include `find ~/.claude/plugins/cache ~/.codex/plugins/cache -name 'hooks.json' -type f` and the relevant `hooks.json` content.
 - **Trust interstitial appears on every launch despite unchanged binary**: Include `cat ~/.codex/cards.config.toml` (the profile config with trusted hashes) and `sha256sum` of the staged hook `.mjs` file.
 - **Hook log shows repeated crash entries with same error**: Include `tail -100 ${HOOKS_LOG_ANCHOR}/.cards/logs/claude-code-cards-api-hooks.log | jq 'select(.level == "error")'`.

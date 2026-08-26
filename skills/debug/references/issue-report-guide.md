@@ -1,6 +1,6 @@
 # Issue Report Structure
 
-Scope: the issue body template and section structure for filing a Cards extension bug via `cards-extension issue`.
+Scope: the issue body template and section structure for filing a Cards extension bug.
 
 ## Report Sections
 
@@ -11,7 +11,7 @@ Scope: the issue body template and section structure for filing a Cards extensio
 | Steps to reproduce | Numbered and specific, noting prerequisites and consistency (reproducible vs. intermittent) |
 | Expected behavior | What should have happened |
 | Actual behavior | What happened instead, with error messages copy-pasted exact |
-| Investigation | What you explored and found, and which channels (logs, APIs, UIs, monitoring) you checked with what each showed. Discrepancies between channels are often the most diagnostic information |
+| Investigation | What you explored and found, and which channels (logs, APIs, UIs, monitoring) you checked with what each showed |
 | Hypothesis (optional) | Theory about the cause, framed as exploration — "This suggests...", not "The bug is caused by..." |
 | Environment | Auto-populated by `generateCardUrl()`: extension version, VS Code version, platform, node version. Supplement with reproduction-specific environment |
 | Relevant logs | Tail of the most relevant log file(s) — include the log name and why it was selected |
@@ -36,9 +36,9 @@ EOF
 
 ### Template Notes
 
-- The anchor variable must be set in the shell running the heredoc — §1 of `SKILL.md` sets all three. `${HOOKS_LOG_ANCHOR}` is correct for `claude-code-cards-api-hooks`; use `${MAIN_REPO_ROOT}` for `cards-default-configuration-hooks`. Do not substitute `$(git rev-parse --show-toplevel)` for either — from a linked worktree it resolves to the worktree, and a log path built on it names something the bundle never wrote. `claude-code-cards-runtime-hooks` follows neither variable; find its path with the Quick Discovery block in `find-logs.md` and paste it literally.
+- The anchor variable must be set in the shell running the heredoc — §1 of `SKILL.md` sets all three. `${HOOKS_LOG_ANCHOR}` is correct for `claude-code-cards-api-hooks`; use `${MAIN_REPO_ROOT}` for `cards-default-configuration-hooks`. Do not substitute `$(git rev-parse --show-toplevel)` for either. `claude-code-cards-runtime-hooks` follows neither variable; find its path with the Quick Discovery block in `find-logs.md` and paste it literally.
 - Replace `<log-name>` with the actual log filename (e.g., `claude-code-cards-api-hooks`, `claude-code-cards-runtime-hooks`, `cards-default-configuration-hooks`). Inventory in `find-logs.md`.
-- Do not restate extension version, VS Code version, platform, or node version in the body — `generateCardUrl()` adds them.
+- Via `cards-extension issue`, do not restate extension version, VS Code version, platform, or node version — `generateCardUrl()` adds them. Via `gh issue create`, add extension and VS Code versions to Environment yourself.
 - The body is a single JSON string. Multi-line content uses `\n` escaping within the heredoc — the shell expands `$(...)` before passing to `cards-extension issue`.
 - Only `title` and `body` are accepted; unknown fields are rejected, and missing or empty values exit 1 with an error to stderr.
 

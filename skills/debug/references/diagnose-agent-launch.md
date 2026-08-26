@@ -116,7 +116,7 @@ Set by `cardsApiCommands.ts` (~line 257).
 
 ## Escalation
 
-File via `cards-extension issue` — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
+File a bug report — load `interview-issue-report.md`, then `issue-report-guide.md`. Escalate if:
 - **Handler binary is present but won't execute**: Include `ls -la "$(cat ~/.cards/EXTENSION_PATH 2>/dev/null)/dist/config/bin/"` and `cat ~/.cards/VSCODE_NODE`.
 - **Agent CLI is on PATH but ENOENT persists**: Include `which claude codex` output and the handler log tail at `${WORKSPACE}/.cards/logs/cards-default-configuration-hooks.log`.
 - **Terminal opens but no agent output appears**: Include `ps aux | grep claude` and `tail -50 ${WORKSPACE}/.cards/logs/claude-code-cards-runtime-hooks.log`.
