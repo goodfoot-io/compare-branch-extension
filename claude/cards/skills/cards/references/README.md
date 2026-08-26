@@ -7,9 +7,12 @@ Single source of truth for card-type guidance. Two files per card type:
 Plus one shared reference used by every card type:
 - `commanders-intent.md` — first-principles guide for the opening paragraph(s) of `CARD.md`. Every writing guide and interview guide references it; do not duplicate its guidance elsewhere.
 
-Two non-type references loaded on demand from the skill body:
+Non-type references loaded on demand from the skill body:
 - `extension-cli.md` — `cards-extension` CLI for controlling the VS Code extension host.
 - `launch-cards.md` — serial batch-launch procedure for a set of cards.
+- `work-diagram-concepts.md` — semantics a work diagram must preserve; loaded when an HTML page's subject is the card's own work.
+- `work-diagram-notations.md` — notation catalog keyed by the question the reader asks of the diagram.
+- `work-diagram-style.md` — stylized-2.5D visual grammar and SVG mechanics for work-diagram pages.
 
 ## Consumers
 

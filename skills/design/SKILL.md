@@ -115,4 +115,5 @@ Documented departures from the general rules; anything not listed here follows t
 - **Icon-button toolbar clusters use 0 gap**, unlike the 6px inline-item default. See `foundation/spacing.md`.
 - **Shadows are self-defined literals** (not theme variables) because workbench shadow vars don't reach webviews. See `foundation/shadows.md`.
 - **The dialog backdrop scrim is a literal `rgba(0,0,0,0.5)`** — an alpha overlay, not a themeable surface. See `components/dialogs.md`.
+- **Depth is permitted inside a work-diagram SVG** — elevation encodes hierarchy within the diagram frame, using the `shadow-diagram` token; the surrounding page chrome stays flat. See `foundation/shadows.md` and the cards skill's `work-diagram-style.md` reference.
 - **External `https://` assets are allowed in card HTML** (any origin; `http://`/`//`/relative rejected). The sanctioned CDN stack (Tailwind browser build, vscode-elements module, codicon stylesheet) is the default baseline; other external assets are permitted with pinned versions. See `contexts.md`.

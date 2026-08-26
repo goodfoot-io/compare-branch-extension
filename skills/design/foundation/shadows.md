@@ -13,6 +13,7 @@ Depends on: `colors.md` (`--vscode-widget-shadow` used by the legacy token).
 | `shadow-popover` | Floating overlays: tooltips, menus, dropdown lists |
 | `shadow-dialog` | Modal/dialog surfaces |
 | `shadow-legacy` | Older widget shadow, ties to a real VS Code var — prefer the two above for new work |
+| `shadow-diagram` | Depth planes inside a work-diagram SVG only (a named exception in the skill's §5) — an SVG `drop-shadow` filter, never `box-shadow` |
 
 ---
 
@@ -23,6 +24,7 @@ Depends on: `colors.md` (`--vscode-widget-shadow` used by the legacy token).
 | shadow-popover | `0 0 12px rgba(0,0,0,0.14)` | Tooltips, context menus, dropdown/select lists |
 | shadow-dialog | `0 0 20px rgba(0,0,0,0.15)` | Modal dialogs, quick-input overlay |
 | shadow-legacy | `0 2px 8px var(--vscode-widget-shadow)` | Older widget-style elevation; new components prefer `shadow-popover`/`shadow-dialog` |
+| shadow-diagram | `filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25))` | Elevation planes inside a work-diagram SVG (cards skill `work-diagram-style.md`); never page chrome |
 
 ---
 
@@ -32,6 +34,7 @@ Depends on: `colors.md` (`--vscode-widget-shadow` used by the legacy token).
 shadow-popover   0 0 12px rgba(0,0,0,0.14)
 shadow-dialog    0 0 20px rgba(0,0,0,0.15)
 shadow-legacy    0 2px 8px var(--vscode-widget-shadow)
+shadow-diagram   filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25))   (SVG-internal only)
 ```
 
 ---
@@ -45,6 +48,7 @@ shadow-legacy    0 2px 8px var(--vscode-widget-shadow)
 | Modal/dialog | shadow-dialog |
 | Quick-input overlay | shadow-dialog |
 | Legacy/older widget chrome | shadow-legacy |
+| Work-diagram SVG depth planes | shadow-diagram (SVG `drop-shadow` filter; HTML chrome around the diagram stays flat) |
 | Flat surfaces (buttons, inputs, cards at rest) | none — see rationale |
 
 ---

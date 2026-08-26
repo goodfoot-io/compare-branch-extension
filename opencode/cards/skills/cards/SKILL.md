@@ -66,7 +66,7 @@ EOF
 Then, in order:
 
 1. Load the `$markdown` skill before writing CARD.md.
-2. When the card has something worth rendering — a mockup, diagram, data model, flow, or comparison of options — author an HTML page and commit its `.html`/`.meta.json` pair in a commit of its own; load `$html-files` for mechanics and `$design` for styling. Timeline position follows commit order: commit before CARD.md to open the card with a hero the reader takes in first, after CARD.md to elaborate what the description lays out.
+2. When the card has something worth rendering — a mockup, diagram, data model, flow, or comparison of options — author an HTML page and commit each page's `.html`/`.meta.json` pair in a commit of its own; load `$html-files` for mechanics and `$design` for styling. When a page's subject is the card's own work rather than the product being built, first load the three `work-diagram-*` references (see Work-Diagram Pages below). Timeline position follows commit order: commit before CARD.md to open the card with a hero the reader takes in first, after CARD.md to elaborate what the description lays out.
 
 ```bash
 cards html check "$REPO/proposed-panel.html"
@@ -207,6 +207,10 @@ Source of truth: `COMMITS_DIR`, `BRANCHES_DIR`, and `WorkspaceBranch` in `public
 ```
 
 `relations` is optional — omitted when the card has no outgoing relations.
+
+### Work-Diagram Pages
+
+HTML pages may be committed at any point in a card's life (`$html-files`). When a page's subject is the card's own work — its proposed decomposition and task dependencies at creation; execution history, attempts, or the decision trail afterward — rather than the product being built, first load `./references/work-diagram-concepts.md` (what to represent), `./references/work-diagram-notations.md` (which notation), and `./references/work-diagram-style.md` (visual language).
 
 ### Adding a Comment
 
