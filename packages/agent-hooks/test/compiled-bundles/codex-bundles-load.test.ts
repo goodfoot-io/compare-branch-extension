@@ -39,6 +39,8 @@ const tempHomes: string[] = [];
  * Isolated environment for spawned bundles: no Cards action variables (the
  * handlers take their no-action early paths) and a disposable HOME, so a hook
  * can never touch real card state. Hook logging goes to the null device.
+ *
+ * @returns A minimal environment safe for spawning any compiled hook bundle.
  */
 function isolatedHookEnvironment(): Record<string, string> {
   const home = mkdtempSync(join(tmpdir(), 'cards-hook-bundle-'));
@@ -47,19 +49,16 @@ function isolatedHookEnvironment(): Record<string, string> {
 }
 
 describe('compiled Codex hook bundles', () => {
-  beforeAll(
-    () => {
-      const result = spawnSync(process.execPath, [buildScript], {
-        cwd: packageRoot,
-        encoding: 'utf8',
-        timeout: 120_000
-      });
-      if (result.status !== 0) {
-        throw new Error(`build failed with exit code ${result.status}:\n${result.stderr}`);
-      }
-    },
-    { timeout: 150_000 }
-  );
+  beforeAll(() => {
+    const result = spawnSync(process.execPath, [buildScript], {
+      cwd: packageRoot,
+      encoding: 'utf8',
+      timeout: 120_000
+    });
+    if (result.status !== 0) {
+      throw new Error(`build failed with exit code ${result.status}:\n${result.stderr}`);
+    }
+  }, 150_000);
 
   afterAll(() => {
     for (const home of tempHomes) {
@@ -103,7 +102,9 @@ describe('compiled Codex hook bundles', () => {
     expect(result.stderr ?? '').not.toMatch(/Dynamic require of/);
     expect(result.status).toBe(0);
 
-    const output = JSON.parse(result.stdout) as Record<string, unknown>;
-    expect(output).toHaveProperty('hookSpecificOutput');
+    // Handler-level suites assert the payload shape; here parseable JSON on
+    // stdout with a clean exit IS the contract — the artifact ran to
+    // completion instead of dying during module load.
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
   });
 });

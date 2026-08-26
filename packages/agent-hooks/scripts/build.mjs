@@ -18,6 +18,7 @@ import { readdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { applyEsmRequireBridgeToDirectory } from './esm-require-bridge.mjs';
 
 const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(fileURLToPath(import.meta.url), '..', '..');
@@ -267,6 +268,14 @@ function buildTarget(target) {
   if (result.status !== 0) {
     throw new Error(`target ${target.name} failed with exit code ${result.status}`);
   }
+
+  // The Codex CLI emits strict-ESM bundles with no `require` binding, so any
+  // bundled CommonJS dependency that require()s a Node builtin (mime-types →
+  // path) crashed its hook at module load. Bridge every emitted artifact the
+  // same way the Claude CLI's banner and buildOpencodeTarget already do; the
+  // bridge is idempotent and leaves vendor-bannered bundles untouched.
+  const bridged = applyEsmRequireBridgeToDirectory(path.dirname(path.resolve(packageRoot, target.output)));
+  console.log(`[agent-hooks] esm require bridge: ${bridged.bridged}/${bridged.scanned} bundles bridged for ${target.name}`);
 }
 
 // Exported build manifest — side-effect-free. Consumers (e.g. tests) can import
