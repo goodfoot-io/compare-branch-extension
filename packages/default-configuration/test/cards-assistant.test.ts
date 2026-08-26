@@ -53,6 +53,7 @@ vi.mock('../src/lib/opencode-session.js', () => ({
   OPENCODE_ASSISTANT_PLUGIN_NAMES: ['cards', 'cards-assistant'],
   assertOpencodeBinaryAvailable: vi.fn().mockResolvedValue('/usr/bin/opencode'),
   populateOpencodePluginCache: vi.fn().mockResolvedValue({ bundlePath: '', pluginPaths: {}, pluginCachePaths: {} }),
+  readGlobalPluginEntries: vi.fn().mockResolvedValue({ entries: [] }),
   resolveCardsOpencodeStagingDir: vi.fn(() => '/test/cards-opencode-staging'),
   resolveDefaultOpencodeConfigDir: vi.fn(() => '/test/oc-config'),
   writeCardsLaunchConfig: vi.fn().mockResolvedValue('/test/cards-opencode-staging/cards-assistant.config.json')
@@ -361,6 +362,14 @@ describe('cards-assistant handler', () => {
     await flushMicrotasks();
 
     expect(vi.mocked(spawn).mock.calls[0][0]).toBe('/usr/bin/opencode');
+    // The writer receives the global layer's registrations so globally
+    // registered plugins stage their colliding pointer spec instead of a
+    // second copy of every hook module.
+    const { readGlobalPluginEntries, writeCardsLaunchConfig } = await import('../src/lib/opencode-session.js');
+    expect(readGlobalPluginEntries).toHaveBeenCalledWith('/test/oc-config');
+    expect(vi.mocked(writeCardsLaunchConfig).mock.calls[0]?.[4]).toEqual({
+      globalPluginEntries: expect.any(Array)
+    });
     const opts = vi.mocked(spawn).mock.calls[0][2] as {
       shell?: boolean;
       cwd?: string;

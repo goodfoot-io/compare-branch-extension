@@ -220,6 +220,76 @@ async function countRegistrations(origins: readonly string[]): Promise<Map<strin
   return counts;
 }
 
+describe('readGlobalPluginEntries', () => {
+  /**
+   * Serves a global config document body for the synthetic config dir.
+   *
+   * @param body - File content served for `<configDir>/opencode.json`.
+   */
+  async function serveGlobalDoc(body: string): Promise<void> {
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+      if (toPosix(filePath) === `${CONFIG_DIR}/opencode.json`) {
+        return body;
+      }
+      throw Object.assign(new Error(`mock: ENOENT ${String(filePath)}`), { code: 'ENOENT' });
+    });
+  }
+
+  it('returns the registered plugin specs from the global document', async () => {
+    await serveGlobalDoc(
+      JSON.stringify({
+        $schema: 'https://opencode.ai/config.json',
+        plugin: [GLOBAL_CARDS_POINTER, 'opencode-git-span']
+      })
+    );
+    const { readGlobalPluginEntries } = await import('../src/lib/opencode-session.js');
+
+    const result = await readGlobalPluginEntries(CONFIG_DIR);
+
+    expect(result.entries).toEqual([GLOBAL_CARDS_POINTER, 'opencode-git-span']);
+    expect(result.failure).toBeUndefined();
+  });
+
+  it('treats an absent global document as no registrations, not a failure', async () => {
+    const { readGlobalPluginEntries } = await import('../src/lib/opencode-session.js');
+
+    const result = await readGlobalPluginEntries(CONFIG_DIR);
+
+    expect(result).toEqual({ entries: [] });
+  });
+
+  it('reports unparseable JSON as a failure with no entries', async () => {
+    await serveGlobalDoc('{ not json');
+    const { readGlobalPluginEntries } = await import('../src/lib/opencode-session.js');
+
+    const result = await readGlobalPluginEntries(CONFIG_DIR);
+
+    expect(result.entries).toEqual([]);
+    expect(result.failure).toBe('unparseable');
+  });
+
+  it('reports a non-array "plugin" key as untrustworthy rather than staging against it', async () => {
+    await serveGlobalDoc(JSON.stringify({ plugin: '/not/an/array' }));
+    const { readGlobalPluginEntries } = await import('../src/lib/opencode-session.js');
+
+    const result = await readGlobalPluginEntries(CONFIG_DIR);
+
+    expect(result.entries).toEqual([]);
+    expect(result.failure).toBe('unparseable');
+  });
+
+  it('keeps only string entries when the registered array carries foreign shapes', async () => {
+    await serveGlobalDoc(JSON.stringify({ plugin: [GLOBAL_CARDS_POINTER, ['/tuple', {}], 42] }));
+    const { readGlobalPluginEntries } = await import('../src/lib/opencode-session.js');
+
+    const result = await readGlobalPluginEntries(CONFIG_DIR);
+
+    expect(result.entries).toEqual([GLOBAL_CARDS_POINTER]);
+    expect(result.failure).toBeUndefined();
+  });
+});
+
 describe('staged launch config vs global registration — single hook registration', () => {
   it('collapses the globally registered cards plugin to one registration per hook module', async () => {
     await mockPluginTrees();
@@ -272,7 +342,7 @@ describe('staged launch config vs global registration — single hook registrati
   it('falls back to entry paths when the globally registered pointer file is missing on disk', async () => {
     await mockPluginTrees();
     const fs = await import('node:fs/promises');
-    vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
     const { writeCardsLaunchConfig } = await import('../src/lib/opencode-session.js');
 
     // Registration claims the pointer, but the cache subtree lost it (wiped or

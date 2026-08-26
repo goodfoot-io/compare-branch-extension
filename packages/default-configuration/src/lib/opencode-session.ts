@@ -19,6 +19,17 @@
  * `<configDir>/plugins/cache/cards/<plugin>/<version>/`, which the single-level
  * `{plugin,plugins}/*.{ts,js}` auto-scan glob never enumerates.
  *
+ * Cross-layer load identity (verified against v1.18.23): plugin origins concat
+ * across config layers and dedupe ONLY by load identity — the npm package name
+ * for bare specs, the exact file URL for local specs. When a user-scope
+ * install already registers a managed plugin's stable `current.mjs` pointer in
+ * the global layer, staging that plugin's per-hook entry URLs would give every
+ * hook module two distinct identities and therefore TWO registrations per
+ * hook in dispatched sessions. {@link writeCardsLaunchConfig} consequently
+ * stages the byte-identical pointer spec for globally registered plugins so
+ * the loader's own dedupe collapses the layers into one registration, and
+ * keeps direct entry paths otherwise.
+ *
  * Staged config schema (verified against the installed binary's embedded
  * Config v2 schema strings): `plugins` accepts absolute `.mjs` file specs;
  * `permissions` is an ordered ruleset of `{action, resource, effect}` rules;
@@ -648,8 +659,24 @@ function stableSerialize(value: unknown): string {
 }
 
 /**
- * Collects every built hook module (each `*.mjs`) under the enabled plugins'
- * `plugin/` directories, in sorted order.
+ * Collects the plugin specs to stage for every enabled plugin, in sorted order.
+ *
+ * For each enabled plugin this is either:
+ *
+ * - the stable unversioned pointer spec `<cacheRoot>/<plugin>/current.mjs` —
+ *   when the global layer already registers EXACTLY that spec string. The
+ *   staged document then repeats the global registration byte-for-byte, so
+ *   opencode's cross-layer identity dedupe (exact file URL for local specs)
+ *   collapses both layers into ONE registration instead of loading the same
+ *   hook modules twice (once via the pointer's re-exports, once via direct
+ *   entry paths). The pointer must also exist on disk: a registration whose
+ *   cache subtree was wiped would otherwise stage a dead module path and
+ *   break the session, while the freshly published entry paths are verified
+ *   to exist.
+ * - the plugin's built hook modules (`<cacheDir>/plugin/*.mjs`) — when there
+ *   is no global registration to collide with (plugins that load exclusively
+ *   through launch-time staging, users without a user-scope install, or any
+ *   fallback above).
  *
  * Fail-closed: an enabled plugin whose `plugin/` directory cannot be read
  * aborts the launch — silently enabling a plugin without its hook modules
@@ -657,27 +684,94 @@ function stableSerialize(value: unknown): string {
  *
  * @param pluginNames - Enabled plugin names.
  * @param pluginCachePaths - Map of plugin name → installed cache dir.
- * @returns Absolute `.mjs` paths, sorted lexicographically.
+ * @param globalPluginEntries - `plugin` array entries registered in the
+ *   user's global OpenCode config, as resolved by
+ *   {@link readGlobalPluginEntries}.
+ * @returns Absolute spec paths, sorted lexicographically.
  */
-async function collectPluginEntryPaths(
+async function collectStagedPluginSpecs(
   pluginNames: readonly OpencodePluginName[],
-  pluginCachePaths: Record<string, string>
+  pluginCachePaths: Record<string, string>,
+  globalPluginEntries: readonly string[]
 ): Promise<string[]> {
-  const entries: string[] = [];
+  const specs: string[] = [];
   for (const pluginName of pluginNames) {
     const cacheDir = pluginCachePaths[pluginName];
     if (cacheDir === undefined) {
       throw new Error(`No cache path was populated for enabled OpenCode plugin "${pluginName}"`);
     }
+    const pointerPath = path.join(path.dirname(cacheDir), 'current.mjs');
+    if (globalPluginEntries.includes(pointerPath) && (await isExistingPath(pointerPath))) {
+      specs.push(pointerPath);
+      continue;
+    }
     const pluginDir = path.join(cacheDir, 'plugin');
     const dirents = await fs.readdir(pluginDir, { withFileTypes: true });
     for (const dirent of dirents) {
       if (dirent.isFile() && dirent.name.endsWith('.mjs')) {
-        entries.push(path.join(pluginDir, dirent.name));
+        specs.push(path.join(pluginDir, dirent.name));
       }
     }
   }
-  return entries.sort();
+  return specs.sort();
+}
+
+/**
+ * Resolves whether `filePath` can be stat-ed at all (existence probe).
+ *
+ * Used for pointer files that are about to be staged: any concrete error other
+ * than a clean ENOENT still counts as "not safely stageable", so the caller
+ * falls back to the freshly published entry paths.
+ *
+ * @param filePath - Absolute path to probe.
+ * @returns `true` when the path exists; `false` otherwise.
+ */
+async function isExistingPath(filePath: string): Promise<boolean> {
+  try {
+    await fs.stat(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reads the `plugin` array from the user's global OpenCode config document.
+ *
+ * The staged launch config must not re-register globally registered plugins
+ * under a distinct load identity — see {@link collectStagedPluginSpecs} — so
+ * the launch path hands the global registrations to the writer. Absence of
+ * the file is normal (no user-scope install); an unreadable or unparseable
+ * document degrades to no known registrations rather than failing the launch,
+ * which preserves today's entry-path staging behavior at worst.
+ *
+ * @param configDir - Resolved OpenCode config dir.
+ * @returns Registered plugin specs plus a failure reason when the document
+ *   existed but could not be trusted; callers should log the failure.
+ */
+export async function readGlobalPluginEntries(configDir: string): Promise<{
+  entries: string[];
+  failure?: 'unreadable' | 'unparseable';
+}> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(path.join(configDir, 'opencode.json'), 'utf-8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { entries: [] };
+    }
+    return { entries: [], failure: 'unreadable' };
+  }
+
+  try {
+    const doc = JSON.parse(raw) as { plugin?: unknown };
+    if (!Array.isArray(doc.plugin)) {
+      return { entries: [], failure: doc.plugin === undefined ? undefined : 'unparseable' };
+    }
+    return { entries: doc.plugin.filter((entry): entry is string => typeof entry === 'string') };
+  } catch {
+    return { entries: [], failure: 'unparseable' };
+  }
 }
 
 /**
@@ -707,12 +801,33 @@ export async function collectSkillDirs(
 }
 
 /**
+ * Options for {@link writeCardsLaunchConfig}.
+ */
+export interface WriteCardsLaunchConfigOptions {
+  /**
+   * `plugin` array entries registered in the user's global OpenCode config,
+   * as resolved by {@link readGlobalPluginEntries}. When an entry equals an
+   * enabled plugin's stable pointer spec byte-for-byte, that plugin stages
+   * the pointer instead of its per-hook entry paths so opencode's cross-layer
+   * identity dedupe collapses global and staged layers into ONE registration
+   * — staging raw entry paths alongside a pointer registration loads every
+   * hook module twice in dispatched sessions. Omit (or pass empty) to stage
+   * direct entry paths unconditionally.
+   */
+  globalPluginEntries?: readonly string[];
+  /**
+   * Additional top-level config keys merged over the base document.
+   */
+  extras?: Record<string, unknown>;
+}
+
+/**
  * Writes the per-plugin-set Cards launch config document consumed by spawned
  * OpenCode sessions via the `OPENCODE_CONFIG` env var.
  *
  * One file PER SET (`cards-launch.config.json` / `cards-assistant.config.json`)
  * — never one per launch — closing the concurrent-launch clobber race: the
- * document holds only set-scoped inputs (enabled plugin hook modules, allow-all
+ * document holds only set-scoped inputs (enabled plugin specs, allow-all
  * tool permissions, skill discovery dirs), so every launch of the same set
  * under the same extension build computes byte-identical content. Concurrent
  * launches hit the stamp-match fast path (current bytes on disk → no write);
@@ -720,11 +835,15 @@ export async function collectSkillDirs(
  * rename, so a concurrent reader sees either the old or the new complete
  * document, never a partial one.
  *
+ * Plugin specs follow {@link collectStagedPluginSpecs}: the stable pointer
+ * spec for plugins whose exact pointer the global layer registers, direct
+ * entry paths otherwise.
+ *
  * Document shape (live-probed against the installed v1.18.21 binary — the
  * earlier "Config v2 schema" reading was wrong: those schema strings exist but
  * the plugin/skills consumers decode legacy keys):
  *
- * - `"plugin"` (singular) — absolute `.mjs` file specs; the plural form is
+ * - `"plugin"` (singular) — absolute file specs; the plural form is
  *   silently ignored (`onExcessProperty: "ignore"`), producing dead sessions
  *   with no Cards hooks and exit 0.
  * - `"permission"` — nested allow-all records (`{"*":{"*":"allow"}}`); the key
@@ -750,7 +869,8 @@ export async function collectSkillDirs(
  * @param pluginCachePaths - Map of plugin name → installed cache dir (as
  *   returned by {@link populateOpencodePluginCache}). Every enabled plugin must
  *   have an entry — fail closed otherwise.
- * @param extras - Additional top-level config keys merged over the base document.
+ * @param options - Global registrations consulted for identity collision,
+ *   plus extra top-level config keys.
  * @returns Absolute path to the staged config document.
  * @throws {Error} When an enabled plugin has no cache path, or a plugin's
  *   `plugin/` directory cannot be read.
@@ -760,12 +880,13 @@ export async function writeCardsLaunchConfig(
   set: OpencodeLaunchConfigSet,
   pluginNames: readonly OpencodePluginName[],
   pluginCachePaths: Record<string, string>,
-  extras?: Record<string, unknown>
+  options?: WriteCardsLaunchConfigOptions
 ): Promise<string> {
+  const { globalPluginEntries = [], extras } = options ?? {};
   const skillDirs = await collectSkillDirs(pluginNames, pluginCachePaths);
   const document: Record<string, unknown> = {
     $schema: 'https://opencode.ai/config.json',
-    plugin: await collectPluginEntryPaths(pluginNames, pluginCachePaths),
+    plugin: await collectStagedPluginSpecs(pluginNames, pluginCachePaths, globalPluginEntries),
     permission: { '*': { '*': 'allow' } }
   };
   if (skillDirs.length > 0) {
@@ -1002,7 +1123,26 @@ export async function spawnOpencodeSession(
   context.logger.info('Populated OpenCode plugin cache', { configDir, bundlePath, pluginPaths, pluginCachePaths });
 
   const stagingDir = resolveCardsOpencodeStagingDir();
-  const configPath = await writeCardsLaunchConfig(stagingDir, 'launch', OPENCODE_LAUNCH_PLUGIN_NAMES, pluginCachePaths);
+  // The staged document must not re-register globally registered plugins under
+  // a distinct load identity (double hook execution) — hand the writer the
+  // global layer's registrations so it can stage the colliding pointer spec.
+  const globalRegistrations = await readGlobalPluginEntries(configDir);
+  if (globalRegistrations.failure !== undefined) {
+    context.logger.warn('Could not read the global OpenCode config plugin registrations', {
+      configDir,
+      reason: globalRegistrations.failure,
+      consequence: 'staged config enumerates direct entry paths; hooks may double-fire for user-scope installed plugins'
+    });
+  }
+  const configPath = await writeCardsLaunchConfig(
+    stagingDir,
+    'launch',
+    OPENCODE_LAUNCH_PLUGIN_NAMES,
+    pluginCachePaths,
+    {
+      globalPluginEntries: globalRegistrations.entries
+    }
+  );
   context.logger.info('Wrote staged Cards launch config', { stagingDir, configPath });
 
   // See the JSDoc above: these omissions are deliberate, documented degradations.

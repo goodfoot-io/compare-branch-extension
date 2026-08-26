@@ -43,6 +43,7 @@ import {
   assertOpencodeBinaryAvailable,
   OPENCODE_ASSISTANT_PLUGIN_NAMES,
   populateOpencodePluginCache,
+  readGlobalPluginEntries,
   resolveCardsOpencodeStagingDir,
   resolveDefaultOpencodeConfigDir,
   writeCardsLaunchConfig
@@ -130,11 +131,25 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
       OPENCODE_ASSISTANT_PLUGIN_NAMES
     );
     const stagingDir = resolveCardsOpencodeStagingDir();
+    // The staged document must not re-register globally registered plugins
+    // under a distinct load identity (double hook execution) — hand the
+    // writer the global layer's registrations so it can stage the colliding
+    // pointer spec.
+    const globalRegistrations = await readGlobalPluginEntries(configDir);
+    if (globalRegistrations.failure !== undefined) {
+      logger.warn('Could not read the global OpenCode config plugin registrations', {
+        configDir,
+        reason: globalRegistrations.failure
+      });
+    }
     const configPath = await writeCardsLaunchConfig(
       stagingDir,
       'assistant',
       OPENCODE_ASSISTANT_PLUGIN_NAMES,
-      pluginCachePaths
+      pluginCachePaths,
+      {
+        globalPluginEntries: globalRegistrations.entries
+      }
     );
 
     // Interactive TUI launch, mirroring the action path's live-verified argv
