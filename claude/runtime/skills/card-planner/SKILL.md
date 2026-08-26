@@ -70,7 +70,7 @@ Peer plans are public. You may read them, steal good ideas into your own plan, a
 
 ## 1. Create and Spike Your Plan
 
-Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plans/`; if a prior plan has been implemented and the card requests new work, treat it as established context. Read the reviewer's failure-mode questions note in `notes/` when present and answer every applicable question inline in your plan.
+Read `CARD.md` and the most recent comments in the card repository. When the card repository contains `explanation/`, `how-to/`, or `reference/` directories (a deep card), read them too — the mechanisms, invariants, contracts, and workstreams live there, not in `CARD.md`. Read any existing plan files in `plans/`; if a prior plan has been implemented and the card requests new work, treat it as established context. Read the reviewer's failure-mode questions note in `notes/` when present and answer every applicable question inline in your plan.
 
 If `[PLAN_FILE]` already exists when you start — the orchestrator seeded it from a pre-existing un-approved plan — you are the **incumbent**. Defend and refine that plan through review rather than rewriting it from scratch. Round-1 is the inherited draft as-is (with any small corrections you already see); subsequent rounds revise in response to reviewer findings. You may still steal from peer plans and revise on real risks like any other planner — the incumbent role sets your starting point, not your ceiling.
 

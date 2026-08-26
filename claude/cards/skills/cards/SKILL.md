@@ -39,6 +39,8 @@ Match the first applicable row:
 | Infrastructure, CI/CD, deploy, monitoring, scaling | `./references/interview-operations.md` | `./references/operations.md` |
 | Otherwise | `./references/interview-enhancement.md` | `./references/enhancement.md` |
 
+**Deep cards.** When the source material is a document set — three or more documents, or one document the card cannot cover without omission — or the user says "deep card", additionally load `./references/deep-card.md`. It layers a multi-file documentation corpus (routing-hub CARD.md, `explanation/`/`how-to/`/`reference/`/`notes/` tiers) over the matched type's interview and intent guidance, replacing the writing guide's CARD.md body structure. A deep card is ~20 files and 6+ commits: do not load it for a single-topic request, however detailed — "comprehensive" alone is not the trigger.
+
 Run the interview when creating a card interactively with a user: gather enough signal, then invoke the `cards create` flow below and compose CARD.md against the writing guide in the same initial commit. Skip the interview when the user asks to capture something quickly, or when another workflow dispatches here to record an issue it hit — create the card directly from what you already know, still composing CARD.md against the matching writing guide.
 
 ## `cards` CLI

@@ -57,6 +57,8 @@ Read the following three files in parallel, substituting `[type]` with the card 
 - `./references/[type].md`
 - `./references/interview-[type].md`
 
+If the card repository contains `explanation/`, `how-to/`, or `reference/` directories, also read `./references/deep-card.md` — it replaces the writing guide's CARD.md body structure, and interview revisions must preserve the routing-hub layout.
+
 Follow the instructions in `./references/interview-[type].md`.
 
 </routing-instructions>

@@ -8,6 +8,7 @@ Plus one shared reference used by every card type:
 - `commanders-intent.md` — first-principles guide for the opening paragraph(s) of `CARD.md`. Every writing guide and interview guide references it; do not duplicate its guidance elsewhere.
 
 Non-type references loaded on demand from the skill body:
+- `deep-card.md` — multi-file documentation-corpus card layout; loaded when the source material is a document set of three or more documents, or the user says "deep card".
 - `extension-cli.md` — `cards-extension` CLI for controlling the VS Code extension host.
 - `launch-cards.md` — serial batch-launch procedure for a set of cards.
 - `work-diagram-concepts.md` — semantics a work diagram must preserve; loaded when an HTML page's subject is the card's own work.
@@ -17,11 +18,12 @@ Non-type references loaded on demand from the skill body:
 ## Consumers
 
 1. **Card creation** (`cards:cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `cards create` time.
-2. **Post-creation interview** (`runtime:interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`.
+2. **Post-creation interview** (`runtime:interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`; also loads `deep-card.md` when the card repo has documentation tiers.
+3. **Card planner** (`runtime:card-planner` skill) — reads a deep card's `explanation/`, `how-to/`, and `reference/` tiers before planning.
 
 ## Symlinks
 
-`public/claude/runtime/skills/interview/references/` symlinks the writing guides and `commanders-intent.md` back to this directory:
+`public/claude/runtime/skills/interview/references/` symlinks the writing guides, `commanders-intent.md`, and `deep-card.md` back to this directory:
 
 ```
 bug-report.md        -> ../../../../cards/skills/cards/references/bug-report.md
@@ -31,6 +33,7 @@ documentation.md     -> ../../../../cards/skills/cards/references/documentation.
 maintenance.md       -> ../../../../cards/skills/cards/references/maintenance.md
 operations.md        -> ../../../../cards/skills/cards/references/operations.md
 commanders-intent.md -> ../../../../cards/skills/cards/references/commanders-intent.md
+deep-card.md         -> ../../../../cards/skills/cards/references/deep-card.md
 ```
 
 Edit those files here; the symlinks keep both consumers on the same content.
