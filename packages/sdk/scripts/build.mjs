@@ -8,7 +8,7 @@
 // Plain Node ESM, consistent with @cards.management/agent-hooks/scripts/build.mjs.
 
 import { createRequire } from 'node:module';
-import { mkdirSync, rmSync, cpSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -19,15 +19,26 @@ const distDir = path.resolve(packageRoot, 'dist');
 const scaffoldDir = path.resolve(packageRoot, '../../claude/cards/scaffold');
 const srcScaffoldDir = path.resolve(packageRoot, 'src/scaffold');
 
+function copyDir(srcDir, destDir) {
+  mkdirSync(destDir, { recursive: true });
+  for (const entry of readdirSync(srcDir, { withFileTypes: true })) {
+    const src = path.join(srcDir, entry.name);
+    const dest = path.join(destDir, entry.name);
+    if (entry.isDirectory()) copyDir(src, dest);
+    else copyFileSync(src, dest);
+  }
+}
+
 async function build() {
   const esbuild = require('esbuild');
   // 1. Clean output dirs
   rmSync(distDir, { recursive: true, force: true });
   rmSync(scaffoldDir, { recursive: true, force: true });
 
-  // 2. Copy scaffold
-  mkdirSync(scaffoldDir, { recursive: true });
-  cpSync(srcScaffoldDir, scaffoldDir, { recursive: true, dereference: true });
+  // 2. Copy scaffold. Entry-by-entry copyFileSync rather than recursive cpSync:
+  // node's directory copy creates files write-only (0200) before chmod, which
+  // virtiofs workspace mounts reject with EACCES.
+  copyDir(srcScaffoldDir, scaffoldDir);
 
   // 3. Bundle the `cards-sdk` npm CLI shebang entry (Profile A)
   // Flags: --bundle --platform=node --format=esm --packages=external --banner:js='#!/usr/bin/env node'

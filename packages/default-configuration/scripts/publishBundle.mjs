@@ -28,8 +28,36 @@
  *
  * @module publishBundle
  */
-import { cpSync, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readlinkSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+} from 'node:fs';
 import { join } from 'node:path';
+
+// Entry-by-entry copy rather than recursive `cpSync`: node's directory copy
+// creates files write-only (0200) before chmod, which virtiofs workspace
+// mounts reject with EACCES.
+function copyEntry(src, dest) {
+  const stat = lstatSync(src);
+  if (stat.isDirectory()) {
+    mkdirSync(dest, { recursive: true });
+    for (const entry of readdirSync(src)) {
+      copyEntry(join(src, entry), join(dest, entry));
+    }
+  } else if (stat.isSymbolicLink()) {
+    symlinkSync(readlinkSync(src), dest);
+  } else {
+    copyFileSync(src, dest);
+  }
+}
 
 /** Entries under `.cards/` that the build owns and republishes. */
 export const MANAGED_ENTRIES = ['bin', 'settings.json', 'www'];
@@ -55,7 +83,7 @@ export function publishBundle(dist, cardsDir) {
       }
       const tmp = join(cardsDir, `.${name}.tmp-publish`);
       rmSync(tmp, { recursive: true, force: true });
-      cpSync(src, tmp, { recursive: true });
+      copyEntry(src, tmp);
       staged.push({ name, tmp });
     }
   } catch (error) {
