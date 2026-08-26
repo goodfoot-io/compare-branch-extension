@@ -4,14 +4,14 @@
  * Adds child sessions of tracked root sessions to the active-subagent file,
  * best-effort. See the factory for behavior.
  *
- * Exports exactly one plugin factory function — OpenCode invokes every
- * exported function value in a plugin module, so nothing else may be exported.
+ * Default-exports OpenCode's detected `{ id, server }` module shape.
  *
  * @summary SubagentStart equivalent for OpenCode (runtime plugin)
  * @module runtime/subagent-start
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
+import { defineOpencodePluginModule } from '../internal/plugin-module.js';
 import {
   createInertRuntimePlugin,
   createSubagentStartPlugin,
@@ -24,3 +24,5 @@ import {
 export const CardsSubagentStart: Plugin = isCardsActionSession()
   ? createSubagentStartPlugin()
   : createInertRuntimePlugin();
+
+export default defineOpencodePluginModule('cards-subagent-start', CardsSubagentStart);

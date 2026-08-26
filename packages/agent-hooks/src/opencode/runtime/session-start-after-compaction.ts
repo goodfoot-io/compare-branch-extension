@@ -4,14 +4,14 @@
  * Pushes the `<routing-instructions>` reminder into the compaction context for
  * root card sessions. See the factory for behavior.
  *
- * Exports exactly one plugin factory function — OpenCode invokes every
- * exported function value in a plugin module, so nothing else may be exported.
+ * Default-exports OpenCode's detected `{ id, server }` module shape.
  *
  * @summary SessionStart(compact) equivalent for OpenCode (runtime plugin)
  * @module runtime/session-start-after-compaction
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
+import { defineOpencodePluginModule } from '../internal/plugin-module.js';
 import {
   createInertRuntimePlugin,
   createSessionStartAfterCompactionPlugin,
@@ -24,3 +24,5 @@ import {
 export const CardsSessionStartAfterCompaction: Plugin = isCardsActionSession()
   ? createSessionStartAfterCompactionPlugin()
   : createInertRuntimePlugin();
+
+export default defineOpencodePluginModule('cards-session-start-after-compaction', CardsSessionStartAfterCompaction);

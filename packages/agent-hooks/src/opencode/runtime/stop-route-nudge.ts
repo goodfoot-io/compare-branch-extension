@@ -6,14 +6,14 @@
  * plugins cannot block a turn, so this is a named notify-only degradation of
  * the Codex `decision: block` hook. See the factory for behavior.
  *
- * Exports exactly one plugin factory function — OpenCode invokes every
- * exported function value in a plugin module, so nothing else may be exported.
+ * Default-exports OpenCode's detected `{ id, server }` module shape.
  *
  * @summary Stop route nudge equivalent for OpenCode (runtime plugin)
  * @module runtime/stop-route-nudge
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
+import { defineOpencodePluginModule } from '../internal/plugin-module.js';
 import {
   createInertRuntimePlugin,
   createStopRouteNudgePlugin,
@@ -26,3 +26,5 @@ import {
 export const CardsStopRouteNudge: Plugin = isCardsActionSession()
   ? createStopRouteNudgePlugin()
   : createInertRuntimePlugin();
+
+export default defineOpencodePluginModule('cards-stop-route-nudge', CardsStopRouteNudge);

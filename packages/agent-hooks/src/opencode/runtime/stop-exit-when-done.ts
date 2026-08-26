@@ -7,14 +7,14 @@
  * shutdown` — the action handler, parent of this process, performs the
  * graceful termination. See the factory for behavior.
  *
- * Exports exactly one plugin factory function — OpenCode invokes every
- * exported function value in a plugin module, so nothing else may be exported.
+ * Default-exports OpenCode's detected `{ id, server }` module shape.
  *
  * @summary Stop exit-when-done equivalent for OpenCode (runtime plugin)
  * @module runtime/stop-exit-when-done
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
+import { defineOpencodePluginModule } from '../internal/plugin-module.js';
 import {
   createInertRuntimePlugin,
   createStopExitWhenDonePlugin,
@@ -27,3 +27,5 @@ import {
 export const CardsStopExitWhenDone: Plugin = isCardsActionSession()
   ? createStopExitWhenDonePlugin()
   : createInertRuntimePlugin();
+
+export default defineOpencodePluginModule('cards-stop-exit-when-done', CardsStopExitWhenDone);

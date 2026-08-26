@@ -8,14 +8,14 @@
  * `CARDS_TRANSCRIPT_PATH` through the stateless `shell.env`. See the factory
  * for behavior.
  *
- * Exports exactly one plugin factory function — OpenCode invokes every
- * exported function value in a plugin module, so nothing else may be exported.
+ * Default-exports OpenCode's detected `{ id, server }` module shape.
  *
  * @summary SessionStart equivalent for OpenCode (runtime plugin)
  * @module runtime/session-start
  */
 
 import type { Plugin } from '@opencode-ai/plugin';
+import { defineOpencodePluginModule } from '../internal/plugin-module.js';
 import {
   createInertRuntimePlugin,
   createSessionStartPlugin,
@@ -28,3 +28,5 @@ import {
 export const CardsRuntimeSessionStart: Plugin = isCardsActionSession()
   ? createSessionStartPlugin()
   : createInertRuntimePlugin();
+
+export default defineOpencodePluginModule('cards-runtime-session-start', CardsRuntimeSessionStart);
