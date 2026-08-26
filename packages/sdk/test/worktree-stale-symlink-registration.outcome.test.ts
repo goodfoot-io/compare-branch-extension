@@ -1,6 +1,8 @@
 /**
  * Outcome reproduction for stale worktree registrations whose recorded path
  * uses the real spelling of a configured symlinked worktree root.
+ *
+ * @summary Stale real-path worktree registration repair outcome
  */
 
 import { execFileSync } from 'node:child_process';

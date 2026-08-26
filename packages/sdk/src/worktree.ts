@@ -278,16 +278,48 @@ function repoRootFromGitFile(content: string): string {
 }
 
 /**
- * Compares two filesystem paths for equality, tolerating separator and (on
- * Windows) case differences. Both inputs are resolved to absolute native form.
+ * Resolves a path through symlinks even when its leaf does not exist.
+ *
+ * `fs.realpath` cannot canonicalize a stale worktree path because that
+ * directory is missing. Walk to the deepest existing ancestor, canonicalize
+ * that ancestor, then append the missing suffix unchanged. This makes a path
+ * below a configured symlink comparable with Git's resolved spelling.
+ *
+ * @param input - Existing or partially missing filesystem path.
+ * @returns Canonical absolute path with any missing suffix restored.
+ */
+async function canonicalizePath(input: string): Promise<string> {
+  let existingAncestor = path.resolve(input);
+  const missingSegments: string[] = [];
+
+  for (;;) {
+    try {
+      const canonicalAncestor = await fs.realpath(existingAncestor);
+      return path.join(canonicalAncestor, ...missingSegments.reverse());
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+      const parent = path.dirname(existingAncestor);
+      if (parent === existingAncestor) {
+        throw error;
+      }
+      missingSegments.push(path.basename(existingAncestor));
+      existingAncestor = parent;
+    }
+  }
+}
+
+/**
+ * Compares two filesystem paths for equality, tolerating symlink spellings,
+ * separators, missing leaf directories, and (on Windows) case differences.
  *
  * @param a - First path.
  * @param b - Second path.
  * @returns True when the paths refer to the same location.
  */
-function pathsEqual(a: string, b: string): boolean {
-  const ra = path.resolve(a);
-  const rb = path.resolve(b);
+async function pathsEqual(a: string, b: string): Promise<boolean> {
+  const [ra, rb] = await Promise.all([canonicalizePath(a), canonicalizePath(b)]);
   return process.platform === 'win32' ? ra.toLowerCase() === rb.toLowerCase() : ra === rb;
 }
 
@@ -348,6 +380,8 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
   );
 
   const worktreeDir = resolveWorktreeDir(repoRoot, ref);
+
+  await perf.measure('cleanStaleWorktreeRegistration', () => cleanStaleWorktreeRegistration(repoRoot, worktreeDir));
 
   // Run the independent read-only git probes concurrently rather than serially.
   // Previously the worktree-existence guard, ref classification, the branch
@@ -733,6 +767,43 @@ async function cleanStaleWorktreeDir(repoRoot: string, worktreeDir: string): Pro
   }
 }
 
+/**
+ * Prunes an equivalent Git worktree registration whose directory is missing.
+ *
+ * Git may record the real spelling of a path below a symlink while Cards later
+ * computes the symlink spelling. Canonical comparison through the deepest
+ * existing ancestor identifies that registration without treating a live
+ * worktree as stale. `--expire now` makes a freshly orphaned registration
+ * repairable immediately instead of waiting for Git's default expiry window.
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param worktreeDir - Worktree path Cards intends to create.
+ */
+async function cleanStaleWorktreeRegistration(repoRoot: string, worktreeDir: string): Promise<void> {
+  const { stdout } = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {
+    cwd: repoRoot,
+    timeout: 30_000
+  });
+  for (const line of stdout.split('\n')) {
+    if (!line.startsWith('worktree ')) continue;
+    const listed = line.slice('worktree '.length).trim();
+    if (!(await pathsEqual(listed, worktreeDir))) continue;
+
+    try {
+      await fs.access(listed);
+      return;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+
+    await execFileAsync('git', ['worktree', 'prune', '--expire', 'now'], {
+      cwd: repoRoot,
+      timeout: 30_000
+    });
+    return;
+  }
+}
+
 interface GitRoots {
   sourceRoot: string;
   repoRoot: string;
@@ -813,7 +884,7 @@ export async function checkWorktreeExists(repoRoot: string, worktreeDir: string)
     // `git worktree list --porcelain` emits forward slashes on Windows and the
     // line may carry a trailing CR; compare separator- and case-tolerantly.
     const listed = line.slice('worktree '.length).trim();
-    if (pathsEqual(listed, worktreeDir)) {
+    if (await pathsEqual(listed, worktreeDir)) {
       return true;
     }
   }
