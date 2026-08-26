@@ -4,6 +4,7 @@ summary: How the expanded subagent-transcript webview renders or hides each Clau
 aliases: [Attachment Types, Transcript Attachments, Render or Hide]
 tags: [transcript, webview, streams]
 keywords: [attachment, hook, classifier, to-thread-messages, CcDataParts, AttachmentRouter, RawFallback, ambient, presenter]
+links-reviewed: 1
 ---
 
 # Attachment Rendering
