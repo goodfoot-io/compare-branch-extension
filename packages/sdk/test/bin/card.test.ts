@@ -126,6 +126,8 @@ describe('card binary', () => {
   let files: Map<string, string>;
   /** Bodies received via POST /cards/:id/actions/:name. */
   let actionRequests: Array<{ cardId: string; actionName: string; body: Record<string, unknown> | undefined }>;
+  /** Response returned by the action endpoint. */
+  let actionResult: Record<string, unknown>;
   /** CardIds received via DELETE /internal/cards/:cardId/watchers. */
   let deletedWatcherCardIds: string[];
   /** Controls whether DELETE /internal/cards/:cardId/watchers returns 200 or 503. */
@@ -146,6 +148,7 @@ describe('card binary', () => {
     commits = new Map();
     files = new Map();
     actionRequests = [];
+    actionResult = { success: true, exitCode: 0 };
     deletedWatcherCardIds = [];
     watcherRegistryAvailable = true;
     activeWatchers = new Map();
@@ -296,7 +299,7 @@ describe('card binary', () => {
           body: raw ? (JSON.parse(raw) as Record<string, unknown>) : undefined
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, exitCode: 0 }));
+        res.end(JSON.stringify(actionResult));
         return;
       }
 
@@ -731,6 +734,52 @@ describe('card binary', () => {
         logSpy.mockRestore();
       }
     });
+
+    it('forwards an explicit coding agent with the other action options', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await executeAction('card-1', 'launch', {
+          background: true,
+          exitWhenDone: true,
+          selectedAgent: 'opencode-cli'
+        });
+        expect(actionRequests).toEqual([
+          {
+            cardId: 'card-1',
+            actionName: 'launch',
+            body: { mode: 'background', exitWhenDone: true, selectedAgent: 'opencode-cli' }
+          }
+        ]);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('sets a non-zero process exit status when an explicit-agent action fails', async () => {
+      const originalExitCode = process.exitCode;
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      actionResult = { success: false, exitCode: 0, error: 'codex-cli is unavailable' };
+      try {
+        await executeAction('card-1', 'launch', { selectedAgent: 'codex-cli' });
+        expect(process.exitCode).toBe(1);
+      } finally {
+        process.exitCode = originalExitCode;
+        logSpy.mockRestore();
+      }
+    });
+
+    it('leaves process exit status unchanged for a failed default-agent action', async () => {
+      const originalExitCode = process.exitCode;
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      actionResult = { success: false, exitCode: 0, error: 'default launch failed' };
+      try {
+        await executeAction('card-1', 'launch');
+        expect(process.exitCode).toBe(originalExitCode);
+      } finally {
+        process.exitCode = originalExitCode;
+        logSpy.mockRestore();
+      }
+    });
   });
 
   describe('listCards', () => {
@@ -1105,15 +1154,15 @@ describe('card binary', () => {
   describe('help mechanisms', () => {
     const cardBinPath = fileURLToPath(new URL('../../src/bin/cards.ts', import.meta.url));
 
-    function runCard(args: string[]): { stdout: string; exitCode: number } {
+    function runCard(args: string[]): { stdout: string; stderr: string; exitCode: number } {
       try {
         const stdout = execFileSync(process.execPath, [tsxCli, cardBinPath, ...args], {
           encoding: 'utf8'
         });
-        return { stdout, exitCode: 0 };
+        return { stdout, stderr: '', exitCode: 0 };
       } catch (error) {
-        const err = error as { stdout?: string; status?: number };
-        return { stdout: err.stdout ?? '', exitCode: err.status ?? 1 };
+        const err = error as { stdout?: string; stderr?: string; status?: number };
+        return { stdout: err.stdout ?? '', stderr: err.stderr ?? '', exitCode: err.status ?? 1 };
       }
     }
 
@@ -1133,6 +1182,34 @@ describe('card binary', () => {
       const result = runCard(['search', '-h']);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Usage: card');
+    });
+
+    it('action help lists the coding-agent flag and supported IDs', () => {
+      const result = runCard(['card-1', 'action', '--help']);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('--agent <id>');
+      expect(result.stdout).toContain('claude-code-cli, codex-cli, or opencode-cli');
+    });
+
+    it('rejects a missing coding-agent value before API discovery', () => {
+      const result = runCard(['card-1', 'action', 'launch', '--agent']);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain('flag --agent requires a value');
+      expect(result.stderr).not.toContain('API discovery failed');
+    });
+
+    it('does not consume a following flag as the coding-agent value', () => {
+      const result = runCard(['card-1', 'action', 'launch', '--agent', '--background']);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain('flag --agent requires a value');
+      expect(result.stderr).not.toContain('API discovery failed');
+    });
+
+    it('rejects an unknown coding agent before API discovery', () => {
+      const result = runCard(['card-1', 'action', 'launch', '--agent', 'unknown-cli']);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain('invalid coding agent "unknown-cli"');
+      expect(result.stderr).not.toContain('API discovery failed');
     });
   });
 

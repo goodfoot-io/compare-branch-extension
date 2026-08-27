@@ -11,6 +11,7 @@
 
 import type { BranchInfo } from './branch.js';
 import type { CardGates, CardRelation } from './card.js';
+import type { CodingAgentId } from './coding-agent.js';
 import type { CompareState } from './compare.js';
 import type { CardCommit } from './fs.js';
 import type {
@@ -394,6 +395,10 @@ export interface ActionExecuteRequestEvent {
   actionId: string;
   /** Name of the environment in which to run the action. */
   environmentName: string;
+  /** Absolute workspace path of the single executor that should handle the action. */
+  workspacePath: string;
+  /** One-shot coding-agent override. Omitted to preserve default selection. */
+  selectedAgent?: CodingAgentId;
   /** Execution mode controlling whether the action runs interactively or in the background. */
   mode: ExecutionMode;
   /** When true, the spawned agent is signalled to exit cleanly once the action completes. */
@@ -411,6 +416,17 @@ export interface ActionExecuteResultEvent {
   /** Outcome of the action execution. */
   result: ActionResult;
 }
+
+/** Client-to-server registration of the executor for a workspace. */
+export interface ActionExecutorRegisterMessage {
+  /** Message type discriminator. */
+  type: 'action:executorRegister';
+  /** Absolute path of the workspace this connection can execute actions for. */
+  workspacePath: string;
+}
+
+/** Client-to-server action relay messages. */
+export type ActionClientMessage = ActionExecutorRegisterMessage | ActionExecuteResultEvent;
 
 // --- Domain Event Union ---
 

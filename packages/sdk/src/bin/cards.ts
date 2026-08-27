@@ -33,7 +33,14 @@ import {
 import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
 import { CARDS_ENV_VARS, getSocketPath } from '@cards.management/sdk/config/env';
 import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
-import type { ActionResult, CardCommit, CardCommitEvent, ExecutionMode } from '@cards.management/sdk/protocol';
+import {
+  type ActionResult,
+  type CardCommit,
+  type CardCommitEvent,
+  type CodingAgentId,
+  type ExecutionMode,
+  isCodingAgentId
+} from '@cards.management/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards.management/sdk/search-utils';
 import { resolveRuntime, resolveSessionId, resolveTranscriptPath } from '@cards.management/sdk/session-resolver';
 import { readUnboundCandidates, removeUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
@@ -164,6 +171,8 @@ Action:
   the lowercase identifier from the action definition (e.g., "launch").
 
   Options:
+    --agent <id>            Use one supported coding agent for this action:
+                             claude-code-cli, codex-cli, or opencode-cli.
     --background             Run the action in the background instead of
                              interactively. Omit for an interactive run
                              (the default). Rejected when the action does
@@ -173,6 +182,7 @@ Action:
 
   Examples:
     cards <card-id> action launch
+    cards <card-id> action launch --agent codex-cli
     cards <card-id> action launch --background
     cards <card-id> action launch --background --exit-when-done
 
@@ -764,7 +774,7 @@ function parseFlags(args: string[], booleanFlags?: ReadonlySet<string>): Record<
       continue;
     }
     const value = args[++i];
-    if (value === undefined) {
+    if (value === undefined || value.startsWith('--')) {
       throw new Error(`flag ${arg} requires a value`);
     }
     const existing = flags[key];
@@ -1231,16 +1241,24 @@ async function htmlCommand(args: string[]): Promise<void> {
  *   server rejects a background request for an action that does not support it.
  * @param opts.exitWhenDone - When true (`--exit-when-done`), the spawned agent
  *   is signalled to exit once the action completes. Defaults to false.
+ * @param opts.selectedAgent - Optional one-shot coding-agent override.
  */
 export async function executeAction(
   cardId: string,
   actionName: string,
-  opts?: { jsonPath?: string; background?: boolean; exitWhenDone?: boolean }
+  opts?: { jsonPath?: string; background?: boolean; exitWhenDone?: boolean; selectedAgent?: CodingAgentId }
 ): Promise<void> {
   const mode: ExecutionMode | undefined = opts?.background ? 'background' : undefined;
   const client = await connectClient();
-  const result: ActionResult = await client.executeAction(cardId, actionName, mode, opts?.exitWhenDone ?? false);
+  const result: ActionResult = await client.executeAction(
+    cardId,
+    actionName,
+    mode,
+    opts?.exitWhenDone ?? false,
+    opts?.selectedAgent
+  );
   console.log(formatOutput(result, opts?.jsonPath));
+  if (opts?.selectedAgent && !result.success) process.exitCode = 1;
 }
 
 /**
@@ -1498,10 +1516,15 @@ if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
           process.exit(1);
         }
         const actionFlags = parseFlags(process.argv.slice(5), new Set(['background', 'exit-when-done']));
+        const selectedAgent = actionFlags['agent']?.[0];
+        if (selectedAgent !== undefined && !isCodingAgentId(selectedAgent)) {
+          throw new Error(`invalid coding agent "${selectedAgent}"`);
+        }
         run = executeAction(command, actionId, {
           jsonPath: actionFlags['jsonpath']?.[0],
           background: actionFlags['background'] !== undefined,
-          exitWhenDone: actionFlags['exit-when-done'] !== undefined
+          exitWhenDone: actionFlags['exit-when-done'] !== undefined,
+          selectedAgent
         });
       } else if (verb === 'watch') {
         const watchGlobs = process.argv.slice(4);

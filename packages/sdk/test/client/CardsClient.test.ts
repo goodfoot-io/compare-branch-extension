@@ -740,6 +740,16 @@ describe('CardsClient', () => {
         body: { mode: 'interactive' }
       });
     });
+
+    it('executeAction serializes a selected coding agent without changing omitted requests', async () => {
+      const httpClient = new TestHttpClient();
+      httpClient.responses.set('http://localhost:3000/cards/card-123/actions/launch', { success: true, exitCode: 0 });
+      const client = new CardsClient(options, httpClient);
+
+      await client.executeAction('card-123', 'launch', undefined, false, 'codex-cli');
+
+      expect(httpClient.requests[0]?.body).toEqual({ selectedAgent: 'codex-cli' });
+    });
   });
 
   describe('Compare Operations', () => {

@@ -34,6 +34,7 @@
  */
 
 import type { Card, CardRelation } from './card.js';
+import type { CodingAgentId } from './coding-agent.js';
 import type { ExecutionMode } from './settings.js';
 import type { CardStatus } from './status.js';
 import type { Comment, TimelineItem } from './timeline.js';
@@ -604,6 +605,9 @@ export type EnvironmentsResponse = EnvironmentInfo[];
  * Controls how the relayed action is executed by the extension client.
  */
 export interface ExecuteActionRequest {
+  /** One-shot coding-agent override. Omitted to preserve default selection. */
+  selectedAgent?: CodingAgentId;
+
   /**
    * Execution mode for the action.
    *

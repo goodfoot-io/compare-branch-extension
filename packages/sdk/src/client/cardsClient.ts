@@ -9,6 +9,7 @@
 import type {
   ActionResult,
   Card,
+  CodingAgentId,
   CompareRequest,
   CompareState,
   EnvironmentsResponse,
@@ -1071,6 +1072,8 @@ export class CardsClient {
    * @param exitWhenDone - When true, the spawned agent is signalled to exit
    *   once the action completes. Omitted from the request when false, which is
    *   the server default.
+   * @param selectedAgent - Optional one-shot coding-agent override. Omitted to
+   *   preserve default-agent resolution.
    * @returns Promise resolving to the action execution result.
    * @throws ApiError when the server rejects the request.
    * @throws NetworkError when the request fails to reach the server.
@@ -1079,12 +1082,14 @@ export class CardsClient {
     cardId: string,
     actionName: string,
     mode?: ExecutionMode,
-    exitWhenDone?: boolean
+    exitWhenDone?: boolean,
+    selectedAgent?: CodingAgentId
   ): Promise<ActionResult> {
     const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/actions/${encodeURIComponent(actionName)}`);
     const body: ExecuteActionRequest = {};
     if (mode) body.mode = mode;
     if (exitWhenDone) body.exitWhenDone = true;
+    if (selectedAgent) body.selectedAgent = selectedAgent;
     const hasBody = Object.keys(body).length > 0;
     return this.request(() => this.getHttpClient().post<ActionResult>(url, hasBody ? body : undefined), false);
   }

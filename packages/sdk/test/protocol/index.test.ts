@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent, ValidationErrorCode } from '../../src/protocol/index.js';
-import { ATTACHMENT_ID_PATTERN, TAG_PATTERN } from '../../src/protocol/index.js';
+import { ATTACHMENT_ID_PATTERN, CODING_AGENT_IDS, isCodingAgentId, TAG_PATTERN } from '../../src/protocol/index.js';
 
 /**
  * Exercises protocol behavior in the protocol area through focused scenarios.
@@ -11,6 +11,13 @@ import { ATTACHMENT_ID_PATTERN, TAG_PATTERN } from '../../src/protocol/index.js'
  */
 
 describe('Input Constraints', () => {
+  it('exposes and validates the closed coding-agent identifier set', () => {
+    expect(CODING_AGENT_IDS).toEqual(['claude-code-cli', 'codex-cli', 'opencode-cli']);
+    expect(CODING_AGENT_IDS.every(isCodingAgentId)).toBe(true);
+    expect(isCodingAgentId('unknown-cli')).toBe(false);
+    expect(isCodingAgentId(42)).toBe(false);
+  });
+
   it('TAG_PATTERN matches lowercase alphanumeric with hyphens', () => {
     expect(TAG_PATTERN.test('valid-tag')).toBe(true);
     expect(TAG_PATTERN.test('tag123')).toBe(true);

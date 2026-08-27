@@ -57,6 +57,9 @@ export {
 // --- Card Types ---
 export type { Card, CardGates, CardMetadata, CardRelation, CardRelationType } from './card.js';
 export { CARD_RELATION_TYPES, DEFAULT_CARD_GATES } from './card.js';
+// --- Coding Agent Types ---
+export type { CodingAgentId } from './coding-agent.js';
+export { CODING_AGENT_IDS, isCodingAgentId } from './coding-agent.js';
 // --- Compare Types ---
 export type {
   CompareBranchRangeRequest,
@@ -82,6 +85,10 @@ export type { HtmlFileCspPolicyOptions } from './csp.js';
 export { buildHtmlFileCspPolicy } from './csp.js';
 // --- WebSocket Event Types ---
 export type {
+  ActionClientMessage,
+  ActionExecuteRequestEvent,
+  ActionExecuteResultEvent,
+  ActionExecutorRegisterMessage,
   AttachmentAddedEvent,
   AttachmentRemovedEvent,
   CardCommitEvent,
