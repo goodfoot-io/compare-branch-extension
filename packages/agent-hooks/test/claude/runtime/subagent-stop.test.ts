@@ -4,7 +4,7 @@
  * @summary Tests for the SubagentStop hook
  */
 
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { describe, expect, it } from 'vitest';
 import hook from '../../../src/claude/runtime/subagent-stop.js';
 
@@ -27,7 +27,7 @@ describe('SubagentStop Hook', () => {
   it('exports valid hook with hookEventName SubagentStop', () => {
     expect(hook).toBeDefined();
     expect(typeof hook).toBe('function');
-    expect(hook.hookEventName).toBe('SubagentStop');
+    expect(hook.eventName).toBe('SubagentStop');
   });
 
   it('returns null', async () => {

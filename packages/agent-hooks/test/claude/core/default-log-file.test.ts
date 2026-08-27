@@ -27,7 +27,7 @@ import {
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { logger } from '@goodfoot/claude-code-hooks';
+import { logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { targets } from '../../../scripts/build.mjs';
 import {

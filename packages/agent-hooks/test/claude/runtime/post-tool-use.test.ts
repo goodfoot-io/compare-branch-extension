@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { getCommitsSince } from '@cards.management/sdk/card-repo';
 import { getUnattributedCommits } from '@cards.management/sdk/client';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards.management/sessions/card-repo';
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/post-tool-use.js';
 
@@ -74,7 +74,7 @@ const ACTION_ENV = {
 
 describe('PostToolUse Hook', () => {
   it('has correct hookEventName metadata', () => {
-    expect(hook.hookEventName).toBe('PostToolUse');
+    expect(hook.eventName).toBe('PostToolUse');
   });
 
   describe('outside an action subprocess', () => {

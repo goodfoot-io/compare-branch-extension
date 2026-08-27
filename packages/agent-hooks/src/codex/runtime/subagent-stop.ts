@@ -12,7 +12,7 @@ import { rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { removeActiveSubagent } from '@cards.management/sessions/card-repo';
-import { subagentStopHook } from '@goodfoot/codex-hooks';
+import { subagentStopHook } from '@goodfoot/agent-hooks/codex';
 
 export default subagentStopHook({}, async (input, { logger }) => {
   try {

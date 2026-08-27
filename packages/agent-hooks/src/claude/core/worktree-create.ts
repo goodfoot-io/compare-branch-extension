@@ -25,7 +25,7 @@ import { compiledHookScriptPaths } from '@cards.management/sdk/git-hooks';
 import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
 import { createWorktree, type EarlyWorktreeResult } from '@cards.management/sdk/worktree';
 import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
-import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
+import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/agent-hooks/claude-code';
 import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 const execFileAsync = promisify(execFile);

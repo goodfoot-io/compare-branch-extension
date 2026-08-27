@@ -20,7 +20,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Logger, TypedPostToolUseHookInput } from '@goodfoot/claude-code-hooks';
+import type { Logger, TypedPostToolUseHookInput } from '@goodfoot/agent-hooks/claude-code';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------

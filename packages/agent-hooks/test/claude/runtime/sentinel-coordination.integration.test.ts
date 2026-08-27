@@ -18,7 +18,7 @@ vi.mock('@cards.management/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 
-vi.mock('@goodfoot/claude-code-hooks', () => ({
+vi.mock('@goodfoot/agent-hooks/claude-code', () => ({
   sessionEndHook: vi.fn((_opts: unknown, handler: unknown) => handler),
   sessionEndOutput: vi.fn()
 }));

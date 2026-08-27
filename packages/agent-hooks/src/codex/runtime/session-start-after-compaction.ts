@@ -8,7 +8,7 @@
  * @summary SessionStart hook — routing reminder after compaction
  */
 
-import { sessionStartHook, sessionStartOutput } from '@goodfoot/codex-hooks';
+import { sessionStartHook, sessionStartOutput } from '@goodfoot/agent-hooks/codex';
 
 const ROUTING_REMINDER = '**IMPORTANT: Immediately load skills based on the `<routing-instructions>`.**';
 

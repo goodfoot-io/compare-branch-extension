@@ -1,7 +1,7 @@
 /**
  * Computed default log file path for the Claude `core` hook bundle.
  *
- * The upstream `@goodfoot/claude-code-hooks` logger singleton resolves its file
+ * The upstream `@goodfoot/agent-hooks/claude-code` logger singleton resolves its file
  * path as `config.logFilePath ?? process.env[config.logEnvVar] ?? null` — it has
  * no computed default, so with no env var set file logging is simply off. This
  * module layers a Cards-shaped default underneath that: the same
@@ -34,7 +34,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { logger } from '@goodfoot/claude-code-hooks';
+import { logger } from '@goodfoot/agent-hooks/claude-code';
 
 /**
  * Environment variable the upstream logger singleton falls back to by default.

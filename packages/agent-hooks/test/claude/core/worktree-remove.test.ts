@@ -13,7 +13,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { CardsClient } from '@cards.management/sdk/client';
-import type { Logger } from '@goodfoot/claude-code-hooks';
+import type { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@cards.management/sdk/worktree', async (importOriginal) => {
@@ -112,7 +112,7 @@ describe('WorktreeRemove hook', () => {
   }
 
   it('has correct hookEventName', () => {
-    expect(hookFn.hookEventName).toBe('WorktreeRemove');
+    expect(hookFn.eventName).toBe('WorktreeRemove');
   });
 
   it('invokes removeWorktree with input.worktree_path', async () => {

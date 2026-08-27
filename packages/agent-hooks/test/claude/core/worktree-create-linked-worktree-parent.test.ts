@@ -24,7 +24,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import type { CardsClient } from '@cards.management/sdk/client';
-import type { Logger } from '@goodfoot/claude-code-hooks';
+import type { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const execFileAsync = promisify(execFile);

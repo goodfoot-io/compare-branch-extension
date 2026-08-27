@@ -11,7 +11,7 @@ import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-s
 import { findAgentPid } from '@cards.management/sdk/process-tree';
 import { writeSessionHeadSha } from '@cards.management/sessions/card-repo';
 import { TestGitWorkspace } from '@cards.management/test-utils';
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook, { resolveHeadSha } from '../../../src/claude/runtime/session-start.js';
 
@@ -101,7 +101,7 @@ describe('SessionStart Hook', () => {
   });
 
   it('has correct hookEventName metadata', () => {
-    expect(hook.hookEventName).toBe('SessionStart');
+    expect(hook.eventName).toBe('SessionStart');
   });
 
   describe('inside an action subprocess', () => {

@@ -4,7 +4,7 @@
  * @summary Tests for the Cards Assistant SessionStart hook
  */
 
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { describe, expect, it } from 'vitest';
 import hook, { ANNOUNCEMENT } from '../../../src/claude/assistant/session-start.js';
 
@@ -13,7 +13,7 @@ const context = { logger, persistEnvVar: () => {}, persistEnvVars: () => {} };
 
 describe('SessionStart Hook', () => {
   it('has correct hookEventName metadata', () => {
-    expect(hook.hookEventName).toBe('SessionStart');
+    expect(hook.eventName).toBe('SessionStart');
   });
 
   it('startup → systemMessage equals ANNOUNCEMENT and sets no additionalContext', async () => {

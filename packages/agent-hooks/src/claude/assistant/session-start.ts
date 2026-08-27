@@ -9,7 +9,7 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
+import { sessionStartHook, sessionStartOutput } from '@goodfoot/agent-hooks/claude-code';
 
 export const ANNOUNCEMENT = `I can help you:
 - create or update a card

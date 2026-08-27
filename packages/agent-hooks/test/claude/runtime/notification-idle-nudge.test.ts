@@ -21,7 +21,7 @@ import {
   markSessionRouteNudgeFired
 } from '@cards.management/sessions/card-repo';
 import { TestGitWorkspace } from '@cards.management/test-utils';
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/notification-idle-nudge.js';
 
@@ -123,7 +123,7 @@ describe('Notification(idle_prompt) nudge hook', () => {
   it('exports a valid hook with hookEventName Notification and matcher idle_prompt', () => {
     expect(hook).toBeDefined();
     expect(typeof hook).toBe('function');
-    expect(hook.hookEventName).toBe('Notification');
+    expect(hook.eventName).toBe('Notification');
   });
 
   describe('route nudge branch', () => {

@@ -8,7 +8,7 @@
  * @summary Tests for the session-identity SessionStart hook
  */
 
-import type { Logger } from '@goodfoot/claude-code-hooks';
+import type { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/shared/default-log-file.js', () => ({
@@ -52,7 +52,7 @@ describe('session-start hook', () => {
 
   it('has correct hookEventName', async () => {
     const hookFn = (await import('../../../src/claude/core/session-start.js')).default;
-    expect(hookFn.hookEventName).toBe('SessionStart');
+    expect(hookFn.eventName).toBe('SessionStart');
   });
 
   it('persists session identity env vars and returns null', async () => {

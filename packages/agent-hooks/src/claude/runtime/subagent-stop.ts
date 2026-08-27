@@ -7,7 +7,7 @@
  * @summary SubagentStop hook — no-op
  */
 
-import { subagentStopHook } from '@goodfoot/claude-code-hooks';
+import { subagentStopHook } from '@goodfoot/agent-hooks/claude-code';
 
 export default subagentStopHook({}, async () => {
   return null;

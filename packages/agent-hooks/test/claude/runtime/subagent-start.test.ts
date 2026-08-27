@@ -8,7 +8,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards.management/sdk/config';
 import { TestGitWorkspace } from '@cards.management/test-utils';
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/subagent-start.js';
 
@@ -60,7 +60,7 @@ describe('SubagentStart Hook', () => {
   it('exports a valid hook with hookEventName SubagentStart', () => {
     expect(hook).toBeDefined();
     expect(typeof hook).toBe('function');
-    expect(hook.hookEventName).toBe('SubagentStart');
+    expect(hook.eventName).toBe('SubagentStart');
   });
 
   describe('inside an action subprocess', () => {

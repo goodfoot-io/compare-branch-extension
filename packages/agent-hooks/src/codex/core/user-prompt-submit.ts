@@ -40,7 +40,7 @@
  */
 
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
-import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/codex-hooks';
+import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/agent-hooks/codex';
 import {
   buildNudgeContext,
   findCardIds,

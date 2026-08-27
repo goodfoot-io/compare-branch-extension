@@ -7,8 +7,8 @@ packages into one workspace package with a manifest-driven multi-target build.
 ## Layout
 
 - `src/shared/` — SDK-agnostic leaves (`context.ts`, `file-tree.ts`, `resolve-head.ts`, `errors.ts`, `types/markdown.d.ts`), one copy each.
-- `src/claude/{core,assistant,runtime}/` — Claude handlers built with `@goodfoot/claude-code-hooks`.
-- `src/codex/{assistant,runtime}/` — Codex handlers built with `@goodfoot/codex-hooks`.
+- `src/claude/{core,assistant,runtime}/` — Claude handlers built with `@goodfoot/agent-hooks/claude-code`.
+- `src/codex/{assistant,runtime}/` — Codex handlers built with `@goodfoot/agent-hooks/codex`.
 - `scripts/build.mjs` — declares the five build targets and emits each plugin payload into its existing output directory under `public/`.
 
 ## Build

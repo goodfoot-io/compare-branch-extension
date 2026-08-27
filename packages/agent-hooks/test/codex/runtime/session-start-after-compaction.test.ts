@@ -7,7 +7,7 @@
  * @summary Tests for session-start-after-compaction hook
  */
 
-import { Logger } from '@goodfoot/codex-hooks';
+import { Logger } from '@goodfoot/agent-hooks/codex';
 import { describe, expect, it } from 'vitest';
 import hook from '../../../src/codex/runtime/session-start-after-compaction.js';
 

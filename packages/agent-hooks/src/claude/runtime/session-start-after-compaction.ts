@@ -9,7 +9,7 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
+import { sessionStartHook, sessionStartOutput } from '@goodfoot/agent-hooks/claude-code';
 
 const ROUTING_REMINDER = '**IMPORTANT: Immediately load skills based on the `<routing-instructions>`.**';
 

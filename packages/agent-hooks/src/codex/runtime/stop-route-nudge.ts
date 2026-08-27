@@ -16,7 +16,7 @@
  *
  * Peer-hook interaction: both this hook and stop.ts (unattributed-commit
  * checker) are registered as two entries within ONE Stop hooks array entry in
- * hooks.json (the @goodfoot/codex-hooks build coalesces same-event,
+ * hooks.json (the @goodfoot/agent-hooks/codex build coalesces same-event,
  * matcher-less hooks into a single entry). Both can return `decision: 'block'`
  * on the same Stop event — the agent receives both reasons concatenated. The
  * route-nudge marker is written on the first fire and intentionally consumes
@@ -33,7 +33,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards.management/sdk/config';
 import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards.management/sessions/card-repo';
-import { stopHook, stopOutput } from '@goodfoot/codex-hooks';
+import { stopHook, stopOutput } from '@goodfoot/agent-hooks/codex';
 import { isSessionIdle } from '../../shared/session-idle.js';
 
 interface CardMeta {

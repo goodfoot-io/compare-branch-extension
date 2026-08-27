@@ -42,7 +42,7 @@ import {
   markSessionExitWhenDoneNudgeFired,
   markSessionRouteNudgeFired
 } from '@cards.management/sessions/card-repo';
-import { type Logger, notificationHook, notificationOutput } from '@goodfoot/claude-code-hooks';
+import { type Logger, notificationHook, notificationOutput } from '@goodfoot/agent-hooks/claude-code';
 
 interface CardMeta {
   tags?: string[];

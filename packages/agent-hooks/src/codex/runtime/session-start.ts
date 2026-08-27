@@ -13,7 +13,7 @@ import type { ActionInput } from '@cards.management/sdk/config';
 import { extractActionInput } from '@cards.management/sdk/config';
 import { findAgentPid } from '@cards.management/sdk/process-tree';
 import { buildCodexManifest } from '@cards.management/sdk/transcript-sync';
-import { sessionStartHook, sessionStartOutput } from '@goodfoot/codex-hooks';
+import { sessionStartHook, sessionStartOutput } from '@goodfoot/agent-hooks/codex';
 import {
   buildAdditionalContext,
   buildCardRepoLogBlock,

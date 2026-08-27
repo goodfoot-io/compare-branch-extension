@@ -1,6 +1,6 @@
 // ESM require bridge for CLI-compiled hook bundles.
 //
-// `@goodfoot/codex-hooks` compiles hook sources to strict-ESM bundles with Node
+// `@goodfoot/agent-hooks`'s Codex CLI compiles hook sources to strict-ESM bundles with Node
 // builtins externalized and no `require` binding. Bundled CommonJS
 // dependencies compile to esbuild's `__require` shim, whose fallback throws
 // `Dynamic require of "<id>" is not supported` under ESM whenever the bundled
@@ -9,7 +9,7 @@
 // main-613: `mime-types` requiring `path`).
 //
 // The fix mirrors what the two other emitters already do: the
-// `@goodfoot/claude-code-hooks` CLI bakes a `createRequire` banner into every
+// same CLI's Claude Code build bakes a `createRequire` banner into every
 // bundle, and this package's OpenCode builder passes the same banner to
 // esbuild directly (see {@link ../build.mjs} `buildOpencodeTarget`). This
 // module applies the equivalent preamble to the Codex CLI's written artifacts

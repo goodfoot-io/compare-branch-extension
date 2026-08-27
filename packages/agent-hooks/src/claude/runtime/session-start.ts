@@ -16,7 +16,7 @@ import { extractActionInput } from '@cards.management/sdk/config';
 import { findAgentPid } from '@cards.management/sdk/process-tree';
 import { buildClaudeCodeManifest } from '@cards.management/sdk/transcript-sync';
 import { writeSessionHeadSha } from '@cards.management/sessions/card-repo';
-import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
+import { sessionStartHook, sessionStartOutput } from '@goodfoot/agent-hooks/claude-code';
 import {
   buildAdditionalContext,
   buildCardRepoLogBlock,

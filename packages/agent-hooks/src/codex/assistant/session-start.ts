@@ -8,7 +8,7 @@
  * @summary SessionStart hook for the Cards Assistant
  */
 
-import { sessionStartHook, sessionStartOutput } from '@goodfoot/codex-hooks';
+import { sessionStartHook, sessionStartOutput } from '@goodfoot/agent-hooks/codex';
 
 export const ANNOUNCEMENT = `I can help you:
 - create or update a card

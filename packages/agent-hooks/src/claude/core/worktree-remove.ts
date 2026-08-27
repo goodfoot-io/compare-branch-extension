@@ -18,7 +18,7 @@ import * as path from 'node:path';
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import { removeWorktree, WorktreeScopeError } from '@cards.management/sdk/worktree';
 import { BranchUnregisterError, removeWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
-import { worktreeRemoveHook, worktreeRemoveOutput } from '@goodfoot/claude-code-hooks';
+import { worktreeRemoveHook, worktreeRemoveOutput } from '@goodfoot/agent-hooks/claude-code';
 import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 /**

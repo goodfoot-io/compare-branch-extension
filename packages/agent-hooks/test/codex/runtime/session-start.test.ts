@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-sync-watcher';
 import { findAgentPid } from '@cards.management/sdk/process-tree';
 import { TestGitWorkspace } from '@cards.management/test-utils';
-import { Logger } from '@goodfoot/codex-hooks';
+import { Logger } from '@goodfoot/agent-hooks/codex';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/session-start.js';
 

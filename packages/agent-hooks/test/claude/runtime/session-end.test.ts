@@ -13,7 +13,7 @@ import {
   removeSessionHeadSha,
   removeSessionRouteNudge
 } from '@cards.management/sessions/card-repo';
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/session-end.js';
 
@@ -81,7 +81,7 @@ describe('SessionEnd Hook', () => {
   });
 
   it('has correct hookEventName metadata', () => {
-    expect(hook.hookEventName).toBe('SessionEnd');
+    expect(hook.eventName).toBe('SessionEnd');
   });
 
   describe('inside an action subprocess', () => {

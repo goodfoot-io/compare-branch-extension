@@ -10,7 +10,7 @@ import {
   hasSessionExitWhenDoneNudgeFired,
   markSessionExitWhenDoneNudgeFired
 } from '@cards.management/sessions/card-repo';
-import { Logger } from '@goodfoot/codex-hooks';
+import { Logger } from '@goodfoot/agent-hooks/codex';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/stop-exit-when-done.js';
 import { isSessionIdle } from '../../../src/shared/session-idle.js';

@@ -7,7 +7,7 @@
  * runs the real build end-to-end and executes every emitted Codex bundle as a
  * subprocess, asserting each one loads and runs cleanly under Node.
  *
- * Motivating bug (card main-613): `@goodfoot/codex-hooks` compiles ESM bundles
+ * Motivating bug (card main-613): `@goodfoot/agent-hooks/codex` compiles ESM bundles
  * without a `require` bridge, so any bundled CommonJS dependency that
  * `require()`s a Node builtin (e.g. `mime-types` requiring `path`) crashed the
  * hook at module load — before reading stdin or initializing logging — with

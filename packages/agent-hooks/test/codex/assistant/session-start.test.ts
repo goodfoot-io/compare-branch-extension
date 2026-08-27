@@ -4,7 +4,7 @@
  * @summary Tests for the Cards Assistant SessionStart hook
  */
 
-import { Logger } from '@goodfoot/codex-hooks';
+import { Logger } from '@goodfoot/agent-hooks/codex';
 import { describe, expect, it } from 'vitest';
 import hook, { ANNOUNCEMENT } from '../../../src/codex/assistant/session-start.js';
 

@@ -9,7 +9,7 @@
 import { existsSync } from 'node:fs';
 import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
-import type { Logger } from '@goodfoot/claude-code-hooks';
+import type { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@cards.management/sessions/card-repo', () => ({

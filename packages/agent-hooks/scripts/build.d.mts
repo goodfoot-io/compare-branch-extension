@@ -8,8 +8,8 @@
 export interface BuildTarget {
   /** Unique target name, e.g. 'claude-core'. */
   name: string;
-  /** Hook CLI bin name ('claude-code-hooks' or 'codex-hooks'). */
-  cli: string;
+  /** Agent selector for the CLI's --agent flag ('claude-code' or 'codex'). */
+  agent: string;
   /** Input glob relative to the package root. */
   input: string;
   /** Output base directory relative to the package root. */
@@ -23,6 +23,9 @@ export interface BuildTarget {
   /** --log-env-var value, or null for targets that don't use it. */
   logEnvVar: string | null;
 }
+
+/** Absolute path to the resolved `@goodfoot/agent-hooks` CLI entry (`dist/cli.js`). */
+export declare const agentHooksCli: string;
 
 /** The VSCODE_NODE executable wrapper stamped into every hooks.json command. */
 export declare const EXECUTABLE: string;

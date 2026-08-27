@@ -19,7 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Logger, SubagentStartInput } from '@goodfoot/claude-code-hooks';
+import type { Logger, SubagentStartInput } from '@goodfoot/agent-hooks/claude-code';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLogger = {

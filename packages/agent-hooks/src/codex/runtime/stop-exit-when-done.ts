@@ -15,7 +15,7 @@ import {
   hasSessionExitWhenDoneNudgeFired,
   markSessionExitWhenDoneNudgeFired
 } from '@cards.management/sessions/card-repo';
-import { stopHook, stopOutput } from '@goodfoot/codex-hooks';
+import { stopHook, stopOutput } from '@goodfoot/agent-hooks/codex';
 import { isSessionIdle } from '../../shared/session-idle.js';
 
 /**

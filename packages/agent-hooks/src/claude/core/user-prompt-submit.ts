@@ -44,7 +44,7 @@
 
 import { resolveWorktreeCardId } from '@cards.management/sdk/adhoc-attribution';
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
-import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/claude-code-hooks';
+import { userPromptSubmitHook, userPromptSubmitOutput } from '@goodfoot/agent-hooks/claude-code';
 import {
   buildNudgeContext,
   findCardIds,

@@ -18,7 +18,7 @@
  */
 
 import { markSessionSkillLoaded } from '@cards.management/sessions/card-repo';
-import { postToolUseHook } from '@goodfoot/codex-hooks';
+import { postToolUseHook } from '@goodfoot/agent-hooks/codex';
 
 // ---------------------------------------------------------------------------
 // Type guard

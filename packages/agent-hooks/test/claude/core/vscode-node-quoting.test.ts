@@ -29,7 +29,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { EXECUTABLE, targets } from '../../../scripts/build.mjs';
+import { agentHooksCli, EXECUTABLE, targets } from '../../../scripts/build.mjs';
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -57,7 +57,16 @@ function buildGeneratorArgs(outputFile: string): string[] {
   if (!coreTarget) {
     throw new Error('claude-core target not found in build manifest');
   }
-  const args: string[] = [coreTarget.cli, '-i', coreTarget.input, '-o', outputFile, ...coreTarget.loaders];
+  const args: string[] = [
+    agentHooksCli,
+    '--agent',
+    coreTarget.agent,
+    '-i',
+    coreTarget.input,
+    '-o',
+    outputFile,
+    ...coreTarget.loaders
+  ];
   if (coreTarget.logEnvVar) {
     args.push('--log-env-var', coreTarget.logEnvVar);
   }

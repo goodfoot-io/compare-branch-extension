@@ -9,7 +9,7 @@
  * @summary SessionStart hook that persists session env vars
  */
 
-import { sessionStartHook } from '@goodfoot/claude-code-hooks';
+import { sessionStartHook } from '@goodfoot/agent-hooks/claude-code';
 import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 import { persistSessionEnv } from '../../shared/session-env.js';
 

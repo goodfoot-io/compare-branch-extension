@@ -23,17 +23,20 @@ import { applyEsmRequireBridgeToDirectory } from './esm-require-bridge.mjs';
 const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(fileURLToPath(import.meta.url), '..', '..');
 
-// The hook CLI JS entry points, resolved through each package's `exports` map
-// and spawned with `process.execPath` (see {@link buildTarget}). We deliberately
-// do NOT spawn the bare `.bin` shim: on Windows that shim is a `.cmd`, which Node
-// can only launch through a shell (`shell: true`), and cmd.exe then mangles any
-// `--executable` argument containing shell metacharacters (`"`, `$()`, `||`,
-// `2>`) before the CLI ever parses argv — silently truncating the stamped hook
-// command and breaking its trust hash. Resolving `dist/cli.js` and running
-// `node <entry> …` passes argv verbatim on every platform. The `./*` subpath in
-// each package's `exports` maps `<pkg>/cli` → `./dist/cli.js`.
-const claudeCli = fileURLToPath(import.meta.resolve('@goodfoot/claude-code-hooks/cli'));
-const codexCli = fileURLToPath(import.meta.resolve('@goodfoot/codex-hooks/cli'));
+// The hook CLI JS entry point, spawned with `process.execPath` (see
+// {@link buildTarget}). We deliberately do NOT spawn the bare `.bin` shim: on
+// Windows that shim is a `.cmd`, which Node can only launch through a shell
+// (`shell: true`), and cmd.exe then mangles any `--executable` argument
+// containing shell metacharacters (`"`, `$()`, `||`, `2>`) before the CLI ever
+// parses argv — silently truncating the stamped hook command and breaking its
+// trust hash. Resolving `dist/cli.js` and running `node <entry> …` passes argv
+// verbatim on every platform. `@goodfoot/agent-hooks`'s `exports` map has no
+// `./cli` subpath (only `.`, `./claude-code`, `./codex`, `./opencode`), so the
+// CLI entry is resolved off the package's `.` export (`dist/index.js`) instead
+// — `cli.js` sits alongside it in `dist/`, matching the installed
+// `node_modules/.bin/agent-hooks` symlink target. The single CLI now builds
+// both agents, selected per target via `--agent`.
+const agentHooksCli = path.join(path.dirname(fileURLToPath(import.meta.resolve('@goodfoot/agent-hooks'))), 'cli.js');
 
 // The VSCODE_NODE executable wrapper, embedded verbatim into every hooks.json
 // command string. The `$(...)` is intentionally NOT command-substituted — the
@@ -51,14 +54,15 @@ const EXECUTABLE = 'ELECTRON_RUN_AS_NODE=1 "$(cat $HOME/.cards/VSCODE_NODE 2>/de
 const TEXT_LOADERS = ['--loader', '.md=text', '--loader', '.txt=text'];
 
 /**
- * The six build targets. `cli` pins the correct SDK CLI per agent; `clean`
- * lists the output subdirectories to remove before compiling (relative to the
- * target's output base); `logEnvVar` is the Claude-only `--log-env-var` name.
+ * The six build targets. `agent` selects the CLI's `--agent claude-code|codex`
+ * flag; `clean` lists the output subdirectories to remove before compiling
+ * (relative to the target's output base); `logEnvVar` is the Claude-only
+ * `--log-env-var` name.
  */
 const targets = [
   {
     name: 'claude-core',
-    cli: claudeCli,
+    agent: 'claude-code',
     input: 'src/claude/core/**/*.ts',
     outBase: '../../claude/cards',
     output: '../../claude/cards/hooks/hooks.json',
@@ -71,7 +75,7 @@ const targets = [
   },
   {
     name: 'claude-assistant',
-    cli: claudeCli,
+    agent: 'claude-code',
     input: 'src/claude/assistant/**/*.ts',
     outBase: '../../claude/cards-assistant',
     output: '../../claude/cards-assistant/hooks/hooks.json',
@@ -81,7 +85,7 @@ const targets = [
   },
   {
     name: 'claude-runtime',
-    cli: claudeCli,
+    agent: 'claude-code',
     input: 'src/claude/runtime/**/*.ts',
     outBase: '../../claude/runtime',
     output: '../../claude/runtime/hooks/hooks.json',
@@ -91,7 +95,7 @@ const targets = [
   },
   {
     name: 'codex-assistant',
-    cli: codexCli,
+    agent: 'codex',
     input: 'src/codex/assistant/**/*.ts',
     outBase: '../../codex/cards-assistant',
     output: '../../codex/cards-assistant/hooks/hooks.json',
@@ -101,7 +105,7 @@ const targets = [
   },
   {
     name: 'codex-runtime',
-    cli: codexCli,
+    agent: 'codex',
     input: 'src/codex/runtime/**/*.ts',
     outBase: '../../codex/runtime',
     output: '../../codex/runtime/hooks/hooks.json',
@@ -111,7 +115,7 @@ const targets = [
   },
   {
     name: 'codex-core',
-    cli: codexCli,
+    agent: 'codex',
     input: 'src/codex/core/**/*.ts',
     outBase: '../../codex/cards',
     output: '../../codex/cards/hooks/hooks.json',
@@ -251,7 +255,7 @@ function buildTarget(target) {
     });
   }
 
-  const args = ['-i', target.input, '-o', target.output, ...target.loaders];
+  const args = ['--agent', target.agent, '-i', target.input, '-o', target.output, ...target.loaders];
   if (target.logEnvVar) {
     args.push('--log-env-var', target.logEnvVar);
   }
@@ -259,9 +263,9 @@ function buildTarget(target) {
 
   // Run the resolved CLI entry directly via node — never the PATH `.bin` shim —
   // so argv (notably `--executable`, which carries shell metacharacters) reaches
-  // the CLI byte-for-byte on Windows as well as POSIX. See the `claudeCli` /
-  // `codexCli` note above.
-  const result = spawnSync(process.execPath, [target.cli, ...args], {
+  // the CLI byte-for-byte on Windows as well as POSIX. See the `agentHooksCli`
+  // note above.
+  const result = spawnSync(process.execPath, [agentHooksCli, ...args], {
     cwd: packageRoot,
     stdio: 'inherit'
   });
@@ -280,7 +284,7 @@ function buildTarget(target) {
 
 // Exported build manifest — side-effect-free. Consumers (e.g. tests) can import
 // EXECUTABLE, targets, and opencodeTargets without triggering the build.
-export { EXECUTABLE, targets, opencodeTargets, listEntryFiles, inputScanRoot, buildOpencodeTarget };
+export { agentHooksCli, EXECUTABLE, targets, opencodeTargets, listEntryFiles, inputScanRoot, buildOpencodeTarget };
 
 // Only run the build when executed directly (not when imported as a module).
 // Guard on argv[1] being defined: an importer with no script argument (e.g.

@@ -29,7 +29,7 @@
  */
 
 import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
-import { subagentStartHook, subagentStartOutput } from '@goodfoot/claude-code-hooks';
+import { subagentStartHook, subagentStartOutput } from '@goodfoot/agent-hooks/claude-code';
 import { resolveBindableWorktreeDir } from '../../shared/bindable-worktree.js';
 import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 

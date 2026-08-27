@@ -18,7 +18,7 @@
  */
 
 import { markSessionSkillLoaded } from '@cards.management/sessions/card-repo';
-import { postToolUseHook } from '@goodfoot/claude-code-hooks';
+import { postToolUseHook } from '@goodfoot/agent-hooks/claude-code';
 import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
 // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards.management/sdk/config';
 import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards.management/sessions/card-repo';
-import { Logger } from '@goodfoot/codex-hooks';
+import { Logger } from '@goodfoot/agent-hooks/codex';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/stop-route-nudge.js';
 import { isSessionIdle } from '../../../src/shared/session-idle.js';

@@ -39,7 +39,7 @@ import { resolveCardRepoPath, resolveWorktreeCardId } from '@cards.management/sd
 import { isKnownAgentComm } from '@cards.management/sdk/bin/process-utils';
 import { spawnAdhocAttribution } from '@cards.management/sdk/bin/spawn-adhoc-attribution';
 import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
-import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
+import { postToolUseHook, postToolUseOutput } from '@goodfoot/agent-hooks/claude-code';
 import { resolveBindableWorktreeDir } from '../../shared/bindable-worktree.js';
 import { applyDefaultLogFile } from '../../shared/default-log-file.js';
 
@@ -85,7 +85,7 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
         cardRepoPath,
         lockPath,
         // This hook is registered only in the Claude Code plugin
-        // (`@goodfoot/claude-code-hooks`), so its runtime is known statically.
+        // (`@goodfoot/agent-hooks/claude-code`), so its runtime is known statically.
         runtime: 'claude-code'
       },
       logger

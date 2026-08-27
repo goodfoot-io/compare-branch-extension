@@ -8,7 +8,7 @@ import { rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { removeActiveSubagent } from '@cards.management/sessions/card-repo';
-import { Logger } from '@goodfoot/codex-hooks';
+import { Logger } from '@goodfoot/agent-hooks/codex';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/subagent-stop.js';
 

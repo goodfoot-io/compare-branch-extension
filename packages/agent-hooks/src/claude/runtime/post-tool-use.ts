@@ -24,7 +24,7 @@ import { BOOKKEEPING_PATHSPEC_EXCLUSIONS, getUnattributedCommits } from '@cards.
 import type { ActionInput } from '@cards.management/sdk/config';
 import { extractActionInput } from '@cards.management/sdk/config';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards.management/sessions/card-repo';
-import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
+import { postToolUseHook, postToolUseOutput } from '@goodfoot/agent-hooks/claude-code';
 import { CommitLogError, CommitRecordError } from '../../shared/errors.js';
 import { formatCommitLog } from '../../shared/file-tree.js';
 import { resolveHeadFromFiles } from '../../shared/resolve-head.js';

@@ -29,7 +29,7 @@ import {
   removeSessionHeadSha,
   removeSessionRouteNudge
 } from '@cards.management/sessions/card-repo';
-import { sessionEndHook } from '@goodfoot/claude-code-hooks';
+import { sessionEndHook } from '@goodfoot/agent-hooks/claude-code';
 
 /**
  * Writes a sentinel file to signal the transcript watcher that the session

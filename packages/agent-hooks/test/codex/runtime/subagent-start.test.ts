@@ -8,7 +8,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards.management/sdk/config';
 import { TestGitWorkspace } from '@cards.management/test-utils';
-import { Logger } from '@goodfoot/codex-hooks';
+import { Logger } from '@goodfoot/agent-hooks/codex';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/subagent-start.js';
 

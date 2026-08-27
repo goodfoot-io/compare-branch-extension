@@ -7,7 +7,7 @@
  * @summary Tests for session-start-after-compaction hook
  */
 
-import { Logger } from '@goodfoot/claude-code-hooks';
+import { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/claude/runtime/session-start-after-compaction.js';
 
@@ -28,7 +28,7 @@ function makeContext() {
 
 describe('session-start-after-compaction hook', () => {
   it('has SessionStart hookEventName', () => {
-    expect(hook.hookEventName).toBe('SessionStart');
+    expect(hook.eventName).toBe('SessionStart');
   });
 
   it('returns the routing reminder in systemMessage and additionalContext', async () => {

@@ -9,7 +9,7 @@
 
 import { extractActionInput } from '@cards.management/sdk/config';
 import { addActiveSubagent } from '@cards.management/sessions/card-repo';
-import { subagentStartHook, subagentStartOutput } from '@goodfoot/codex-hooks';
+import { subagentStartHook, subagentStartOutput } from '@goodfoot/agent-hooks/codex';
 import { buildAdditionalContext, CardRepoAccessError } from '../../shared/context.js';
 
 export default subagentStartHook({}, async (_input, { logger }) => {

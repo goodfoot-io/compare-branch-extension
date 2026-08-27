@@ -12,7 +12,7 @@
 
 import * as path from 'node:path';
 import type { CardsClient } from '@cards.management/sdk/client';
-import type { Logger } from '@goodfoot/claude-code-hooks';
+import type { Logger } from '@goodfoot/agent-hooks/claude-code';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -178,7 +178,7 @@ describe('WorktreeCreate hook', () => {
   });
 
   it('has correct hookEventName', () => {
-    expect(hookFn.hookEventName).toBe('WorktreeCreate');
+    expect(hookFn.eventName).toBe('WorktreeCreate');
   });
 
   it('returns worktreePath in output after settle resolves (unbound path)', async () => {

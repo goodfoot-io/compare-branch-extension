@@ -8,7 +8,7 @@
 
 import { existsSync } from 'node:fs';
 import { hasSessionSkillLoaded } from '@cards.management/sessions/card-repo';
-import type { Logger } from '@goodfoot/codex-hooks';
+import type { Logger } from '@goodfoot/agent-hooks/codex';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@cards.management/sessions/card-repo', () => ({
