@@ -10,6 +10,7 @@ Plus one shared reference used by every card type:
 Non-type references loaded on demand from the skill body:
 - `deep-card.md` — multi-file documentation-corpus card layout; loaded when the source material is a document set of three or more documents, or the user says "deep card".
 - `extension-cli.md` — `cards-extension` CLI for controlling the VS Code extension host.
+- `fmea-review.md` — iterative worker FMEA review loop for a card's design corpus; loaded for complex or uncertain cards, or on request.
 - `launch-cards.md` — serial batch-launch procedure for a set of cards.
 - `work-diagram-concepts.md` — semantics a work diagram must preserve; loaded when an HTML page's subject is the card's own work.
 - `work-diagram-notations.md` — notation catalog keyed by the question the reader asks of the diagram.

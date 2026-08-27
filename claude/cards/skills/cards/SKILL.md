@@ -43,6 +43,10 @@ Match the first applicable row:
 
 Run the interview when creating a card interactively with a user: gather enough signal, then invoke the `cards create` flow below and compose CARD.md against the writing guide in the same initial commit. Skip the interview when the user asks to capture something quickly, or when another workflow dispatches here to record an issue it hit — create the card directly from what you already know, still composing CARD.md against the matching writing guide.
 
+### FMEA review
+
+After composing a complex or uncertain card — a deep card, a design touching security, concurrency, or data-integrity surface, or one whose failure handling you are not confident is fully specified — load `./references/fmea-review.md` and run its reviewer loop until the reviewer is satisfied, or offer it to the user when they are directing the work. Also run it when the user asks to "FMEA the card" or requests a failure-mode review. Skip it for simple, well-anchored cards.
+
 ## `cards` CLI
 
 `cards` is a plugin-provided executable on `PATH` covering get, create, list, search, bind, action, and watch. Invoke it directly as a bare command.
