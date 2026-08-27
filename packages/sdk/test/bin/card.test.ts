@@ -1193,23 +1193,21 @@ describe('card binary', () => {
 
     it('rejects a missing coding-agent value before API discovery', () => {
       const result = runCard(['card-1', 'action', 'launch', '--agent']);
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('flag --agent requires a value');
-      expect(result.stderr).not.toContain('API discovery failed');
+      expect(result).toEqual({ stdout: '', stderr: 'card: flag --agent requires a value\n', exitCode: 1 });
     });
 
     it('does not consume a following flag as the coding-agent value', () => {
       const result = runCard(['card-1', 'action', 'launch', '--agent', '--background']);
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('flag --agent requires a value');
-      expect(result.stderr).not.toContain('API discovery failed');
+      expect(result).toEqual({ stdout: '', stderr: 'card: flag --agent requires a value\n', exitCode: 1 });
     });
 
     it('rejects an unknown coding agent before API discovery', () => {
       const result = runCard(['card-1', 'action', 'launch', '--agent', 'unknown-cli']);
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('invalid coding agent "unknown-cli"');
-      expect(result.stderr).not.toContain('API discovery failed');
+      expect(result).toEqual({
+        stdout: '',
+        stderr: 'card: invalid coding agent "unknown-cli"; expected one of: claude-code-cli, codex-cli, opencode-cli\n',
+        exitCode: 1
+      });
     });
   });
 

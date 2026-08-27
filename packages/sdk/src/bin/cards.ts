@@ -37,6 +37,7 @@ import {
   type ActionResult,
   type CardCommit,
   type CardCommitEvent,
+  CODING_AGENT_IDS,
   type CodingAgentId,
   type ExecutionMode,
   isCodingAgentId
@@ -1515,16 +1516,18 @@ if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
           console.error('cards action: missing action ID argument');
           process.exit(1);
         }
-        const actionFlags = parseFlags(process.argv.slice(5), new Set(['background', 'exit-when-done']));
-        const selectedAgent = actionFlags['agent']?.[0];
-        if (selectedAgent !== undefined && !isCodingAgentId(selectedAgent)) {
-          throw new Error(`invalid coding agent "${selectedAgent}"`);
-        }
-        run = executeAction(command, actionId, {
-          jsonPath: actionFlags['jsonpath']?.[0],
-          background: actionFlags['background'] !== undefined,
-          exitWhenDone: actionFlags['exit-when-done'] !== undefined,
-          selectedAgent
+        run = Promise.resolve().then(() => {
+          const actionFlags = parseFlags(process.argv.slice(5), new Set(['background', 'exit-when-done']));
+          const selectedAgent = actionFlags['agent']?.[0];
+          if (selectedAgent !== undefined && !isCodingAgentId(selectedAgent)) {
+            throw new Error(`invalid coding agent "${selectedAgent}"; expected one of: ${CODING_AGENT_IDS.join(', ')}`);
+          }
+          return executeAction(command, actionId, {
+            jsonPath: actionFlags['jsonpath']?.[0],
+            background: actionFlags['background'] !== undefined,
+            exitWhenDone: actionFlags['exit-when-done'] !== undefined,
+            selectedAgent
+          });
         });
       } else if (verb === 'watch') {
         const watchGlobs = process.argv.slice(4);

@@ -423,6 +423,8 @@ export interface ActionExecutorRegisterMessage {
   type: 'action:executorRegister';
   /** Absolute path of the workspace this connection can execute actions for. */
   workspacePath: string;
+  /** Repository identifier used to resolve linked worktrees safely. */
+  repositoryId: string;
 }
 
 /** Client-to-server action relay messages. */
