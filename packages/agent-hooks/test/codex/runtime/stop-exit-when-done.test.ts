@@ -5,7 +5,7 @@
  */
 
 import path from 'node:path';
-import { extractActionInput } from '@cards.management/sdk/config';
+import { extractActionInput, readPendingShutdownRequest, sendShutdownReady } from '@cards.management/sdk/config';
 import {
   hasSessionExitWhenDoneNudgeFired,
   markSessionExitWhenDoneNudgeFired
@@ -15,7 +15,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../../../src/codex/runtime/stop-exit-when-done.js';
 import { isSessionIdle } from '../../../src/shared/session-idle.js';
 
-vi.mock('@cards.management/sdk/config', () => ({ extractActionInput: vi.fn() }));
+vi.mock('@cards.management/sdk/config', () => ({
+  extractActionInput: vi.fn(),
+  readPendingShutdownRequest: vi.fn(),
+  sendShutdownReady: vi.fn()
+}));
 vi.mock('@cards.management/sessions/card-repo', () => ({
   hasSessionExitWhenDoneNudgeFired: vi.fn(),
   markSessionExitWhenDoneNudgeFired: vi.fn()
@@ -23,6 +27,8 @@ vi.mock('@cards.management/sessions/card-repo', () => ({
 vi.mock('../../../src/shared/session-idle.js', () => ({ isSessionIdle: vi.fn() }));
 
 const mockExtractActionInput = vi.mocked(extractActionInput);
+const mockReadPendingShutdownRequest = vi.mocked(readPendingShutdownRequest);
+const mockSendShutdownReady = vi.mocked(sendShutdownReady);
 const mockHasNudged = vi.mocked(hasSessionExitWhenDoneNudgeFired);
 const mockMarkNudged = vi.mocked(markSessionExitWhenDoneNudgeFired);
 const mockIsSessionIdle = vi.mocked(isSessionIdle);
@@ -46,6 +52,8 @@ const input = { session_id: 'session-453' } as Parameters<typeof hook>[0];
 describe('Codex Stop exit-when-done hook', () => {
   beforeEach(() => {
     mockExtractActionInput.mockReturnValue(actionInput);
+    mockReadPendingShutdownRequest.mockReturnValue(undefined);
+    mockSendShutdownReady.mockReturnValue(undefined);
     mockHasNudged.mockReturnValue(false);
     mockMarkNudged.mockReturnValue(undefined);
     mockIsSessionIdle.mockReturnValue(true);
@@ -109,5 +117,57 @@ describe('Codex Stop exit-when-done hook', () => {
       throw new Error('disk full');
     });
     expect(await hook(input, { logger })).toBeUndefined();
+  });
+
+  describe('pending shutdown drain acknowledgement', () => {
+    const pendingRequest = {
+      requestId: 'shutdown-request-opaque-453',
+      socketPath: '/tmp/cards-action-453.sock'
+    };
+
+    beforeEach(() => {
+      mockReadPendingShutdownRequest.mockReturnValue(pendingRequest);
+    });
+
+    it('waits for an active subagent, then acknowledges the same request on the next idle Stop', async () => {
+      mockIsSessionIdle.mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+      expect(await hook(input, { logger })).toBeUndefined();
+      expect(mockSendShutdownReady).not.toHaveBeenCalled();
+
+      await hook(input, { logger });
+
+      expect(mockReadPendingShutdownRequest).toHaveBeenCalledWith(input.session_id);
+      expect(mockSendShutdownReady).toHaveBeenCalledWith(pendingRequest.socketPath, {
+        type: 'shutdownReady',
+        requestId: pendingRequest.requestId
+      });
+    });
+
+    it('fails closed when active-work tracking cannot be read', async () => {
+      mockIsSessionIdle.mockImplementation(() => {
+        throw new Error('subagent tracking permission denied');
+      });
+
+      await expect(hook(input, { logger })).resolves.toBeUndefined();
+      expect(mockSendShutdownReady).not.toHaveBeenCalled();
+    });
+
+    it('does not acknowledge while the strict idle authority reports background work', async () => {
+      mockIsSessionIdle.mockReturnValue(false);
+
+      expect(await hook(input, { logger })).toBeUndefined();
+      expect(mockReadPendingShutdownRequest).toHaveBeenCalledWith(input.session_id);
+      expect(mockSendShutdownReady).not.toHaveBeenCalled();
+    });
+  });
+
+  it('requires shutdown to be the sole tool call in the final assistant turn after all work is done', async () => {
+    const result = await hook(input, { logger });
+    const reason = (result!.stdout as { reason?: string }).reason;
+
+    expect(reason).toContain('all subagents and background work are finished');
+    expect(reason).toContain('sole tool call in your final assistant turn');
+    expect(reason).toContain('Do not make any later tool call');
   });
 });
