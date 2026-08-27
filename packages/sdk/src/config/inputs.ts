@@ -216,8 +216,13 @@ export interface ActionContext {
    *
    * @param callback - Function to call on agent-requested shutdown
    */
-  onAgentShutdown(callback: () => void | Promise<void>): void;
+  onAgentShutdown(
+    callback: () => AgentTerminationResult | undefined | Promise<AgentTerminationResult | undefined>
+  ): void;
 }
+
+/** Terminal result reported after an agent-shutdown callback settles. */
+export type AgentTerminationResult = 'graceful' | 'forced' | 'failed';
 
 // ============================================================================
 // Cards Assistant Types

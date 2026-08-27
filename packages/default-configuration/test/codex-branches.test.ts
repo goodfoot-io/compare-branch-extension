@@ -562,7 +562,7 @@ describe('launch action — codex branch', () => {
     expect(spawn).not.toHaveBeenCalled();
   });
 
-  it('registers onCancel that kills the child process', async () => {
+  it('registers owned-tree cancellation and reports the shared shutdown result', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
@@ -572,10 +572,14 @@ describe('launch action — codex branch', () => {
     const promise = action(baseInput(), context);
     await flushMicrotasks();
 
-    const onCancel = vi.mocked(context.onCancel).mock.calls[0][0] as () => void;
-    onCancel();
+    const spawnOptions = vi.mocked(spawn).mock.calls[0]![2];
+    expect(spawnOptions).toEqual(expect.objectContaining({ detached: process.platform !== 'win32' }));
 
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+    const onCancel = vi.mocked(context.onCancel).mock.calls[0][0] as () => Promise<void>;
+    await expect(onCancel()).resolves.toBeUndefined();
+
+    const onAgentShutdown = vi.mocked(context.onAgentShutdown).mock.calls[0][0] as () => Promise<string>;
+    await expect(onAgentShutdown()).resolves.toBe('graceful');
 
     child.emit('close', 0);
     await promise;

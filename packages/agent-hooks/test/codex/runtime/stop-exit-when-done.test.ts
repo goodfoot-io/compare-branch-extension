@@ -5,7 +5,12 @@
  */
 
 import path from 'node:path';
-import { extractActionInput, readPendingShutdownRequest, sendShutdownReady } from '@cards.management/sdk/config';
+import {
+  clearPendingShutdownRequest,
+  extractActionInput,
+  readPendingShutdownRequest,
+  sendShutdownReady
+} from '@cards.management/sdk/config';
 import {
   hasSessionExitWhenDoneNudgeFired,
   markSessionExitWhenDoneNudgeFired
@@ -17,6 +22,7 @@ import { isSessionIdle } from '../../../src/shared/session-idle.js';
 
 vi.mock('@cards.management/sdk/config', () => ({
   extractActionInput: vi.fn(),
+  clearPendingShutdownRequest: vi.fn(),
   readPendingShutdownRequest: vi.fn(),
   sendShutdownReady: vi.fn()
 }));
@@ -27,6 +33,7 @@ vi.mock('@cards.management/sessions/card-repo', () => ({
 vi.mock('../../../src/shared/session-idle.js', () => ({ isSessionIdle: vi.fn() }));
 
 const mockExtractActionInput = vi.mocked(extractActionInput);
+const mockClearPendingShutdownRequest = vi.mocked(clearPendingShutdownRequest);
 const mockReadPendingShutdownRequest = vi.mocked(readPendingShutdownRequest);
 const mockSendShutdownReady = vi.mocked(sendShutdownReady);
 const mockHasNudged = vi.mocked(hasSessionExitWhenDoneNudgeFired);
@@ -53,7 +60,7 @@ describe('Codex Stop exit-when-done hook', () => {
   beforeEach(() => {
     mockExtractActionInput.mockReturnValue(actionInput);
     mockReadPendingShutdownRequest.mockReturnValue(undefined);
-    mockSendShutdownReady.mockReturnValue(undefined);
+    mockSendShutdownReady.mockResolvedValue(undefined);
     mockHasNudged.mockReturnValue(false);
     mockMarkNudged.mockReturnValue(undefined);
     mockIsSessionIdle.mockReturnValue(true);
@@ -121,6 +128,7 @@ describe('Codex Stop exit-when-done hook', () => {
 
   describe('pending shutdown drain acknowledgement', () => {
     const pendingRequest = {
+      version: 1 as const,
       requestId: 'shutdown-request-opaque-453',
       socketPath: '/tmp/cards-action-453.sock'
     };
@@ -142,6 +150,7 @@ describe('Codex Stop exit-when-done hook', () => {
         type: 'shutdownReady',
         requestId: pendingRequest.requestId
       });
+      expect(mockClearPendingShutdownRequest).toHaveBeenCalledWith(input.session_id, pendingRequest.requestId);
     });
 
     it('fails closed when active-work tracking cannot be read', async () => {

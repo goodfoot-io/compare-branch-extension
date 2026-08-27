@@ -29,7 +29,10 @@ export type ShutdownOutcome = 'success' | 'blocked' | 'error';
  *
  * Uses NDJSON (newline-delimited JSON) protocol.
  */
-export type SocketCommand = { type: 'cancel' } | { type: 'switchToInteractive' } | { type: 'agentShutdown' };
+export type SocketCommand =
+  | { type: 'cancel' }
+  | { type: 'switchToInteractive' }
+  | { type: 'agentShutdown'; requestId: string };
 
 /**
  * Response sent back to the ActionDispatcher when switchToInteractive is handled.
@@ -47,8 +50,16 @@ export interface SwitchToInteractiveResponse {
  */
 export interface ShutdownRequestMessage {
   type: 'shutdownRequest';
+  requestId: string;
   outcome: ShutdownOutcome;
   message?: string;
+}
+
+/** Correlated completion emitted after the launcher shutdown callback settles. */
+export interface AgentTerminationMessage {
+  type: 'agentTermination';
+  requestId: string;
+  result: import('./inputs.js').AgentTerminationResult;
 }
 
 /**
@@ -65,7 +76,11 @@ export interface CapabilitiesMessage {
 /**
  * Union of all messages the runtime may send to the dispatcher.
  */
-export type SocketResponse = SwitchToInteractiveResponse | CapabilitiesMessage | ShutdownRequestMessage;
+export type SocketResponse =
+  | SwitchToInteractiveResponse
+  | CapabilitiesMessage
+  | ShutdownRequestMessage
+  | AgentTerminationMessage;
 
 // ============================================================================
 // SocketClient

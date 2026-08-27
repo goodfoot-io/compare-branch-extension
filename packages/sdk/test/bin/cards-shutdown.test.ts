@@ -15,6 +15,7 @@ import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearPendingShutdownRequest, readPendingShutdownRequest } from '../../src/config/shutdown.js';
 
 const tsxCli = createRequire(import.meta.url).resolve('tsx/cli');
 
@@ -22,12 +23,15 @@ describe('cards shutdown verb', () => {
   let server: net.Server;
   let socketPath: string;
   let serverReceived: string[];
+  let sessionId: string;
   const envBackup = { ...process.env };
 
   beforeEach(() => {
     socketPath = join(tmpdir(), `cards-shutdown-test-${process.pid}-${Date.now()}.sock`);
     serverReceived = [];
+    sessionId = `cards-shutdown-session-${process.pid}-${Date.now()}`;
     delete process.env['SOCKET_PATH'];
+    process.env['CARDS_SESSION_ID'] = sessionId;
     vi.spyOn(process, 'exit').mockImplementation((() => {
       throw new Error('process.exit should not be called');
     }) as never);
@@ -49,6 +53,8 @@ describe('cards shutdown verb', () => {
     } catch {
       // best-effort cleanup
     }
+    const pending = readPendingShutdownRequest(sessionId);
+    if (pending) clearPendingShutdownRequest(sessionId, pending.requestId);
   });
 
   function startServer(onLine?: (line: string) => void): Promise<void> {
@@ -97,6 +103,7 @@ describe('cards shutdown verb', () => {
     });
     expect(JSON.parse(serverReceived[0]!)).toEqual({
       type: 'shutdownRequest',
+      requestId: expect.any(String),
       outcome: 'blocked',
       message: 'waiting on review'
     });
@@ -112,7 +119,11 @@ describe('cards shutdown verb', () => {
     await vi.waitFor(() => {
       expect(serverReceived).toHaveLength(1);
     });
-    expect(JSON.parse(serverReceived[0]!)).toEqual({ type: 'shutdownRequest', outcome: 'success' });
+    expect(JSON.parse(serverReceived[0]!)).toEqual({
+      type: 'shutdownRequest',
+      requestId: expect.any(String),
+      outcome: 'success'
+    });
   });
 
   it('resolves a repeated --outcome flag to the last value', async () => {
@@ -125,7 +136,11 @@ describe('cards shutdown verb', () => {
     await vi.waitFor(() => {
       expect(serverReceived).toHaveLength(1);
     });
-    expect(JSON.parse(serverReceived[0]!)).toEqual({ type: 'shutdownRequest', outcome: 'success' });
+    expect(JSON.parse(serverReceived[0]!)).toEqual({
+      type: 'shutdownRequest',
+      requestId: expect.any(String),
+      outcome: 'success'
+    });
   });
 
   it('rejects an invalid outcome without touching the socket', async () => {

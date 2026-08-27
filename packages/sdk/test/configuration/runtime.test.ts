@@ -964,6 +964,46 @@ describe('runtime', () => {
         expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
 
+      it('sends a correlated agentTermination after an awaited callback reports its result', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
+        const handler = vi
+          .fn()
+          .mockImplementation(
+            async (_input: unknown, context: { onAgentShutdown: (cb: () => Promise<'graceful'>) => void }) => {
+              context.onAgentShutdown(async () => 'graceful');
+              await handlerDone;
+            }
+          );
+        const executePromise = executeCommand(makeCommand(handler));
+        const conn = await waitForServerConnection();
+        const received: string[] = [];
+        conn.on('data', (chunk) => received.push(chunk.toString()));
+
+        conn.write('{"type":"agentShutdown","requestId":"request-termination-1"}\n');
+        await vi.waitFor(() => {
+          expect(received.join('')).toContain('agentTermination');
+        });
+        const messages = received
+          .join('')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line));
+        expect(messages).toContainEqual({
+          type: 'agentTermination',
+          requestId: 'request-termination-1',
+          result: 'graceful'
+        });
+
+        resolveHandler();
+        await executePromise;
+      });
+
       it('should ignore a duplicate agentShutdown command', async () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;

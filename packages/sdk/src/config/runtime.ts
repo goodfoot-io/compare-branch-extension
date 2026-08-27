@@ -38,7 +38,13 @@
 import type { ActionCommand, CardsAssistantCommand } from './command-types.js';
 import { CARDS_ENV_VARS, extractActionInput, extractCardsAssistantInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
-import type { ActionContext, ActionInput, CardsAssistantContext, CardsAssistantInput } from './inputs.js';
+import type {
+  ActionContext,
+  ActionInput,
+  AgentTerminationResult,
+  CardsAssistantContext,
+  CardsAssistantInput
+} from './inputs.js';
 import { Logger } from './logger.js';
 import type { SocketCommand } from './socket-client.js';
 import { SocketClient } from './socket-client.js';
@@ -251,7 +257,9 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
       // Callback registration state
       let cancelCallback: (() => void | Promise<void>) | undefined;
       let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
-      let agentShutdownCallback: (() => void | Promise<void>) | undefined;
+      let agentShutdownCallback:
+        | (() => AgentTerminationResult | undefined | Promise<AgentTerminationResult | undefined>)
+        | undefined;
       let commandProcessed = false;
       let agentShutdownProcessed = false;
       let sentCapabilities: { switchToInteractive: boolean; supportsAgentShutdown: boolean } | undefined;
@@ -311,7 +319,7 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
           if (cmd.type === 'agentShutdown') {
             if (agentShutdownProcessed) return;
             agentShutdownProcessed = true;
-            handleAgentShutdownCommand(agentShutdownCallback);
+            handleAgentShutdownCommand(agentShutdownCallback, cmd.requestId, socketClient);
             return;
           }
 
@@ -472,10 +480,16 @@ function handleSwitchToInteractiveCommand(
  * is a no-op. Callback rejections are reported via the logger only.
  *
  * @param callback - The registered agentShutdown callback, if any
+ * @param requestId - Opaque shutdown request correlation identifier.
+ * @param socketClient - Connected action socket used for the termination result.
  *
  * @internal
  */
-function handleAgentShutdownCommand(callback: (() => void | Promise<void>) | undefined): void {
+function handleAgentShutdownCommand(
+  callback: (() => AgentTerminationResult | undefined | Promise<AgentTerminationResult | undefined>) | undefined,
+  requestId: string,
+  socketClient: SocketClient
+): void {
   if (!callback) {
     return;
   }
@@ -485,7 +499,11 @@ function handleAgentShutdownCommand(callback: (() => void | Promise<void>) | und
     // SocketClient's NDJSON parse loop and be misreported as protocol
     // corruption while the shutdown event is silently consumed.
     toPromise(callback()).then(
-      () => {},
+      (result) => {
+        if (result !== undefined) {
+          socketClient.sendResponse({ type: 'agentTermination', requestId, result });
+        }
+      },
       (error) => {
         logger.error(`onAgentShutdown callback error: ${getErrorMessage(error)}`);
       }

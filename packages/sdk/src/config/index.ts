@@ -70,6 +70,7 @@ export type {
 export type {
   ActionContext,
   ActionInput,
+  AgentTerminationResult,
   CardsAssistantContext,
   CardsAssistantInput
 } from './inputs.js';
@@ -102,6 +103,14 @@ export {
   readSwitchToInteractiveData,
   vscodeNodeCommandRef
 } from './env.js';
+export {
+  clearPendingShutdownRequest,
+  type PendingShutdownRequest,
+  readPendingShutdownRequest,
+  type ShutdownReadyMessage,
+  sendShutdownReady,
+  writePendingShutdownRequest
+} from './shutdown.js';
 
 // ============================================================================
 // Exit Codes

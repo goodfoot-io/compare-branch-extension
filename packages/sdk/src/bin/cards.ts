@@ -9,6 +9,7 @@
  */
 
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import * as net from 'node:net';
 import { homedir } from 'node:os';
@@ -31,6 +32,7 @@ import {
   NetworkError
 } from '@cards.management/sdk/client';
 import { discoverApiInfo } from '@cards.management/sdk/client/discovery';
+import { clearPendingShutdownRequest, writePendingShutdownRequest } from '@cards.management/sdk/config';
 import { CARDS_ENV_VARS, getSocketPath } from '@cards.management/sdk/config/env';
 import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
 import {
@@ -1302,10 +1304,23 @@ export async function runShutdownVerb(args: string[]): Promise<void> {
     return;
   }
 
+  const sessionId = (process.env[CARDS_ENV_VARS.CARDS_SESSION_ID] ?? '').trim();
+  if (!sessionId) {
+    console.error(
+      `cards shutdown: ${CARDS_ENV_VARS.CARDS_SESSION_ID} is not set — shutdown readiness cannot be correlated.`
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const requestId = randomUUID();
+  writePendingShutdownRequest(sessionId, { version: 1, requestId, socketPath });
+
   await new Promise<void>((resolve, reject) => {
     const socket = net.createConnection(socketPath, () => {
-      const payload: { type: 'shutdownRequest'; outcome: ShutdownOutcome; message?: string } = {
+      const payload: { type: 'shutdownRequest'; requestId: string; outcome: ShutdownOutcome; message?: string } = {
         type: 'shutdownRequest',
+        requestId,
         outcome,
         ...(message !== undefined ? { message } : {})
       };
@@ -1320,6 +1335,7 @@ export async function runShutdownVerb(args: string[]): Promise<void> {
     });
     socket.on('error', reject);
   }).catch((error: unknown) => {
+    clearPendingShutdownRequest(sessionId, requestId);
     const detail = error instanceof Error ? error.message : String(error);
     console.error(
       `cards shutdown: failed to deliver shutdownRequest to ${socketPath} — ${detail}. ` +

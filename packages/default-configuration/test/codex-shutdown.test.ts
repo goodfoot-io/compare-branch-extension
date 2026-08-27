@@ -1,3 +1,10 @@
+/**
+ * Real-process coverage for bounded, owned-tree Codex termination.
+ *
+ * @summary Codex termination controller behavior
+ * @module
+ */
+
 import { type ChildProcess, spawn } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -26,6 +33,13 @@ async function controller(
 ): Promise<TerminationController> {
   const { createCodexTerminationController } = await import('../src/lib/codex-termination.js');
   return createCodexTerminationController(child, options);
+}
+
+async function waitForOutput(child: ChildProcess): Promise<string> {
+  return new Promise((resolve, reject) => {
+    child.stdout?.once('data', (chunk: Buffer) => resolve(chunk.toString().trim()));
+    child.once('error', reject);
+  });
 }
 
 function isAlive(pid: number): boolean {
@@ -74,7 +88,13 @@ describe('Codex termination controller', () => {
   });
 
   it('forces a TERM-ignoring process and still resolves within the configured bound', async () => {
-    const child = launch("process.on('SIGTERM', () => {}); setInterval(() => {}, 1e9)");
+    const child = launch(
+      "process.on('SIGTERM', () => {}); process.stdout.write('ready\\n'); setInterval(() => {}, 1e9)",
+      {
+        stdout: 'pipe'
+      }
+    );
+    await waitForOutput(child);
     const termination = await controller(child, { gracefulTimeoutMs: 50, forceTimeoutMs: 500 });
     const startedAt = Date.now();
 
@@ -87,17 +107,14 @@ describe('Codex termination controller', () => {
     async () => {
       const wrapper = launch(
         `const { spawn } = require('node:child_process');
-       const descendant = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1e9)"],
-         { stdio: 'ignore' });
-       process.stdout.write(String(descendant.pid) + '\\n');
+       const descendant = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); process.stdout.write('ready\\\\n'); setInterval(() => {}, 1e9)"],
+         { stdio: ['ignore', 'pipe', 'ignore'] });
        process.on('SIGTERM', () => process.exit(0));
+       descendant.stdout.once('data', () => process.stdout.write(String(descendant.pid) + '\\n'));
        setInterval(() => {}, 1e9);`,
         { detached: true, stdout: 'pipe' }
       );
-      const pidText = await new Promise<string>((resolve, reject) => {
-        wrapper.stdout?.once('data', (chunk: Buffer) => resolve(chunk.toString().trim()));
-        wrapper.once('error', reject);
-      });
+      const pidText = await waitForOutput(wrapper);
       const descendantPid = Number(pidText);
       descendantPids.add(descendantPid);
       const termination = await controller(wrapper, { gracefulTimeoutMs: 50, forceTimeoutMs: 500 });

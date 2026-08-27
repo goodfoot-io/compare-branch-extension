@@ -40,6 +40,12 @@ interface ProcessInfo {
   ppid: number;
 }
 
+/** Snapshot entry used to prove an owned agent subtree is drained. */
+interface ProcessTreeEntry {
+  pid: number;
+  ppid: number;
+}
+
 /**
  * Normalizes a command name to the {@link SHELL_COMMS} key space.
  *
@@ -167,4 +173,64 @@ export async function findAgentPid(startPid?: number): Promise<number | null> {
   }
 
   return null;
+}
+
+/**
+ * Proves that an agent subtree contains no process outside the currently
+ * executing hook branch. Query failure is represented by `null` so callers can
+ * fail closed.
+ *
+ * @param agentPid - Root PID that owns the Codex action subtree.
+ * @param hookPid - PID of the Stop hook process.
+ * @returns `true` when only the hook ancestry/probe branch remains, `false`
+ *   when another owned process exists, or `null` when state is unknowable.
+ */
+export async function isAgentProcessTreeDrained(agentPid: number, hookPid = process.pid): Promise<boolean | null> {
+  const invocation = IS_WINDOWS
+    ? {
+        file: 'powershell',
+        args: [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          "Get-CimInstance Win32_Process | ForEach-Object { $_.ProcessId.ToString() + '|' + $_.ParentProcessId.ToString() }"
+        ]
+      }
+    : { file: 'ps', args: ['-e', '-o', 'pid=,ppid='] };
+  try {
+    const { stdout } = await execFileAsync(invocation.file, invocation.args, { encoding: 'utf8', timeout: 5000 });
+    const entries: ProcessTreeEntry[] = stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [pidText, ppidText] = IS_WINDOWS ? line.split('|') : line.split(/\s+/);
+        return { pid: Number.parseInt(pidText ?? '', 10), ppid: Number.parseInt(ppidText ?? '', 10) };
+      });
+    if (entries.some((entry) => Number.isNaN(entry.pid) || Number.isNaN(entry.ppid))) return null;
+
+    const byPid = new Map(entries.map((entry) => [entry.pid, entry]));
+    if (!byPid.has(agentPid) || !byPid.has(hookPid)) return null;
+    const isDescendantOf = (pid: number, ancestor: number): boolean => {
+      const seen = new Set<number>();
+      let cursor = pid;
+      while (cursor > 1 && !seen.has(cursor)) {
+        if (cursor === ancestor) return true;
+        seen.add(cursor);
+        cursor = byPid.get(cursor)?.ppid ?? 0;
+      }
+      return false;
+    };
+    if (!isDescendantOf(hookPid, agentPid)) return null;
+
+    for (const entry of entries) {
+      if (!isDescendantOf(entry.pid, agentPid)) continue;
+      const onHookAncestry = isDescendantOf(hookPid, entry.pid);
+      const probeDescendant = isDescendantOf(entry.pid, hookPid);
+      if (!onHookAncestry && !probeDescendant) return false;
+    }
+    return true;
+  } catch {
+    return null;
+  }
 }

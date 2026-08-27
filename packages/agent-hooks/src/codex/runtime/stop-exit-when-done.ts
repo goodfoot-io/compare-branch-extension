@@ -10,7 +10,12 @@
  */
 
 import { fileURLToPath } from 'node:url';
-import { extractActionInput } from '@cards.management/sdk/config';
+import {
+  clearPendingShutdownRequest,
+  extractActionInput,
+  readPendingShutdownRequest,
+  sendShutdownReady
+} from '@cards.management/sdk/config';
 import {
   hasSessionExitWhenDoneNudgeFired,
   markSessionExitWhenDoneNudgeFired
@@ -38,9 +43,46 @@ export default stopHook({}, async (input, { logger }) => {
     return undefined;
   }
 
-  if (!actionInput.exitWhenDone || !isSessionIdle(input.session_id)) {
+  if (!actionInput.exitWhenDone) {
     return undefined;
   }
+
+  let pendingRequest: ReturnType<typeof readPendingShutdownRequest>;
+  try {
+    pendingRequest = readPendingShutdownRequest(input.session_id);
+  } catch (error) {
+    logger.warn('stop-exit-when-done: failed to read pending shutdown request', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return undefined;
+  }
+
+  if (pendingRequest) {
+    let idle: boolean;
+    try {
+      idle = await isSessionIdle(input.session_id, { strict: true });
+    } catch (error) {
+      logger.warn('stop-exit-when-done: strict idle authority failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return undefined;
+    }
+    if (!idle) return undefined;
+    try {
+      await sendShutdownReady(pendingRequest.socketPath, {
+        type: 'shutdownReady',
+        requestId: pendingRequest.requestId
+      });
+      clearPendingShutdownRequest(input.session_id, pendingRequest.requestId);
+    } catch (error) {
+      logger.warn('stop-exit-when-done: failed to acknowledge shutdown readiness', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+    return undefined;
+  }
+
+  if (!isSessionIdle(input.session_id)) return undefined;
 
   let nudgeFired: boolean;
   try {
@@ -70,7 +112,7 @@ export default stopHook({}, async (input, { logger }) => {
     reason: [
       'EXIT_WHEN_DONE=true — a reminder for when work is done, not a signal to stop now.',
       '',
-      `Once the card's work is finished and validated, read \`${resolveShutdownRunbookPath()}\` and follow its \`<instructions>\`: confirm the outcome, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session. The action handler terminates the validated Codex launcher in response to the signal.`
+      `Once the card's work is finished and validated, read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\`: ensure all subagents and background work are finished, then make \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\` the sole tool call in your final assistant turn. Do not make any later tool call. The action handler terminates the validated Codex launcher after the Stop hook confirms the process tree is drained.`
     ].join('\n')
   });
 });

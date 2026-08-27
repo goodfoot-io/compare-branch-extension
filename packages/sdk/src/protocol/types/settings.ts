@@ -302,6 +302,18 @@ export interface ActionState {
    */
   gateRejection?: 'gate-pending' | 'gate-aborted' | 'gate-error';
 
+  /** Outcome supplied by the first accepted shutdown request. */
+  shutdownOutcome?: 'success' | 'blocked' | 'error';
+
+  /** Optional free-text detail supplied with the shutdown request. */
+  shutdownMessage?: string;
+
+  /** Current phase of the correlated, bounded shutdown lifecycle. */
+  shutdownState?: 'pending' | 'readiness_timeout' | 'terminating' | 'graceful' | 'forced' | 'failed';
+
+  /** Terminal result reported by the action handler after agent termination. */
+  terminationResult?: 'graceful' | 'forced' | 'failed';
+
   /**
    * Capabilities the running handler has advertised over the socket.
    *

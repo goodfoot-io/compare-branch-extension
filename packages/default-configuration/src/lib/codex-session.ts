@@ -28,6 +28,7 @@ import {
   settleCardStatusForCleanup
 } from './claude-session.js';
 import { buildPluginHooksState, type HooksJson, type HookTrustEntry } from './codex-hook-trust.js';
+import { createCodexTerminationController } from './codex-termination.js';
 import { spawnAgentCli } from './spawn-cli.js';
 
 /**
@@ -942,6 +943,7 @@ export async function spawnCodexSession(
 
   const child: ChildProcess = spawnAgentCli('codex', args, {
     cwd,
+    detached: process.platform !== 'win32',
     stdio: 'inherit',
     env: {
       ...process.env,
@@ -954,14 +956,22 @@ export async function spawnCodexSession(
     }
   });
 
-  context.onCancel(() => {
-    context.logger.info(`${input.actionName} action cancelled, terminating codex`);
-    child.kill('SIGTERM');
+  const termination = createCodexTerminationController(child, {
+    gracefulTimeoutMs: 5_000,
+    forceTimeoutMs: 5_000
   });
 
-  context.onAgentShutdown(() => {
+  context.onCancel(async () => {
+    context.logger.info(`${input.actionName} action cancelled, terminating codex`);
+    const result = await termination.terminate('cancel');
+    context.logger.info(`${input.actionName} cancellation termination completed`, { result });
+  });
+
+  context.onAgentShutdown(async () => {
     context.logger.info(`${input.actionName} agent signalled shutdown, terminating codex`);
-    child.kill('SIGTERM');
+    const result = await termination.terminate('shutdown');
+    context.logger.info(`${input.actionName} shutdown termination completed`, { result });
+    return result;
   });
 
   const exitCode = await new Promise<number | null>((resolve) => {

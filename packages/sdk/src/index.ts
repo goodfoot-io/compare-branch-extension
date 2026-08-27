@@ -99,7 +99,7 @@ export {
   RESOLVE_NODE_BASH
 } from './git-hooks.js';
 // --- Process Tree ---
-export { findAgentPid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
+export { findAgentPid, isAgentProcessTreeDrained, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 // --- Scaffold Dir ---
 export { resolveScaffoldDir, resolveScaffoldDirFromSource } from './scaffold-dir.js';
 // --- Session Resolver ---
