@@ -33,11 +33,11 @@ git rebase --continue
 
 - **Conflicts cannot be resolved**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write conflict details to `comments/merge-conflict.md` (files involved, manual resolution steps). Commit both files and **STOP** — Awaiting user intervention.
 
-- **Rebase reports branch is already up to date** (no commits moved): Proceed to Step 3.
+- **Rebase reports branch is already up to date** (no commits moved): Proceed to validation below.
 
 - **Rebase completes with 0 commits ahead of `$BASE_BRANCH`** (commit was dropped as empty): The changes are already present in `$BASE_BRANCH`. Write a comment to the card repository noting this, and **STOP** — nothing to merge.
 
-If rebase moved commits, run linting, type checking, and tests.
+Run the repository's full validation suite — linting, type checking, and tests — whether or not the rebase moved commits. This is the card lifecycle's only full-suite run; every earlier gate validated scoped.
 
 **Validation rules:**
 - All validation commands must execute and pass — a command that errors before producing results is a failure

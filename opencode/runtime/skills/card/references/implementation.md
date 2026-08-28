@@ -18,7 +18,7 @@ Check `plans/` in the card repository for plan files.
 
 Read `CARD.md` for goals and constraints and `CARD.meta.json` for current `title`, `gates`, and `tags` before starting.
 
-**Choose the execution weight.** Implement directly when the whole card is small enough that direct edits beat a handoff — proceed in logical units below. Otherwise read `./developer-wave.md`, split the work into packages, and dispatch a persistent developer team; its own `<integration-gate>` replaces `<per-unit-gate>` and `<final-validation-gate>` below.
+**Choose the execution weight.** Implement directly when the whole card is small enough that direct edits beat a handoff — proceed in logical units below. Otherwise read `./developer-wave.md`, split the work into packages, and dispatch a persistent developer team; its own `<integration-gate>` replaces `<per-unit-gate>` and `<completion-gate>` below.
 
 Direct implementation proceeds in **logical units** — a coherent change that leaves the workspace type-check-clean and tests-passing, the natural point to commit and tag a rollback. For each unit:
 
@@ -27,7 +27,7 @@ Direct implementation proceeds in **logical units** — a coherent change that l
 3. Pass the `<per-unit-gate>`.
 4. Commit, then tag the rollback point: `git tag -f "implement/$CARD_ID/step-N" HEAD`.
 
-When all units are complete, pass the `<final-validation-gate>` before proceeding to Step 3.
+When all units are complete, pass the `<completion-gate>` before proceeding to Step 3.
 
 Every commit in this flow follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.
 
@@ -42,7 +42,7 @@ Diff `implement/$CARD_ID/baseline..HEAD` to assess scope: number of files change
 
 ## 4. Finalize
 
-The card is not COMPLETED until every part of this section has run. Passing the final validation gate at the end of Step 2 is not the terminal state — staging, tag cleanup, and the merge decision all follow.
+The card is not COMPLETED until every part of this section has run. Passing the completion gate at the end of Step 2 is not the terminal state — staging, tag cleanup, and the merge decision all follow.
 
 **Stage remaining changes.** If a developer team is live, drain it per `./developer-wave.md` `<lifecycle>` first. Stage any uncommitted implementation artifacts and commit per the workspace commit style:
 
@@ -74,7 +74,7 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 **No mocks.** Test with real implementations. Use dependency injection so code stays testable, and create thin adapter interfaces with real test implementations for external services — never mock libraries or framework internals.
 
-**Iterate, then escalate.** On validation failure, fix and re-run. When repeated attempts produce no new information, stop and route via `<final-validation-gate>` rather than thrashing.
+**Iterate, then escalate.** On validation failure, fix and re-run. When repeated attempts produce no new information, stop and route via `<completion-gate>` rather than thrashing.
 
 **Follow repository conventions** and existing patterns. Do not create extra artifacts unless the scope or loaded skills require them.
 
@@ -82,23 +82,23 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 <per-unit-gate>
 
-Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
+Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to `<completion-gate>`.
 
 - **All pass** — commit, then tag the rollback point.
 - **Failure originates in this unit's changes** — fix and re-run.
-- **Otherwise** — proceed to `<final-validation-gate>` and apply its routing.
+- **Otherwise** — proceed to `<completion-gate>` and apply its routing.
 
 </per-unit-gate>
 
-<final-validation-gate>
+<completion-gate>
 
-After all logical units are complete, run validation per the workspace validation configuration (or the plan's validation commands, when following a plan). Every command must pass before proceeding to Step 3.
+After all logical units are complete, run workspace-wide lint and typecheck plus the test suite of every package the `implement/$CARD_ID/baseline..HEAD` diff touches (or the plan's validation commands, when following a plan). The full validation suite runs only in `merge.md`. Every command must pass before proceeding to Step 3.
 
 - **All pass** — proceed to Step 3.
 - **Failure originates in files the card's diff touched** — fix and re-run.
 - **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — diagnose per `<pre-existing-diagnosis>` before deciding whether to fix or block.
 
-</final-validation-gate>
+</completion-gate>
 
 <pre-existing-diagnosis>
 
@@ -117,7 +117,7 @@ Use the $card-pre-existing-condition skill.
 [list of files this card has modified since `implement/$CARD_ID/baseline`]
 
 ## Task
-Decide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the full validation command. If it does not, return NOT_PRE_EXISTING with the baseline output.
+Decide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the failing command. If it does not, return NOT_PRE_EXISTING with the baseline output.
 ```
 
 To diagnose yourself instead, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
@@ -128,7 +128,7 @@ create-worktree "implement/$CARD_ID/baseline"
 
 Run the failing command in that worktree, then delete the worktree and branch.
 
-- **Reproduces on baseline** — the failure predates this card's changes. Try cheap remedies first (sync with the local base branch, reinstall dependencies, rebuild derived artifacts); if that doesn't clear it, repair the root cause in the active workspace, then re-run the full validation command.
+- **Reproduces on baseline** — the failure predates this card's changes. Try cheap remedies first (sync with the local base branch, reinstall dependencies, rebuild derived artifacts); if that doesn't clear it, repair the root cause in the active workspace, then re-run the failing command.
 - **Does not reproduce on baseline** — the failure is in scope of this card's work; fix it and re-run.
 - **Structural obstacle** (unreachable services, missing system tools or credentials, hardware constraints, an unresolved upstream bug on the base branch) — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and your diagnosis to `comments/validation-failed.md`, commit both files, and **STOP**.
 

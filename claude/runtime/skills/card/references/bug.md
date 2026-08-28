@@ -128,10 +128,10 @@ If a reproduction test itself is wrong (asserts the wrong thing, or the scenario
 
 ### 2.3 Validate and Commit
 
-Run every reproduction test. Then lint and typecheck per the project's CLAUDE.md validation conventions, and re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 3: Validate Full Suite.
+Run every reproduction test. Then lint and typecheck per the project's CLAUDE.md validation conventions, and re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to Step 3: Validate.
 
 Based on the combined result:
-- **All reproduction tests pass and all validations pass**: Commit the fix and proceed to Step 3: Validate Full Suite.
+- **All reproduction tests pass and all validations pass**: Commit the fix and proceed to Step 3: Validate.
 - **Reproduction test still fails, or validation fails on implementation grounds**: Treat as NEEDS_REVISION. Discard your uncommitted work and retry per Step 2. If retries are exhausted (3 attempts), write a comment explaining attempts and the specific technical obstacle, commit, and **STOP**.
 - **Cannot proceed** (structural obstacle): Write a comment with the reasoning, add `blocked` to `tags` in `CARD.meta.json`, commit, and **STOP**.
 
@@ -164,9 +164,9 @@ Based on the corrected test's result:
 - **Passes (invalid correction)**: Revert the test. If resolve attempts remain, return to Step 2.2: Fix. Otherwise write a comment explaining test-validation failure and **STOP**.
 - **Corrections exhausted (2 already applied)**: Write a comment reporting that the reproduction test became unreliable during the fix process, describing what went wrong and why it cannot be trusted to verify the fix, commit, and **STOP**.
 
-## 3. Validate Full Suite
+## 3. Validate
 
-Run the repository's full validation suite: lint, type check, tests.
+Run workspace lint and typecheck, plus each package suite the fix touches. The full validation suite runs only in `merge.md`.
 
 <validation-gate>
 **Gate requirement:** ALL validation commands must pass.

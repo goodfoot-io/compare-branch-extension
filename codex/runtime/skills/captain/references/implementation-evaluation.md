@@ -17,7 +17,7 @@ COMMITMSG
 
 ## 2. Pre-Evaluation Validation
 
-Run validation per the plan's validation commands (or the workspace validation configuration, when no plan exists).
+Run lint and typecheck plus each package suite the `implement/[CARD_ID]/baseline..HEAD` diff touches (or the plan's validation commands, when no plan exists).
 
 - **All validations pass**: Proceed to Step 3: Review.
 - **Failure**: Treat each failure's output as an initial finding. Proceed to Step 4: Apply Fixes, then return here.
@@ -39,11 +39,11 @@ Each finding names the mechanism to remove — the wrong rule, axis, or key — 
 
 ## 4. Apply Fixes
 
-Fix every finding at the mechanism, not the flagged instance — a class finding closes only when the mechanism removes every instance, and every witness configuration lands as a green in-suite control. Keep changes minimal and focused on the findings. If a developer team is live, route every finding to its package's worker as a task (a fresh worker for a package with none) — do not fix inline. Once every routed worker reports green, proceed to Step 5 (lint/typecheck/scoped tests, not `./developer-wave.md`'s `<integration-gate>`; its `<final-validation-gate>` step runs only in `merge.md`, after rebase). Otherwise fix inline; with many findings, dispatch a developer team per `./developer-wave.md`.
+Fix every finding at the mechanism, not the flagged instance — a class finding closes only when the mechanism removes every instance, and every witness configuration lands as a green in-suite control. Keep changes minimal and focused on the findings. If a developer team is live, route every finding to its package's worker as a task (a fresh worker for a package with none) — do not fix inline. Once every routed worker reports green, proceed to Step 5 (lint/typecheck/scoped tests, not `./developer-wave.md`'s `<integration-gate>`; the full validation suite runs only in `merge.md`, after rebase). Otherwise fix inline; with many findings, dispatch a developer team per `./developer-wave.md`.
 
 ## 5. Validate and Commit
 
-Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to Step 2.
+Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to Step 2.
 
 - **All pass**: Commit per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2, return there. Otherwise return to Step 3 and re-review against the new HEAD.
 - **Failure**: Fix and re-run.

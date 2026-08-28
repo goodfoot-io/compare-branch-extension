@@ -110,7 +110,7 @@ Group the findings by the package they touch and route each group to the owning 
 
 ## 4. Validate and Commit
 
-Wait for every worker's report and fold back any stray commits. Lint and typecheck, then re-run the affected tests, broadening to each touched package's suite — never the full `<final-validation-gate>` command set, which runs only in `merge.md` after rebase. Commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.
+Wait for every worker's report and fold back any stray commits. Lint and typecheck, then re-run the affected tests, broadening to each touched package's suite — never the full validation suite, which runs only in `merge.md` after rebase. Commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.
 
 If you arrived from the caller's pre-evaluation validation failure, return there; otherwise proceed to Step 5.
 
