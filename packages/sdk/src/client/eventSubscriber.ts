@@ -289,7 +289,10 @@ export class EventSubscriber {
     const previous = this.cardStaleness.get(cardId);
     this.cardStaleness.set(cardId, state);
     if (previous === state) return;
-    for (const cb of this.stalenessCallbacks) {
+    // Snapshot before iterating: a callback that calls the onStaleness
+    // unsubscribe function for another callback during this dispatch must
+    // not cause that callback to be skipped for this notification.
+    for (const cb of [...this.stalenessCallbacks]) {
       cb({ cardId, state, reason });
     }
   }
@@ -408,7 +411,8 @@ export class EventSubscriber {
         // (initial connect and every reconnect) with its last known-good
         // seq, so a drop resumes catch-up instead of silently going stale.
         this._resubscribeAllCards();
-        for (const cb of this.connectionChangeCallbacks) {
+        // Snapshot before iterating: see _teardownConnection for why.
+        for (const cb of [...this.connectionChangeCallbacks]) {
           cb(true);
         }
         resolve();
@@ -554,7 +558,11 @@ export class EventSubscriber {
     this.connected = false;
     this._stopHeartbeat();
     if (this.hasConnected) {
-      for (const cb of this.connectionChangeCallbacks) {
+      // Snapshot before iterating: a callback that calls the
+      // onConnectionChange unsubscribe function for another callback during
+      // this dispatch must not cause that callback to be skipped for this
+      // notification.
+      for (const cb of [...this.connectionChangeCallbacks]) {
         cb(false);
       }
     }
@@ -784,7 +792,10 @@ export class EventSubscriber {
     // sibling callbacks registered for the same event (Set iteration follows
     // registration order). Log the failure against the event type so the
     // diagnostic points at the offending handler, not at JSON parsing.
-    for (const callback of callbacks) {
+    // Snapshot before iterating: a callback that calls off() for another
+    // callback of the same event during this dispatch must not cause that
+    // callback to be skipped for this message.
+    for (const callback of [...callbacks]) {
       try {
         (callback as (event: unknown) => void)(message);
       } catch (error) {

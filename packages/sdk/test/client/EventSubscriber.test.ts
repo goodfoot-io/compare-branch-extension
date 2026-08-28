@@ -1142,4 +1142,63 @@ describe('EventSubscriber', () => {
       expect(messages.some((m) => m.includes('card:deleted'))).toBe(true);
     });
   });
+
+  describe('unsubscribe-during-dispatch', () => {
+    let mock: ReturnType<typeof installMockWebSocket>;
+
+    beforeEach(() => {
+      mock = installMockWebSocket();
+    });
+
+    afterEach(() => {
+      mock.restore();
+    });
+
+    it('still invokes a typed callback registered after one that calls off() on a sibling during dispatch', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+
+      const calls: string[] = [];
+      const second = (): void => {
+        calls.push('second');
+      };
+      subscriber.on('card:deleted', () => {
+        calls.push('first');
+        subscriber.off('card:deleted', second);
+      });
+      subscriber.on('card:deleted', second);
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      mock.instances[0]!.simulateMessage({ type: 'card:deleted', cardId: 'card-123' });
+
+      // `second` was still registered at the moment this dispatch began, so it
+      // must still fire for this message even though `first` unregistered it
+      // mid-dispatch. A live (non-snapshotted) Set iteration would skip it.
+      expect(calls).toEqual(['first', 'second']);
+    });
+
+    it('still notifies an onConnectionChange callback that a sibling unsubscribes during the same dispatch', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+
+      const states: string[] = [];
+      let unsubscribeSecond: () => void = () => {};
+      subscriber.onConnectionChange(() => {
+        states.push('first');
+        unsubscribeSecond();
+      });
+      unsubscribeSecond = subscriber.onConnectionChange(() => {
+        states.push('second');
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      // `first` unregisters `second` before `second`'s turn in the same
+      // dispatch. A live (non-snapshotted) Set iteration would skip it.
+      expect(states).toEqual(['first', 'second']);
+    });
+  });
 });
