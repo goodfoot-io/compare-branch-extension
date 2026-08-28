@@ -1352,7 +1352,7 @@ describe('claude-session shared utilities', () => {
       await promise;
     });
 
-    it('registers onCancel that kills the child process', async () => {
+    it('registers owned-tree cancellation and reports the shared shutdown result', async () => {
       const { spawn } = await import('node:child_process');
       const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
@@ -1373,13 +1373,16 @@ describe('claude-session shared utilities', () => {
       });
       await flushMicrotasks();
 
-      expect(context.onCancel).toHaveBeenCalledWith(expect.any(Function));
+      const spawnOptions = vi.mocked(spawn).mock.calls[0]![2];
+      expect(spawnOptions).toEqual(expect.objectContaining({ detached: process.platform !== 'win32' }));
 
-      const cancelCallback = vi.mocked(context.onCancel).mock.calls[0]![0] as () => void;
-      cancelCallback();
-      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      const onCancel = vi.mocked(context.onCancel).mock.calls[0]![0] as () => Promise<void>;
+      await expect(onCancel()).resolves.toBeUndefined();
 
-      child.emit('close', null);
+      const onAgentShutdown = vi.mocked(context.onAgentShutdown).mock.calls[0]![0] as () => Promise<string>;
+      await expect(onAgentShutdown()).resolves.toBe('graceful');
+
+      child.emit('close', 0);
       await promise;
     });
 
