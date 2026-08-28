@@ -240,10 +240,7 @@ export function resolveCardsOpencodeStagingDir(): string {
  * @param expectedName - Expected plugin name from the bundle layout.
  * @returns Parsed plugin manifest.
  */
-async function readOpencodePluginManifest(
-  pluginPath: string,
-  expectedName: OpencodePluginName
-): Promise<OpencodePluginManifest> {
+async function readOpencodePluginManifest(pluginPath: string, expectedName: OpencodePluginName): Promise<string> {
   const manifestPath = path.join(pluginPath, 'package.json');
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as Partial<OpencodePluginManifest>;
 
@@ -257,10 +254,7 @@ async function readOpencodePluginManifest(
   }
   validatePluginVersionSegment(manifest.version, manifestPath);
 
-  return {
-    name: manifest.name,
-    version: manifest.version
-  };
+  return manifest.version;
 }
 
 /**
@@ -308,8 +302,8 @@ async function ensureOpencodeBundleAvailable(
   for (const pluginName of pluginNames) {
     const pluginPath = pluginPaths[pluginName]!;
     await fs.access(pluginPath);
-    const manifest = await readOpencodePluginManifest(pluginPath, pluginName);
-    pluginVersions[pluginName] = manifest.version;
+    const version = await readOpencodePluginManifest(pluginPath, pluginName);
+    pluginVersions[pluginName] = version;
   }
 
   return { bundlePath, pluginPaths, pluginVersions };

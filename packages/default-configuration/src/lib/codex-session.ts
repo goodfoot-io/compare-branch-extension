@@ -133,10 +133,7 @@ export function resolveDefaultCodexHome(): string {
  * @param expectedName - Expected plugin name from the bundle manifest.
  * @returns Parsed plugin manifest.
  */
-async function readCodexPluginManifest(
-  pluginPath: string,
-  expectedName: CodexPluginName
-): Promise<CodexPluginManifest> {
+async function readCodexPluginManifest(pluginPath: string, expectedName: CodexPluginName): Promise<string> {
   const manifestPath = path.join(pluginPath, '.codex-plugin', 'plugin.json');
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as Partial<CodexPluginManifest>;
 
@@ -149,10 +146,7 @@ async function readCodexPluginManifest(
   }
   validatePluginVersionSegment(manifest.version, manifestPath);
 
-  return {
-    name: manifest.name,
-    version: manifest.version
-  };
+  return manifest.version;
 }
 
 /**
@@ -174,7 +168,7 @@ function validatePluginVersionSegment(version: string, sourceLabel: string): voi
   }
 }
 
-async function readCodexMarketplaceManifest(bundlePath: string): Promise<CodexPluginMarketplaceManifest> {
+async function validateCodexMarketplaceManifest(bundlePath: string): Promise<void> {
   const manifestPath = path.join(bundlePath, '.agents', 'plugins', 'marketplace.json');
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as Partial<CodexPluginMarketplaceManifest>;
 
@@ -183,10 +177,6 @@ async function readCodexMarketplaceManifest(bundlePath: string): Promise<CodexPl
       `Invalid Codex marketplace manifest name at ${manifestPath}: expected "${CODEX_PLUGIN_MARKETPLACE}"`
     );
   }
-
-  return {
-    name: manifest.name
-  };
 }
 
 async function ensureCodexBundleAvailable(
@@ -206,12 +196,12 @@ async function ensureCodexBundleAvailable(
 
   await fs.access(bundlePath);
   await fs.access(marketplaceManifestPath);
-  await readCodexMarketplaceManifest(bundlePath);
+  await validateCodexMarketplaceManifest(bundlePath);
   for (const pluginName of pluginNames) {
     const pluginPath = pluginPaths[pluginName]!;
     await fs.access(pluginPath);
-    const manifest = await readCodexPluginManifest(pluginPath, pluginName);
-    pluginVersions[pluginName] = manifest.version;
+    const version = await readCodexPluginManifest(pluginPath, pluginName);
+    pluginVersions[pluginName] = version;
   }
 
   return { bundlePath, pluginPaths, pluginVersions };
