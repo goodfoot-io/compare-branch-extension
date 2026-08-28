@@ -28,6 +28,7 @@ export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 import type { CreateWorktreeResult } from '@cards.management/sdk/worktree';
 import { checkWorktreeExists, findGitRoots } from '@cards.management/sdk/worktree';
 import { createWorktreeForCard } from '@cards.management/sdk/worktree-for-card';
+import { createClaudeTerminationController } from './claude-termination.js';
 import { spawnAgentCli } from './spawn-cli.js';
 
 // The branch-cleanup watcher (branch-cleanup-watcher.ts) runs these helpers in a
@@ -988,6 +989,7 @@ export async function spawnClaudeSession(
 
   const child: ChildProcess = spawnAgentCli(cliExecutable, args, {
     cwd,
+    detached: process.platform !== 'win32',
     stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
     // Background mode: the handler running this is console-less (spawned from the
     // GUI extension host via pipes), so cross-spawn's `cmd.exe /c claude.cmd` hop
@@ -1028,14 +1030,22 @@ export async function spawnClaudeSession(
     });
   }
 
-  context.onCancel(() => {
-    context.logger.info(`${input.actionName} action cancelled, terminating claude`, { sessionId });
-    child.kill('SIGTERM');
+  const termination = createClaudeTerminationController(child, {
+    gracefulTimeoutMs: 5_000,
+    forceTimeoutMs: 5_000
   });
 
-  context.onAgentShutdown(() => {
+  context.onCancel(async () => {
+    context.logger.info(`${input.actionName} action cancelled, terminating claude`, { sessionId });
+    const result = await termination.terminate('cancel');
+    context.logger.info(`${input.actionName} cancellation termination completed`, { sessionId, result });
+  });
+
+  context.onAgentShutdown(async () => {
     context.logger.info(`${input.actionName} agent signalled shutdown, terminating claude`, { sessionId });
-    child.kill('SIGTERM');
+    const result = await termination.terminate('shutdown');
+    context.logger.info(`${input.actionName} shutdown termination completed`, { sessionId, result });
+    return result;
   });
 
   if (supportsSwitchToInteractive) {

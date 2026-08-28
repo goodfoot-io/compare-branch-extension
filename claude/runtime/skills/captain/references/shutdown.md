@@ -22,8 +22,8 @@ If `EXIT_WHEN_DONE=true`:
 </invoke>
 ```
 
-2. Bring the workspace to a clean stop: finish or roll back any in-progress commit so both the workspace and card repository are clean. Do not signal while a commit, tool call, subagent, or background process is still active.
-3. Tell Cards you are done, choosing the honest outcome:
+2. Finish or roll back every mutation, check, and commit; confirm both the workspace and card repository are clean; and wait until every subagent and background process has finished.
+3. In your final assistant turn, make the shutdown command the sole tool call, choosing the honest outcome:
 
 ```bash
 cards "$CARD_ID" shutdown --outcome success
@@ -34,6 +34,8 @@ cards "$CARD_ID" shutdown --outcome error --message "what failed"
 ```
 
 `--outcome` defaults to `success`; `--message` is optional free text. Exit 0 confirms the request was sent.
+
+Do not make any later tool call after the shutdown command. Delivery is not completion: the Claude Stop hook acknowledges readiness only after Cards proves the owned process tree is drained.
 
 4. End the session cleanly. The action handler terminates this session gracefully in response to the signal — no kill commands are needed.
 
