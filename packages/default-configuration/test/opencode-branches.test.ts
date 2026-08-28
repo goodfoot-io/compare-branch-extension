@@ -340,22 +340,41 @@ describe('launch action — opencode branch', () => {
     );
   });
 
-  it('registers onCancel that kills the child process', async () => {
+  it('registers onCancel that terminates the owned process tree', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
+
+    // Termination now goes through createOpencodeTerminationController, which
+    // signals the launcher-owned process group (-pid) rather than calling
+    // child.kill directly — see opencode-termination.ts. The group "exits"
+    // (ESRCH on the existence probe) as soon as SIGTERM is sent, simulating a
+    // cooperative child.
+    let exited = false;
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(((_pid: number, signal?: string | number) => {
+      if (signal === 'SIGTERM') {
+        exited = true;
+        return true;
+      }
+      if (exited) {
+        throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
+      }
+      return true;
+    }) as typeof process.kill);
 
     const context = createMockContext();
     const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), context);
     await flushMicrotasks();
 
-    const onCancel = vi.mocked(context.onCancel).mock.calls[0][0] as () => void;
-    onCancel();
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+    const onCancel = vi.mocked(context.onCancel).mock.calls[0][0] as () => Promise<void>;
+    await onCancel();
+    expect(killSpy).toHaveBeenCalledWith(-12345, 'SIGTERM');
 
     child.emit('close', 0);
     await promise;
+
+    killSpy.mockRestore();
   });
 
   it('fails closed before spawning when the opencode binary is absent', async () => {

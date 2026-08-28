@@ -738,19 +738,35 @@ describe('opencode-session library', () => {
       await promise;
     });
 
-    it('registers onCancel that kills the child and runs the branch-cleanup watcher after exit', async () => {
+    it('registers onCancel that terminates the owned process tree and runs the branch-cleanup watcher after exit', async () => {
       const { spawn } = await import('node:child_process');
       const { spawnOpencodeSession } = await import('../src/lib/opencode-session.js');
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
+      // Termination now goes through createOpencodeTerminationController,
+      // which signals the launcher-owned process group (-pid) rather than
+      // calling child.kill directly — see opencode-termination.ts. The group
+      // "exits" (ESRCH on the existence probe) as soon as SIGTERM is sent,
+      // simulating a cooperative child.
+      let exited = false;
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(((_pid: number, signal?: string | number) => {
+        if (signal === 'SIGTERM') {
+          exited = true;
+          return true;
+        }
+        if (exited) {
+          throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
+        }
+        return true;
+      }) as typeof process.kill);
 
       const context = createMockContext();
       const promise = spawnOpencodeSession(baseInput(), context, {});
       await flushMicrotasks();
 
-      const onCancel = vi.mocked(context.onCancel).mock.calls[0][0] as () => void;
-      onCancel();
-      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      const onCancel = vi.mocked(context.onCancel).mock.calls[0][0] as () => Promise<void>;
+      await onCancel();
+      expect(killSpy).toHaveBeenCalledWith(-12345, 'SIGTERM');
 
       child.emit('close', 0);
       await promise;
@@ -760,6 +776,8 @@ describe('opencode-session library', () => {
         { cardId: 'card-123', repoRoot: '/test/workspace', cardRepoPath: '/test/repo' },
         expect.anything()
       );
+
+      killSpy.mockRestore();
     });
 
     it('registers onAgentShutdown that terminates the owned process tree and reports a terminal result', async () => {

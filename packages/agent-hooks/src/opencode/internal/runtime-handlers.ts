@@ -33,12 +33,17 @@
 import { join } from 'node:path';
 import {
   CARDS_ENV_VARS,
+  clearPendingShutdownRequest,
   getBaseBranch,
   getCardRepoPath,
   getWorkspaceBranch,
-  getWorkspacePath
+  getWorkspacePath,
+  readPendingShutdownRequest,
+  sendShutdownReady
 } from '@cards.management/sdk/config';
+import { isAgentProcessTreeDrained } from '@cards.management/sdk/process-tree';
 import type { OpencodeManifestInput } from '@cards.management/sdk/transcript-sync/adapters';
+import { getActiveSubagentCount } from '@cards.management/sessions/card-repo';
 import type { Plugin } from '@opencode-ai/plugin';
 import { buildAdditionalContext, CardRepoAccessError } from '../../shared/context.js';
 import { isSessionIdle } from '../../shared/session-idle.js';
@@ -854,13 +859,54 @@ export function createStopRouteNudgePlugin(deps: OpencodeHandlerDeps = defaultOp
 }
 
 /**
+ * Strict, fail-closed idle authority for the pending-shutdown handshake,
+ * composed directly rather than through {@link isSessionIdle}'s `strict`
+ * overload.
+ *
+ * That overload's owned-process-tree proof walks `findAgentPid(process.ppid)`
+ * to locate "the agent process" — a heuristic built for Codex's one-shot
+ * Stop-hook subprocess, which runs *under* the agent as a shell descendant.
+ * OpenCode plugins run *inside* the long-lived `opencode` server process
+ * itself, exactly the distinction {@link OpencodeHandlerDeps.findMonitorPid}
+ * already documents ("the subprocess-era ppid walk does not apply"). Reusing
+ * the Codex-shaped walk here would locate the wrong ancestor — whatever
+ * launched the OpenCode server, not the server's own subtree — and can
+ * misreport `false` for reasons that have nothing to do with this session's
+ * actual drain state. The correct owned root is `deps.findMonitorPid()`
+ * itself, matching the stream-watcher's own PID seam.
+ *
+ * @param sessionId - Root session to check.
+ * @param deps - Supplies the owned-process-tree root PID.
+ * @returns `true` only when both the subagent tracker and the owned process
+ *   tree prove idle; fails closed (`false`) on any read error.
+ */
+async function isOpencodeSessionStrictlyIdle(sessionId: string, deps: OpencodeHandlerDeps): Promise<boolean> {
+  if (getActiveSubagentCount(sessionId) !== 0) return false;
+  const agentPid = deps.findMonitorPid();
+  if (agentPid === null) return false;
+  return (await isAgentProcessTreeDrained(agentPid)) === true;
+}
+
+/**
  * Creates the exit-when-done nudge plugin.
  *
  * Fires at most once per idle root session launched with `EXIT_WHEN_DONE=true`
- * and announces the shutdown protocol through the log channels. The plugin
- * never terminates anything: it instructs the model to run
- * `cards "$CARD_ID" shutdown`, and the action handler — parent of this
- * process — performs the graceful termination in response.
+ * and announces the shutdown protocol through the log channels: it instructs
+ * the model to run `cards "$CARD_ID" shutdown`, and the action handler —
+ * parent of this process — performs the graceful termination in response.
+ *
+ * Once the `cards shutdown` verb has actually run, it durably records a
+ * pending shutdown request (`readPendingShutdownRequest`/`sendShutdownReady`
+ * in `@cards.management/sdk/config`) that this plugin must acknowledge before
+ * `ActionDispatcher` (packages/extension/src/runtime/ActionDispatcher.ts)
+ * will forward `agentShutdown` to the launcher. `session.idle` is OpenCode's
+ * only per-turn boundary, so it doubles as the check point: on every idle
+ * event for a root session with a pending request, the strict, fail-closed
+ * authority ({@link isOpencodeSessionStrictlyIdle} — active-subagent count
+ * plus owned-process-tree drain proof, rooted at the in-process server PID)
+ * decides whether to acknowledge. Mirrors the Codex Stop hook
+ * (`../../codex/runtime/stop-exit-when-done.ts`), adapted from a per-turn
+ * hook to OpenCode's idle event.
  *
  * @param deps - Injectable edges; defaults wire the real SDK.
  * @returns An OpenCode plugin registering `event`/`session.idle` handling.
@@ -892,6 +938,47 @@ export function createStopExitWhenDonePlugin(deps: OpencodeHandlerDeps = default
           if (!actionInput?.exitWhenDone) {
             return;
           }
+
+          let pendingRequest: ReturnType<typeof readPendingShutdownRequest>;
+          try {
+            pendingRequest = readPendingShutdownRequest(sessionId);
+          } catch (error) {
+            await log.warn('stop-exit-when-done: failed to read pending shutdown request', {
+              sessionId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+            return;
+          }
+
+          if (pendingRequest) {
+            let idle: boolean;
+            try {
+              idle = await isOpencodeSessionStrictlyIdle(sessionId, deps);
+            } catch (error) {
+              await log.warn('stop-exit-when-done: strict idle authority failed', {
+                sessionId,
+                error: error instanceof Error ? error.message : String(error)
+              });
+              return;
+            }
+            if (!idle) {
+              return;
+            }
+            try {
+              await sendShutdownReady(pendingRequest.socketPath, {
+                type: 'shutdownReady',
+                requestId: pendingRequest.requestId
+              });
+              clearPendingShutdownRequest(sessionId, pendingRequest.requestId);
+            } catch (error) {
+              await log.warn('stop-exit-when-done: failed to acknowledge shutdown readiness', {
+                sessionId,
+                error: error instanceof Error ? error.message : String(error)
+              });
+            }
+            return;
+          }
+
           if (!isSessionIdle(sessionId)) {
             return;
           }

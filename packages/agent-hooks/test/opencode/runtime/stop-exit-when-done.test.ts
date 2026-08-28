@@ -212,14 +212,28 @@ describe('CardsStopExitWhenDone (runtime)', () => {
       // running instead of being terminated.
       writePendingShutdownRequest('ses-root', { version: 1, requestId: 'req-1', socketPath });
 
-      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput(true) });
+      // Real `isAgentProcessTreeDrained` probe against the real `ps -e` table:
+      // point the owned-tree root at this actual test process (matching how
+      // OpenCode's in-process plugin roots the strict check at its own PID,
+      // not a subprocess-hook ancestor) so the probe can find it.
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(true),
+        findMonitorPid: () => process.pid
+      });
       const plugin = createStopExitWhenDonePlugin(deps);
       const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
       await hooks.event?.(sessionCreatedEvent('ses-root'));
       await hooks.event?.(sessionIdleEvent('ses-root'));
 
-      // Give the real socket write a turn of the event loop to land.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // The plugin's `event` handler already awaits `sendShutdownReady`'s
+      // socket.write/end completion before returning, but that callback fires
+      // once the OS accepts the write — not once the server's 'data' handler
+      // has actually processed it. Poll with a generous bound instead of a
+      // single fixed sleep, which flaked under parallel test-file load.
+      const deadline = Date.now() + 2_000;
+      while (received.length === 0 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
 
       expect(received).toContainEqual({ type: 'shutdownReady', requestId: 'req-1' });
       expect(readPendingShutdownRequest('ses-root')).toBeUndefined();

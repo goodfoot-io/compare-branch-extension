@@ -68,6 +68,7 @@ import {
   readCardRepoAgentsMd,
   readSlotContentStamp
 } from './codex-session.js';
+import { createOpencodeTerminationController } from './opencode-termination.js';
 import { spawnAgentCli } from './spawn-cli.js';
 
 /**
@@ -1169,6 +1170,11 @@ export async function spawnOpencodeSession(
     // invisible on win32 — libuv ignores it when any fd is inherited, so the
     // interactive path must not set it.
     stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
+    // Detached on POSIX (matching spawnCodexSession) so `opencode` roots its
+    // own process group instead of sharing the extension host's: termination
+    // below signals -pid, which must stay inside a launcher-owned group or it
+    // would sweep sibling actions sharing the host's group.
+    detached: process.platform !== 'win32',
     ...(isInteractive ? {} : { windowsHide: true }),
     env: {
       ...process.env,
@@ -1184,14 +1190,22 @@ export async function spawnOpencodeSession(
     }
   });
 
-  context.onCancel(() => {
-    context.logger.info(`${input.actionName} action cancelled, terminating opencode`);
-    child.kill('SIGTERM');
+  const termination = createOpencodeTerminationController(child, {
+    gracefulTimeoutMs: 5_000,
+    forceTimeoutMs: 5_000
   });
 
-  context.onAgentShutdown(() => {
+  context.onCancel(async () => {
+    context.logger.info(`${input.actionName} action cancelled, terminating opencode`);
+    const result = await termination.terminate('cancel');
+    context.logger.info(`${input.actionName} cancellation termination completed`, { result });
+  });
+
+  context.onAgentShutdown(async () => {
     context.logger.info(`${input.actionName} agent signalled shutdown, terminating opencode`);
-    child.kill('SIGTERM');
+    const result = await termination.terminate('shutdown');
+    context.logger.info(`${input.actionName} shutdown termination completed`, { result });
+    return result;
   });
 
   // Background mode: capture stderr for diagnostic logging.
