@@ -212,7 +212,7 @@ describe('buildCardRepoLogBlock', () => {
       gitignorePath = await gitignoreRepo.create();
       await gitignoreRepo.createAndCommitFile('.gitignore', 'node_modules/\ndist/\n', 'Add gitignore');
       await gitignoreRepo.createAndCommitFile('CARD.md', '# Card\n', 'Add card description');
-    });
+    }, 120_000);
 
     afterAll(() => {
       gitignoreRepo.destroy();
@@ -242,7 +242,7 @@ describe('buildCardRepoLogBlock', () => {
       writeFileSync(join(streamsPath, 'CARD.md'), '# Updated Card\n');
       await git.add(['streams/session/log.jsonl', 'CARD.md']);
       await git.commit('Update card and stream');
-    });
+    }, 120_000);
 
     afterAll(() => {
       streamsRepo.destroy();
