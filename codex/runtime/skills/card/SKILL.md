@@ -15,6 +15,8 @@ Use forked subagents for open-ended tasks suited to parallelization such as rese
 
 Governs this session and every reference it loads. The runtime runs in a disposable per-card git worktree.
 
+**A symlinked path inside the worktree is shared with the source checkout — writing through it mutates the project.** Git-ignored paths are symlinked by default; among them, only paths matching `.worktreeinclude` at the repo root are private copies, and paths matching `.worktreeignore` are absent. Check with `ls -la` before writing to a git-ignored path; treat an unexpected symlink or missing file as a path-policy question, not a broken worktree.
+
 **Inside the worktree — proceed without per-action confirmation.** File mutations, branch operations, tag deletions, `git reset --hard` to a baseline tag, `git restore .`, `git clean -fd`, `git rm` of artifact files, workspace-local merges including `git merge --ff-only` against `$BASE_BRANCH`, and the termination of spawned sub-agents. Still: investigate unfamiliar state before overwriting, prefer root-cause fixes over destructive shortcuts, and never use `--no-verify` or other safety bypasses to clear an obstacle.
 
 **`CARD.meta.json` `gates.*` carry the user's scoped, durable authorization.** Read the gate and act within the scope it authorizes. Do not re-derive consent from context, scope, commit volume, or overlap with prior work. Never modify gate fields.

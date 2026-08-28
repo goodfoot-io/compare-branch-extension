@@ -255,22 +255,16 @@ cd "$REPO" && git add "attachments/$ATT_NAME" "attachments/${ATT_NAME}.meta.json
 
 ## Worktree Path Policy
 
-Worktree creation makes one authoritative path decision for every git-ignored path before provisioning:
+`.worktreeignore` (omit) and `.worktreeinclude` (copy) at the repo root classify every git-ignored path before provisioning; unmatched paths are shared as symlinks. Both use gitignore syntax: comments (`#`), negation (`!`), directory patterns (`dir/`) covering descendants. Omit generated outputs (build artifacts, caches); copy git-ignored files the agent must edit without touching the source (local env files, tool-managed lockfiles).
 
-- **Share (default)** — symlinked into the worktree; unmatched by both policy files.
-- **Omit** — never provisioned; matched by `.worktreeignore` at the repo root.
-- **Copy** — copied as a real file the agent can edit without touching the source; matched by `.worktreeinclude` at the repo root.
-
-Use `.worktreeignore` for generated outputs that should not appear in the worktree (build artifacts, caches); use `.worktreeinclude` for git-ignored files the agent needs as editable copies (local env files, tool-managed lockfiles).
-
-Rules:
 - **Omit wins over copy** — a path matching both files is omitted.
-- **Whole-dir omission** — a file-level `.worktreeignore` pattern under a fully-ignored directory removes the whole directory from the worktree (a symlinked directory cannot be partially omitted); use a copy rule for the file if the rest of the directory must remain.
-- **Package-interior omit rules** — in a workspaces repo, a rule targeting a path inside a `node_modules` package keeps the package usable: the package becomes a real directory with the ruled path absent and its other files symlinked, so writes at the ruled path cannot reach the source.
-- **Gitignore-style patterns** — comments (`#`), negation (`!`), directory patterns (`dir/`); directory patterns cover descendants.
+- **Copy is an intersection** — a path is copied only when it is also git-ignored in the source. Tracked files are never copied even when listed, and a listed path that does not exist on disk is skipped silently: the include file is a wishlist, not a manifest.
+- **Copies keep their shape** — mode bits are preserved; a symlink is recreated as a symlink on the same target rather than dereferenced. Windows symlink creation requires Developer Mode or an elevated session, and otherwise fails closed naming the destination.
+- **Whole-dir omission** — a file-level `.worktreeignore` pattern under a fully-ignored directory removes the whole directory (a symlinked directory cannot be partially omitted); add a copy rule for the file if the rest must remain.
+- **Package-interior rules** — in a workspaces repo, a rule inside a `node_modules` package makes the package a real directory with the ruled path absent and its other files symlinked, so writes at the ruled path cannot reach the source. A tracked `node_modules`-segment symlink outside the workspace trees the rerouter owns fails closed naming the path.
 - **Copy prevents ancestor symlinks** — a copy rule for `dist/bundle.js` under an ignored `dist/` prevents the `dist` symlink and copies only the selected files into a real directory; unmatched siblings stay absent.
-- **Regenerated per creation** — the policy is re-evaluated on every worktree creation; config edits take effect on the next materialization.
-- **Fail closed** — an unreadable or invalid `.worktreeignore`/`.worktreeinclude` stops creation before any matching path is linked (`create-worktree` exits 3).
+- **Regenerated per creation** — config edits take effect on the next materialization.
+- **Fail closed** (`create-worktree` exits 3) — an unreadable or invalid policy file, or a dangling symlink at one of their paths, stops creation before any matching path is linked. An absent policy file contributes no patterns and is not an error.
 - **Enumeration is deadline-bounded** — the policy's git scans and filesystem walks fail closed after `CARDS_WORKTREE_POLICY_TIMEOUT_MS` (default 30000); raise it for huge trees or slow filesystems when the error names the variable.
 
 <card-status>
