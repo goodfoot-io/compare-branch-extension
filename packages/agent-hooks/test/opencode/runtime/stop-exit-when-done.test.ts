@@ -4,8 +4,10 @@
  * @summary Tests for the OpenCode stop-exit-when-done handler
  */
 
+import * as net from 'node:net';
 import { join } from 'node:path';
 import type { ActionInput } from '@cards.management/sdk/config';
+import { readPendingShutdownRequest, writePendingShutdownRequest } from '@cards.management/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createStopExitWhenDonePlugin } from '../../../src/opencode/internal/runtime-handlers.js';
 import {
@@ -159,5 +161,68 @@ describe('CardsStopExitWhenDone (runtime)', () => {
         process.env['HOME'] = originalHome;
       }
     }
+  });
+
+  describe('pending shutdown drain acknowledgement', () => {
+    // Real storage/socket, no module mocks: `readPendingShutdownRequest` and
+    // `sendShutdownReady` operate on `~/.cards/card-repo-commits/` and a real
+    // Unix socket, so the fixture redirects HOME and listens on a real socket
+    // exactly as the production `cards shutdown` -> Stop-hook handoff does.
+    let originalHome: string | undefined;
+    let socketPath: string;
+    let server: net.Server;
+    let received: Array<{ type: string; requestId: string }>;
+
+    beforeEach(async () => {
+      originalHome = process.env['HOME'];
+      process.env['HOME'] = tempDir;
+      socketPath = join(tempDir, 'action.sock');
+      received = [];
+      server = net.createServer((socket) => {
+        let buffer = '';
+        socket.on('data', (chunk) => {
+          buffer += chunk.toString();
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            if (line.length > 0) received.push(JSON.parse(line));
+          }
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(socketPath, resolve));
+    });
+
+    afterEach(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      if (originalHome === undefined) {
+        delete process.env['HOME'];
+      } else {
+        process.env['HOME'] = originalHome;
+      }
+    });
+
+    it('acknowledges shutdownReady on the socket once the idle session has no pending request', async () => {
+      // Bug reproduction: the OpenCode exit-when-done plugin only ever logs a
+      // nudge telling the model to run `cards shutdown` — it never reads the
+      // durable pending-request marker that verb writes, and never sends the
+      // `shutdownReady` acknowledgement the ActionDispatcher's readiness gate
+      // (packages/extension/src/runtime/ActionDispatcher.ts) waits on before
+      // forwarding `agentShutdown`. Without this, OpenCode shutdowns can never
+      // clear the 30s readiness timeout, so the owned process tree is left
+      // running instead of being terminated.
+      writePendingShutdownRequest('ses-root', { version: 1, requestId: 'req-1', socketPath });
+
+      const { deps } = makeDeps(tempDir, { loadActionInput: () => actionInput(true) });
+      const plugin = createStopExitWhenDonePlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionIdleEvent('ses-root'));
+
+      // Give the real socket write a turn of the event loop to land.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(received).toContainEqual({ type: 'shutdownReady', requestId: 'req-1' });
+      expect(readPendingShutdownRequest('ses-root')).toBeUndefined();
+    });
   });
 });
