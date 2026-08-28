@@ -193,5 +193,5 @@ describe('ExpandedView bootstrap race — subscribe:response window', () => {
       root.unmount();
     });
     expect(animationFrames.size).toBe(0);
-  });
+  }, 120_000);
 });

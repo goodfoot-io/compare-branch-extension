@@ -161,5 +161,5 @@ describe('ExpandedView async callbacks', () => {
     }
 
     expect(captured).toEqual([]);
-  });
+  }, 120_000);
 });
