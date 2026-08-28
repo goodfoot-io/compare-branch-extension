@@ -907,8 +907,8 @@ export function createStopExitWhenDonePlugin(deps: OpencodeHandlerDeps = default
 
           await log.warn(
             [
-              'Cards exit-when-done nudge: this action was launched with EXIT_WHEN_DONE=true and the session is now idle.',
-              `Read ${deps.shutdownRunbookPath()} and follow its <instructions>: finish or roll back in-progress work to a clean state, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session cleanly.`,
+              'Cards exit-when-done nudge: EXIT_WHEN_DONE=true is set for this session — a reminder for when work is done, not a signal to stop now.',
+              `Once the card's work is finished and validated, read ${deps.shutdownRunbookPath()} and follow its <instructions>: confirm the outcome, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session.`,
               'The action handler terminates the launcher gracefully in response to the signal.'
             ].join('\n'),
             { sessionId }

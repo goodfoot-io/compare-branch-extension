@@ -68,9 +68,9 @@ export default stopHook({}, async (input, { logger }) => {
   return stopOutput({
     decision: 'block',
     reason: [
-      'This action was launched with EXIT_WHEN_DONE=true and the session is now idle.',
+      'EXIT_WHEN_DONE=true — a reminder for when work is done, not a signal to stop now.',
       '',
-      `Read \`${resolveShutdownRunbookPath()}\` (\`shutdown.md\` in \`runtime:card\`'s \`references/\`) and follow its \`<instructions>\`: finish or roll back in-progress work to a clean state, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session cleanly. The action handler terminates the validated Codex launcher in response to the signal.`
+      `Once the card's work is finished and validated, read \`${resolveShutdownRunbookPath()}\` and follow its \`<instructions>\`: confirm the outcome, run \`cards "$CARD_ID" shutdown --outcome success|blocked|error --message "..."\`, then end the session. The action handler terminates the validated Codex launcher in response to the signal.`
     ].join('\n')
   });
 });
