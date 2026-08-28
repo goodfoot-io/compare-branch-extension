@@ -95,7 +95,13 @@ Ranked by probability:
 
 **Evidence**: `create-worktree` exits 3. The worktree is missing paths that should be shared, has symlinks where real files should be, or contains generated output that should be omitted.
 
-**Cause**: `.worktreeignore` (omit) and `.worktreeinclude` (copy) at the source repo root configure the worktree path policy, and the policy fails closed: an unreadable or invalid file stops creation with a `WorktreeIncludeError` before any matching path is linked. Otherwise every git-ignored path gets one of three decisions — omit (never provisioned), copy (real file; prevents the ignored ancestor directory from being symlinked), or share (symlink, the default for unmatched paths). Omit wins over copy; patterns are gitignore syntax. A file-level `.worktreeignore` pattern under a fully-ignored directory removes the whole directory from the worktree (a symlinked directory cannot be partially omitted); use a copy rule for the file if the rest of the directory must remain. Inside `node_modules` in a workspaces repo, the same rule keeps the package usable instead: the package becomes a real directory with the ruled path absent and its other files symlinked, so writes at the ruled path cannot reach the source. The policy is re-evaluated on every creation, so config edits apply on the next run. Policy enumeration (git scans and filesystem walks) is deadline-bounded and fails closed after `CARDS_WORKTREE_POLICY_TIMEOUT_MS` (default 30000) — a timeout error names the variable, and a huge tree or slow filesystem (network drive, antivirus) justifies raising it.
+**Cause**: `.worktreeignore` (omit) and `.worktreeinclude` (copy) at the source repo root configure the worktree path policy. Every git-ignored path gets one of three decisions — omit (never provisioned), copy (real file; prevents the ignored ancestor directory from being symlinked), or share (symlink, the default for unmatched paths). Omit wins over copy; patterns are gitignore syntax. The policy is re-evaluated on every creation.
+
+- **Copy is an intersection** — only git-ignored paths are copied. A tracked file is never copied however it is listed (the checkout already provides it), and a listed path missing from disk is skipped silently, so a "missing" copy is usually a tracked path, an omit match, or a path that does not exist.
+- **Copies preserve shape** — mode bits are carried over, and a source symlink is recreated as a symlink on the same target rather than dereferenced; a copied path is therefore not always a regular file.
+- **Whole-dir omission** — a file-level `.worktreeignore` pattern under a fully-ignored directory removes the whole directory (a symlinked directory cannot be partially omitted); use a copy rule for the file if the rest of the directory must remain. Inside `node_modules` in a workspaces repo, the same rule keeps the package usable instead: the package becomes a real directory with the ruled path absent and its other files symlinked, so writes at the ruled path cannot reach the source.
+- **Fails closed** — an unreadable or invalid config file, or a dangling symlink at a config path, stops creation with a `WorktreeIncludeError` before any matching path is linked. An absent config file contributes no patterns and is not an error, so a repo with neither file shares every git-ignored path.
+- **Enumeration is deadline-bounded** — git scans and filesystem walks fail closed after `CARDS_WORKTREE_POLICY_TIMEOUT_MS` (default 30000); the timeout error names the variable. Raise it for huge trees or slow filesystems (network drive, antivirus).
 
 **Recovery**:
 ```bash
@@ -105,12 +111,23 @@ ls -la .worktreeignore .worktreeinclude
 git check-ignore -v <path>
 # What the worktree actually contains
 ls -la <worktree>/<path>
-readlink <worktree>/<path>    # symlink = shared
-stat -c %F <worktree>/<path>  # regular file = copied (or checked out)
+readlink <worktree>/<path>    # symlink = shared, or a recreated copy of a source symlink
+stat -c '%F %a' <worktree>/<path>  # regular file = copied (or checked out); mode is preserved on copy
+git ls-files --error-unmatch <path>  # exits 0 = tracked, so never copied whatever the include file says
 ```
 Fix the pattern or file permissions, then re-run `create-worktree` — the policy is rebuilt from scratch, no cache to clear. A failed creation removes its partially-provisioned worktree automatically: the directory, its git registration, and the branch the failed run created are cleaned up before the error surfaces, so the re-run starts from a clean slate (a branch that existed before the failed run is left untouched). If cleanup itself fails, a warning is printed to stderr naming the leftover directory — remove it manually with `remove-worktree <path>` first, then re-run. **Risk**: **safe**.
 
-**Post-fix verification**: `create-worktree` exits 0; omitted paths have no entry, copied paths are regular files, unmatched ignored paths are symlinks.
+**Post-fix verification**: `create-worktree` exits 0; omitted paths have no entry, copied paths are real files with their source mode bits, unmatched ignored paths are symlinks.
+
+### Symlink Privilege Denied (Windows) — LOW probability
+
+**Evidence**: On Windows, creation fails with a `SymlinkPrivilegeError` or a `WorktreeIncludeError` naming a symlink destination (`EPERM`/`EINVAL` underneath).
+
+**Cause**: Provisioning shares git-ignored paths as symlinks and recreates source symlinks in the copy set, and Windows grants symlink creation only under Developer Mode or an elevated session. Creation fails closed rather than degrading to a copy, which would diverge worktree semantics from macOS/Linux.
+
+**Recovery**: Enable Settings > System > For developers > Developer Mode (or run elevated), then re-run `create-worktree`. **Risk**: **safe**.
+
+**Post-fix verification**: `create-worktree` exits 0 and the named destination exists as a symlink.
 
 ### Worktree Path on Windows — LOW probability
 
