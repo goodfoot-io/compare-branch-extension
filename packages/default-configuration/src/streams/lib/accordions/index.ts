@@ -7,6 +7,5 @@
 
 export { ExpandableRow } from './ExpandableRow';
 export { ToolAccordion, type ToolSeverity } from './ToolAccordion';
-export { ToolGroup } from './ToolGroup';
 export { ToolInputTable } from './ToolInputTable';
 export { ToolResult } from './ToolResult';

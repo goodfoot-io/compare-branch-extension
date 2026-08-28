@@ -2,16 +2,11 @@
    SHARED ACCORDION STYLES (`cc-tool-*`, `cc-accordion-*`, `cc-chevron` classes)
 
    Styles for the provider-neutral accordion primitives in
-   `src/streams/lib/accordions/` (ToolAccordion, ToolGroup, ToolInputTable,
+   `src/streams/lib/accordions/` (ToolAccordion, ToolInputTable,
    ExpandableRow, ToolResult). Shared by every stream renderer so a provider's
    accordion markup and class names — and therefore its rendered DOM — stay
    byte-identical regardless of which theme.css imports this file.
    ============================================================================= */
-
-/* Thin divider between consecutive tool rows inside a ToolGroup */
-.cc-tool-group > .cc-tool-row + .cc-tool-row {
-  border-top: 1px solid var(--stream-border-subtle);
-}
 
 /* Raw free-text tool-arguments block (e.g. Codex shell command / apply_patch
    text) — no hard max-height, full content always visible when open. */
