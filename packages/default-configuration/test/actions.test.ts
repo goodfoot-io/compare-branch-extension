@@ -404,7 +404,7 @@ describe('Default Actions', () => {
       expect(warnSpy).toHaveBeenCalledWith('something went wrong');
     });
 
-    it('registers onCancel that kills the child process', async () => {
+    it('registers onCancel that terminates the owned process tree', async () => {
       const { spawn } = await import('node:child_process');
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -417,9 +417,8 @@ describe('Default Actions', () => {
       expect(context.onCancel).toHaveBeenCalledWith(expect.any(Function));
 
       // Invoke the registered cancel callback
-      const cancelCallback = vi.mocked(context.onCancel).mock.calls[0][0] as () => void;
-      cancelCallback();
-      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      const cancelCallback = vi.mocked(context.onCancel).mock.calls[0][0] as () => Promise<void>;
+      await expect(cancelCallback()).resolves.toBeUndefined();
 
       child.emit('close', null);
       await promise;
