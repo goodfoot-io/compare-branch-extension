@@ -47,6 +47,26 @@ vi.stubGlobal('ResizeObserver', ResizeObserverStub);
 // environment's semantics.
 Element.prototype.scrollTo = (() => {}) as typeof Element.prototype.scrollTo;
 
+// Own the animation-frame queue so the lifecycle under test does not depend on
+// jsdom's timer-backed rAF shim or machine load.
+let nextAnimationFrameId = 1;
+const animationFrames = new Map<number, FrameRequestCallback>();
+vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {
+  const id = nextAnimationFrameId++;
+  animationFrames.set(id, callback);
+  return id;
+});
+vi.stubGlobal('cancelAnimationFrame', (id: number): void => {
+  animationFrames.delete(id);
+});
+
+/** Flushes the next animation frame scheduled by the mounted view. */
+function flushNextAnimationFrame(): void {
+  const callbacks = [...animationFrames.values()];
+  animationFrames.clear();
+  for (const callback of callbacks) callback(performance.now());
+}
+
 // Hoisted so the mock factory can reference these identifiers.
 const { mockGetState, mockSubscribe } = vi.hoisted(() => ({
   mockGetState: vi.fn(),
@@ -125,23 +145,16 @@ describe('ExpandedView async callbacks', () => {
         root.render(React.createElement(ExpandedView));
       });
 
-      // Keep the jsdom window alive across several animation-frame intervals
-      // (jsdom drives requestAnimationFrame off a ~16ms timer) so the
-      // auto-scroll callback fires while the environment still exists —
-      // deterministically forcing what the bootstrap-race test only hits when
-      // the worker happens to tear down slowly.
+      // Fire every frame requested during mount without waiting for wall-clock
+      // timers. This exercises the callback while the environment is alive.
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        flushNextAnimationFrame();
       });
 
       await act(async () => {
         root.unmount();
       });
-
-      // Drain anything still scheduled after unmount (pending frames, React
-      // scheduler ticks) while the window is alive, so nothing is left to fire
-      // against a torn-down environment.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(animationFrames.size).toBe(0);
     } finally {
       process.removeListener('uncaughtException', onUncaught);
       window.removeEventListener('error', onWindowError);

@@ -49,6 +49,26 @@ vi.stubGlobal('ResizeObserver', ResizeObserverStub);
 // no layout, so a no-op matches the environment's semantics.
 Element.prototype.scrollTo = (() => {}) as typeof Element.prototype.scrollTo;
 
+// Own the animation-frame queue so assistant-ui's auto-scroll work is driven
+// explicitly by the test instead of racing jsdom's timer-backed rAF shim.
+let nextAnimationFrameId = 1;
+const animationFrames = new Map<number, FrameRequestCallback>();
+vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {
+  const id = nextAnimationFrameId++;
+  animationFrames.set(id, callback);
+  return id;
+});
+vi.stubGlobal('cancelAnimationFrame', (id: number): void => {
+  animationFrames.delete(id);
+});
+
+/** Flushes the next animation frame scheduled by the mounted view. */
+function flushNextAnimationFrame(): void {
+  const callbacks = [...animationFrames.values()];
+  animationFrames.clear();
+  for (const callback of callbacks) callback(performance.now());
+}
+
 // Hoisted so the mock factory can reference these identifiers.  Without
 // vi.hoisted the references would be out of scope when vi.mock is hoisted.
 const { mockGetState, mockSubscribe } = vi.hoisted(() => ({
@@ -164,17 +184,14 @@ describe('ExpandedView bootstrap race — subscribe:response window', () => {
     expect(container.textContent).not.toContain('No output yet.');
     expect(container.textContent).toContain('Hello from assistant.');
 
-    // Let the auto-scroll animation frame fire (a no-op via the scrollTo stub)
-    // while the jsdom window is still alive, then unmount so effect cleanups
-    // cancel anything still scheduled. Without this, pending rAF and React
-    // scheduler callbacks race environment teardown and surface as vitest
-    // "Unhandled Errors" (`div.scrollTo is not a function`, `window is not
-    // defined`) while the test itself still passes.
+    // Drive auto-scroll deterministically while the view is mounted, then
+    // unmount so effect cleanups cancel any subsequently scheduled frame.
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      flushNextAnimationFrame();
     });
     await act(async () => {
       root.unmount();
     });
+    expect(animationFrames.size).toBe(0);
   });
 });
