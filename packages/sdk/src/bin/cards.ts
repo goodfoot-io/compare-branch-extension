@@ -1304,10 +1304,12 @@ export async function runShutdownVerb(args: string[]): Promise<void> {
     return;
   }
 
-  const sessionId = (process.env[CARDS_ENV_VARS.CARDS_SESSION_ID] ?? '').trim();
+  const sessionId = await resolveSessionId();
   if (!sessionId) {
     console.error(
-      `cards shutdown: ${CARDS_ENV_VARS.CARDS_SESSION_ID} is not set — shutdown readiness cannot be correlated.`
+      `cards shutdown: no session id could be resolved (checked ${CARDS_ENV_VARS.CARDS_SESSION_ID}, ` +
+        'CLAUDE_CODE_SESSION_ID, CODEX_THREAD_ID, OPENCODE_RUN_ID, CURSOR_TRACE_ID, and agent PID) — ' +
+        'shutdown readiness cannot be correlated.'
     );
     process.exitCode = 1;
     return;
