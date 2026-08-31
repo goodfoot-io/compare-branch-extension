@@ -63,13 +63,13 @@ Routes through `POST /execute-command` with `{command: "cards.reportIssue", args
 
 **Usage**: `create-worktree [--card-id <id>] [--parent-branch <name>] <branch|tag|sha>`
 
-**Exit codes**: 0 success, 2 general failure, 3 path-policy (`.worktreeignore`/`.worktreeinclude`) processing failure. The path policy is loaded by `loadWorktreePathPolicy()` (`public/packages/sdk/src/worktreePathPolicy.ts`) — omit for `.worktreeignore`, copy for `.worktreeinclude`, share (symlink) as the default for unmatched git-ignored paths. Omit wins over copy; patterns are gitignore syntax; the policy is re-evaluated per creation. An unreadable or invalid config file fails closed as a `WorktreeIncludeError` before any matching path is linked.
+**Exit codes**: 0 success, 2 general failure, 3 path-policy (`.worktreeignore`/`.worktreeinclude`) load or provisioning failure. The invoking checkout root supplies both policy files and source content. The offline and card-bound forms use the same `createWorktree()` materialization; card-bound creation additionally performs registration/outfitting. Configuration and enumeration fail before policy-controlled links, while later copy/symlink failures can occur after partial provisioning and trigger cleanup.
+
+**Output**: one JSON object with `branch`, absolute `worktree`, `baseSha`, numeric `copiedFromInclude` (regular files and recreated source symlinks actually copied by the include executor), and numeric `reroutedSymlinks` (internal workspace symlinks recreated by the `node_modules` rerouter). These fields are counts, not path arrays, and do not enumerate policy matches or materialized ancestors. There is no supported dry-run/classification CLI.
 
 **Auth** (with `--card-id`): Bearer token from `~/.cards/cards-api.json`.
 
 **Without `--card-id`**: Fully offline — no API client, no parent branch, no hooks, no attribution.
-
-**Output**: JSON to stdout — `{branch, worktree, baseSha, copiedFromInclude, reroutedSymlinks}`.
 
 ### `remove-worktree`
 
