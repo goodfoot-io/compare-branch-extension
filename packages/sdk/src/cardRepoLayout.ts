@@ -4,7 +4,7 @@
  * This module defines the canonical names of the card-repository document
  * directories. Every other occurrence in the codebase derives from these
  * constants — no caller should hardcode `'plans'`, `'comments'`, `'attachments'`,
- * or `'assets'` (or their trailing-slash prefix forms) as a literal.
+ * `'assets'`, or `'streams'` (or their trailing-slash prefix forms) as a literal.
  *
  * Two constant shapes are exported for each directory:
  *
@@ -39,7 +39,22 @@ export const ATTACHMENTS_DIR = 'attachments';
  */
 export const ASSETS_DIR = 'assets';
 
+/**
+ * Directory holding agent session transcripts, laid out as
+ * `streams/<stream-type>/<session>.jsonl` with subagent transcripts nested
+ * beneath their parent session.
+ *
+ * Every file under this directory is newline-delimited JSON written by Cards
+ * infrastructure. That makes the directory a content-type guarantee as well as
+ * a location: a server may classify anything beneath it as text without
+ * inspecting it, which matters because a transcript revision can run to tens
+ * of megabytes and diffing one is the single most expensive step of reading a
+ * card's history.
+ */
+export const STREAMS_DIR = 'streams';
+
 export const PLANS_PREFIX = `${PLANS_DIR}/`;
 export const COMMENTS_PREFIX = `${COMMENTS_DIR}/`;
 export const ATTACHMENTS_PREFIX = `${ATTACHMENTS_DIR}/`;
 export const ASSETS_PREFIX = `${ASSETS_DIR}/`;
+export const STREAMS_PREFIX = `${STREAMS_DIR}/`;
