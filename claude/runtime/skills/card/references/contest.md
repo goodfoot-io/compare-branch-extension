@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/contest.md.eta sha256:2ee9f0c6ece8f1fe31a18fdde68492eee3bbefcfecfd46bda8299091717e2f91 -->
 # Parallel Planner Contest
 
 Dispatch multiple planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.

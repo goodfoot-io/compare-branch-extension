@@ -2,6 +2,7 @@
 name: chat-routing
 description: Route conversational intent to the appropriate skill.
 ---
+<!-- @goodfoot/agent-skills source: skills-src/runtime/chat-routing/SKILL.md.eta sha256:ed655f6325d9d81a1e423fb9822380b742cd4912c7ccfff609afa63891d33edc -->
 
 <routing-constraints>
 Route only — evaluate, select, and load. The loaded reference does the work.

@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/captain/references/implementation-evaluation.md.eta sha256:49b1b93006e3db30c56fcb440635500a537c2a242fae7e35d78c910383a84780 -->
 
 <instructions>
 

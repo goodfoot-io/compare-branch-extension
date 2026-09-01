@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/interview-enhancement.md.eta sha256:e048dcc6c9e74f60e338c0d9b6c101f2593b7ab3fa4d4d3425434db10f841a91 -->
 <interview-before-creating-an-enhancement-card>
 
 Reach the signal required to write a well-formed enhancement request before the card is created. The companion `./enhancement.md` defines the target CARD.md structure; this guide defines how to get there.

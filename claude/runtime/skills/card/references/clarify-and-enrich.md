@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/clarify-and-enrich.md.eta sha256:f74717e6dfdce79f779f685c9258d87694bfc720ba8fbea4559ba3f1054efd22 -->
 
 <instructions>
 

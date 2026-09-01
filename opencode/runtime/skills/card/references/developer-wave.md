@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/developer-wave.md.eta sha256:6402c23da09d7449e431418600cda65f03a766311f0805a31a6000fe8aa97e6f -->
 # Developer Team
 
 Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md`/`./evaluation-wave.md` (finding fixes). You are the orchestrator — you never implement, and you own every gate, commit, and integration. Workers implement, test, and report; they never commit.

@@ -2,6 +2,7 @@
 name: html-files
 description: Author HTML files in a card repository — complete-document structure, two-file pairing, sidecar schema, relative assets/ references, inline CSS styling, and the cards html check gate.
 ---
+<!-- @goodfoot/agent-skills source: skills-src/shared/html-files/SKILL.md.eta sha256:fa62d4333eacc0306ff8e9f4d049ecdd0abb98ec34b6721ca1d7929c0394c3c7 -->
 
 <placeholder-variables>
 [CARD_REPO_PATH] — Absolute path to the card's git repository (the `repositoryPath` field from `card` output, or the `$CARD_REPO_PATH` environment variable)

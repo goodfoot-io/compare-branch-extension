@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "kind": "agent-skills-target-manifest",
+  "target": "public/claude/cards-sdk/skills",
+  "platform": "claude",
+  "plugin": "cards-sdk",
+  "version": "1.0.34",
+  "registrySha256": "d698261d9c649920b4ed4e4b3e953f43ff33d6f70d7dec0d582e1b97ec496608",
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "source": "skills-src/cards-sdk/conventions.md.eta",
+      "sourceSha256": "bff3562393d82c88191f7a6c5adb8ac3552fbcd10518c1382b6cb27ccedfd307",
+      "sha256": "83560def5cddd5903b30cde1cf6826fd3b17d3733b32a0a7b9f40c48b4e48c72",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "sdk/reference/api-client.md",
+      "source": "skills-src/cards-sdk/sdk/reference/api-client.md",
+      "sourceSha256": "fdd042904e217f9e42472333fb50cd7d8b1c87c676dfb0f0a0981289fd6d7830",
+      "sha256": "fdd042904e217f9e42472333fb50cd7d8b1c87c676dfb0f0a0981289fd6d7830",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "sdk/reference/environment.md",
+      "source": "skills-src/cards-sdk/sdk/reference/environment.md",
+      "sourceSha256": "be990517ce0c1b26e3caa8f6213edbe32022993c79a65cbaeda9a1eabb81813b",
+      "sha256": "be990517ce0c1b26e3caa8f6213edbe32022993c79a65cbaeda9a1eabb81813b",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "sdk/reference/input-types.md",
+      "source": "skills-src/cards-sdk/sdk/reference/input-types.md",
+      "sourceSha256": "bc5c554b8d22d7104d10c401edac195b0bf5546d0ed0da8c846fe7e2e95bb98f",
+      "sha256": "bc5c554b8d22d7104d10c401edac195b0bf5546d0ed0da8c846fe7e2e95bb98f",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "sdk/reference/logging.md",
+      "source": "skills-src/cards-sdk/sdk/reference/logging.md",
+      "sourceSha256": "7ee3a715ffd2696808a475ed2581d6dcef0c07137e66f9de5fedef05e55cfe10",
+      "sha256": "7ee3a715ffd2696808a475ed2581d6dcef0c07137e66f9de5fedef05e55cfe10",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "sdk/reference/streams.md",
+      "source": "skills-src/cards-sdk/sdk/reference/streams.md",
+      "sourceSha256": "005b7c150901279794897dff3b0b6a6983470f0d929f14fc9fcccbdcd92ad79a",
+      "sha256": "005b7c150901279794897dff3b0b6a6983470f0d929f14fc9fcccbdcd92ad79a",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "sdk/SKILL.md",
+      "source": "skills-src/cards-sdk/sdk/SKILL.md.eta",
+      "sourceSha256": "90bb5c65cbd8501477aa9d8deccc8b74773962b3ac6d39d2d717e52345f82a26",
+      "sha256": "d4cb5dd5815f18500b906f3725f4bd6584ec7186444b11cff08a01cd7c53fe75",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    }
+  ]
+}

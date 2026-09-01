@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/interview/references/interview-documentation.md.eta sha256:e38a0f37ab1def31a999b4f2c1b22e928dee480210c84346361f042324e421be -->
 <first-principles>
 1. Docs exist to change reader behavior — if no action or understanding changes, the doc has no purpose.
 2. Audience and task define the document; format follows.

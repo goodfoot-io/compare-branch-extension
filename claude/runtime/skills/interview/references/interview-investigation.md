@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/interview/references/interview-investigation.md.eta sha256:89e24b2e27de527657ae21f59c567cc6785a89ee2b06c65733dc3b87ba324cd0 -->
 <first-principles>
 1. An investigation exists to unblock a decision. Without a decision, it is research, not investigation.
 2. Questions must be falsifiable — if no evidence could change the answer, the question is wrong.

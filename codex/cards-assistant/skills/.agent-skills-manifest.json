@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "kind": "agent-skills-target-manifest",
+  "target": "public/codex/cards-assistant/skills",
+  "platform": "codex",
+  "plugin": "cards-assistant",
+  "version": "1.0.2",
+  "registrySha256": "d698261d9c649920b4ed4e4b3e953f43ff33d6f70d7dec0d582e1b97ec496608",
+  "files": [
+    {
+      "path": "debug/references/cards-api-server.md",
+      "source": "skills-src/shared/debug/references/cards-api-server.md",
+      "sourceSha256": "6b5296af7462445e7eaa72d56807986514efa29ce3b7b9abe322a84150069432",
+      "sha256": "6b5296af7462445e7eaa72d56807986514efa29ce3b7b9abe322a84150069432",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/diagnose-agent-launch.md",
+      "source": "skills-src/shared/debug/references/diagnose-agent-launch.md",
+      "sourceSha256": "766c061d9161217e38e15adfade5765a04ab41948dd16659f1d162bba62a9eee",
+      "sha256": "766c061d9161217e38e15adfade5765a04ab41948dd16659f1d162bba62a9eee",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/diagnose-hooks.md",
+      "source": "skills-src/shared/debug/references/diagnose-hooks.md",
+      "sourceSha256": "e8e1456e3f0a7ae3db64a077195078a92d52f88cb219cc6d6fd1380e5c4bea4c",
+      "sha256": "e8e1456e3f0a7ae3db64a077195078a92d52f88cb219cc6d6fd1380e5c4bea4c",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/diagnose-known-failure-states.md",
+      "source": "skills-src/shared/debug/references/diagnose-known-failure-states.md",
+      "sourceSha256": "82f6308d720dc17ff8acbc1ceffbe5dc841fc84f2a87d887dd56cdcb8b72a713",
+      "sha256": "82f6308d720dc17ff8acbc1ceffbe5dc841fc84f2a87d887dd56cdcb8b72a713",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/diagnose-server-health.md",
+      "source": "skills-src/shared/debug/references/diagnose-server-health.md",
+      "sourceSha256": "189b7a874a9a4b885691927df29857007be7f86e62b7d0345ecb5c7f9b19dad0",
+      "sha256": "189b7a874a9a4b885691927df29857007be7f86e62b7d0345ecb5c7f9b19dad0",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/diagnose-worktree.md",
+      "source": "skills-src/shared/debug/references/diagnose-worktree.md",
+      "sourceSha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
+      "sha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/find-logs.md",
+      "source": "skills-src/shared/debug/references/find-logs.md",
+      "sourceSha256": "37ea8a88a3c37bbe6604b8257e8c25404e026260e0f3c6ffab052f70cd2caf64",
+      "sha256": "37ea8a88a3c37bbe6604b8257e8c25404e026260e0f3c6ffab052f70cd2caf64",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/find-session-state.md",
+      "source": "skills-src/shared/debug/references/find-session-state.md",
+      "sourceSha256": "f34e3def9bcf045c8dd706f4d7322535d2bd738d6cf7f32d8099ef8558d19b09",
+      "sha256": "f34e3def9bcf045c8dd706f4d7322535d2bd738d6cf7f32d8099ef8558d19b09",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/inspect-cli-tools.md",
+      "source": "skills-src/shared/debug/references/inspect-cli-tools.md",
+      "sourceSha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
+      "sha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/inspect-plugin-cache.md",
+      "source": "skills-src/shared/debug/references/inspect-plugin-cache.md",
+      "sourceSha256": "b6ce75017418d85907273338b51e1c0950e7153b22ea209dba425213b6e6b3b3",
+      "sha256": "b6ce75017418d85907273338b51e1c0950e7153b22ea209dba425213b6e6b3b3",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/inspect-settings.md",
+      "source": "skills-src/shared/debug/references/inspect-settings.md",
+      "sourceSha256": "9afe5f652ae9fb364a42d155b914e7185097823c80a4400286d16ff56f4c2691",
+      "sha256": "9afe5f652ae9fb364a42d155b914e7185097823c80a4400286d16ff56f4c2691",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/interview-issue-report.md",
+      "source": "skills-src/shared/debug/references/interview-issue-report.md",
+      "sourceSha256": "f668377d9b340bd67a2de97e9e937e252f837ffc5dbf90831eb631eec6f199aa",
+      "sha256": "f668377d9b340bd67a2de97e9e937e252f837ffc5dbf90831eb631eec6f199aa",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/issue-report-guide.md",
+      "source": "skills-src/shared/debug/references/issue-report-guide.md",
+      "sourceSha256": "f216c8243abcf64975529ac692d816bd77ae9236e29d38d3f59e24bd206f4dca",
+      "sha256": "f216c8243abcf64975529ac692d816bd77ae9236e29d38d3f59e24bd206f4dca",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/references/platform-reference.md",
+      "source": "skills-src/shared/debug/references/platform-reference.md",
+      "sourceSha256": "aa118c3bc5e77b8511e0e29802e1109990ea25eb6c2306e6af0411b4e0cf238f",
+      "sha256": "aa118c3bc5e77b8511e0e29802e1109990ea25eb6c2306e6af0411b4e0cf238f",
+      "executable": false,
+      "kind": "literal",
+      "origin": "shared"
+    },
+    {
+      "path": "debug/SKILL.md",
+      "source": "skills-src/shared/debug/SKILL.md.eta",
+      "sourceSha256": "229e34a9afe75c2c92cd92f14a2873b14d2b350b0db17c9fd613e3914aeb9e1e",
+      "sha256": "3a9282f191f5a52debebb4e40e5dc7e7ed756b7b5605799c5228ab80bb8cf01d",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "shared"
+    }
+  ]
+}

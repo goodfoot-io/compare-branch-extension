@@ -1,0 +1,587 @@
+{
+  "schemaVersion": 1,
+  "kind": "agent-skills-target-manifest",
+  "target": "public/claude/runtime/skills",
+  "platform": "claude",
+  "plugin": "runtime",
+  "version": "1.0.439",
+  "registrySha256": "d698261d9c649920b4ed4e4b3e953f43ff33d6f70d7dec0d582e1b97ec496608",
+  "files": [
+    {
+      "path": "captain/references/blocked.md",
+      "source": "skills-src/runtime/captain/references/blocked.md",
+      "sourceSha256": "d6e358b1f596a6bb90e3381c61b6220dfb1bfa83ef297e87074a4ae87767f0ac",
+      "sha256": "d6e358b1f596a6bb90e3381c61b6220dfb1bfa83ef297e87074a4ae87767f0ac",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/bug-dirty-tree.md",
+      "source": "skills-src/runtime/captain/references/bug-dirty-tree.md",
+      "sourceSha256": "c57ca3ff5a5d00ff4703da07ed2cd1cab16b984d88f64589b4187d59ecda4467",
+      "sha256": "c57ca3ff5a5d00ff4703da07ed2cd1cab16b984d88f64589b4187d59ecda4467",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/bug.md",
+      "source": "skills-src/runtime/captain/references/bug.md.eta",
+      "sourceSha256": "190aeba0c50d034797ecd77e88e9d5d90fa08e23d5cb48b2e53ce83e24a7ec4d",
+      "sha256": "298c53f12dfb1bc3b4200402f37b6644dcc5f3f1a3690e958a4e998ea5e4b15d",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/clarify-and-enrich.md",
+      "source": "skills-src/runtime/captain/references/clarify-and-enrich.md.eta",
+      "sourceSha256": "ffe22d91051c0af7a84a6b9d36f86d89a7135ede0ebfc47baed556a5bfe69dd8",
+      "sha256": "5fd7e2f928aec6a9a3efb51943cbff335eb09b95e225f958e3d2ec9c6fdb8ea0",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/developer-wave.md",
+      "source": "skills-src/runtime/captain/references/developer-wave.md.eta",
+      "sourceSha256": "e6a806051edbd13fd55b13881b1cfe8cffcbc0812a2144cf351dc5df9d58196d",
+      "sha256": "a0339df449cbd29fdd14d76e0941d1794063a9b24831434edb03c839b8ba7bbb",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/implementation-evaluation.md",
+      "source": "skills-src/runtime/captain/references/implementation-evaluation.md.eta",
+      "sourceSha256": "49b1b93006e3db30c56fcb440635500a537c2a242fae7e35d78c910383a84780",
+      "sha256": "63179a40f69071a47819ad3786727c28edac7c86c7ac1987884c81526829f423",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/implementation-feedback.md",
+      "source": "skills-src/runtime/captain/references/implementation-feedback.md",
+      "sourceSha256": "878c3b527e629fca1d50c2524fbcc6ee77d6defc61c97319daecd5c9a356b28e",
+      "sha256": "878c3b527e629fca1d50c2524fbcc6ee77d6defc61c97319daecd5c9a356b28e",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/implementation.md",
+      "source": "skills-src/runtime/captain/references/implementation.md.eta",
+      "sourceSha256": "bff3fc5724841a34cb602602486e5cab87409b25ab79bfa1593eca56122b52bf",
+      "sha256": "2a95598b0861d9046bcd3998ef283953a8c5a4ee9e21665a4caa0a7c9b3ea405",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/merge.md",
+      "source": "skills-src/runtime/captain/references/merge.md",
+      "sourceSha256": "2a27a067ba660173e1297c30ccff0590adb16752e7e9365b6d61ebe429ff51f7",
+      "sha256": "2a27a067ba660173e1297c30ccff0590adb16752e7e9365b6d61ebe429ff51f7",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/plan-feedback.md",
+      "source": "skills-src/runtime/captain/references/plan-feedback.md",
+      "sourceSha256": "9a48f9da843e6ae5393b2b98e9d6fcce8947f77b5df05cb82c6bc9d4e54afcdb",
+      "sha256": "9a48f9da843e6ae5393b2b98e9d6fcce8947f77b5df05cb82c6bc9d4e54afcdb",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/plan.md",
+      "source": "skills-src/runtime/captain/references/plan.md.eta",
+      "sourceSha256": "428c97d4d7b20e21333297ffe00a877f7f46e720d6e1509389141d7a323198e1",
+      "sha256": "f3adea9aae9963f48e96dfeef89fcd1dc83b94587a1f87308443035d7d2270d9",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/question-response.md",
+      "source": "skills-src/runtime/captain/references/question-response.md",
+      "sourceSha256": "147f89561a10920e8f66708e629aa1738646611291ebd5d50e89007ac6f8ee98",
+      "sha256": "147f89561a10920e8f66708e629aa1738646611291ebd5d50e89007ac6f8ee98",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/README.md",
+      "source": "skills-src/runtime/captain/references/README.md.eta",
+      "sourceSha256": "fc49aba8057cc5757859075721da6c8497cf333474d841f4e637e31ba2952dcd",
+      "sha256": "490cea22eb7e6889149945a5444aaf42da8a224e25d3369e11370d4bbe8c7728",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/shutdown.md",
+      "source": "skills-src/runtime/captain/references/shutdown.md.eta",
+      "sourceSha256": "0762ac616d37b488d604a53aa525c6601acece0af58f7080ce9b56b9694121d6",
+      "sha256": "a146b6250301e97924acdff455273890f7d7a1398c6db118d2afc6c0cfd66692",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/references/validate.md",
+      "source": "skills-src/runtime/captain/references/validate.md",
+      "sourceSha256": "f8b780998e1f7f598c8375a285b41c1d7ec9085792629964c6860ff21f38ae21",
+      "sha256": "f8b780998e1f7f598c8375a285b41c1d7ec9085792629964c6860ff21f38ae21",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "captain/SKILL.md",
+      "source": "skills-src/runtime/captain/SKILL.md.eta",
+      "sourceSha256": "169c0dfaf38b447cc8549121ad6cac2fb1f81d45b5536582eddee0b3bf345251",
+      "sha256": "1e5559d56c528aeea43aad79074222b5e1af623e2044148a2c73eef012776218",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card-developer/SKILL.md",
+      "source": "skills-src/runtime/card-developer/SKILL.md.eta",
+      "sourceSha256": "8d2ab4f3b217519024685fa550b502d79f6db93a7d762e310104a0f455c1087b",
+      "sha256": "8feab4cddb327720e3d3fff3a7d69a80ff2efcd932c5e8e786c6a55c38105c9c",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card-experience-evaluator/SKILL.md",
+      "source": "skills-src/runtime/card-experience-evaluator/SKILL.md.eta",
+      "sourceSha256": "7359fafd9cc01926e8ece130dd42d1fa348161173933643cab108ecc3eaf7867",
+      "sha256": "69c12b9c9eea56bb210f57f945f16806956029e5edd6247577238f322ca4e44a",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card-failure-mode/SKILL.md",
+      "source": "skills-src/runtime/card-failure-mode/SKILL.md.eta",
+      "sourceSha256": "f7aa88230fa23585dd9e54b650e000fbd941b3ca8d25b306b629fe4772d4794c",
+      "sha256": "afe7881a7a3b853fdbeb93db4aa6f6f973f2572e96875fa96dbb3cab71593f49",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card-plan-failure-mode/SKILL.md",
+      "source": "skills-src/runtime/card-plan-failure-mode/SKILL.md.eta",
+      "sourceSha256": "d30ea9b09bfcb1ca977924cf08454d625e9199b320c7311f78e1046b17343569",
+      "sha256": "9c240d2e763aae82b299b1cba3d2c78cbc0843669a37c796bf479ada1daf8da2",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card-planner/SKILL.md",
+      "source": "skills-src/runtime/card-planner/SKILL.md.eta",
+      "sourceSha256": "e27f8d0af95fba4d81a50cb1e254b5090e79b018ec00c81501fdfeed4d53ef3a",
+      "sha256": "3534a4dae785f858dddac4cd37bdb50ff89f6871eff0bb6f860572e8b3c11d77",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card-pre-existing-condition/SKILL.md",
+      "source": "skills-src/runtime/card-pre-existing-condition/SKILL.md.eta",
+      "sourceSha256": "2611040ee77ecc4cc4f951684cb675d6a85acbc8bc48a1a6eb39f21d9c6afd46",
+      "sha256": "fc8024c15dc200418dab9a53492638e829c45f046542bf051bfa81f78405b2c0",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/blocked.md",
+      "source": "skills-src/runtime/card/references/blocked.md",
+      "sourceSha256": "d6e358b1f596a6bb90e3381c61b6220dfb1bfa83ef297e87074a4ae87767f0ac",
+      "sha256": "d6e358b1f596a6bb90e3381c61b6220dfb1bfa83ef297e87074a4ae87767f0ac",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/bug-dirty-tree.md",
+      "source": "skills-src/runtime/card/references/bug-dirty-tree.md",
+      "sourceSha256": "c57ca3ff5a5d00ff4703da07ed2cd1cab16b984d88f64589b4187d59ecda4467",
+      "sha256": "c57ca3ff5a5d00ff4703da07ed2cd1cab16b984d88f64589b4187d59ecda4467",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/bug.md",
+      "source": "skills-src/runtime/card/references/bug.md.eta",
+      "sourceSha256": "190aeba0c50d034797ecd77e88e9d5d90fa08e23d5cb48b2e53ce83e24a7ec4d",
+      "sha256": "1946e8a23c909ddb82e3f3c5abf3cc428f31c6cea0fd52c5020c4d76ec6bd0f2",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/clarify-and-enrich.md",
+      "source": "skills-src/runtime/card/references/clarify-and-enrich.md.eta",
+      "sourceSha256": "f74717e6dfdce79f779f685c9258d87694bfc720ba8fbea4559ba3f1054efd22",
+      "sha256": "774055e62f28e137858039e1824e9d38b164c7d51bd9fc152bb404e2b36c20a3",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/contest.md",
+      "source": "skills-src/runtime/card/references/contest.md.eta",
+      "sourceSha256": "2ee9f0c6ece8f1fe31a18fdde68492eee3bbefcfecfd46bda8299091717e2f91",
+      "sha256": "de12f85d42fab688a91641ffe9bc4e7b8768cde36ba1fe09fa79fd9356234d18",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/developer-wave.md",
+      "source": "skills-src/runtime/card/references/developer-wave.md.eta",
+      "sourceSha256": "6402c23da09d7449e431418600cda65f03a766311f0805a31a6000fe8aa97e6f",
+      "sha256": "3a3062e087f0a651cd16f9a714cbba19a2c46c8d641e7227b1b08530cd0b3927",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/evaluation-wave.md",
+      "source": "skills-src/runtime/card/references/evaluation-wave.md.eta",
+      "sourceSha256": "371f9ea37c3ef831f66761dc3d2f21722adc94fb12725f96cdd2801169d8a71f",
+      "sha256": "8d8839f8cc2e91165fe6a3b900d93e949fe32f990182de6a1497d658db8c7a97",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/implementation-evaluation.md",
+      "source": "skills-src/runtime/card/references/implementation-evaluation.md.eta",
+      "sourceSha256": "7e8b5def95d2c5be9fa7c3d300e3c123bbc549d410c7925f522a4ee619707f33",
+      "sha256": "6e6725304b8b295142abcdb5743d4d5459b427ff99ccbd0fc3d43cb004a789db",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/implementation-feedback.md",
+      "source": "skills-src/runtime/card/references/implementation-feedback.md",
+      "sourceSha256": "878c3b527e629fca1d50c2524fbcc6ee77d6defc61c97319daecd5c9a356b28e",
+      "sha256": "878c3b527e629fca1d50c2524fbcc6ee77d6defc61c97319daecd5c9a356b28e",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/implementation.md",
+      "source": "skills-src/runtime/card/references/implementation.md.eta",
+      "sourceSha256": "b9cb2201841394314dbac6d373c352e7ede523fdcf0209db88ea97c5e365cd64",
+      "sha256": "a96a0c02ce9c6aad615beee54bfda43d840f4263f6ffe6a2df1032c034819842",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/merge.md",
+      "source": "skills-src/runtime/card/references/merge.md",
+      "sourceSha256": "2a27a067ba660173e1297c30ccff0590adb16752e7e9365b6d61ebe429ff51f7",
+      "sha256": "2a27a067ba660173e1297c30ccff0590adb16752e7e9365b6d61ebe429ff51f7",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/plan-feedback.md",
+      "source": "skills-src/runtime/card/references/plan-feedback.md",
+      "sourceSha256": "9a48f9da843e6ae5393b2b98e9d6fcce8947f77b5df05cb82c6bc9d4e54afcdb",
+      "sha256": "9a48f9da843e6ae5393b2b98e9d6fcce8947f77b5df05cb82c6bc9d4e54afcdb",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/plan.md",
+      "source": "skills-src/runtime/card/references/plan.md.eta",
+      "sourceSha256": "ddbe9e5a42111b2506fe8ed4a61bbdbb55d3505b99fee5a51bf97154745e885d",
+      "sha256": "3136a84389e964faac5053f500fb966f957309cb87e485cc5b6964bfe3197b8a",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/question-response.md",
+      "source": "skills-src/runtime/card/references/question-response.md",
+      "sourceSha256": "147f89561a10920e8f66708e629aa1738646611291ebd5d50e89007ac6f8ee98",
+      "sha256": "147f89561a10920e8f66708e629aa1738646611291ebd5d50e89007ac6f8ee98",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/README.md",
+      "source": "skills-src/runtime/card/references/README.md.eta",
+      "sourceSha256": "61c7053e1c22fa012dbf38c6be8a25f3f05b1e0927a40d74921467a15c32402b",
+      "sha256": "3c0ae64779503cdee8d4f0bf4490655028f50225ecb23d25e4c1c9b6dd1deabe",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/shutdown.md",
+      "source": "skills-src/runtime/card/references/shutdown.md.eta",
+      "sourceSha256": "0762ac616d37b488d604a53aa525c6601acece0af58f7080ce9b56b9694121d6",
+      "sha256": "905c7b3ca025da1f2c5a3c307a38e74335c3252b392feaf11024201bc4c41d91",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/references/validate.md",
+      "source": "skills-src/runtime/card/references/validate.md",
+      "sourceSha256": "e21561427605d6279b846b3eff167e54485740e63333f53c2ce167d9a7f049e8",
+      "sha256": "e21561427605d6279b846b3eff167e54485740e63333f53c2ce167d9a7f049e8",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "card/SKILL.md",
+      "source": "skills-src/runtime/card/SKILL.md.eta",
+      "sourceSha256": "c027cbbe91d2c0d79022d9b4e3d436b3703c563140069b9f48793c6072745d4d",
+      "sha256": "a3c058d7858ec716a52fe08d94c676cbafc71e866a373b951997a6cdd76edc1b",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "chat-routing/SKILL.md",
+      "source": "skills-src/runtime/chat-routing/SKILL.md.eta",
+      "sourceSha256": "ed655f6325d9d81a1e423fb9822380b742cd4912c7ccfff609afa63891d33edc",
+      "sha256": "00ec357866089fd13838101ede85a57d0e9f5dc22061d5e20777c624585bea8e",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/references/bug-report.md",
+      "source": "skills-src/cards/cards/references/bug-report.md",
+      "sourceSha256": "cb69d31a409d182f126d68e8fa33a3ae9df7c5f5e5781dd0d626f71f59d9724b",
+      "sha256": "cb69d31a409d182f126d68e8fa33a3ae9df7c5f5e5781dd0d626f71f59d9724b",
+      "executable": false,
+      "kind": "literal",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/commanders-intent.md",
+      "source": "skills-src/cards/cards/references/commanders-intent.md",
+      "sourceSha256": "c2a83f88e29638eaf3a54b885568c3f654ee154087876dbbd36646d1d36c5b84",
+      "sha256": "c2a83f88e29638eaf3a54b885568c3f654ee154087876dbbd36646d1d36c5b84",
+      "executable": false,
+      "kind": "literal",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/deep-card.md",
+      "source": "skills-src/cards/cards/references/deep-card.md.eta",
+      "sourceSha256": "e09bd65a083c0cf4e778f814c5318e32071a7e1ffaa82ff5e31b81918f3bc357",
+      "sha256": "e7038bae40d71637ee41211361bf25460abdf55db5f25f3ac233ccad34ef98ee",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/documentation.md",
+      "source": "skills-src/cards/cards/references/documentation.md",
+      "sourceSha256": "a641679f2df26117a4f6597a8be13aa073d5149a28562e494c1e58f0f1e29295",
+      "sha256": "a641679f2df26117a4f6597a8be13aa073d5149a28562e494c1e58f0f1e29295",
+      "executable": false,
+      "kind": "literal",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/enhancement.md",
+      "source": "skills-src/cards/cards/references/enhancement.md",
+      "sourceSha256": "506f0bf9470bee4c98470361a43a6121e59b9725d3fc292fe0e1f1c72c35b447",
+      "sha256": "506f0bf9470bee4c98470361a43a6121e59b9725d3fc292fe0e1f1c72c35b447",
+      "executable": false,
+      "kind": "literal",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/interview-bug-report.md",
+      "source": "skills-src/runtime/interview/references/interview-bug-report.md.eta",
+      "sourceSha256": "d416cb87f60d7cc1aca15347fed41c29d7b7dfdf612ffb200698468943268a5b",
+      "sha256": "2c6f7bf70796c4277c09ec1618454b7dd78400dffa40c39c704a806192e5eba6",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/references/interview-documentation.md",
+      "source": "skills-src/runtime/interview/references/interview-documentation.md.eta",
+      "sourceSha256": "e38a0f37ab1def31a999b4f2c1b22e928dee480210c84346361f042324e421be",
+      "sha256": "c94322735d784cace134531b54332b1aa270117a1e84ce77f8fd7f62f0963e8e",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/references/interview-enhancement.md",
+      "source": "skills-src/runtime/interview/references/interview-enhancement.md.eta",
+      "sourceSha256": "9bbb9bdece46938a2fa7af1a78667d7009b9c41bf2a358b07e8a3dec027c5970",
+      "sha256": "b24ab709ef577a95ba4623067d68f12027312c7ae22baaf613496bff4a2edba8",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/references/interview-investigation.md",
+      "source": "skills-src/runtime/interview/references/interview-investigation.md.eta",
+      "sourceSha256": "89e24b2e27de527657ae21f59c567cc6785a89ee2b06c65733dc3b87ba324cd0",
+      "sha256": "5a2f3a5e827509a7ec018bedcf86191b995791dff387374440155d202cebedc5",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/references/interview-maintenance.md",
+      "source": "skills-src/runtime/interview/references/interview-maintenance.md.eta",
+      "sourceSha256": "4938f44f5f86be499eb2f67b6facc3d7a8b2b63563b7b2c24bca6c2ec344b58e",
+      "sha256": "a5573136f74fe832c21bf951206d4ac6abe8121952ff78230e4d5e733fe6672f",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/references/interview-operations.md",
+      "source": "skills-src/runtime/interview/references/interview-operations.md.eta",
+      "sourceSha256": "a7e6de3c496f2acef3941e2d93d9d50ab763fa6dc9b3eb204ff4004e8af321d1",
+      "sha256": "fb5cfb51a7b39883ad02cface1402d43ef81b313c340902d08e6ccec82530f50",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/references/investigation.md",
+      "source": "skills-src/cards/cards/references/investigation.md",
+      "sourceSha256": "1762a4d05ad983923a1af656f028e44f7dc41699ef3e63ff316d1e8a7e5a06bb",
+      "sha256": "1762a4d05ad983923a1af656f028e44f7dc41699ef3e63ff316d1e8a7e5a06bb",
+      "executable": false,
+      "kind": "literal",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/maintenance.md",
+      "source": "skills-src/cards/cards/references/maintenance.md",
+      "sourceSha256": "3cddb1988da92d2a20956a8098d537df3d63e125f72192a7c5212b3cc3c4a992",
+      "sha256": "3cddb1988da92d2a20956a8098d537df3d63e125f72192a7c5212b3cc3c4a992",
+      "executable": false,
+      "kind": "literal",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/operations.md",
+      "source": "skills-src/cards/cards/references/operations.md",
+      "sourceSha256": "2cceb6088149de6306f8edda5b511c9a287a1b1822aa0dccaf0305379e7db3af",
+      "sha256": "2cceb6088149de6306f8edda5b511c9a287a1b1822aa0dccaf0305379e7db3af",
+      "executable": false,
+      "kind": "literal",
+      "origin": "reference"
+    },
+    {
+      "path": "interview/references/README.md",
+      "source": "skills-src/runtime/interview/references/README.md.eta",
+      "sourceSha256": "31594901505eeac78e8b502d3efff1f2b27f732ce26d564291ca523849ae1d8e",
+      "sha256": "d168c6617e84de85a197743b3e4ee1f4d41c9e99900b7f7756e45432430506b7",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "interview/SKILL.md",
+      "source": "skills-src/runtime/interview/SKILL.md.eta",
+      "sourceSha256": "1a83e9218a4a7f3176edd657e2e74e49dfb61b4e2eab0e5745d66491c8bd2625",
+      "sha256": "16e09b162f1eab37d79954c1dfc1f4201e506076a06342600ec67d5a9d7fa6c3",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "refactoring/references/complexity-assessment.md",
+      "source": "skills-src/runtime/refactoring/references/complexity-assessment.md",
+      "sourceSha256": "7253fb4aff7c6da6119cd21cd12128590a2890d1fc99a4e6fa1bad9ec53e7094",
+      "sha256": "7253fb4aff7c6da6119cd21cd12128590a2890d1fc99a4e6fa1bad9ec53e7094",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "refactoring/references/duplication-judgment.md",
+      "source": "skills-src/runtime/refactoring/references/duplication-judgment.md",
+      "sourceSha256": "e44ba9f5fbd9eb9cec443f17b00bac9e8eb1aa1f0f6f595c13731e227a97ccc6",
+      "sha256": "e44ba9f5fbd9eb9cec443f17b00bac9e8eb1aa1f0f6f595c13731e227a97ccc6",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "refactoring/references/protective-heuristics.md",
+      "source": "skills-src/runtime/refactoring/references/protective-heuristics.md",
+      "sourceSha256": "e5100e730f6f2bb80e66f0c523528d7deaa5b51c74e840e64aed1e0d86862d7c",
+      "sha256": "e5100e730f6f2bb80e66f0c523528d7deaa5b51c74e840e64aed1e0d86862d7c",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "refactoring/references/test-refinement.md",
+      "source": "skills-src/runtime/refactoring/references/test-refinement.md",
+      "sourceSha256": "4295d8ab84b0f7e6e8aef1367c155d5ed9698ce68630719022ee90b05c48a4e7",
+      "sha256": "4295d8ab84b0f7e6e8aef1367c155d5ed9698ce68630719022ee90b05c48a4e7",
+      "executable": false,
+      "kind": "literal",
+      "origin": "plugin"
+    },
+    {
+      "path": "refactoring/SKILL.md",
+      "source": "skills-src/runtime/refactoring/SKILL.md.eta",
+      "sourceSha256": "7295f8280d8184ba56815162f8023dd2f4c96cbbd22f3dc76a84efc1b040c63f",
+      "sha256": "967ac20a39e00e07c9a027a902ce3e16c6bcecdaf84f18e74f9479da17c984cb",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "spike/SKILL.md",
+      "source": "skills-src/runtime/spike/SKILL.md.eta",
+      "sourceSha256": "e9dbce9031f6ed678a8dd5a7c86f72cfcfd5a333c40382d5729a9449ecba4949",
+      "sha256": "f556e218f3aa989454ccbca00db254082b6e59af8279ded04cce5f45b9ede4e8",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    },
+    {
+      "path": "tdd-bootstrap/SKILL.md",
+      "source": "skills-src/runtime/tdd-bootstrap/SKILL.md.eta",
+      "sourceSha256": "e1b838659a6ba38656067238bf3a6bb026a79b85f8c3d35b3355e85111f94e7c",
+      "sha256": "2d362e71decdf3f135a10bcdfd03c8e3043544132af68dcdbf9715715d5e7b46",
+      "executable": false,
+      "kind": "rendered",
+      "origin": "plugin"
+    }
+  ]
+}

@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.845",
+    "version": "1.0.846",
     "pluginRoot": "./claude"
   },
   "plugins": [
     {
       "name": "cards",
-      "version": "1.0.323",
+      "version": "1.0.324",
       "source": "./claude/cards",
       "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {
@@ -22,7 +22,7 @@
     },
     {
       "name": "cards-sdk",
-      "version": "1.0.33",
+      "version": "1.0.34",
       "source": "./claude/cards-sdk",
       "description": "SDK documentation and development guidance for @cards.management/sdk/config library - type-safe configuration for Cards Extension with actions, type validators, and lifecycle hooks",
       "author": {
@@ -32,7 +32,7 @@
     },
     {
       "name": "runtime",
-      "version": "1.0.438",
+      "version": "1.0.439",
       "source": "./claude/runtime",
       "description": "Plugin for the Cards extension Claude Code runtime",
       "author": {
@@ -42,7 +42,7 @@
     },
     {
       "name": "cards-assistant",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "source": "./claude/cards-assistant",
       "description": "Cards Assistant session-start announcement plugin",
       "author": {

@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/interview/references/interview-bug-report.md.eta sha256:d416cb87f60d7cc1aca15347fed41c29d7b7dfdf612ffb200698468943268a5b -->
 <first-principles>
 1. Reproducibility is the unit of truth — without it, everything else is speculation.
 2. Observation and interpretation must be kept separate.

@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/work-diagram-style.md.eta sha256:4ddfc15192bc1ee4e623fdf8ef2f62f3de89bb149a116d7c77d53205f45b83ef -->
 # Work Diagrams — Visual Language
 
 Stylized-2.5D grammar for work diagrams rendered as inline SVG in a card HTML page. What to represent: `work-diagram-concepts.md`. Which notation: `work-diagram-notations.md`. Page mechanics belong to the `$html-files` skill; the design system and its color/shadow tokens to `$design` — this file only specializes them for diagram artwork.

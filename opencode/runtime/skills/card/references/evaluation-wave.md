@@ -1,3 +1,4 @@
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/evaluation-wave.md.eta sha256:371f9ea37c3ef831f66761dc3d2f21722adc94fb12725f96cdd2801169d8a71f -->
 # Evaluator Wave
 
 Independent adversarial evaluation via spawned evaluator children. Entered from `./implementation-evaluation.md` Step 3 (or `./validate.md` Step 4) with changes committed, validation passing, and a clean tree.
