@@ -1,0 +1,2 @@
+<!-- @goodfoot/agent-skills source: skills-src/cards-sdk/conventions.md.eta sha256:bff3562393d82c88191f7a6c5adb8ac3552fbcd10518c1382b6cb27ccedfd307 -->
+**This skill provides documentaton for `public/packages/sdk` and should be kept up to date at all times.**
