@@ -132,6 +132,7 @@ export type {
   ElementSpan,
   HtmlContentCheckResult,
   HtmlCssSource,
+  HtmlDocumentFacts,
   HtmlInfoFile,
   HtmlInfoValidationResult,
   HtmlInlineEventHandler,

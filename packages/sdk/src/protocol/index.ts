@@ -123,6 +123,7 @@ export type {
   HookScript,
   HtmlContentCheckResult,
   HtmlCssSource,
+  HtmlDocumentFacts,
   HtmlFileCspPolicyOptions,
   HtmlInfoFile,
   HtmlInfoValidationResult,

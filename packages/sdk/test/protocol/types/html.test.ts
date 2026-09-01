@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { HtmlDocumentFacts } from '../../../src/protocol/index.js';
 import {
   checkHtmlContent,
   checkIntrinsicHtmlLayout,
@@ -193,6 +194,14 @@ describe('filterStructuralParseErrors', () => {
 });
 
 describe('checkHtmlContent — orchestration', () => {
+  // The SDK has no parse5 dependency, so the boundary facts are the caller's
+  // authority; the orchestration tests hand a complete set and the boundary
+  // matrix below varies it.
+  const COMPLETE_FACTS: HtmlDocumentFacts = {
+    hasAuthoredDoctype: true,
+    hasSourceLocatedRootStartTags: { html: true, head: true, body: true }
+  };
+
   it('fails when scripts policy is missing (check 2)', () => {
     const result = checkHtmlContent({
       htmlPath: 'html/p.html',
@@ -200,6 +209,7 @@ describe('checkHtmlContent — orchestration', () => {
       htmlSource: '<p>ok</p>',
       parsedMeta: { title: 'T', summary: 'S' },
       parseErrorCodes: [],
+      documentFacts: COMPLETE_FACTS,
       assetExists: () => true
     });
     expect(result.valid).toBe(false);
@@ -213,6 +223,7 @@ describe('checkHtmlContent — orchestration', () => {
       htmlSource: '<div',
       parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: ['eof-in-tag'],
+      documentFacts: COMPLETE_FACTS,
       assetExists: () => true
     });
     expect(result.valid).toBe(false);
@@ -226,6 +237,7 @@ describe('checkHtmlContent — orchestration', () => {
       htmlSource: '<img srcset="http://cdn.example.com/a.png 1x">',
       parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: [],
+      documentFacts: COMPLETE_FACTS,
       assetExists: () => true
     });
     expect(result.valid).toBe(false);
@@ -239,21 +251,129 @@ describe('checkHtmlContent — orchestration', () => {
       htmlSource: '<img srcset="https://cdn.example.com/a.png 1x">',
       parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: [],
+      documentFacts: COMPLETE_FACTS,
       assetExists: () => true
     });
     expect(result.valid).toBe(true);
   });
+});
 
-  it('passes a clean fragment', () => {
+describe('checkHtmlContent — complete-document boundary (check 3b)', () => {
+  // A fragment once passed both authoring gates and rendered in a card-detail
+  // webview as a navigation storm, so the shared policy now requires an
+  // authored doctype plus source-located `html`, `head`, and `body` start
+  // tags. The SDK has no parse5 dependency, so the facts are constructed
+  // literally here — the parse-backed producer lives in
+  // `@cards.management/html-spans` (`collectDocumentFacts`).
+  const BOUNDARIES = ['doctype', 'html', 'head', 'body'] as const;
+
+  /**
+   * Builds facts whose every boundary is present except the ones named.
+   *
+   * @param missing - Boundaries to omit.
+   * @returns Facts with exactly the named boundaries missing.
+   */
+  function factsMissing(...missing: Array<(typeof BOUNDARIES)[number]>): HtmlDocumentFacts {
+    return {
+      hasAuthoredDoctype: !missing.includes('doctype'),
+      hasSourceLocatedRootStartTags: {
+        html: !missing.includes('html'),
+        head: !missing.includes('head'),
+        body: !missing.includes('body')
+      }
+    };
+  }
+
+  const SINGLE_BOUNDARY_CASES: Array<[(typeof BOUNDARIES)[number], string]> = [
+    ['doctype', '<!DOCTYPE'],
+    ['html', '<html>'],
+    ['head', '<head>'],
+    ['body', '<body>']
+  ];
+
+  it('passes complete facts', () => {
+    const result = checkHtmlContent({
+      htmlPath: 'html/p.html',
+      metaPath: 'html/p.meta.json',
+      htmlSource: '<!DOCTYPE html><html><head><title>T</title></head><body><p>hi</p></body></html>',
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
+      parseErrorCodes: [],
+      documentFacts: factsMissing(),
+      assetExists: () => true
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it.each(
+    SINGLE_BOUNDARY_CASES
+  )('fails when only the %s is missing, naming it with the path prefix', (boundary, marker) => {
+    const result = checkHtmlContent({
+      htmlPath: 'html/p.html',
+      metaPath: 'html/p.meta.json',
+      htmlSource: '<!DOCTYPE html><html><head></head><body></body></html>',
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
+      parseErrorCodes: [],
+      documentFacts: factsMissing(boundary),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/^html\/p\.html: /);
+    expect(result.errors[0]).toContain(marker);
+  });
+
+  it('produces a single error naming every boundary when all are missing at once', () => {
     const result = checkHtmlContent({
       htmlPath: 'html/p.html',
       metaPath: 'html/p.meta.json',
       htmlSource: '<p class="text-base">ok</p>',
       parsedMeta: { title: 'T', summary: 'S', scripts: false },
       parseErrorCodes: ['missing-doctype'],
+      documentFacts: factsMissing(...BOUNDARIES),
       assetExists: () => true
     });
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/^html\/p\.html: /);
+    expect(result.errors[0]).toContain('<!DOCTYPE');
+    expect(result.errors[0]).toContain('<html>');
+    expect(result.errors[0]).toContain('<head>');
+    expect(result.errors[0]).toContain('<body>');
+  });
+
+  it('gives the specific complete-document error, not a duplicate generic parse error, for missing-doctype', () => {
+    // `missing-doctype` stays informational so the fragment case reports the
+    // actionable boundary error exactly once.
+    const result = checkHtmlContent({
+      htmlPath: 'html/p.html',
+      metaPath: 'html/p.meta.json',
+      htmlSource: '<html><head></head><body></body></html>',
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
+      parseErrorCodes: ['missing-doctype'],
+      documentFacts: factsMissing('doctype'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain('html/p.html');
+    expect(result.errors[0]).toContain('<!DOCTYPE');
+    expect(result.errors[0]).not.toContain('well-formedness');
+  });
+
+  it('runs before the resource-locality check — an incomplete document reports the boundary, not its references', () => {
+    const result = checkHtmlContent({
+      htmlPath: 'html/p.html',
+      metaPath: 'html/p.meta.json',
+      htmlSource: '<p><img src="http://cdn.example.com/a.png"></p>',
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
+      parseErrorCodes: [],
+      documentFacts: factsMissing('doctype', 'html', 'head', 'body'),
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain('html/p.html');
+    expect(result.errors[0]).not.toContain('cdn.example.com');
   });
 });
 

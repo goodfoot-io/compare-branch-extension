@@ -16,11 +16,20 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { ElementSpan } from '../../../src/protocol/index.js';
+import type { ElementSpan, HtmlDocumentFacts } from '../../../src/protocol/index.js';
 import { checkHtmlContent, classifyResourceReference, isHtmlCardDocPath } from '../../../src/protocol/index.js';
 
 const ROOT_PAGE = 'walkthrough.html';
 const NESTED_PAGE = 'docs/overview.html';
+
+// The suites below exercise checks 4/4b and their span inputs; the
+// complete-document boundary (check 3b) is covered in html.test.ts, so every
+// `checkHtmlContent` call here hands over facts for a complete document and
+// expects the boundary check to stay out of the way.
+const COMPLETE_DOCUMENT_FACTS: HtmlDocumentFacts = {
+  hasAuthoredDoctype: true,
+  hasSourceLocatedRootStartTags: { html: true, head: true, body: true }
+};
 
 /**
  * Locates whole-element spans for the given tag in an HTML fixture, matching
@@ -454,6 +463,7 @@ describe('checkHtmlContent — check 4 rework: rejected references fail with the
     metaPath: 'walkthrough.meta.json',
     parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
+    documentFacts: COMPLETE_DOCUMENT_FACTS,
     scriptSpans: []
   };
 
@@ -518,6 +528,7 @@ describe('checkHtmlContent — asset existence is the caller’s answer', () => 
     metaPath: 'walkthrough.meta.json',
     parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
+    documentFacts: COMPLETE_DOCUMENT_FACTS,
     scriptSpans: []
   };
 
@@ -590,6 +601,7 @@ describe('checkHtmlContent — frame-element start-tag references are refused', 
     metaPath: 'walkthrough.meta.json',
     parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
+    documentFacts: COMPLETE_DOCUMENT_FACTS,
     scriptSpans: []
   };
 
@@ -775,6 +787,7 @@ describe('checkHtmlContent — data: references in a <script> src are refused', 
     metaPath: 'walkthrough.meta.json',
     parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
+    documentFacts: COMPLETE_DOCUMENT_FACTS,
     scriptSpans: []
   };
 
@@ -880,6 +893,7 @@ describe('checkHtmlContent — an author <base> element is refused', () => {
     metaPath: 'walkthrough.meta.json',
     parsedMeta: { title: 'T', summary: 'S', scripts: false },
     parseErrorCodes: [] as string[],
+    documentFacts: COMPLETE_DOCUMENT_FACTS,
     scriptSpans: []
   };
 

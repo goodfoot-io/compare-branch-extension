@@ -133,6 +133,31 @@ export interface ElementSpan {
 }
 
 /**
+ * Parser-derived facts about an HTML document's authored root structure — the
+ * input to {@link checkHtmlContent}'s complete-document check (check 3b).
+ *
+ * parse5 is not an SDK dependency (see {@link checkHtmlContent}), so callers
+ * that already parse the document walk the resulting tree and pass the facts
+ * in here; the producer is `collectDocumentFacts` in
+ * `@cards.management/html-spans`, the package that already supplies the span
+ * collections below. A fragment (no doctype, no explicit `html`/`head`/`body`)
+ * once passed both authoring gates and rendered in a card-detail webview as a
+ * navigation storm, so both gates now require the complete-document skeleton.
+ *
+ * The facts distinguish *authored* structure from the structure parse5
+ * synthesizes while repairing a fragment: a synthesized element carries no
+ * `sourceCodeLocation.startTag`, and declaration/tag text sitting inert in a
+ * comment or `<script>` body produces no node at all — neither can satisfy
+ * this contract.
+ */
+export interface HtmlDocumentFacts {
+  /** Whether the parse contains an authored `#documentType` node. */
+  hasAuthoredDoctype: boolean;
+  /** Per required root start tag, whether the element carries a parse5 `sourceCodeLocation.startTag` (authored, not parse5-synthesized). */
+  hasSourceLocatedRootStartTags: Readonly<Record<'html' | 'head' | 'body', boolean>>;
+}
+
+/**
  * Tag names whose start tag carries a frame or embedded-object load — `src` on
  * `<iframe>`/`<frame>`/`<embed>`, `data` on `<object>`. The served-document CSP
  * carries `frame-src 'none'` and `object-src 'none'`, so whatever a page points
@@ -954,10 +979,12 @@ export function findExternalResources(
 /**
  * parse5 error codes that are informational, not structural failures.
  *
- * `missing-doctype` is excluded from the gate: agent-authored HTML fragments are
- * not expected to include a DOCTYPE declaration. All other parse5 errors (e.g.
- * `eof-in-tag`, `eof-in-comment`, `eof-in-element-that-can-contain-only-text`)
- * indicate truncated / broken-EOF markup and are fatal.
+ * `missing-doctype` stays informational: a missing doctype is a
+ * complete-document failure that check 3b (see {@link HtmlDocumentFacts})
+ * reports specifically and actionably, so a generic parse error here would
+ * only duplicate it. All other parse5 errors (e.g. `eof-in-tag`,
+ * `eof-in-comment`, `eof-in-element-that-can-contain-only-text`) indicate
+ * truncated / broken-EOF markup and are fatal.
  *
  * Shared so the CLI (`card html check`) and the pre-commit hook apply the
  * identical filtering rule — see {@link filterStructuralParseErrors}.
@@ -1135,7 +1162,7 @@ export function checkIntrinsicHtmlLayout(inputs: HtmlIntrinsicLayoutInputs): Htm
 /**
  * Result of {@link checkHtmlContent}.
  *
- * @summary Outcome of the shared HTML content checks (schema + well-formedness + locality)
+ * @summary Outcome of the shared HTML content checks (schema + well-formedness + document boundary + locality)
  */
 export interface HtmlContentCheckResult {
   /** Whether all shared content checks passed. */
@@ -1147,16 +1174,32 @@ export interface HtmlContentCheckResult {
 }
 
 /**
- * Runs the shared, pure content checks (2–4) that both the `card html check`
+ * Joins author-facing phrases into a readable list — "a and b", or
+ * "a, b, and c" from three items up.
+ *
+ * @param items - Phrases to join, in display order.
+ * @returns The joined list.
+ */
+function humanList(items: readonly string[]): string {
+  if (items.length <= 2) return items.join(' and ');
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+/**
+ * Runs the shared, pure content checks (2–4b) that both the `card html check`
  * CLI and the pre-commit hook must apply identically:
  *
  * 2. Closed-schema sidecar — via {@link validateHtmlInfo}.
  * 3. HTML well-formedness — the caller's parse5 error codes, filtered through
  *    {@link filterStructuralParseErrors}.
+ * 3b. Complete-document boundary — via {@link HtmlDocumentFacts}: an authored
+ *    doctype and source-located `html`/`head`/`body` start tags, produced from
+ *    the same parse by `collectDocumentFacts` in `@cards.management/html-spans`.
  * 4. Resource locality — every reference classified via
  *    {@link collectResourceReferences}: `rejected` references fail with their
  *    author-facing reason, and `asset` references must pass the caller's
  *    `assetExists` predicate.
+ * 4b. No author `<base>` element — via `baseElementSpans`.
  *
  * parse5 is not an SDK dependency, so the raw parse happens in each caller; the
  * informational-code filtering rule lives here so the two gates cannot drift.
@@ -1168,6 +1211,11 @@ export interface HtmlContentCheckResult {
  * @param params.htmlSource - HTML source text.
  * @param params.parsedMeta - Already-JSON-parsed sidecar value (unknown shape).
  * @param params.parseErrorCodes - parse5 error codes collected from `htmlSource`.
+ * @param params.documentFacts - Parser-derived authored document-boundary facts
+ *   (see {@link HtmlDocumentFacts}) from the same parse5 parse, produced by
+ *   `collectDocumentFacts` in `@cards.management/html-spans`. Required, with no
+ *   default: a caller that cannot produce them has not proven the document
+ *   complete, and the check fails closed.
  * @param params.scriptSpans - Whole-element `<script>` spans from the same parse5
  *   parse (with `sourceCodeLocationInfo: true`), used by check 4 to exclude
  *   inline JavaScript bodies from every locality pattern while still checking
@@ -1196,6 +1244,7 @@ export function checkHtmlContent(params: {
   htmlSource: string;
   parsedMeta: unknown;
   parseErrorCodes: readonly string[];
+  documentFacts: HtmlDocumentFacts;
   scriptSpans?: readonly ScriptSpan[];
   frameElementSpans?: readonly ElementSpan[];
   baseElementSpans?: readonly ElementSpan[];
@@ -1208,6 +1257,7 @@ export function checkHtmlContent(params: {
     htmlSource,
     parsedMeta,
     parseErrorCodes,
+    documentFacts,
     scriptSpans = [],
     frameElementSpans = [],
     baseElementSpans = [],
@@ -1227,6 +1277,33 @@ export function checkHtmlContent(params: {
     return {
       valid: false,
       errors: [`${htmlPath}: HTML well-formedness error: ${structuralErrors.join(', ')}`]
+    };
+  }
+
+  // ── Check 3b: complete-document boundary ──
+  // A fragment (no doctype, no explicit html/head/body) once passed both
+  // authoring gates and rendered in a card-detail webview as a navigation
+  // storm, so the gates require the complete-document skeleton. The caller's
+  // facts are the authority: an authored `#documentType` node, and, per root
+  // tag, an element whose parse5 `sourceCodeLocation.startTag` proves the
+  // start tag was authored rather than synthesized while repairing a fragment.
+  // This is a start-tag guard, not a closing-tag rule — omitted closing tags
+  // pass — and one error names every missing boundary.
+  const missingBoundaries: string[] = [];
+  if (!documentFacts.hasAuthoredDoctype) {
+    missingBoundaries.push('the <!DOCTYPE html> declaration');
+  }
+  for (const tagName of ['html', 'head', 'body'] as const) {
+    if (!documentFacts.hasSourceLocatedRootStartTags[tagName]) {
+      missingBoundaries.push(`the <${tagName}> start tag`);
+    }
+  }
+  if (missingBoundaries.length > 0) {
+    return {
+      valid: false,
+      errors: [
+        `${htmlPath}: missing required document structure: ${humanList(missingBoundaries)} — an HTML card file must be a complete document: write the <!DOCTYPE html> declaration and explicit <html>, <head>, and <body> start tags (structure the parser inserts implicitly does not count)`
+      ]
     };
   }
 
