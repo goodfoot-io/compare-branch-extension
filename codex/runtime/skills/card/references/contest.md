@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/contest.md.eta sha256:2ee9f0c6ece8f1fe31a18fdde68492eee3bbefcfecfd46bda8299091717e2f91 -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/contest.md.eta sha256:c2c86c68bbfe669977f817153cd0b67bf0cb68e86fffeca27aca350249bc80f9 -->
 # Parallel Planner Contest
 
 Spawn multiple planner children in parallel plus one reviewer, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.

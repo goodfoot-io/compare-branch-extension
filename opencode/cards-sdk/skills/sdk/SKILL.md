@@ -2,7 +2,7 @@
 name: sdk
 description: Build Cards Extension settings and stream renderers.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/cards-sdk/sdk/SKILL.md.eta sha256:90bb5c65cbd8501477aa9d8deccc8b74773962b3ac6d39d2d717e52345f82a26 -->
+<!-- @goodfoot/agent-skills source: skills-src/cards-sdk/sdk/SKILL.md.eta sha256:8faaa3bddd20e5b13cf2b62c56ca9f90e0fc713a1d9f4154350f7c71757cf3ef -->
 
 Type-safe action handlers for the Cards Extension via `@cards.management/sdk/config`.
 

@@ -5,7 +5,7 @@
   "platform": "opencode",
   "plugin": "cards-sdk",
   "version": "1.0.34",
-  "registrySha256": "d698261d9c649920b4ed4e4b3e953f43ff33d6f70d7dec0d582e1b97ec496608",
+  "registrySha256": "2027eb08bb800f8f40fe63ef5e008d38f74e5b1805c4895440df9ae0058a4575",
   "files": [
     {
       "path": "AGENTS.md",
@@ -73,8 +73,8 @@
     {
       "path": "sdk/SKILL.md",
       "source": "skills-src/cards-sdk/sdk/SKILL.md.eta",
-      "sourceSha256": "90bb5c65cbd8501477aa9d8deccc8b74773962b3ac6d39d2d717e52345f82a26",
-      "sha256": "d0778322469f70b163185f725f8c6a9e9a4d585d01a1d94f775ff79a23cbecfd",
+      "sourceSha256": "8faaa3bddd20e5b13cf2b62c56ca9f90e0fc713a1d9f4154350f7c71757cf3ef",
+      "sha256": "975b6294b6b6e915a791222735c8d2d62d35dffb2cb2309a443d05d6a56abf1c",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"

@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/runtime/interview/references/interview-operations.md.eta sha256:a7e6de3c496f2acef3941e2d93d9d50ab763fa6dc9b3eb204ff4004e8af321d1 -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/interview/references/interview-operations.md.eta sha256:2589e34a3368529ec9693a9ac8764d81216ff38364546ae43bd91807ae65a667 -->
 <first-principles>
 1. Fail closed by default — when uncertain, the safer action preserves current state.
 2. A change is defined by its blast radius and its reversibility.

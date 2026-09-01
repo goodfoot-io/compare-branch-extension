@@ -2,7 +2,7 @@
 name: card-planner
 description: Create or update a card plan while collaborating with parallel planners.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-planner/SKILL.md.eta sha256:e27f8d0af95fba4d81a50cb1e254b5090e79b018ec00c81501fdfeed4d53ef3a -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card-planner/SKILL.md.eta sha256:6d72f41d5c7d1c8e33a851840c00adab6c0868ac3d86aa545d64addef0c82a5d -->
 
 <placeholder-variables>
 [AGENT_NAME] — Your subagent name (e.g., `planner-1`). Set by the orchestrator at dispatch.

@@ -2,7 +2,7 @@
 name: implement
 description: Worktree workflow for implementing a task — enter a worktree, create a bound card, implement, rebase, fast-forward merge back, and clean up.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/cards/implement/SKILL.md.eta sha256:38ba20c780de7c6309dda3fa2dac88a714f31fd1a799055e502bc6695ebb8129 -->
+<!-- @goodfoot/agent-skills source: skills-src/cards/implement/SKILL.md.eta sha256:cf32f51899597b89c10407715e97dd76c84941a1001f0ce1ba2db510ecaa0ace -->
 
 <worktree-task-workflow>
 

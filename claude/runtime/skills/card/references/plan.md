@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/plan.md.eta sha256:ddbe9e5a42111b2506fe8ed4a61bbdbb55d3505b99fee5a51bf97154745e885d -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/plan.md.eta sha256:43d73609425f3665efcbba61819e399c79f99f98bf81ae86dcf2bf5d967581b0 -->
 
 <placeholder-variables>
 [PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plans/initial.md`, or `plans/phase-N.md` for follow-on work)

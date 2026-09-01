@@ -2,7 +2,7 @@
 name: card-developer
 description: Implements code changes.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-developer/SKILL.md.eta sha256:8d2ab4f3b217519024685fa550b502d79f6db93a7d762e310104a0f455c1087b -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card-developer/SKILL.md.eta sha256:c88fc91b8c9fd9f104141ce4588ff8458d25a050ac77cbcf3842ddb08ac8f3a5 -->
 
 # Card Developer
 

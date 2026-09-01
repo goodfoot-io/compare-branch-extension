@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/shutdown.md.eta sha256:0762ac616d37b488d604a53aa525c6601acece0af58f7080ce9b56b9694121d6 -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/shutdown.md.eta sha256:595b49e9ecb7568a54d0227ec21035d1b13480234bbd41b45b0241e42c5fb505 -->
 <instructions>
 
 At any natural terminal state — after a merge, after recording a blocker, or after all tasks are complete — check whether `EXIT_WHEN_DONE` is `true` in your environment context. If it is not set, stop here and continue normally.

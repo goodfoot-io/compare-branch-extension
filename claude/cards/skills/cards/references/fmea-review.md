@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/fmea-review.md.eta sha256:c2440afac6c9c9de8aa05b08c2d389a776b986f6b76b5dbaeb572c9b124a4317 -->
+<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/fmea-review.md.eta sha256:41b8a53a8313b8f2ef479da2e0f02785ffbe483f2e5a47aed3e4cd8cef381ffd -->
 # FMEA Review Loop
 
 Iteratively review a card's design corpus with a dedicated reviewer subagent until it reports no remaining failure modes. The card is the unit under review — the loop hardens the card's specification, not the code.

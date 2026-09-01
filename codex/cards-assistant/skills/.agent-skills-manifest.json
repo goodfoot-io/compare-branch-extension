@@ -5,7 +5,7 @@
   "platform": "codex",
   "plugin": "cards-assistant",
   "version": "1.0.2",
-  "registrySha256": "d698261d9c649920b4ed4e4b3e953f43ff33d6f70d7dec0d582e1b97ec496608",
+  "registrySha256": "2027eb08bb800f8f40fe63ef5e008d38f74e5b1805c4895440df9ae0058a4575",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",

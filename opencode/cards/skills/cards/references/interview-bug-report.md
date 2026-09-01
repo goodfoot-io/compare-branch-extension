@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/interview-bug-report.md.eta sha256:8c063689ddcfd5f3e84aa7e67f448e8dc0a64c6429cad1b0238c9216665cb7c6 -->
+<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/interview-bug-report.md.eta sha256:28e9c97804158dc1c019591d3cc2eda56269fa15c653d2ffa04e44cb3f7b0b89 -->
 <interview-before-creating-a-bug-report-card>
 
 Reach the signal required to write a well-formed bug report before the card is created. The companion `./bug-report.md` defines the target CARD.md structure; this guide defines how to get there.

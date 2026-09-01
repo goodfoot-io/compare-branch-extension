@@ -2,7 +2,7 @@
 name: card
 description: Evaluate card state and orchestrate the matched workflow with judgment-scaled weight — inline work, ad-hoc subagents, or full contest/evaluator/developer-wave protocols.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card/SKILL.md.eta sha256:c027cbbe91d2c0d79022d9b4e3d436b3703c563140069b9f48793c6072745d4d -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/SKILL.md.eta sha256:b62de3dc961d06ceaf8906d4ecd65df2ecd15a399c0a78da07429138d4aafaf7 -->
 
 **Use as few tokens as possible in this session by using subagents.**
 
