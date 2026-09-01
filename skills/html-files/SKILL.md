@@ -70,6 +70,8 @@ The asset route matches its literal `assets` segment against the raw URL before 
 
 The asset must be committed **together with the page**: the pre-commit hook rejects a reference whose asset is not staged, naming the page and the asset (`create the file, stage it, or fix the reference`). It likewise rejects a staged deletion or rename of an asset a committed page references, and refuses symlinks under `assets/`.
 
+Staging a root-`assets/` stylesheet also revalidates pages: the pre-commit hook re-runs the full validation — including the *Required document structure* check — on every committed page that references a stylesheet the commit stages. A legacy page committed as a fragment before this rule therefore fails a stylesheet-only commit with an error naming that page even though the page itself is untouched; convert it with the skeleton from *Required document structure* before committing its stylesheets (`CARDS_SKIP_HOOK=1` is the explicit bypass).
+
 ## Sidecar schema
 
 [`<name>.meta.json`](./public/packages/sdk/src/protocol/types/html.ts) is a closed schema — unknown keys are rejected.

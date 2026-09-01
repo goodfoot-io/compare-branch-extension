@@ -375,6 +375,31 @@ describe('checkHtmlContent — complete-document boundary (check 3b)', () => {
     expect(result.errors[0]).toContain('html/p.html');
     expect(result.errors[0]).not.toContain('cdn.example.com');
   });
+
+  it('rejects a foreign-namespace <html> lookalike — the SVG-namespace element <svg><html> produces is not an authored root', () => {
+    // `<!DOCTYPE html><svg><html></html></svg>` parses to an SVG-namespace
+    // element named `html` carrying a start-tag location, while the real
+    // root structure is parse5-synthesized. The facts below are exactly what
+    // `collectDocumentFacts` reports for that tree — its HTML-namespace
+    // filter is pinned in `@cards.management/html-spans` — and the boundary
+    // check must reject the document.
+    const result = checkHtmlContent({
+      htmlPath: 'html/p.html',
+      metaPath: 'html/p.meta.json',
+      htmlSource: '<!DOCTYPE html><svg><html></html></svg>',
+      parsedMeta: { title: 'T', summary: 'S', scripts: false },
+      parseErrorCodes: [],
+      documentFacts: {
+        hasAuthoredDoctype: true,
+        hasSourceLocatedRootStartTags: { html: false, head: false, body: false }
+      },
+      assetExists: () => true
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/^html\/p\.html: /);
+    expect(result.errors[0]).toContain('<html>');
+  });
 });
 
 describe('isHtmlCardDocPath', () => {

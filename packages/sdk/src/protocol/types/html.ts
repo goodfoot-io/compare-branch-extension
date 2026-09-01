@@ -146,9 +146,10 @@ export interface ElementSpan {
  *
  * The facts distinguish *authored* structure from the structure parse5
  * synthesizes while repairing a fragment: a synthesized element carries no
- * `sourceCodeLocation.startTag`, and declaration/tag text sitting inert in a
- * comment or `<script>` body produces no node at all — neither can satisfy
- * this contract.
+ * `sourceCodeLocation.startTag`, declaration/tag text sitting inert in a
+ * comment or `<script>` body produces no node at all, and an element named
+ * like a root inside foreign content (SVG/MathML) is not one — only
+ * HTML-namespace elements count. Neither can satisfy this contract.
  */
 export interface HtmlDocumentFacts {
   /** Whether the parse contains an authored `#documentType` node. */
