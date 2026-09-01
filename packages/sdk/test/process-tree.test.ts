@@ -8,11 +8,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('node:child_process', () => ({
   execFile: vi.fn()
 }));
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn(),
+  readlink: vi.fn()
+}));
 
 import { execFile } from 'node:child_process';
+import { readFile, readlink } from 'node:fs/promises';
 import { findAgentPid, isAgentProcessTreeDrained, PROCESS_TREE_MAX_DEPTH } from '../src/process-tree.js';
 
 const mockExecFile = vi.mocked(execFile);
+const mockReadFile = vi.mocked(readFile);
+const mockReadlink = vi.mocked(readlink);
 
 interface ProcEntry {
   comm: string;
@@ -22,10 +29,11 @@ interface ProcEntry {
 }
 
 interface ProcessSnapshotEntry {
-  executable: string;
+  executable: string | null;
   pid: number;
   ppid: number;
   processGroupId: number;
+  revalidatedStartIdentity?: number;
   sessionId: number;
   startIdentity: number;
 }
@@ -35,6 +43,8 @@ const IS_WINDOWS = process.platform === 'win32';
 describe('process-tree', () => {
   beforeEach(() => {
     mockExecFile.mockReset();
+    mockReadFile.mockReset();
+    mockReadlink.mockReset();
   });
 
   /**
@@ -77,13 +87,17 @@ describe('process-tree', () => {
     return Number.parseInt(argv[1] ?? '', 10);
   }
 
-  function setupProcessSnapshot(entries: ProcessSnapshotEntry[]): void {
+  function setupProcessSnapshot(entries: ProcessSnapshotEntry[], finalEntries = entries): void {
+    const statReads = new Map<number, number>();
+    let topologyReads = 0;
     mockExecFile.mockImplementation((...callArgs: unknown[]) => {
       const cb = callArgs[callArgs.length - 1] as (
         err: Error | null,
         result: { stdout: string; stderr: string }
       ) => void;
-      const stdout = entries
+      topologyReads += 1;
+      const snapshotEntries = topologyReads >= 3 ? finalEntries : entries;
+      const stdout = snapshotEntries
         .map((entry) =>
           IS_WINDOWS
             ? [
@@ -99,6 +113,23 @@ describe('process-tree', () => {
         .join('\n');
       cb(null, { stdout: `${stdout}\n`, stderr: '' });
       return {} as ReturnType<typeof execFile>;
+    });
+    mockReadFile.mockImplementation(async (path) => {
+      const pid = Number.parseInt(path.toString().match(/\/proc\/(\d+)\/stat/)?.[1] ?? '', 10);
+      const entry = entries.find((candidate) => candidate.pid === pid);
+      if (!entry) throw new Error(`process ${pid} not found`);
+      const readCount = (statReads.get(pid) ?? 0) + 1;
+      statReads.set(pid, readCount);
+      const startIdentity =
+        readCount > 1 ? (entry.revalidatedStartIdentity ?? entry.startIdentity) : entry.startIdentity;
+      const statFields = [entry.ppid, entry.processGroupId, entry.sessionId, ...Array(15).fill(0), startIdentity, 0];
+      return `${entry.pid} (process) S ${statFields.join(' ')}\n`;
+    });
+    mockReadlink.mockImplementation(async (path) => {
+      const pid = Number.parseInt(path.toString().match(/\/proc\/(\d+)\/exe/)?.[1] ?? '', 10);
+      const entry = entries.find((candidate) => candidate.pid === pid);
+      if (!entry?.executable) throw new Error(`executable for ${pid} unavailable`);
+      return entry.executable;
     });
   }
 
@@ -265,6 +296,172 @@ describe('process-tree', () => {
       const result = await isAgentProcessTreeDrained(agent.pid, hook.pid);
       expect([false, null]).toContain(result);
     });
+
+    it('returns null when executable provenance cannot be inspected', async () => {
+      setupProcessSnapshot([
+        agent,
+        {
+          executable: null,
+          pid: 500,
+          ppid: agent.pid,
+          processGroupId: 500,
+          sessionId: agent.sessionId,
+          startIdentity: 1_100
+        },
+        hookRunner,
+        hook
+      ]);
+
+      await expect(isAgentProcessTreeDrained(agent.pid, hook.pid)).resolves.toBeNull();
+    });
+
+    it('returns null when a candidate start identity changes during inspection', async () => {
+      setupProcessSnapshot([
+        agent,
+        {
+          executable: '/opt/codex/codex-code-mode-host',
+          pid: 200,
+          ppid: agent.pid,
+          processGroupId: 200,
+          revalidatedStartIdentity: 1_101,
+          sessionId: agent.sessionId,
+          startIdentity: 1_100
+        },
+        hookRunner,
+        hook
+      ]);
+
+      await expect(isAgentProcessTreeDrained(agent.pid, hook.pid)).resolves.toBeNull();
+    });
+
+    it('returns null when a new descendant appears during identity enrichment', async () => {
+      const helper: ProcessSnapshotEntry = {
+        executable: '/opt/codex/codex-code-mode-host',
+        pid: 200,
+        ppid: agent.pid,
+        processGroupId: 200,
+        sessionId: agent.sessionId,
+        startIdentity: 1_100
+      };
+      const initialEntries = [agent, helper, hookRunner, hook];
+      setupProcessSnapshot(initialEntries, [
+        ...initialEntries,
+        {
+          executable: '/usr/bin/node',
+          pid: 600,
+          ppid: agent.pid,
+          processGroupId: 600,
+          sessionId: 600,
+          startIdentity: 1_300
+        }
+      ]);
+
+      await expect(isAgentProcessTreeDrained(agent.pid, hook.pid)).resolves.toBeNull();
+    });
+
+    it('does not ignore descendants owned by a verified helper', async () => {
+      setupProcessSnapshot([
+        agent,
+        {
+          executable: '/opt/codex/codex-code-mode-host',
+          pid: 200,
+          ppid: agent.pid,
+          processGroupId: 200,
+          sessionId: agent.sessionId,
+          startIdentity: 1_100
+        },
+        {
+          executable: '/usr/bin/node',
+          pid: 201,
+          ppid: 200,
+          processGroupId: 201,
+          sessionId: agent.sessionId,
+          startIdentity: 1_101
+        },
+        hookRunner,
+        hook
+      ]);
+
+      await expect(isAgentProcessTreeDrained(agent.pid, hook.pid)).resolves.toBe(false);
+    });
+  });
+
+  it('uses Darwin lifecycle and text-vnode provenance and fails closed when provenance is unavailable', async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+    Object.defineProperty(process, 'platform', { configurable: true, value: 'darwin' });
+    vi.resetModules();
+    try {
+      const { execFile: darwinExecFile } = await import('node:child_process');
+      const darwinMockExecFile = vi.mocked(darwinExecFile);
+      const entries = [
+        {
+          executable: '/opt/codex/codex',
+          pgid: 90,
+          pid: 100,
+          ppid: 1,
+          sessionId: 90,
+          startedAt: 'Sep 1 12:00:00 2026'
+        },
+        {
+          executable: '/opt/codex/codex-code-mode-host',
+          pgid: 200,
+          pid: 200,
+          ppid: 100,
+          sessionId: 90,
+          startedAt: 'Sep 1 12:00:01 2026'
+        },
+        {
+          executable: '/usr/bin/node',
+          pgid: 300,
+          pid: 300,
+          ppid: 100,
+          sessionId: 300,
+          startedAt: 'Sep 1 12:00:02 2026'
+        },
+        {
+          executable: '/usr/bin/node',
+          pgid: 300,
+          pid: 301,
+          ppid: 300,
+          sessionId: 300,
+          startedAt: 'Sep 1 12:00:03 2026'
+        }
+      ];
+      let denyTextVnode = false;
+      darwinMockExecFile.mockImplementation((...callArgs: unknown[]) => {
+        const file = callArgs[0] as string;
+        const argv = callArgs[1] as string[];
+        const cb = callArgs[callArgs.length - 1] as (
+          err: Error | null,
+          result: { stdout: string; stderr: string }
+        ) => void;
+        if (file === 'ps' && argv[0] === '-e') {
+          cb(null, { stdout: `${entries.map((entry) => `${entry.pid} ${entry.ppid}`).join('\n')}\n`, stderr: '' });
+        } else {
+          const pid = Number.parseInt(file === 'ps' ? (argv[1] ?? '') : (argv[2] ?? ''), 10);
+          const entry = entries.find((candidate) => candidate.pid === pid);
+          if (!entry || (file === '/usr/sbin/lsof' && denyTextVnode)) {
+            cb(new Error(`process ${pid} unavailable`), { stdout: '', stderr: '' });
+          } else if (file === 'ps') {
+            cb(null, {
+              stdout: `${entry.pid} ${entry.ppid} ${entry.pgid} ${entry.sessionId} ${entry.startedAt}\n`,
+              stderr: ''
+            });
+          } else {
+            cb(null, { stdout: `p${entry.pid}\nn${entry.executable}\n`, stderr: '' });
+          }
+        }
+        return {} as ReturnType<typeof execFile>;
+      });
+      const { isAgentProcessTreeDrained: darwinIsAgentProcessTreeDrained } = await import('../src/process-tree.js');
+
+      await expect(darwinIsAgentProcessTreeDrained(100, 301)).resolves.toBe(true);
+      denyTextVnode = true;
+      await expect(darwinIsAgentProcessTreeDrained(100, 301)).resolves.toBeNull();
+    } finally {
+      if (platformDescriptor) Object.defineProperty(process, 'platform', platformDescriptor);
+      vi.resetModules();
+    }
   });
 
   it('PROCESS_TREE_MAX_DEPTH is 10', () => {

@@ -106,6 +106,7 @@ describe('canCreateSymlinks', () => {
     it('returns false (fail-closed) on unexpected errors', async () => {
       const unexpectedError = Object.assign(new Error('disk full'), { code: 'ENOSPC' });
       vi.mocked(fs.symlink).mockRejectedValueOnce(unexpectedError);
+      vi.spyOn(process.stderr, 'write').mockReturnValue(true);
 
       const result = await canCreateSymlinks();
       expect(result).toBe(false);
