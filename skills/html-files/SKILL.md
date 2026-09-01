@@ -1,6 +1,6 @@
 ---
 name: html-files
-description: Author HTML files in a card repository — two-file pairing, sidecar schema, relative assets/ references, inline CSS styling, and the cards html check gate.
+description: Author HTML files in a card repository — complete-document structure, two-file pairing, sidecar schema, relative assets/ references, inline CSS styling, and the cards html check gate.
 ---
 
 <placeholder-variables>
@@ -10,6 +10,30 @@ description: Author HTML files in a card repository — two-file pairing, sideca
 # HTML Files in a Card
 
 Drop interactive HTML pages anywhere in a card repository except under `attachments/`. They appear as expandable rows in the card-detail timeline and grow or shrink to their normal-flow content height. Each row sits at the date of the commit that first added the file, so commit order — not filename or path — decides where a page falls relative to CARD.md and the other timeline entries. The card detail owns vertical scrolling; previews must not create their own scrolling region. The Cards server serves each page as a real document at `/cards/<cardId>/html-files/<path>`.
+
+## Required document structure
+
+An HTML card file must be an explicit, complete document: an authored `<!DOCTYPE html>` declaration plus explicit `<html>`, `<head>`, and `<body>` start tags. Both authoring gates — the `cards html check` CLI and the card-repository pre-commit hook — apply the same shared [checkHtmlContent()](./public/packages/sdk/src/protocol/types/html.ts#L1241-L1375) and reject fragments: structure the HTML parser inserts implicitly does not count, so a file that omits the skeleton fails even though a browser would repair and render it. Start every page from this skeleton:
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- title, styles, page setup -->
+  </head>
+  <body>
+    <!-- page content -->
+  </body>
+</html>
+```
+
+The guard is deliberately narrow and reads the parse tree, not the raw text: lookalike `<!DOCTYPE`/`<html>`/`<head>`/`<body>` inside a comment or a `<script>` body produces no such node in the parse and satisfies nothing. It does not require closing tags (an omitted `</body>` passes), does not impose XHTML, and does not attempt exhaustive malformed-root or standards-conformance checking — a clean check means "a complete document," not "perfectly nested" (see *Well-formedness check — what it catches*). An incomplete file fails with a single path-prefixed error naming every missing boundary:
+
+```text
+page.html: missing required document structure: the <!DOCTYPE html> declaration, the <html> start tag, the <head> start tag, and the <body> start tag — an HTML card file must be a complete document: write the <!DOCTYPE html> declaration and explicit <html>, <head>, and <body> start tags (structure the parser inserts implicitly does not count)
+```
+
+This is a document-shape gate only — it establishes no CSP, transport, dependency-graph, script, or runtime safety. Those boundaries are the ones described in *Inline or `https://` assets* and *Scripts, nonces, and the CSP* below.
 
 ## Two-file pairing
 
@@ -27,8 +51,15 @@ An orphan `.html` without its `.meta.json`, or a `.meta.json` without its `.html
 A page may load files from the card repository's **root-level `assets/` directory** with an ordinary relative path. The document is served at a URL that mirrors its repo path, so the reference resolves in the browser exactly as written — no rewriting, no token:
 
 ```html
-<!-- docs/overview.html → the repo-root assets/logo.png -->
-<img src="../assets/logo.png" alt="Architecture diagram">
+<!DOCTYPE html>
+<html>
+  <head>
+  </head>
+  <body>
+    <!-- docs/overview.html → the repo-root assets/logo.png -->
+    <img src="../assets/logo.png" alt="Architecture diagram">
+  </body>
+</html>
 ```
 
 Any relative path that normalizes into root `assets/` (so `../assets/…` from `docs/`, `assets/…` from the repo root) is an *asset* reference; every other relative path is rejected. The asset is served at `/cards/<cardId>/html-files/assets/…` on the document's own origin — a same-origin subresource load, which needs no credential, no CORS, and works in `@font-face` and `fetch()` just as in `img`/`srcset`/`link`.
@@ -68,10 +99,17 @@ Use a responsive normal-flow page. Cards owns the `html`/`body` canvas, margins,
 Write plain CSS yourself. No CSS framework is compiled in — an unstyled page renders unstyled. Put it in an inline `<style>` block:
 
 ```html
-<style>
-  .cta { border-radius: 6px; background: #2563eb; color: #fff; padding: 8px 16px; }
-</style>
-<button class="cta">Submit</button>
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      .cta { border-radius: 6px; background: #2563eb; color: #fff; padding: 8px 16px; }
+    </style>
+  </head>
+  <body>
+    <button class="cta">Submit</button>
+  </body>
+</html>
 ```
 
 A separate stylesheet can be a `data:` URI like any other asset —
@@ -161,10 +199,14 @@ The pre-commit hook runs the same checks automatically on every staged HTML file
 
 ## Well-formedness check — what it catches
 
-The checker runs the source through the HTML5 parser (parse5) and rejects only
-genuine structural failures — truncated or broken-EOF markup such as an
-unterminated tag (`<div` with no `>`) or an unclosed `<script>`. It does **not**
-catch every mis-nesting: the HTML5 parser auto-closes many unclosed or
-mis-ordered tags (`<li>` without `</li>`, mis-nested inline elements) and those
-pass. Verify your structure yourself; a clean check means "not truncated," not
-"perfectly nested."
+The checker runs the source through the HTML5 parser (parse5) and rejects two
+things, and only these. First, genuine structural failures — truncated or
+broken-EOF markup such as an unterminated tag (`<div` with no `>`) or an
+unclosed `<script>`. Second, incomplete documents — a missing `<!DOCTYPE html>`
+declaration or a missing explicit `<html>`, `<head>`, or `<body>` start tag
+fails with the *Required document structure* error, even though the parser
+silently repairs such fragments while building the tree. It does **not** catch
+every mis-nesting: the HTML5 parser auto-closes many unclosed or mis-ordered
+tags (`<li>` without `</li>`, mis-nested inline elements) and those pass — the
+structure guard never demands closing tags. Verify your structure yourself; a
+clean check means "a complete, untruncated document," not "perfectly nested."
