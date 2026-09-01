@@ -1188,7 +1188,7 @@ describe('card binary', () => {
       const result = runCard(['card-1', 'action', '--help']);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('--agent <id>');
-      expect(result.stdout).toContain('claude-code-cli, codex-cli, or opencode-cli');
+      expect(result.stdout).toContain('claude-code-cli, codex-cli, opencode-cli, or antigravity-cli');
     });
 
     it('rejects a missing coding-agent value before API discovery', () => {
@@ -1205,7 +1205,8 @@ describe('card binary', () => {
       const result = runCard(['card-1', 'action', 'launch', '--agent', 'unknown-cli']);
       expect(result).toEqual({
         stdout: '',
-        stderr: 'card: invalid coding agent "unknown-cli"; expected one of: claude-code-cli, codex-cli, opencode-cli\n',
+        stderr:
+          'card: invalid coding agent "unknown-cli"; expected one of: claude-code-cli, codex-cli, opencode-cli, antigravity-cli\n',
         exitCode: 1
       });
     });

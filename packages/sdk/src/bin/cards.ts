@@ -175,7 +175,7 @@ Action:
 
   Options:
     --agent <id>            Use one supported coding agent for this action:
-                             claude-code-cli, codex-cli, or opencode-cli.
+                             ${CODING_AGENT_IDS.slice(0, -1).join(', ')}, or ${CODING_AGENT_IDS[CODING_AGENT_IDS.length - 1]}.
     --background             Run the action in the background instead of
                              interactively. Omit for an interactive run
                              (the default). Rejected when the action does

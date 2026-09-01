@@ -5,7 +5,7 @@
  */
 
 /** Coding agents that may be selected for a one-shot card action. */
-export const CODING_AGENT_IDS = ['claude-code-cli', 'codex-cli', 'opencode-cli'] as const;
+export const CODING_AGENT_IDS = ['claude-code-cli', 'codex-cli', 'opencode-cli', 'antigravity-cli'] as const;
 
 /** Public identifier for a supported coding agent. */
 export type CodingAgentId = (typeof CODING_AGENT_IDS)[number];

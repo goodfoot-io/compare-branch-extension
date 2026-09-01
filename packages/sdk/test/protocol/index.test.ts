@@ -12,8 +12,9 @@ import { ATTACHMENT_ID_PATTERN, CODING_AGENT_IDS, isCodingAgentId, TAG_PATTERN }
 
 describe('Input Constraints', () => {
   it('exposes and validates the closed coding-agent identifier set', () => {
-    expect(CODING_AGENT_IDS).toEqual(['claude-code-cli', 'codex-cli', 'opencode-cli']);
+    expect(CODING_AGENT_IDS).toEqual(['claude-code-cli', 'codex-cli', 'opencode-cli', 'antigravity-cli']);
     expect(CODING_AGENT_IDS.every(isCodingAgentId)).toBe(true);
+    expect(isCodingAgentId('antigravity-cli')).toBe(true);
     expect(isCodingAgentId('unknown-cli')).toBe(false);
     expect(isCodingAgentId(42)).toBe(false);
   });
