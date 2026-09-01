@@ -32,3 +32,38 @@ export declare const EXECUTABLE: string;
 
 /** The six build targets in build order. */
 export declare const targets: BuildTarget[];
+
+/** One Antigravity build target. */
+export interface AntigravityBuildTarget {
+  /** Unique target name, e.g. 'antigravity-runtime'. */
+  name: string;
+  /** Input glob relative to the package root. */
+  input: string;
+  /** Output plugin-root directory relative to the package root. */
+  outBase: string;
+}
+
+/** One pinned `runtime/hooks.json` registration. */
+export interface AntigravityHookRegistration {
+  /** Host event name, e.g. 'PreInvocation'. */
+  event: string;
+  /** Handler file name under `bin/`, relative to the hooks.json root. */
+  handler: string;
+}
+
+/** The Antigravity build target in build order. */
+export declare const antigravityTargets: AntigravityBuildTarget[];
+
+/** The pinned hooks.json registration matrix (three events, bounded timeouts). */
+export declare const ANTIGRAVITY_HOOK_REGISTRATIONS: AntigravityHookRegistration[];
+
+/** Bounded explicit timeout (seconds) stamped into every registration. */
+export declare const ANTIGRAVITY_HOOK_TIMEOUT_SECONDS: number;
+
+/** Builds the exact `runtime/hooks.json` document value. */
+export declare function antigravityHooksJson(): {
+  hooks: Record<string, Array<{ hooks: Array<{ type: string; command: string; timeout: number }> }>>;
+};
+
+/** Builds one Antigravity target (bin/ bundles + generated hooks.json). */
+export declare function buildAntigravityTarget(target: AntigravityBuildTarget): Promise<void>;

@@ -1,20 +1,22 @@
 // Manifest-driven multi-target build for @cards.management/agent-hooks.
 //
-// Emits all nine plugin payloads — the three Claude targets (core, assistant,
-// runtime) and the three Codex targets (core, assistant, runtime), each via its
-// SDK CLI, plus the three OpenCode targets (core → cards, assistant →
-// cards-assistant, runtime → runtime) emitted directly with esbuild — into
-// their existing output directories under public/, with the exact per-target
-// flags inherited from the former package.json `build` scripts. Each target
-// globs only its own handler directory; shared leaves in src/shared/ are pulled
-// into every bundle through normal imports, never added to an input glob
-// (matching today, where the hook CLI ignores non-hook modules).
+// Emits all ten plugin payloads — the three Claude targets (core, assistant,
+// runtime) and the three Codex targets (core, assistant, runtime), each via
+// its SDK CLI, the three OpenCode targets (core → cards, assistant →
+// cards-assistant, runtime → runtime) emitted directly with esbuild, and the
+// Antigravity runtime target (hooks.json + self-contained bin/ handlers) —
+// into their existing output directories under public/, with the exact
+// per-target flags inherited from the former package.json `build` scripts.
+// Each target globs only its own handler directory; shared leaves in
+// src/shared/ are pulled into every bundle through normal imports, never
+// added to an input glob (matching today, where the hook CLI ignores
+// non-hook modules).
 //
 // Plain Node ESM, consistent with scripts/validate.mjs and scripts/typecheck.mjs
 // at the workspace root — no TS-runner tooling.
 
 import { spawnSync } from 'node:child_process';
-import { readdirSync, rmSync } from 'node:fs';
+import { readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -245,6 +247,133 @@ async function buildOpencodeTarget(target) {
   );
 }
 
+/**
+ * The Antigravity build target.
+ *
+ * The Antigravity host (pinned `agy` CLI) recognizes a plugin root with an
+ * optional root `hooks.json`; only the `runtime` logical plugin ships one
+ * (see the card's notes/antigravity-host-contract.md "Cards hook matrix").
+ * Like OpenCode, there is no SDK CLI support for this agent, so the target
+ * follows the OpenCode direct-esbuild pattern: one self-contained `.mjs` per
+ * handler on the Node platform, plus a generated root `hooks.json` carrying
+ * exactly the three pinned registrations with bounded timeouts and command
+ * paths relative to the hooks.json root (the host resolves hook commands with
+ * the hooks.json directory as the working directory).
+ *
+ * The output base is the shared Antigravity plugin root — `plugin.json` and
+ * `skills/` are owned by other payload generators, so the cleaner removes
+ * only this emitter's own outputs (`hooks.json` and `bin/`).
+ */
+const antigravityTargets = [
+  {
+    name: 'antigravity-runtime',
+    input: 'src/antigravity/runtime/**/*.ts',
+    outBase: '../../antigravity/runtime'
+  }
+];
+
+/**
+ * The pinned `runtime/hooks.json` registration matrix, exactly as the
+ * Antigravity host contract requires: three events, `bin/` command paths
+ * relative to the hooks.json root, bounded explicit timeouts (seconds). There
+ * are intentionally no Cards PreToolUse hooks — in this host a PreToolUse
+ * response `{}` is a denial, and no allow path is shipped.
+ */
+const ANTIGRAVITY_HOOK_REGISTRATIONS = [
+  { event: 'PreInvocation', handler: 'runtime-pre-invocation.mjs' },
+  { event: 'PostInvocation', handler: 'runtime-post-invocation.mjs' },
+  { event: 'Stop', handler: 'runtime-stop.mjs' }
+];
+
+/** Bounded explicit timeout (seconds) stamped into every registration. */
+const ANTIGRAVITY_HOOK_TIMEOUT_SECONDS = 30;
+
+/**
+ * Builds the exact `runtime/hooks.json` document.
+ *
+ * @returns The hooks.json value: exactly the three pinned registrations.
+ */
+function antigravityHooksJson() {
+  const hooks = {};
+  for (const { event, handler } of ANTIGRAVITY_HOOK_REGISTRATIONS) {
+    hooks[event] = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `node bin/${handler}`,
+            timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS
+          }
+        ]
+      }
+    ];
+  }
+  return { hooks };
+}
+
+/**
+ * Builds the Antigravity runtime target: cleans only the emitter's own
+ * outputs, bundles each handler source into `bin/<name>.mjs`, and writes the
+ * generated `hooks.json`.
+ *
+ * Flags follow the OpenCode emitter's pinned decision (ESM on the Node
+ * platform, `esnext`, full bundling, `vscode` external, `require` bridge
+ * banner) — the emitted handlers are plain Node subprocesses, not
+ * editor-hosted modules, so nothing Antigravity-specific changes the bundling.
+ * After bundling, the emitted `bin/` set is proven equal to the pinned
+ * registration matrix: a missing or extra handler file would make the
+ * installed plugin unhealthy or non-deterministic, so the build fails closed.
+ *
+ * @param {typeof antigravityTargets[number]} target - Target descriptor.
+ */
+async function buildAntigravityTarget(target) {
+  const esbuild = require('esbuild');
+  const outDir = path.resolve(packageRoot, target.outBase);
+
+  // Clean ONLY this emitter's outputs: the plugin root also carries
+  // plugin.json and skills/ owned by other payload generators.
+  rmSync(path.join(outDir, 'bin'), { recursive: true, force: true });
+  rmSync(path.join(outDir, 'hooks.json'), { force: true });
+
+  const entryFiles = listEntryFiles(inputScanRoot(target.input));
+  if (entryFiles.length === 0) {
+    throw new Error(`target ${target.name} has no entry files under ${target.input}`);
+  }
+
+  await Promise.all(
+    entryFiles.map((entryFile) =>
+      esbuild.build({
+        entryPoints: [entryFile],
+        outfile: path.join(outDir, 'bin', `${path.basename(entryFile, '.ts')}.mjs`),
+        bundle: true,
+        format: 'esm',
+        platform: 'node',
+        target: 'esnext',
+        external: ['vscode'],
+        banner: {
+          js: [
+            "import { createRequire as cardsCreateRequire } from 'node:module';",
+            'const require = cardsCreateRequire(import.meta.url);'
+          ].join('\n')
+        },
+        sourcemap: false,
+        legalComments: 'none',
+        logLevel: 'warning'
+      })
+    )
+  );
+
+  const emitted = readdirSync(path.join(outDir, 'bin')).sort();
+  const expected = ANTIGRAVITY_HOOK_REGISTRATIONS.map((registration) => registration.handler).sort();
+  if (emitted.join(',') !== expected.join(',')) {
+    throw new Error(
+      `target ${target.name} emitted [${emitted.join(', ')}] but the pinned registration matrix requires [${expected.join(', ')}]`
+    );
+  }
+
+  writeFileSync(path.join(outDir, 'hooks.json'), `${JSON.stringify(antigravityHooksJson(), null, 2)}\n`);
+}
+
 function buildTarget(target) {
   // Pre-clean each output subdirectory (rm → compile), matching the
   // `node -e "...rmSync..."` prefix of each former build script.
@@ -283,8 +412,21 @@ function buildTarget(target) {
 }
 
 // Exported build manifest — side-effect-free. Consumers (e.g. tests) can import
-// EXECUTABLE, targets, and opencodeTargets without triggering the build.
-export { agentHooksCli, EXECUTABLE, targets, opencodeTargets, listEntryFiles, inputScanRoot, buildOpencodeTarget };
+// EXECUTABLE, targets, and antigravity wiring without triggering the build.
+export {
+  agentHooksCli,
+  EXECUTABLE,
+  targets,
+  opencodeTargets,
+  antigravityTargets,
+  ANTIGRAVITY_HOOK_REGISTRATIONS,
+  ANTIGRAVITY_HOOK_TIMEOUT_SECONDS,
+  antigravityHooksJson,
+  listEntryFiles,
+  inputScanRoot,
+  buildOpencodeTarget,
+  buildAntigravityTarget
+};
 
 // Only run the build when executed directly (not when imported as a module).
 // Guard on argv[1] being defined: an importer with no script argument (e.g.
@@ -308,5 +450,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     await buildOpencodeTarget(target);
   }
 
-  console.log('\n[agent-hooks] all nine targets built');
+  for (const target of antigravityTargets) {
+    console.log(`\n[agent-hooks] building ${target.name}`);
+    await buildAntigravityTarget(target);
+  }
+
+  console.log('\n[agent-hooks] all ten targets built');
 }
