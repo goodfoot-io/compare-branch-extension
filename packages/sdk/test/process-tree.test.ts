@@ -10,7 +10,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 import { execFile } from 'node:child_process';
-import { findAgentPid, PROCESS_TREE_MAX_DEPTH } from '../src/process-tree.js';
+import { findAgentPid, isAgentProcessTreeDrained, PROCESS_TREE_MAX_DEPTH } from '../src/process-tree.js';
 
 const mockExecFile = vi.mocked(execFile);
 
@@ -19,6 +19,15 @@ interface ProcEntry {
   ppid: number | null;
   /** When true, the process-info query fails (process gone). */
   commFails?: boolean;
+}
+
+interface ProcessSnapshotEntry {
+  executable: string;
+  pid: number;
+  ppid: number;
+  processGroupId: number;
+  sessionId: number;
+  startIdentity: number;
 }
 
 const IS_WINDOWS = process.platform === 'win32';
@@ -66,6 +75,31 @@ describe('process-tree', () => {
       return match ? Number.parseInt(match[1]!, 10) : null;
     }
     return Number.parseInt(argv[1] ?? '', 10);
+  }
+
+  function setupProcessSnapshot(entries: ProcessSnapshotEntry[]): void {
+    mockExecFile.mockImplementation((...callArgs: unknown[]) => {
+      const cb = callArgs[callArgs.length - 1] as (
+        err: Error | null,
+        result: { stdout: string; stderr: string }
+      ) => void;
+      const stdout = entries
+        .map((entry) =>
+          IS_WINDOWS
+            ? [
+                entry.pid,
+                entry.ppid,
+                entry.processGroupId,
+                entry.sessionId,
+                entry.startIdentity,
+                entry.executable
+              ].join('|')
+            : `${entry.pid} ${entry.ppid} ${entry.processGroupId} ${entry.sessionId} ${entry.startIdentity} ${entry.executable}`
+        )
+        .join('\n');
+      cb(null, { stdout: `${stdout}\n`, stderr: '' });
+      return {} as ReturnType<typeof execFile>;
+    });
   }
 
   describe('findAgentPid', () => {
@@ -142,6 +176,94 @@ describe('process-tree', () => {
       });
 
       await expect(findAgentPid(100)).resolves.toBe(100);
+    });
+  });
+
+  describe('isAgentProcessTreeDrained', () => {
+    const agent: ProcessSnapshotEntry = {
+      executable: '/opt/codex/codex',
+      pid: 100,
+      ppid: 1,
+      processGroupId: 90,
+      sessionId: 90,
+      startIdentity: 1_000
+    };
+    const hookRunner: ProcessSnapshotEntry = {
+      executable: '/usr/bin/node',
+      pid: 300,
+      ppid: agent.pid,
+      processGroupId: 300,
+      sessionId: 300,
+      startIdentity: 1_200
+    };
+    const hook: ProcessSnapshotEntry = {
+      executable: '/usr/bin/node',
+      pid: 301,
+      ppid: hookRunner.pid,
+      processGroupId: hookRunner.processGroupId,
+      sessionId: hookRunner.sessionId,
+      startIdentity: 1_201
+    };
+
+    it('reports drained when only the Stop-hook branch remains', async () => {
+      setupProcessSnapshot([agent, hookRunner, hook]);
+
+      await expect(isAgentProcessTreeDrained(agent.pid, hook.pid)).resolves.toBe(true);
+    });
+
+    it('reports drained when the only sibling is a verified persistent Codex helper', async () => {
+      setupProcessSnapshot([
+        agent,
+        {
+          executable: '/opt/codex/codex-code-mode-host',
+          pid: 200,
+          ppid: agent.pid,
+          processGroupId: 200,
+          sessionId: agent.sessionId,
+          startIdentity: 1_100
+        },
+        hookRunner,
+        hook
+      ]);
+
+      await expect(isAgentProcessTreeDrained(agent.pid, hook.pid)).resolves.toBe(true);
+    });
+
+    it('reports busy when genuine background work remains', async () => {
+      setupProcessSnapshot([
+        agent,
+        {
+          executable: '/usr/bin/node',
+          pid: 400,
+          ppid: agent.pid,
+          processGroupId: 400,
+          sessionId: 400,
+          startIdentity: 1_150
+        },
+        hookRunner,
+        hook
+      ]);
+
+      await expect(isAgentProcessTreeDrained(agent.pid, hook.pid)).resolves.toBe(false);
+    });
+
+    it('fails closed for a helper-named descendant without verified lifecycle and executable identity', async () => {
+      setupProcessSnapshot([
+        agent,
+        {
+          executable: '/tmp/codex-code-mode-host',
+          pid: 500,
+          ppid: agent.pid,
+          processGroupId: 500,
+          sessionId: 500,
+          startIdentity: 900
+        },
+        hookRunner,
+        hook
+      ]);
+
+      const result = await isAgentProcessTreeDrained(agent.pid, hook.pid);
+      expect([false, null]).toContain(result);
     });
   });
 
