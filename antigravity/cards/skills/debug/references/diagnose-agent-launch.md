@@ -82,9 +82,9 @@ VS Code command (cards.startCardsAssistant or cards.executeAction)
 
 ### Agent CLI Not Found (ENOENT)
 
-**Evidence**: Handler log shows `"Failed to spawn claude"` or `"Failed to spawn codex"` with error `spawn claude ENOENT`. The handler's promise settles (doesn't hang) because the fail-closed guard catches the `error` event.
+**Evidence**: Handler log shows `"Failed to spawn claude"`, `"Failed to spawn codex"`, `"Failed to spawn opencode"`, or `"Failed to spawn agy"` with error `spawn claude ENOENT` (or the matching binary). The handler's promise settles (doesn't hang) because the fail-closed guard catches the `error` event.
 
-**Cause**: `claude` or `codex` is not on PATH. On win32, the `.cmd` shim may be missing.
+**Cause**: the agent CLI (`claude`, `codex`, `opencode`, or `agy`) is not on PATH. On win32, the `.cmd` shim may be missing.
 
 **Recovery**: Install the agent CLI. Verify with `which claude`. **Risk**: **safe**.
 
@@ -96,7 +96,7 @@ VS Code command (cards.startCardsAssistant or cards.executeAction)
 
 **Cause**: A `shell: true` spawn on win32 concatenates argv unquoted, mangling JSON with `{`/`}`/`"` characters. `spawnAgentCli` (cross-spawn) escapes each argument for cmd.exe.
 
-**Recovery**: Verify the code uses `spawnAgentCli`, not `spawn(..., { shell: true })` — **safe**. `cards-assistant.ts` routes both the claude and codex spawns through `spawnAgentCli`.
+**Recovery**: Verify the code uses `spawnAgentCli`, not `spawn(..., { shell: true })` — **safe**. `cards-assistant.ts` routes every assistant spawn — `claude`, `codex`, `opencode`, and `agy` — through `spawnAgentCli`.
 
 **Looks like, but isn't**: Plugin cache corruption can look like missing plugins. Load `inspect-plugin-cache.md`.
 

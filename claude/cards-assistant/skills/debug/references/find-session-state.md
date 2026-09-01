@@ -68,7 +68,7 @@ Persisted by the same `persistSessionEnv()` call. Points to the Claude Code or C
 
 **Source**: `public/packages/sdk/src/bin/adhoc-refs.ts`::`reconcileStrandedActiveCards()`.
 
-Backstop for a crashed `adhoc-cleanup` daemon. Runs at the start of **every** Claude and Codex session, via the `SessionStart` hook at `public/packages/agent-hooks/src/claude/runtime/session-start.ts` and its Codex counterpart.
+Backstop for a crashed `adhoc-cleanup` daemon. Runs at the start of **every** Claude Code and Codex session, via the `SessionStart` hook at `public/packages/agent-hooks/src/claude/runtime/session-start.ts` and its Codex counterpart, and at every Antigravity invocation via the runtime `PreInvocation` hook (`public/packages/agent-hooks/src/antigravity/`). OpenCode sessions have no session-start hook and get no sweep.
 
 **Mechanism step by step**:
 1. Scans all directories under `~/.cards/adhoc-active/{cardId}/`.

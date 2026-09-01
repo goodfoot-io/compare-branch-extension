@@ -4,8 +4,8 @@
   "target": "public/claude/cards-assistant/skills",
   "platform": "claude",
   "plugin": "cards-assistant",
-  "version": "1.0.2",
-  "registrySha256": "796766a615aea361a0987cd11d3a654b7ce45c9cfdc2e255e92265ebcca07e3c",
+  "version": "1.0.4",
+  "registrySha256": "85b1dbe2823162e84fea4112bc555caae585feb8087ba2e7f8b7b67f624cf0fc",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",
@@ -19,8 +19,8 @@
     {
       "path": "debug/references/diagnose-agent-launch.md",
       "source": "skills-src/shared/debug/references/diagnose-agent-launch.md",
-      "sourceSha256": "766c061d9161217e38e15adfade5765a04ab41948dd16659f1d162bba62a9eee",
-      "sha256": "766c061d9161217e38e15adfade5765a04ab41948dd16659f1d162bba62a9eee",
+      "sourceSha256": "d2ba0764dd7955a280b6daad03e62c69e834704370aba9dcfaf0a73ef8814e58",
+      "sha256": "d2ba0764dd7955a280b6daad03e62c69e834704370aba9dcfaf0a73ef8814e58",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
@@ -73,8 +73,8 @@
     {
       "path": "debug/references/find-session-state.md",
       "source": "skills-src/shared/debug/references/find-session-state.md",
-      "sourceSha256": "f34e3def9bcf045c8dd706f4d7322535d2bd738d6cf7f32d8099ef8558d19b09",
-      "sha256": "f34e3def9bcf045c8dd706f4d7322535d2bd738d6cf7f32d8099ef8558d19b09",
+      "sourceSha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
+      "sha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
       "executable": false,
       "kind": "literal",
       "origin": "shared"

@@ -4,8 +4,8 @@
   "target": "public/claude/runtime/skills",
   "platform": "claude",
   "plugin": "runtime",
-  "version": "1.0.439",
-  "registrySha256": "796766a615aea361a0987cd11d3a654b7ce45c9cfdc2e255e92265ebcca07e3c",
+  "version": "1.0.440",
+  "registrySha256": "85b1dbe2823162e84fea4112bc555caae585feb8087ba2e7f8b7b67f624cf0fc",
   "files": [
     {
       "path": "captain/references/blocked.md",
