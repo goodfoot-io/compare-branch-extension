@@ -5,7 +5,7 @@
   "platform": "opencode",
   "plugin": "runtime",
   "version": "1.0.439",
-  "registrySha256": "2027eb08bb800f8f40fe63ef5e008d38f74e5b1805c4895440df9ae0058a4575",
+  "registrySha256": "796766a615aea361a0987cd11d3a654b7ce45c9cfdc2e255e92265ebcca07e3c",
   "files": [
     {
       "path": "captain/references/blocked.md",

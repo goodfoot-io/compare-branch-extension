@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "generationId": "0c454cab-12ae-4f39-99a8-b841791280f1",
+  "participants": {
+    "public/.claude-plugin/marketplace.json": {
+      "sha256": "79aab590311ba1444655b59d33c5530edf8daf01c371df564ba81ecbdaa21ce2"
+    },
+    "public/antigravity/cards-assistant/plugin.json": {
+      "sha256": "ae12f55078301a74202c763d2c72190371c2607ba87722863ee5321f0eea29a9"
+    },
+    "public/antigravity/cards-assistant/skills": {
+      "sha256": "ae32ed29bbe03f64f9505a8cc9f9432e104ba687e53ffeb11b1056dd9abe5234",
+      "manifestPath": "public/antigravity/cards-assistant/skills/.agent-skills-manifest.json"
+    },
+    "public/antigravity/cards-sdk/plugin.json": {
+      "sha256": "b1cdc5eb72b49fa6336dd6a0f53ef1ca3561fed29dd96b73dde15b3551d383ba"
+    },
+    "public/antigravity/cards-sdk/skills": {
+      "sha256": "60b0ce5c681dee4285e9fd740936711a81c626db206ff800edc8ee249951fc2a",
+      "manifestPath": "public/antigravity/cards-sdk/skills/.agent-skills-manifest.json"
+    },
+    "public/antigravity/cards/plugin.json": {
+      "sha256": "b229ac9a258bcc3ea45ab8cd6933e65a923cc525da30c16e8d0c82741a2cfe08"
+    },
+    "public/antigravity/cards/skills": {
+      "sha256": "d7d35b8c52ba5a7a7f2d7b8fbcb6ba415d461724d9d329f80ec769145f9a1b90",
+      "manifestPath": "public/antigravity/cards/skills/.agent-skills-manifest.json"
+    },
+    "public/antigravity/runtime/bin": {
+      "sha256": "7de2805ac4a0808f8947011b3e3d1bc5c505572e2c8483009568fb6f0f65d9a3"
+    },
+    "public/antigravity/runtime/hooks.json": {
+      "sha256": "80ad206fb32eab3772d001225911675e99cecc4f2368417af2b187a43ababe5b"
+    },
+    "public/antigravity/runtime/plugin.json": {
+      "sha256": "e09aaabedbf32a817efc1bad1c467ef8d149a0289ea4457c5741173e905be80e"
+    },
+    "public/antigravity/runtime/skills": {
+      "sha256": "e22fc01699a9f65b245af5b4c652346f9142d1af23e494c86c329d6aa940bb36",
+      "manifestPath": "public/antigravity/runtime/skills/.agent-skills-manifest.json"
+    },
+    "public/claude/cards-assistant/.claude-plugin/plugin.json": {
+      "sha256": "84404c385e4f35865b42b0b113256f561e144d88aad9dd779fc65a608c07b7dd"
+    },
+    "public/claude/cards-assistant/hooks": {
+      "sha256": "743854c3d6e1fe8a36dbea80503f23f13a17eeafa7f0d8288caa0e5925f70f51"
+    },
+    "public/claude/cards-assistant/skills": {
+      "sha256": "a0279e04a47424328f2b59b200f4e767598053aa0a89f2fcdab1c5216e905e7f",
+      "manifestPath": "public/claude/cards-assistant/skills/.agent-skills-manifest.json"
+    },
+    "public/claude/cards-sdk/.claude-plugin/plugin.json": {
+      "sha256": "0c17215acbde8d2ec58b3fd96e80d3547ccf220b00ec160360af2baeb5015d42"
+    },
+    "public/claude/cards-sdk/skills": {
+      "sha256": "aa82b0e571c8d1ae2d3c6d149a29ef76f01472de7f8e8bf4217e7a4cc8f1640f",
+      "manifestPath": "public/claude/cards-sdk/skills/.agent-skills-manifest.json"
+    },
+    "public/claude/cards/.claude-plugin/plugin.json": {
+      "sha256": "6024fcf2ced011dbfdf46d06a1013f75071ba2f7011b84141c62b9c1de7531f6"
+    },
+    "public/claude/cards/hooks": {
+      "sha256": "b0f9a1c26d6194aef71a40e3ccacab77168b5c3dee88dec1cee0e685ff25429f"
+    },
+    "public/claude/cards/skills": {
+      "sha256": "bb3c23c7adce556e32065e733e6ba07dd8d9163b9b949a63473bb3b62ad8feb9",
+      "manifestPath": "public/claude/cards/skills/.agent-skills-manifest.json"
+    },
+    "public/claude/runtime/.claude-plugin/plugin.json": {
+      "sha256": "ddf82a179c36da72ffd331c818562fb2d2e0f853009e5fe358a604c2babbec88"
+    },
+    "public/claude/runtime/hooks": {
+      "sha256": "f83ed79ee812b96c2c857d382bdb5c4e632c954207f8812d0caab2f7b5f42b0b"
+    },
+    "public/claude/runtime/skills": {
+      "sha256": "d3d235238c4a315d3a8588eaa755370da91f6e8e348937e6a90765345d60cb7d",
+      "manifestPath": "public/claude/runtime/skills/.agent-skills-manifest.json"
+    },
+    "public/codex/cards-assistant/.codex-plugin/plugin.json": {
+      "sha256": "611eac816dfff7f179acae1e50aa62664200bcecb2c96155c1bbeecbe122eb86"
+    },
+    "public/codex/cards-assistant/hooks": {
+      "sha256": "e308d07853515a4d8a00934a4fa4e4d136be0314540339d9f167b46fb953a4b8"
+    },
+    "public/codex/cards-assistant/skills": {
+      "sha256": "7a0d64d98006ec15c82e5467eb8472fe2d4ee1e1b3c48f67dac342c6cd92aa01",
+      "manifestPath": "public/codex/cards-assistant/skills/.agent-skills-manifest.json"
+    },
+    "public/codex/cards-sdk/.codex-plugin/plugin.json": {
+      "sha256": "dd92d544c9a4e68b6bccaed8c8bb35b7b9002939ec0d32ba8fd4d79d9b885037"
+    },
+    "public/codex/cards-sdk/skills": {
+      "sha256": "55099e5090d3737e8daa09833cdbbb3d55003a9e86cb6f03bffdbff209e50360",
+      "manifestPath": "public/codex/cards-sdk/skills/.agent-skills-manifest.json"
+    },
+    "public/codex/cards/.codex-plugin/plugin.json": {
+      "sha256": "2fa7b5bd090a0e29b1b8427682db708992278a561fdbf1eeae13d1b357f90d56"
+    },
+    "public/codex/cards/hooks": {
+      "sha256": "17651d1f5169c90b5272e01783697199742d2c85df0e9b6cd65f57e6c4bfa4cd"
+    },
+    "public/codex/cards/skills": {
+      "sha256": "72be9695479fdb11b6622ea6c64edc520c815e0b1dc8088a8e0e5dc38268ca2e",
+      "manifestPath": "public/codex/cards/skills/.agent-skills-manifest.json"
+    },
+    "public/codex/runtime/.codex-plugin/plugin.json": {
+      "sha256": "f46767a3efe4dea190ee2efcf4c42b3c2ef36d66e51bf34c3a32c5d0ffa2b8e8"
+    },
+    "public/codex/runtime/hooks": {
+      "sha256": "a2a947835e3c6b355e9f378823e2e43011c6b0d34f4a0b0ae2dda9a49afc75a1"
+    },
+    "public/codex/runtime/skills": {
+      "sha256": "60f6bcb92f1400f3293e38f55b8f1237f8fb1bc9858643ca8c9c2c38d02789e7",
+      "manifestPath": "public/codex/runtime/skills/.agent-skills-manifest.json"
+    },
+    "public/opencode/cards-assistant/package.json": {
+      "sha256": "957460bfd5e017a5be2603e417854376c9fe6b4178c9004bc9157dbf7a416930"
+    },
+    "public/opencode/cards-assistant/plugin": {
+      "sha256": "36bebde21d5f70b22dcd09946ca4db9696bb8b5ba8cf205845c72e99c36157da"
+    },
+    "public/opencode/cards-assistant/skills": {
+      "sha256": "66cd61be343d63262a4673777871f28d2aebcd8a2622773f6503755f6d411d9a",
+      "manifestPath": "public/opencode/cards-assistant/skills/.agent-skills-manifest.json"
+    },
+    "public/opencode/cards-sdk/package.json": {
+      "sha256": "748da142e1db7f16f175c0339e60498fa87e04e564970f1150c13454dd1854b2"
+    },
+    "public/opencode/cards-sdk/skills": {
+      "sha256": "4a5110d52363590dddfc793e7c2d5fb7fb20ca152a6dd4e4060c92ca3567ca99",
+      "manifestPath": "public/opencode/cards-sdk/skills/.agent-skills-manifest.json"
+    },
+    "public/opencode/cards/package.json": {
+      "sha256": "6816c0363a9d8e7f53887549784262a8cb4c07339fbeb997f2d17496f0adb4fa"
+    },
+    "public/opencode/cards/plugin": {
+      "sha256": "d897771c158a90ffce2f3f880bd0291560b09d620a1592d391084e1682bedfc7"
+    },
+    "public/opencode/cards/skills": {
+      "sha256": "08c9621bdffdaf4bf56d6572fa9e3277cd1844afd0b5c952927150ebe9d1a5d0",
+      "manifestPath": "public/opencode/cards/skills/.agent-skills-manifest.json"
+    },
+    "public/opencode/runtime/package.json": {
+      "sha256": "4b9854eb781d27f549f022c2b44656bf4d31275fb766fa61782c6435f5d51c9a"
+    },
+    "public/opencode/runtime/plugin": {
+      "sha256": "e56e50739c47b7ba9e55dae77fb455d59dd32bd06b88eb69bea8589ad9aa56d5"
+    },
+    "public/opencode/runtime/skills": {
+      "sha256": "0e017e9934c95fffd3b8fdcb8abf5b3beabbc04ea7c8af60999bc455ef68136c",
+      "manifestPath": "public/opencode/runtime/skills/.agent-skills-manifest.json"
+    },
+    "public/skills": {
+      "sha256": "af45380003f195a818bfb46a1218f6feea49226ec87db13b5fdb24c919f62386",
+      "manifestPath": "public/skills/.agent-skills-manifest.json"
+    }
+  },
+  "aggregateSha256": "b25d93237cb40ada989ae7f8aa318876a198d8e4d3fb67fa0b24ed0c66d9353e"
+}
