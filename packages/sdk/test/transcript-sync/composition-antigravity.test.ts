@@ -32,7 +32,21 @@ import {
 const CONVERSATION_ID = '8724cd98-6b07-4080-82d3-1c617be236bf';
 const SESSION_ID = 'antigravity-session-019f-e2e';
 
-const ENV_VARS = ['ANTIGRAVITY_SESSION_ID', 'CARDS_SESSION_ID', 'CARDS_TRANSCRIPT_PATH'] as const;
+/**
+ * Every identity-bearing variable the resolver chain consults. The runtime
+ * vars of OTHER agents must be cleared too: the suite may itself run inside a
+ * Claude Code / Codex / OpenCode session whose variable precedes
+ * `ANTIGRAVITY_SESSION_ID` in the chain and would otherwise win.
+ */
+const ENV_VARS = [
+  'ANTIGRAVITY_SESSION_ID',
+  'CARDS_SESSION_ID',
+  'CARDS_TRANSCRIPT_PATH',
+  'CLAUDE_CODE_SESSION_ID',
+  'CODEX_THREAD_ID',
+  'OPENCODE_RUN_ID',
+  'CURSOR_TRACE_ID'
+] as const;
 
 /** Narrows a manifest source to the sqlite-poll shape the engine consumes.
  *
