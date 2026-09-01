@@ -83,9 +83,24 @@ describe('parseManifest / serializeManifest', () => {
     expect(() => parseManifest(JSON.stringify(manifest))).toThrow(ManifestValidationError);
   });
 
-  it('throws when version is not 1', () => {
-    const manifest = { ...validManifest(), version: 2 };
+  it('throws when version is neither 1 nor 2', () => {
+    const manifest = { ...validManifest(), version: 3 };
     expect(() => parseManifest(JSON.stringify(manifest))).toThrow(ManifestValidationError);
+  });
+
+  it('rejects a sqlite-poll source under manifest version 1 (mode/version mismatch)', () => {
+    const manifest = validManifest();
+    manifest.sources = [
+      {
+        pattern: '8724cd98-6b07-4080-82d3-1c617be236bf.db',
+        role: 'main',
+        mode: 'sqlite-poll',
+        conversationId: '8724cd98-6b07-4080-82d3-1c617be236bf',
+        schemaFingerprint: 'a'.repeat(64),
+        sidecarPath: '/home/user/cards/repo/streams/antigravity-session/main.emission-state.json'
+      }
+    ];
+    expect(() => parseManifest(JSON.stringify(manifest))).toThrow(/requires manifest\.version 2/);
   });
 
   it('throws when there are zero main sources', () => {

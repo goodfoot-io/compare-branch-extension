@@ -25,6 +25,7 @@ const ENV_VARS = [
   'CLAUDE_CODE_SESSION_ID',
   'CODEX_THREAD_ID',
   'OPENCODE_RUN_ID',
+  'ANTIGRAVITY_SESSION_ID',
   'CURSOR_TRACE_ID'
 ] as const;
 
@@ -76,6 +77,23 @@ describe('resolveSessionId', () => {
     it('resolves CURSOR_TRACE_ID when higher-precedence vars are absent', async () => {
       process.env['CURSOR_TRACE_ID'] = 'cursor-trace-789';
       expect(await resolveSessionId()).toBe('cursor-trace-789');
+    });
+
+    it('resolves ANTIGRAVITY_SESSION_ID when higher-precedence vars are absent', async () => {
+      process.env['ANTIGRAVITY_SESSION_ID'] = 'antigravity-session-019f';
+      expect(await resolveSessionId()).toBe('antigravity-session-019f');
+    });
+
+    it('OPENCODE_RUN_ID outranks ANTIGRAVITY_SESSION_ID', async () => {
+      process.env['OPENCODE_RUN_ID'] = 'opencode-run-456';
+      process.env['ANTIGRAVITY_SESSION_ID'] = 'antigravity-session-019f';
+      expect(await resolveSessionId()).toBe('opencode-run-456');
+    });
+
+    it('ANTIGRAVITY_SESSION_ID outranks CURSOR_TRACE_ID', async () => {
+      process.env['ANTIGRAVITY_SESSION_ID'] = 'antigravity-session-019f';
+      process.env['CURSOR_TRACE_ID'] = 'cursor-trace-789';
+      expect(await resolveSessionId()).toBe('antigravity-session-019f');
     });
 
     it('CARDS_SESSION_ID takes precedence over all others', async () => {
@@ -182,6 +200,28 @@ describe('resolveRuntime', () => {
   it('resolves opencode from OPENCODE_RUN_ID when higher-precedence vars are absent', async () => {
     process.env['OPENCODE_RUN_ID'] = 'opencode-run-456';
     expect(await resolveRuntime()).toBe('opencode');
+  });
+
+  it('resolves antigravity from ANTIGRAVITY_SESSION_ID when higher-precedence vars are absent', async () => {
+    process.env['ANTIGRAVITY_SESSION_ID'] = 'antigravity-session-019f';
+    expect(await resolveRuntime()).toBe('antigravity');
+  });
+
+  it('prefers opencode over antigravity when both vars are set', async () => {
+    process.env['OPENCODE_RUN_ID'] = 'opencode-run-456';
+    process.env['ANTIGRAVITY_SESSION_ID'] = 'antigravity-session-019f';
+    expect(await resolveRuntime()).toBe('opencode');
+  });
+
+  it('prefers codex over antigravity when both vars are set', async () => {
+    process.env['CODEX_THREAD_ID'] = 'codex-thread-123';
+    process.env['ANTIGRAVITY_SESSION_ID'] = 'antigravity-session-019f';
+    expect(await resolveRuntime()).toBe('codex');
+  });
+
+  it('returns null when only a whitespace-only ANTIGRAVITY_SESSION_ID is set', async () => {
+    process.env['ANTIGRAVITY_SESSION_ID'] = '   ';
+    expect(await resolveRuntime()).toBeNull();
   });
 
   it('prefers codex over opencode when both vars are set', async () => {

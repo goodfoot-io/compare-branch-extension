@@ -9,12 +9,14 @@
  */
 
 export {
+  type AntigravityManifestInput,
   buildClaudeCodeManifest,
   buildCodexManifest,
   buildManifestForRuntime,
   buildOpencodeManifest,
   type ClaudeCodeManifestInput,
   type CodexManifestInput,
+  decodeStepForRuntime,
   type OpencodeManifestInput,
   type RuntimeManifestInput,
   UnsupportedRuntimeError
@@ -27,3 +29,13 @@ export {
   type SourceSpec,
   serializeManifest
 } from './manifest.js';
+export {
+  EMISSION_RECORD_VERSION,
+  type EmissionAnomaly,
+  type EmissionAnomalyKind,
+  type EmissionRecord,
+  parseEmissionRecordLine,
+  type StepDecodeResult,
+  type StepRow,
+  serializeEmissionRecord
+} from './records.js';

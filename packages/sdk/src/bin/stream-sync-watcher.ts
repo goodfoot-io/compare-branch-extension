@@ -42,10 +42,15 @@ import { Reconciler } from '../transcript-sync/engine/reconciler.js';
 import { recoverCursor } from '../transcript-sync/engine/recovery.js';
 import { cleanupSessionArtifacts } from '../transcript-sync/engine/session-artifacts.js';
 import { writeSessionStatus } from '../transcript-sync/engine/session-status.js';
+import {
+  SQLITE_POLL_STEADY_INTERVAL_MS,
+  SqlitePollEngine,
+  type SqlitePollOutcome
+} from '../transcript-sync/engine/sqlite-poll.js';
 import { buildStatusHeartbeat, MainFileInvariantChecker } from '../transcript-sync/engine/status.js';
 import { SyncChain } from '../transcript-sync/engine/sync-chain.js';
 import { WatchInstaller } from '../transcript-sync/engine/watch-installer.js';
-import { parseManifest, type SessionSyncManifest } from '../transcript-sync/manifest.js';
+import { parseManifest, type SessionSyncManifest, type SqlitePollSourceSpec } from '../transcript-sync/manifest.js';
 import { isProcessAlive } from './process-utils.js';
 
 /** Minimal identity extracted from the raw manifest argv for registration purposes only. */
@@ -153,13 +158,124 @@ async function recoverExistingFiles(
 }
 
 /**
+ * Creates the poll engine for a v2 sqlite-poll manifest. The manifest is
+ * homogeneous (exactly one main sqlite-poll source — enforced by
+ * `parseManifest`), so the first source is the poll spec.
+ *
+ * Shared by {@link runSession}'s poll branch and the composition fixture —
+ * this seam is the real watcher attach path for polled sessions.
+ *
+ * @param manifest - The validated v2 manifest.
+ * @param warnFn - Warning sink for recoverable conditions.
+ * @returns The engine bound to the manifest's DB and destination stream.
+ */
+export function createPollEngine(manifest: SessionSyncManifest, warnFn: (message: string) => void): SqlitePollEngine {
+  const spec = manifest.sources[0] as SqlitePollSourceSpec;
+  const destRoot = join(manifest.cardRepoPath, 'streams', manifest.streamType);
+  return new SqlitePollEngine({
+    manifest,
+    spec,
+    destPath: join(destRoot, `${spec.pattern}.jsonl`),
+    warnFn,
+    now: () => Date.now(),
+    sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+  });
+}
+
+/**
+ * Runs the poll session for a v2 sqlite-poll manifest: attach (destination
+ * scan + sidecar rebuild), the steady poll loop, and every shutdown path.
+ * There is nothing to `fs.watch` — polling IS the sync mechanism — so the
+ * watch installer and file reconciler are not used.
+ *
+ * @param manifest - The validated v2 manifest (single sqlite-poll source).
+ * @param handle - The already-registered reconnecting control channel.
+ */
+async function runPollSession(manifest: SessionSyncManifest, handle: ReconnectingWatcherHandle): Promise<void> {
+  const { ctx } = handle;
+  const warnFn = (message: string) => ctx.logger.warn(message);
+  const errorFn = (message: string) => ctx.logger.error(message);
+
+  const engine = createPollEngine(manifest, warnFn);
+  await engine.attach();
+
+  const startedAt = new Date().toISOString();
+  await writeSessionStatus(manifest, { startedAt, fileFailures: {} });
+
+  let closed = false;
+  const closeSession = async (): Promise<void> => {
+    if (closed) return;
+    closed = true;
+    // Termination path: final bounded poll + flush of remaining tracked
+    // non-terminal rows (named flush-partial evidence) — the same code path
+    // the antigravity termination module drives when this watcher is dead.
+    const flushed = await engine.flushTracked();
+    for (const record of flushed) {
+      if (record.anomaly?.kind === 'format-unknown') {
+        warnFn(
+          `stream-sync-watcher: flush of idx ${String(record.idx)} hit an undecodable payload: ${record.anomaly.detail}`
+        );
+      }
+    }
+    await commitSessionClose(manifest, warnFn, errorFn);
+    await writeSessionStatus(manifest, { startedAt, closedAt: new Date().toISOString(), fileFailures: {} });
+  };
+
+  const signal = { stopped: false };
+  ctx.onControl('stop', async () => {
+    signal.stopped = true;
+    await closeSession();
+  });
+
+  ctx.emit({ type: 'watching', data: null });
+
+  const { maxLifetimeExceeded, stopRequested } = await runWatcherLoop({
+    signal,
+    checkSentinel: () => sentinelExists(manifest),
+    checkAlive: () => isProcessAlive(manifest.monitorPid),
+    now: () => Date.now(),
+    sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    onMaxLifetime: () =>
+      warnFn(`stream-sync-watcher: exceeded maximum lifetime (${String(MAX_LIFETIME_MS)}ms), exiting`),
+    onTick: async () => {
+      const outcome: SqlitePollOutcome = await engine.pollOnce();
+      if (outcome.kind === 'absence-expired' || outcome.kind === 'permanent-unavailable') {
+        // Named terminal outcomes — never a hang or silent vanish.
+        errorFn(`stream-sync-watcher: ${outcome.detail}`);
+        ctx.emit({ type: 'error', data: { message: outcome.detail } });
+        signal.stopped = true;
+        await closeSession();
+        return 0;
+      }
+      return SQLITE_POLL_STEADY_INTERVAL_MS;
+    }
+  });
+
+  if (stopRequested) {
+    await handle.waitForStop();
+  } else {
+    await closeSession();
+    if (!maxLifetimeExceeded) {
+      cleanupSessionArtifacts(manifest.sessionId, warnFn);
+    }
+    handle.shutdown();
+  }
+}
+
+/**
  * Runs the full sync session for a validated manifest: recovery, initial
  * reconcile, watch install, the steady-tick loop, and every shutdown path.
+ * A v2 sqlite-poll manifest routes to {@link runPollSession} instead.
  *
  * @param manifest - The validated manifest to sync.
  * @param handle - The already-registered reconnecting control channel.
  */
 export async function runSession(manifest: SessionSyncManifest, handle: ReconnectingWatcherHandle): Promise<void> {
+  if (manifest.version === 2) {
+    await runPollSession(manifest, handle);
+    return;
+  }
+
   const { ctx } = handle;
   const warnFn = (message: string) => ctx.logger.warn(message);
   const errorFn = (message: string) => ctx.logger.error(message);

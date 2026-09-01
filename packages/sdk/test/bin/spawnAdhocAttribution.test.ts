@@ -29,7 +29,13 @@ vi.mock('@cards.management/sdk/bin/spawn-stream-sync-watcher', () => ({
 }));
 
 vi.mock('../../src/transcript-sync/adapters/index.js', () => ({
-  buildManifestForRuntime: vi.fn()
+  buildManifestForRuntime: vi.fn(),
+  UnsupportedRuntimeError: class UnsupportedRuntimeError extends Error {
+    constructor(runtime: string) {
+      super(`No SessionSyncManifest adapter for runtime: ${runtime}`);
+      this.name = 'UnsupportedRuntimeError';
+    }
+  }
 }));
 
 vi.mock('@cards.management/sdk/bin/spawn-adhoc-cleanup', () => ({
@@ -41,7 +47,7 @@ import { isAdhocActivatableStatus, readCardStatus } from '@cards.management/sdk/
 import { spawnAdhocCleanup } from '@cards.management/sdk/bin/spawn-adhoc-cleanup';
 import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-sync-watcher';
 import { type SpawnAdhocAttributionParams, spawnAdhocAttribution } from '../../src/bin/spawnAdhocAttribution.js';
-import { buildManifestForRuntime } from '../../src/transcript-sync/adapters/index.js';
+import { buildManifestForRuntime, UnsupportedRuntimeError } from '../../src/transcript-sync/adapters/index.js';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -222,6 +228,69 @@ describe('spawnAdhocAttribution', () => {
     // Per-card activation is decoupled from the watcher — it still runs.
     expect(spawnAdhocCleanup).toHaveBeenCalledOnce();
     expect(outcome).toMatchObject({ activated: true });
+  });
+
+  describe('named watcher degradation', () => {
+    it('surfaces an unsupported runtime as a named degradation, not silent success', async () => {
+      vi.mocked(readCardStatus).mockResolvedValue('active');
+      vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
+      vi.mocked(acquireLock).mockResolvedValue(true);
+      vi.mocked(buildManifestForRuntime).mockImplementation(() => {
+        throw new UnsupportedRuntimeError('opencode');
+      });
+
+      const logger = makeLogger();
+      const outcome = await spawnAdhocAttribution(makeParams({ runtime: 'opencode' }), logger);
+
+      expect(outcome).toEqual({
+        activated: true,
+        watcherDegradation: { kind: 'unsupported-runtime', detail: expect.stringContaining('opencode') }
+      });
+      expect(spawnStreamSyncWatcher).not.toHaveBeenCalled();
+      // Activation is still decoupled from the watcher.
+      expect(spawnAdhocCleanup).toHaveBeenCalledOnce();
+    });
+
+    it('names a manifest-build failure for a known runtime as manifest-build-failed', async () => {
+      vi.mocked(readCardStatus).mockResolvedValue('active');
+      vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
+      vi.mocked(acquireLock).mockResolvedValue(true);
+      vi.mocked(buildManifestForRuntime).mockImplementation(() => {
+        throw new Error('Claude Code transcriptPath basename "x.jsonl" does not match expected "sess.jsonl"');
+      });
+
+      const logger = makeLogger();
+      const outcome = await spawnAdhocAttribution(makeParams({ runtime: 'claude-code' }), logger);
+
+      expect(outcome).toEqual({
+        activated: true,
+        watcherDegradation: { kind: 'manifest-build-failed', detail: expect.stringMatching(/basename/) }
+      });
+    });
+
+    it('carries no degradation when the watcher spawn succeeds', async () => {
+      vi.mocked(readCardStatus).mockResolvedValue('active');
+      vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
+      vi.mocked(acquireLock).mockResolvedValue(true);
+      vi.mocked(spawnStreamSyncWatcher).mockReturnValue(true);
+
+      const logger = makeLogger();
+      const outcome = await spawnAdhocAttribution(makeParams(), logger);
+
+      expect(outcome).toEqual({ activated: true });
+    });
+
+    it('carries no degradation when the lock is not owned (watcher not attempted)', async () => {
+      vi.mocked(readCardStatus).mockResolvedValue('active');
+      vi.mocked(isAdhocActivatableStatus).mockReturnValue(true);
+      vi.mocked(acquireLock).mockResolvedValue(false);
+
+      const logger = makeLogger();
+      const outcome = await spawnAdhocAttribution(makeParams(), logger);
+
+      expect(outcome).toEqual({ activated: true });
+      expect(buildManifestForRuntime).not.toHaveBeenCalled();
+    });
   });
 
   it('passes all cleanup args from params to spawnAdhocCleanup', async () => {

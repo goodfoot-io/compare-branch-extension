@@ -10,12 +10,12 @@ import {
   matchSource,
   UnsupportedPatternError
 } from '../../../src/transcript-sync/engine/matcher.js';
-import type { SourceSpec } from '../../../src/transcript-sync/manifest.js';
+import type { FileSourceSpec, SourceSpec } from '../../../src/transcript-sync/manifest.js';
 
 function source(
   pattern: string,
-  role: SourceSpec['role'] = 'main',
-  mode: SourceSpec['mode'] = 'jsonl-tail'
+  role: FileSourceSpec['role'] = 'main',
+  mode: FileSourceSpec['mode'] = 'jsonl-tail'
 ): SourceSpec {
   return { pattern, role, mode };
 }

@@ -15,7 +15,8 @@ import { readUnboundCandidates } from './unboundWorktreeCandidates.js';
  *
  * Precedence (B2):
  *   CARDS_SESSION_ID → CLAUDE_CODE_SESSION_ID → CODEX_THREAD_ID →
- *   OPENCODE_RUN_ID → CURSOR_TRACE_ID → first-non-shell-ancestor-PID-as-id
+ *   OPENCODE_RUN_ID → ANTIGRAVITY_SESSION_ID → CURSOR_TRACE_ID →
+ *   first-non-shell-ancestor-PID-as-id
  *
  * Empty-string and whitespace-only values are treated as absent (B2).
  *
@@ -33,6 +34,7 @@ export async function resolveSessionId(): Promise<string | null> {
     'CLAUDE_CODE_SESSION_ID',
     'CODEX_THREAD_ID',
     'OPENCODE_RUN_ID',
+    'ANTIGRAVITY_SESSION_ID',
     'CURSOR_TRACE_ID'
   ]) {
     const val = (process.env[name] ?? '').trim();
@@ -54,17 +56,23 @@ export async function resolveSessionId(): Promise<string | null> {
  * `persistSessionEnv`), so its presence does not distinguish a runtime; only
  * the agent-specific vars each CLI actually sets do. `CURSOR_TRACE_ID` is
  * recognized by {@link resolveSessionId} for identity but has no
- * {@link SessionSyncManifest} adapter yet (only `claude-code`, `codex`, and
- * `opencode` have one), so it resolves to `null` here rather than a runtime
- * string a caller cannot act on — fail closed, never guess.
+ * {@link SessionSyncManifest} adapter yet (only `claude-code`, `codex`,
+ * `opencode`, and `antigravity` have one), so it resolves to `null` here
+ * rather than a runtime string a caller cannot act on — fail closed, never
+ * guess.
  *
- * @returns `'claude-code'`, `'codex'`, `'opencode'`, or `null` when no
- *   supported runtime's env var is set.
+ * `ANTIGRAVITY_SESSION_ID` is set by the Cards Antigravity launch adapter
+ * pre-spawn (mirroring how `OPENCODE_RUN_ID` is set for OpenCode), so its
+ * presence identifies the `antigravity` runtime.
+ *
+ * @returns `'claude-code'`, `'codex'`, `'opencode'`, `'antigravity'`, or
+ *   `null` when no supported runtime's env var is set.
  */
-export async function resolveRuntime(): Promise<'claude-code' | 'codex' | 'opencode' | null> {
+export async function resolveRuntime(): Promise<'claude-code' | 'codex' | 'opencode' | 'antigravity' | null> {
   if ((process.env['CLAUDE_CODE_SESSION_ID'] ?? '').trim()) return 'claude-code';
   if ((process.env['CODEX_THREAD_ID'] ?? '').trim()) return 'codex';
   if ((process.env['OPENCODE_RUN_ID'] ?? '').trim()) return 'opencode';
+  if ((process.env['ANTIGRAVITY_SESSION_ID'] ?? '').trim()) return 'antigravity';
   return null;
 }
 

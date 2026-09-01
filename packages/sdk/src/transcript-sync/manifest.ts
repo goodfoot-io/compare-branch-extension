@@ -15,9 +15,9 @@
 
 /**
  * Describes one file or glob pattern the engine should watch within a
- * session's `watchRoot`.
+ * session's `watchRoot`, synced as bytes (`jsonl-tail`/`copy` modes).
  */
-export interface SourceSpec {
+export interface FileSourceSpec {
   /** Literal path or glob, relative to `watchRoot`, using forward slashes. */
   pattern: string;
   /** Role of the matched file(s) within the session's transcript set. */
@@ -27,13 +27,55 @@ export interface SourceSpec {
 }
 
 /**
+ * Describes a live SQLite conversation database the engine should poll
+ * read-only. The database is written by the host agent process (WAL mode);
+ * the engine never writes to it. Per-row emission state lives in the
+ * rebuildable sidecar at `sidecarPath`.
+ */
+export interface SqlitePollSourceSpec {
+  /** Literal relative path of the conversation DB, relative to `watchRoot`. */
+  pattern: string;
+  /** Role of the source within the session's transcript set. */
+  role: 'main' | 'subagent' | 'auxiliary';
+  /** The read-only poll mode. */
+  mode: 'sqlite-poll';
+  /**
+   * Expected conversation identity. Verified against the DB's
+   * `trajectory_meta.cascade_id` at first read; mismatch is permanent
+   * unavailability. Also pins the DB basename (`<conversationId>.db`).
+   */
+  conversationId: string;
+  /**
+   * Expected schema fingerprint (lowercase hex SHA-256 over the normalized
+   * DDL of the required tables, in the adapter's pinned form). Verified at
+   * first read and on every poll; mismatch/ambiguity is permanent
+   * unavailability at attach, a named host-drift anomaly mid-stream.
+   */
+  schemaFingerprint: string;
+  /**
+   * Absolute path of the per-row emission-state sidecar — a rebuildable cache
+   * derived by scanning the destination stream on attach; co-located with the
+   * destination stream by the adapter's convention.
+   */
+  sidecarPath: string;
+}
+
+/** One source the engine should sync: a watched file or a polled database. */
+export type SourceSpec = FileSourceSpec | SqlitePollSourceSpec;
+
+/**
  * Runtime-agnostic description of a single agent session's transcript
  * sources, produced by a runtime adapter (see `./adapters/`) and consumed by
  * the transcript-sync engine.
  */
 export interface SessionSyncManifest {
-  /** Manifest schema version. Currently always `1`. */
-  version: 1;
+  /**
+   * Manifest schema version. `1` — the file-based schema (`jsonl-tail`/`copy`
+   * sources only). `2` — adds `sqlite-poll` sources (exactly one `main`
+   * sqlite-poll source, no file sources alongside it). Unknown versions and
+   * mode/version mismatches are rejected with named failures.
+   */
+  version: 1 | 2;
   /** Session identifier for stream file naming. */
   sessionId: string;
   /** Card identifier for sidecar metadata. */
@@ -53,7 +95,7 @@ export interface SessionSyncManifest {
 }
 
 const VALID_ROLES = new Set<SourceSpec['role']>(['main', 'subagent', 'auxiliary']);
-const VALID_MODES = new Set<SourceSpec['mode']>(['jsonl-tail', 'copy']);
+const VALID_MODES = new Set<SourceSpec['mode']>(['jsonl-tail', 'copy', 'sqlite-poll']);
 const GLOB_METACHARACTERS = /[*?[{]/;
 
 const TOP_LEVEL_KEYS = new Set<keyof SessionSyncManifest>([
@@ -111,12 +153,56 @@ function validateSourcePattern(pattern: unknown, index: number): string {
   return pattern;
 }
 
-function validateSource(raw: unknown, index: number): SourceSpec {
+/**
+ * Validates one `mode: 'sqlite-poll'` source body (conversation identity,
+ * schema fingerprint, sidecar path). Version-2-only; the version/mode pairing
+ * is enforced by the caller.
+ *
+ * @param raw - The raw source object.
+ * @param index - Position of the source in `manifest.sources`.
+ * @param pattern - The already-validated relative DB path.
+ * @param role - The already-validated role.
+ * @returns The validated {@link SqlitePollSourceSpec}.
+ * @throws {ManifestValidationError} When any sqlite-poll field is missing,
+ *   mistyped, or out of contract.
+ */
+function validateSqlitePollSource(
+  raw: Record<string, unknown>,
+  index: number,
+  pattern: string,
+  role: SourceSpec['role']
+): SqlitePollSourceSpec {
+  const conversationId = raw['conversationId'];
+  if (!isNonEmptyString(conversationId)) {
+    fail(`sources[${index}].conversationId must be a non-empty string`);
+  }
+
+  const schemaFingerprint = raw['schemaFingerprint'];
+  if (typeof schemaFingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(schemaFingerprint)) {
+    fail(`sources[${index}].schemaFingerprint must be a lowercase hex SHA-256, got: ${String(schemaFingerprint)}`);
+  }
+
+  const sidecarPath = raw['sidecarPath'];
+  if (!isNonEmptyString(sidecarPath) || !isAbsolutePosixOrWinPath(sidecarPath)) {
+    fail(`sources[${index}].sidecarPath must be an absolute path, got: ${String(sidecarPath)}`);
+  }
+
+  return { pattern, role, mode: 'sqlite-poll', conversationId, schemaFingerprint, sidecarPath };
+}
+
+function validateSource(raw: unknown, index: number, version: 1 | 2): SourceSpec {
   if (typeof raw !== 'object' || raw === null) {
     fail(`sources[${index}] must be an object`);
   }
   const obj = raw as Record<string, unknown>;
-  const allowedKeys = new Set(['pattern', 'role', 'mode']);
+
+  if (version !== 2 && obj['mode'] === 'sqlite-poll') {
+    fail(`sources[${index}].mode 'sqlite-poll' requires manifest.version 2, got manifest.version ${version}`);
+  }
+
+  const fileKeys = new Set(['pattern', 'role', 'mode']);
+  const sqliteKeys = new Set([...fileKeys, 'conversationId', 'schemaFingerprint', 'sidecarPath']);
+  const allowedKeys = version === 2 ? sqliteKeys : fileKeys;
   for (const key of Object.keys(obj)) {
     if (!allowedKeys.has(key)) {
       fail(`sources[${index}] has unknown field: ${key}`);
@@ -137,9 +223,16 @@ function validateSource(raw: unknown, index: number): SourceSpec {
 
   const rawMode = obj['mode'];
   if (typeof rawMode !== 'string' || !VALID_MODES.has(rawMode as SourceSpec['mode'])) {
-    fail(`sources[${index}].mode must be one of 'jsonl-tail' | 'copy', got: ${String(rawMode)}`);
+    fail(`sources[${index}].mode must be one of 'jsonl-tail' | 'copy' | 'sqlite-poll', got: ${String(rawMode)}`);
   }
   const mode = rawMode as SourceSpec['mode'];
+
+  if (mode === 'sqlite-poll') {
+    if (version !== 2) {
+      fail(`sources[${index}].mode 'sqlite-poll' requires manifest.version 2, got manifest.version ${version}`);
+    }
+    return validateSqlitePollSource(obj, index, pattern, role);
+  }
 
   return { pattern, role, mode };
 }
@@ -148,14 +241,17 @@ function validateSource(raw: unknown, index: number): SourceSpec {
  * Parses and validates a serialized {@link SessionSyncManifest}.
  *
  * Fails closed: throws {@link ManifestValidationError} on malformed JSON, any
- * missing/mistyped/unknown field, an invalid `version`, zero or more than one
- * `role: 'main'` source, a `main` source pattern containing glob
- * metacharacters, a non-absolute `watchRoot`/`cardRepoPath`, a source pattern
- * that is absolute/contains `..`/uses backslashes, a non-positive-integer
- * `monitorPid`, or an empty `sessionId`/`cardId`/`runtime`/`streamType`.
+ * missing/mistyped/unknown field, an invalid `version` (`1` or `2`; a
+ * `sqlite-poll` source under version `1` is a named mode/version mismatch),
+ * zero or more than one `role: 'main'` source, a `main` source pattern
+ * containing glob metacharacters, a non-absolute `watchRoot`/`cardRepoPath`,
+ * a source pattern that is absolute/contains `..`/uses backslashes, a
+ * non-positive-integer `monitorPid`, or an empty
+ * `sessionId`/`cardId`/`runtime`/`streamType`.
  *
  * @param json - Serialized manifest, typically produced by {@link serializeManifest}.
  * @returns The validated manifest.
+ * @throws {ManifestValidationError} On any contract violation listed above.
  */
 export function parseManifest(json: string): SessionSyncManifest {
   let parsed: unknown;
@@ -177,8 +273,8 @@ export function parseManifest(json: string): SessionSyncManifest {
   }
 
   const version = obj['version'];
-  if (version !== 1) {
-    fail(`manifest.version must be 1, got: ${String(version)}`);
+  if (version !== 1 && version !== 2) {
+    fail(`manifest.version must be 1 or 2, got: ${String(version)}`);
   }
 
   const sessionId = obj['sessionId'];
@@ -209,7 +305,19 @@ export function parseManifest(json: string): SessionSyncManifest {
   if (!Array.isArray(sources)) {
     fail('manifest.sources must be an array');
   }
-  const validatedSources = sources.map((source, index) => validateSource(source, index));
+  const validatedSources = sources.map((source, index) => validateSource(source, index, version));
+
+  if (version === 2) {
+    // A v2 manifest is homogeneous: exactly one source, the main sqlite-poll
+    // one. Sub-trajectory topology is unwitnessed (the delegation witness is a
+    // required fixture work item); lifting this rule needs that witness.
+    const sqliteSources = validatedSources.filter((source) => source.mode === 'sqlite-poll');
+    if (sqliteSources.length !== validatedSources.length || validatedSources.length !== 1) {
+      fail(
+        `a version-2 manifest must contain exactly one source and it must have mode 'sqlite-poll', found ${validatedSources.length} source(s) of which ${sqliteSources.length} are sqlite-poll`
+      );
+    }
+  }
 
   const mainSources = validatedSources.filter((source) => source.role === 'main');
   if (mainSources.length !== 1) {
@@ -217,7 +325,7 @@ export function parseManifest(json: string): SessionSyncManifest {
   }
 
   return {
-    version: 1,
+    version,
     sessionId,
     cardId,
     runtime,

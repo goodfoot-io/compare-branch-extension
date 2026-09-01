@@ -19,7 +19,7 @@ import { acquireLock } from '@cards.management/sdk/adhoc-attribution';
 import { isAdhocActivatableStatus, readCardStatus } from '@cards.management/sdk/bin/process-utils';
 import { spawnAdhocCleanup } from '@cards.management/sdk/bin/spawn-adhoc-cleanup';
 import { spawnStreamSyncWatcher } from '@cards.management/sdk/bin/spawn-stream-sync-watcher';
-import { buildManifestForRuntime } from '../transcript-sync/adapters/index.js';
+import { buildManifestForRuntime, UnsupportedRuntimeError } from '../transcript-sync/adapters/index.js';
 
 /**
  * Minimal logger interface required by spawnAdhocAttribution.
@@ -61,6 +61,25 @@ export interface SpawnAdhocAttributionParams {
 }
 
 /**
+ * A named, structured degradation of the stream-sync-watcher spawn, surfaced
+ * on an otherwise-activated outcome. The card's activation still proceeds —
+ * per-card activation is decoupled from the watcher — but the missing
+ * watcher is never silent:
+ *
+ * - `'unsupported-runtime'` — the runtime has no {@link SessionSyncManifest}
+ *   adapter (an unknown/unsupported runtime must be named, never logged and
+ *   skipped as success).
+ * - `'manifest-build-failed'` — a known runtime's manifest construction
+ *   failed (e.g. a transcriptPath/sessionId mismatch).
+ */
+export interface WatcherDegradation {
+  /** Which named degradation class occurred. */
+  kind: 'unsupported-runtime' | 'manifest-build-failed';
+  /** Deterministic human-readable detail (the underlying error message). */
+  detail: string;
+}
+
+/**
  * Structured result of {@link spawnAdhocAttribution}.
  *
  * `activated: true` means the per-card adhoc-cleanup spawn was attempted — the
@@ -74,8 +93,15 @@ export interface SpawnAdhocAttributionParams {
  * A held session de-dupe lock is deliberately NOT a skip: the lock gates only
  * the stream-sync-watcher spawn, so a second card bound in the same session
  * still activates.
+ *
+ * On an activated outcome, `watcherDegradation` is present when this bind
+ * owned the session lock but the stream-sync-watcher spawn did not happen due
+ * to a named failure; it is absent when the watcher spawn was attempted (lock
+ * not owned — another watcher owns the session) or succeeded.
  */
-export type SpawnAdhocAttributionOutcome = { activated: true } | { activated: false; reason: 'not-activatable' };
+export type SpawnAdhocAttributionOutcome =
+  | { activated: false; reason: 'not-activatable' }
+  | { activated: true; watcherDegradation?: WatcherDegradation };
 
 /**
  * Runs the full attribution-spawn path: activatable-status guard, de-dupe lock
@@ -98,7 +124,9 @@ export type SpawnAdhocAttributionOutcome = { activated: true } | { activated: fa
  *    {@link SessionSyncManifest} for `params.runtime` and spawns the detached
  *    `stream-sync-watcher` bin only when this bind acquired the session lock.
  *    Manifest-build failure (unsupported runtime, transcriptPath/sessionId
- *    mismatch) and spawn failure are both logged and do not propagate.
+ *    mismatch) is logged and surfaced as a named `watcherDegradation` on the
+ *    outcome — never silently absorbed into a bare `{ activated: true }` —
+ *    without propagating or touching the adhoc-cleanup spawn below.
  *
  * 4. **Spawn adhoc-cleanup** (non-fatal, per-card) — spawns the detached
  *    `adhoc-cleanup` bin for every bound card, so each card's status
@@ -139,6 +167,7 @@ export async function spawnAdhocAttribution(
   //    card bound in the same session is never activated.
   const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
 
+  let watcherDegradation: WatcherDegradation | undefined;
   if (acquired) {
     // 3. Spawn stream-sync-watcher (non-fatal, one per session). Attach mode
     //    runs with the `cards` plugin enabled so its bin — and the
@@ -158,12 +187,19 @@ export async function spawnAdhocAttribution(
       });
       spawnStreamSyncWatcher({ manifest, logger });
     } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      const kind = error instanceof UnsupportedRuntimeError ? 'unsupported-runtime' : 'manifest-build-failed';
       logger.error('spawnAdhocAttribution: failed to build sync manifest — skipping watcher spawn', {
         runtime,
         cardId,
         sessionId,
-        error: error instanceof Error ? error.message : String(error)
+        degradationKind: kind,
+        error: detail
       });
+      // Per-card activation is decoupled from the watcher — the adhoc-cleanup
+      // spawn below still happens, but the missing watcher is named, never
+      // silently absorbed into `{ activated: true }`.
+      watcherDegradation = { kind, detail };
     }
   }
 
@@ -179,5 +215,5 @@ export async function spawnAdhocAttribution(
   const binPath = (process.env['CARDS_BIN_PATH'] ?? '').trim();
   spawnAdhocCleanup(binPath, agentPid, sessionId, cardId, cardRepoPath, acquired ? lockPath : '', logger);
 
-  return { activated: true };
+  return watcherDegradation !== undefined ? { activated: true, watcherDegradation } : { activated: true };
 }

@@ -32,6 +32,16 @@ export {
   writeSessionStatus
 } from './session-status.js';
 export {
+  SQLITE_POLL_ABSENCE_BOUND_MS,
+  SQLITE_POLL_BUSY_RETRY_ATTEMPTS,
+  SQLITE_POLL_BUSY_TIMEOUT_MS,
+  SQLITE_POLL_REHASH_ROWS_PER_TICK,
+  SQLITE_POLL_STEADY_INTERVAL_MS,
+  type SqlitePollDeps,
+  SqlitePollEngine,
+  type SqlitePollOutcome
+} from './sqlite-poll.js';
+export {
   buildStatusHeartbeat,
   type FileStatus,
   MainFileInvariantChecker,
