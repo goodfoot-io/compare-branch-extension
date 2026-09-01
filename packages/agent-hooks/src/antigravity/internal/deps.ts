@@ -48,7 +48,7 @@ import {
   removeSessionHeadSha,
   removeSessionRouteNudge
 } from '@cards.management/sessions/card-repo';
-import { resolveCardsSessionId } from './inputs.js';
+import { canonicalConversationDbPath, resolveCardsSessionId } from './inputs.js';
 import type { AntigravityIo } from './io.js';
 import { defaultAntigravityIo } from './io.js';
 
@@ -121,9 +121,17 @@ export interface AntigravityHandlerDeps {
   /**
    * Registers the session → worktree/transcript mapping in the on-disk store
    * `resolveTranscriptPath()` reads, so in-session `cards` CLI processes can
-   * recover the transcript.
+   * recover the transcript. The transcript path MUST be the canonical
+   * conversation DB path ({@link AntigravityHandlerDeps.conversationDbPath}).
    */
   registerSession(sessionId: string, worktreeDir: string, transcriptPath: string): Promise<void>;
+  /**
+   * Resolves the canonical Antigravity conversation DB path for a
+   * conversation id —
+   * `<home>/.gemini/antigravity-cli/conversations/<conversationId>.db` —
+   * even when the DB file does not exist yet.
+   */
+  conversationDbPath(conversationId: string): string;
   /** Session marker store (route/exit-when-done nudges, subagent tracking). */
   sessionMarkers: AntigravitySessionMarkers;
   /** Counts commits on `workspaceBranch` missing from `baseBranch`. */
@@ -204,6 +212,7 @@ export function defaultAntigravityHandlerDeps(): AntigravityHandlerDeps {
     registerSession: async (sessionId, worktreeDir, transcriptPath) => {
       await addUnboundCandidate(sessionId, worktreeDir, transcriptPath);
     },
+    conversationDbPath: (conversationId) => canonicalConversationDbPath(conversationId),
     sessionMarkers: {
       hasRouteNudgeFired: (sessionId) => hasSessionRouteNudgeFired(sessionId),
       markRouteNudgeFired: (sessionId) => markSessionRouteNudgeFired(sessionId),

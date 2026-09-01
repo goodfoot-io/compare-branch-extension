@@ -22,10 +22,34 @@
  * @module internal/inputs
  */
 
+import { homedir as osHomedir } from 'node:os';
+import { join } from 'node:path';
 import { CARDS_ENV_VARS } from '@cards.management/sdk/config';
 
 /** The Cards session-identity environment variable the launcher exports pre-spawn. */
 export const ANTIGRAVITY_SESSION_ID_ENV = 'ANTIGRAVITY_SESSION_ID';
+
+/**
+ * Computes the canonical Antigravity conversation database path for a
+ * conversation id.
+ *
+ * The Antigravity CLI stores interactive conversation databases at
+ * `~/.gemini/antigravity-cli/conversations/<conversation-id>.db` (pinned host
+ * contract). The SDK's `resolveTranscriptPath()` recovers the conversation DB
+ * from the transcript path recorded at registration time, and the manifest's
+ * conversation id is derived from the DB basename — so the registered path
+ * MUST be this canonical form, computed from the `conversationId` input even
+ * when the DB file does not exist yet (absence at attach is a designed-for
+ * transient state; the poller waits for it).
+ *
+ * @param conversationId - Host conversation identifier from the hook input.
+ * @param home - User home directory; defaults to the real one.
+ * @returns The absolute canonical DB path
+ *   `<home>/.gemini/antigravity-cli/conversations/<conversationId>.db`.
+ */
+export function canonicalConversationDbPath(conversationId: string, home: string = osHomedir()): string {
+  return join(home, '.gemini', 'antigravity-cli', 'conversations', `${conversationId}.db`);
+}
 
 /**
  * The pinned common host fields every Antigravity `runtime` hook requires.

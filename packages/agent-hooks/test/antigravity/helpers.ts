@@ -160,6 +160,8 @@ export function makeDeps(
     registerSession: async (sessionId, worktreeDir, transcriptPath) => {
       registrations.push({ sessionId, worktreeDir, transcriptPath });
     },
+    conversationDbPath: (conversationId) =>
+      join(root, 'gemini-home', '.gemini', 'antigravity-cli', 'conversations', `${conversationId}.db`),
     sessionMarkers: markers,
     unmergedCommitCount: () => 0,
     readCardMeta: (cardRepoPath) => defaults.readCardMeta(cardRepoPath),

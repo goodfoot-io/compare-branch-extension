@@ -245,8 +245,16 @@ export async function handlePreInvocation(raw: unknown, ctx: HandlerContext): Pr
     throw new HandlerFailure('watcher-setup', 'the stream-sync-watcher did not spawn', input.conversationId);
   }
 
+  // Registration records the canonical conversation DB path — computed from
+  // the conversation id even though the DB does not exist yet; the SDK's
+  // attach resolution derives the conversation id from the DB basename and
+  // the poller waits for the file to appear.
   try {
-    await deps.registerSession(sessionId, input.workspacePaths[0] as string, input.transcriptPath);
+    await deps.registerSession(
+      sessionId,
+      input.workspacePaths[0] as string,
+      deps.conversationDbPath(input.conversationId)
+    );
   } catch (error) {
     throw new HandlerFailure(
       'session-registration',

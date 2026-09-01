@@ -4,8 +4,11 @@
  * @summary Tests for the Antigravity hook input contract
  */
 
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  canonicalConversationDbPath,
   InputValidationError,
   isCardsActionSession,
   parseCommonInput,
@@ -115,6 +118,25 @@ describe('parseInvocationInput', () => {
       ...validInvocation,
       initialNumSteps: 0
     });
+  });
+});
+
+describe('canonicalConversationDbPath', () => {
+  it('computes the exact pinned DB path shape for a sample conversation id', () => {
+    expect(canonicalConversationDbPath('conv-453', '/home/tester')).toBe(
+      '/home/tester/.gemini/antigravity-cli/conversations/conv-453.db'
+    );
+  });
+
+  it('derives the conversation id from the DB basename round-trip', () => {
+    const path = canonicalConversationDbPath('cascade-abc123', '/home/tester');
+    expect(path.split('/').pop()).toBe('cascade-abc123.db');
+  });
+
+  it('defaults the home to the real user home', () => {
+    expect(canonicalConversationDbPath('conv-453')).toBe(
+      join(homedir(), '.gemini', 'antigravity-cli', 'conversations', 'conv-453.db')
+    );
   });
 });
 

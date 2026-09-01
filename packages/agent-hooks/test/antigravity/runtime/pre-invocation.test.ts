@@ -6,7 +6,7 @@
  * @summary Tests for the Antigravity PreInvocation handler
  */
 
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AntigravityHandlerDeps } from '../../../src/antigravity/internal/deps.js';
@@ -101,9 +101,27 @@ describe('PreInvocation success contract', () => {
       {
         sessionId: SESSION_ID,
         worktreeDir: join(root, 'workspace'),
-        transcriptPath: join(root, 'transcripts', `${CONVERSATION_ID}.jsonl`)
+        transcriptPath: join(
+          root,
+          'gemini-home',
+          '.gemini',
+          'antigravity-cli',
+          'conversations',
+          `${CONVERSATION_ID}.db`
+        )
       }
     ]);
+  });
+
+  it('registers the canonical conversation DB path, absent DB included', async () => {
+    const { failure, recorders } = await run();
+    expect(failure).toBeNull();
+    const registered = recorders.registrations[0]?.transcriptPath;
+    expect(registered).toBe(
+      join(root, 'gemini-home', '.gemini', 'antigravity-cli', 'conversations', `${CONVERSATION_ID}.db`)
+    );
+    expect(registered).not.toBe(join(root, 'transcripts', `${CONVERSATION_ID}.jsonl`));
+    expect(existsSync(registered as string)).toBe(false);
   });
 
   it('runs the reconciliation sweep', async () => {
