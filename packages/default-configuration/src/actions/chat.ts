@@ -10,6 +10,9 @@
  * - OpenCode: spawns the `opencode run` CLI with the opencode `chat-routing`
  *   skill prepended to the opening positional turn (`opencode run` has no
  *   system-prompt override flag).
+ * - Antigravity: spawns the `agy` CLI interactively with a short prompt that
+ *   references the chat-routing skill by its Antigravity-native address; the
+ *   skill content itself ships in the managed Antigravity payload.
  *
  * The process always runs interactively — stdio is inherited so the user gets
  * direct terminal control. Background mode is not supported because chat
@@ -28,6 +31,7 @@ import { type ActionContext, type ActionInput, defineAction } from '@cards.manag
 import chatRoutingSkill from '../../../../claude/runtime/skills/chat-routing/SKILL.md';
 import codexChatRoutingSkill from '../../../../codex/runtime/skills/chat-routing/SKILL.md';
 import opencodeChatRoutingSkill from '../../../../opencode/runtime/skills/chat-routing/SKILL.md';
+import { spawnAntigravitySession } from '../lib/antigravity-session.js';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
@@ -63,6 +67,20 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     const agent = resolveCodingAgent(input);
+
+    if (agent === 'antigravity-cli') {
+      if (input.executionMode === 'background') {
+        throw new Error(
+          `cards.defaultCodingAgent='antigravity-cli' does not support background-mode chat. ` +
+            `Run the Chat action in interactive mode, or switch cards.defaultCodingAgent to 'claude-code-cli'.`
+        );
+      }
+      await spawnAntigravitySession(input, context, {
+        suppressExitWhenDone: true,
+        prompt: 'Load the `runtime:chat-routing` skill and follow the `<routing-instructions>`.'
+      });
+      return;
+    }
 
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {

@@ -59,6 +59,10 @@ vi.mock('../src/lib/opencode-session.js', () => ({
   writeCardsLaunchConfig: vi.fn().mockResolvedValue('/test/cards-opencode-staging/cards-assistant.config.json')
 }));
 
+vi.mock('../src/lib/antigravity-session.js', () => ({
+  spawnAntigravitySession: vi.fn()
+}));
+
 const ORIGINAL_PLATFORM = process.platform;
 
 /**
@@ -446,5 +450,159 @@ describe('cards-assistant handler', () => {
 
     child.emit('close', 0);
     await promise;
+  });
+
+  describe('antigravity branch', () => {
+    /**
+     * Encodes a grant payload the way the extension's single writer helper
+     * does: base64url-encoded JSON.
+     *
+     * @param grant - Grant payload to encode.
+     * @returns The base64url-encoded envelope.
+     */
+    function encodeGrant(grant: Record<string, unknown>): string {
+      return Buffer.from(JSON.stringify(grant), 'utf-8').toString('base64url');
+    }
+
+    /**
+     * Sets a valid launch grant bound to `antigravity-cli` with a future expiry.
+     *
+     * @param overrides - Field overrides merged over the valid payload.
+     * @returns The base64url-encoded grant envelope that was installed.
+     */
+    function installValidGrant(overrides: Record<string, unknown> = {}): string {
+      const encoded = encodeGrant({
+        v: 1,
+        agent: 'antigravity-cli',
+        issuedAtMs: Date.now() - 1_000,
+        expiresAtMs: Date.now() + 60_000,
+        probeFingerprint: 'probe-fingerprint-1',
+        ...overrides
+      });
+      process.env['CARDS_AGENT_LAUNCH_GRANT'] = encoded;
+      return encoded;
+    }
+
+    afterEach(() => {
+      delete process.env['CARDS_AGENT_LAUNCH_GRANT'];
+    });
+
+    it('spawns interactive agy -i with the assistant instructions in the workspace cwd', async () => {
+      installValidGrant();
+      const { spawn } = await import('node:child_process');
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const handler = (await import('../src/cards-assistant.js')).default;
+      const promise = handler(baseInput({ codingAgent: 'antigravity-cli' }), createMockContext());
+      await flushMicrotasks();
+
+      expect(vi.mocked(spawn).mock.calls[0][0]).toBe('agy');
+      const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+      expect(args[0]).toBe('-i');
+      // The assistant prompt is the packaged assistant instructions (same
+      // bundle the other hosts launch with); no card fields ride the argv.
+      expect(args[1]).toContain('Load the `cards:cards` skill');
+      expect(args[1].trimStart().startsWith('<instructions>')).toBe(true);
+      expect(args).toHaveLength(2);
+      expect(args).not.toContain('--dangerously-skip-permissions');
+
+      const opts = vi.mocked(spawn).mock.calls[0][2] as {
+        cwd?: string;
+        stdio?: unknown;
+        detached?: boolean;
+        shell?: boolean;
+        env?: Record<string, string | undefined>;
+      };
+      expect(opts.cwd).toBe('/test/workspace');
+      expect(opts.stdio).toBe('inherit');
+      expect(opts.detached).toBe(process.platform !== 'win32');
+      expect(opts.shell).toBeUndefined();
+      // Workspace/window-owned session: no EXIT_WHEN_DONE override is ever set.
+      expect(opts.env?.EXIT_WHEN_DONE).not.toBe('false');
+
+      child.emit('close', 0);
+      await promise;
+    });
+
+    it('makes no card settlement calls — no card session, watcher, or status settle', async () => {
+      installValidGrant();
+      const { spawn } = await import('node:child_process');
+      const { spawnAntigravitySession } = await import('../src/lib/antigravity-session.js');
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const handler = (await import('../src/cards-assistant.js')).default;
+      const promise = handler(baseInput({ codingAgent: 'antigravity-cli' }), createMockContext());
+      await flushMicrotasks();
+
+      // The assistant launch never goes through the card-session spawner: it
+      // is workspace/window-owned, with no worktree, watcher, or settlement.
+      expect(vi.mocked(spawnAntigravitySession)).not.toHaveBeenCalled();
+      expect(vi.mocked(spawn)).toHaveBeenCalledTimes(1);
+
+      child.emit('close', 0);
+      await promise;
+    });
+
+    it.each([
+      ['absent', undefined],
+      ['malformed', '!!!not-base64url!!!'],
+      [
+        'wrong-version',
+        encodeGrant({ v: 2, agent: 'antigravity-cli', issuedAtMs: 1, expiresAtMs: 2, probeFingerprint: 'p' })
+      ],
+      [
+        'agent-mismatch',
+        encodeGrant({
+          v: 1,
+          agent: 'codex-cli',
+          issuedAtMs: 1,
+          expiresAtMs: Date.now() + 60_000,
+          probeFingerprint: 'p'
+        })
+      ],
+      ['expired', encodeGrant({ v: 1, agent: 'antigravity-cli', issuedAtMs: 1, expiresAtMs: 1, probeFingerprint: 'p' })]
+    ])('refuses launch on a %s grant without spawning', async (expectedReason, encoded) => {
+      const { spawn } = await import('node:child_process');
+      const { spawnAntigravitySession } = await import('../src/lib/antigravity-session.js');
+      if (encoded !== undefined) {
+        process.env['CARDS_AGENT_LAUNCH_GRANT'] = encoded;
+      }
+
+      const handler = (await import('../src/cards-assistant.js')).default;
+      await expect(handler(baseInput({ codingAgent: 'antigravity-cli' }), createMockContext())).rejects.toThrow(
+        new RegExp(`\\[${expectedReason}\\]`)
+      );
+
+      expect(spawn).not.toHaveBeenCalled();
+      expect(vi.mocked(spawnAntigravitySession)).not.toHaveBeenCalled();
+    });
+
+    it('fails closed on a spawn error without hanging', async () => {
+      installValidGrant();
+      const { spawn } = await import('node:child_process');
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const errorSpy = vi.spyOn(context.logger, 'error');
+
+      const handler = (await import('../src/cards-assistant.js')).default;
+      let resolved = false;
+      const promise = handler(baseInput({ codingAgent: 'antigravity-cli' }), context).then(() => {
+        resolved = true;
+      });
+      await flushMicrotasks();
+
+      expect(resolved).toBe(false);
+
+      const enoent = Object.assign(new Error('spawn agy ENOENT'), { code: 'ENOENT' });
+      child.emit('error', enoent);
+
+      await promise;
+      expect(resolved).toBe(true);
+      expect(errorSpy).toHaveBeenCalledWith('Failed to spawn agy', { error: 'spawn agy ENOENT' });
+    });
   });
 });

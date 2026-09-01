@@ -14,6 +14,11 @@
  *   spawns the `opencode` TUI with the interview instructions seeded as the
  *   opening turn via `--prompt` and the repo root as the project positional,
  *   passing the document via `OPENCODE_CONFIG`.
+ * - Antigravity: validates the agent-bound launch grant, then spawns `agy`
+ *   interactively (`-i`) with the assistant instructions as the opening
+ *   prompt. No plugin is globally enabled for this launch and no card/session
+ *   state exists: no card ID, no worktree, no branch watcher, no
+ *   `EXIT_WHEN_DONE` override, and no card settlement calls.
  *
  * When `input.initialPrompt` is set, it is appended to the Claude branch's
  * `cliArgs` after a `--` end-of-options terminator, so `claude` treats it as
@@ -39,6 +44,7 @@ import {
   writeCodexProfileConfig
 } from './lib/codex-session.js';
 import { resolveCodingAgent } from './lib/coding-agent.js';
+import { CARDS_AGENT_LAUNCH_GRANT_ENV_VAR, validateAgentLaunchGrant } from './lib/launch-grant.js';
 import {
   assertOpencodeBinaryAvailable,
   OPENCODE_ASSISTANT_PLUGIN_NAMES,
@@ -66,6 +72,46 @@ const INTERVIEW_INSTRUCTIONS = `<instructions>
 
 export default defineCardsAssistant({}, async (input, { logger }) => {
   const agent = resolveCodingAgent(input);
+
+  if (agent === 'antigravity-cli') {
+    // Consume the extension's pre-spawn health/auth probe FIRST: a named
+    // grant refusal happens before any spawn. This branch is
+    // workspace/window-owned — no card ID, no worktree, no branch watcher,
+    // no EXIT_WHEN_DONE override, and no card settlement calls.
+    validateAgentLaunchGrant(process.env[CARDS_AGENT_LAUNCH_GRANT_ENV_VAR], 'antigravity-cli', Date.now());
+
+    const args = ['-i', INTERVIEW_INSTRUCTIONS];
+
+    logger.info('Starting cards assistant (antigravity)', {
+      cwd: input.repoRoot
+    });
+
+    const child = spawnAgentCli('agy', args, {
+      cwd: input.repoRoot,
+      stdio: 'inherit',
+      // Detached on POSIX so `agy` roots its own process group: the extension
+      // records the group for window-disposal and cancellation drains
+      // (graceful-then-forced, same escalation as the action paths).
+      detached: process.platform !== 'win32'
+    });
+
+    const exitCode = await new Promise<number | null>((resolve) => {
+      // Fail closed: a spawn failure (e.g. ENOENT when the `agy` binary is
+      // missing) emits `error` but never `close`, which would leave this
+      // promise hung forever. Mirrors the codex/claude/opencode launch
+      // guards above/below.
+      child.on('error', (error) => {
+        logger.error('Failed to spawn agy', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        resolve(null);
+      });
+      child.on('close', resolve);
+    });
+
+    logger.info('Cards assistant exited', { exitCode });
+    return;
+  }
 
   if (agent === 'codex-cli') {
     const codexHome = resolveDefaultCodexHome();

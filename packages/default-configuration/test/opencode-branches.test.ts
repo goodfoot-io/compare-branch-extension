@@ -263,11 +263,11 @@ describe('resolveCodingAgent — opencode', () => {
     expect(resolveCodingAgent({ codingAgent: 'opencode-cli' })).toBe('opencode-cli');
   });
 
-  it('lists all three supported values in the unsupported-value error', async () => {
+  it('lists all four supported values in the unsupported-value error', async () => {
     const { resolveCodingAgent } = await import('../src/lib/coding-agent.js');
 
     expect(() => resolveCodingAgent({ codingAgent: 'cursor-cli' })).toThrow(
-      /'claude-code-cli', 'codex-cli', or 'opencode-cli'/
+      /'claude-code-cli', 'codex-cli', 'opencode-cli', or 'antigravity-cli'/
     );
   });
 });

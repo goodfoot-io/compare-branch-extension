@@ -19,6 +19,12 @@
  *   headless one-shot (`opencode run`) in the card worktree — piped stdio,
  *   stderr captured to the action log, and inline post-exit cleanup, mirroring
  *   the Claude background path.
+ * - Antigravity: spawns the `agy` CLI in the card worktree. Interactive
+ *   actions run terminal-owned (`-i`); background dispatch runs the one-shot
+ *   (`-p`) with child-owned stream-json output, whose final result record the
+ *   launcher parses — exit zero without a successful final record fails the
+ *   action. Prompts reference the card skill by its Antigravity-native
+ *   address; the skill content ships in the managed Antigravity payload.
  *
  * The action awaits process exit before resolving, so the terminal closes
  * only after the underlying CLI finishes and cleanup is complete.
@@ -30,6 +36,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards.management/sdk/config';
+import { spawnAntigravitySession } from '../lib/antigravity-session.js';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
@@ -53,6 +60,13 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     const agent = resolveCodingAgent(input);
+
+    if (agent === 'antigravity-cli') {
+      await spawnAntigravitySession(input, context, {
+        prompt: 'Load the `runtime:card` skill and follow the `<routing-instructions>`.'
+      });
+      return;
+    }
 
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {

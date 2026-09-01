@@ -13,6 +13,9 @@
  *   `<routing-instructions>`. The skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch cache and registered through
  *   the staged `OPENCODE_CONFIG` document.
+ * - Antigravity: spawns the `agy` CLI interactively with a short prompt that
+ *   references the interview skill by its Antigravity-native address; the
+ *   skill content itself ships in the managed Antigravity payload.
  *
  * The process always runs interactively — stdio is inherited so the user gets
  * direct terminal control. Background mode is not supported because interviews
@@ -28,6 +31,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards.management/sdk/config';
+import { spawnAntigravitySession } from '../lib/antigravity-session.js';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
@@ -50,6 +54,20 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     const agent = resolveCodingAgent(input);
+
+    if (agent === 'antigravity-cli') {
+      if (input.executionMode === 'background') {
+        throw new Error(
+          `cards.defaultCodingAgent='antigravity-cli' does not support background-mode interviews. ` +
+            `Run the Interview action in interactive mode, or switch cards.defaultCodingAgent to 'claude-code-cli'.`
+        );
+      }
+      await spawnAntigravitySession(input, context, {
+        suppressExitWhenDone: true,
+        prompt: 'Load the `runtime:interview` skill and follow the `<routing-instructions>`.'
+      });
+      return;
+    }
 
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {

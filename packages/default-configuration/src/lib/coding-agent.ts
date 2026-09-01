@@ -14,7 +14,7 @@
 /**
  * Canonical coding-agent identifiers that action handlers branch on.
  */
-export type CodingAgent = 'claude-code-cli' | 'codex-cli' | 'opencode-cli';
+export type CodingAgent = 'claude-code-cli' | 'codex-cli' | 'opencode-cli' | 'antigravity-cli';
 
 /**
  * Pre-main-319 legacy values that resolve to Claude for backward compatibility.
@@ -43,8 +43,8 @@ const LEGACY_CLAUDE_VALUES: ReadonlySet<string | undefined> = new Set([
  * @param input.codingAgent - The raw `cards.defaultCodingAgent` setting value.
  * @returns The canonical coding-agent identifier for handler branching.
  * @throws {Error} When `input.codingAgent` is neither a recognized legacy value
- *   nor `'codex-cli'`. The message names the offending value and points at the
- *   `cards.defaultCodingAgent` setting.
+ *   nor one of the canonical agent ids. The message names the offending value
+ *   and points at the `cards.defaultCodingAgent` setting.
  */
 export function resolveCodingAgent(input: { codingAgent?: string }): CodingAgent {
   const value = input.codingAgent;
@@ -54,12 +54,15 @@ export function resolveCodingAgent(input: { codingAgent?: string }): CodingAgent
   if (value === 'opencode-cli') {
     return 'opencode-cli';
   }
+  if (value === 'antigravity-cli') {
+    return 'antigravity-cli';
+  }
   if (LEGACY_CLAUDE_VALUES.has(value)) {
     return 'claude-code-cli';
   }
   throw new Error(
     `cards.defaultCodingAgent='${value}' is not a supported value. ` +
-      `Set cards.defaultCodingAgent to 'claude-code-cli', 'codex-cli', or 'opencode-cli' ` +
+      `Set cards.defaultCodingAgent to 'claude-code-cli', 'codex-cli', 'opencode-cli', or 'antigravity-cli' ` +
       `in VS Code settings, or open the Cards setup wizard.`
   );
 }
