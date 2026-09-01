@@ -52,6 +52,24 @@ export default defineConfig({
           // line; OpenCode truncates tool output before it reaches the part,
           // so lines stay well under 1 MiB.
           maxLineLength: 1_048_576
+        },
+        'antigravity-session': {
+          version: 1,
+          // Like the opencode-session sibling, this entrypoint is generated
+          // (it cannot be committed under src/ — see
+          // scripts/generate-antigravity-entry.mjs: the build-unchanged
+          // watcher would restart mid-build on a src/ write, and the Cards
+          // integration hook treats newly staged .html as a published page
+          // whose assets must resolve under a repository-root assets/
+          // directory). scripts/build.mjs materializes it here before the
+          // settings build runs; pointing at the src/ directory instead
+          // would ship a wwwRoot that resolves to nothing at runtime.
+          wwwRoot: './dist/www-entry/antigravity-session',
+          // One normalized destination record per line, and a record's whole
+          // step content — including embedded tool payloads — rides that one
+          // line, so the limit sits between the Claude renderer's 1 MiB and
+          // the Codex renderer's 4 MiB.
+          maxLineLength: 2_097_152
         }
       }
     }

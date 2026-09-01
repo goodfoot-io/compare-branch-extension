@@ -1,0 +1,104 @@
+@import '@cards.management/web/styles';
+@import '@vscode/codicons/dist/codicon.css';
+@import '../../lib/tokens.css';
+@import '../../lib/compact-card.css';
+@import '../../lib/accordions.css';
+@import '../../lib/json-block.css';
+@import '../../lib/boundary.css';
+@import '../../lib/turns.css';
+@import '../../lib/aui/aui.css';
+
+/* =============================================================================
+   ANTIGRAVITY SESSION RENDERER STYLES (`.agy-*` classes)
+
+   Reads the shared `--stream-*` design-token layer (tokens.css) exclusively —
+   no direct `--vscode-*` reads and no literal colors — so this renderer's
+   surfaces, text, and accents stay in lockstep with the claude/codex/
+   opencode renderers and any future token change updates all at once.
+
+   The expanded transcript renders through the shared `StreamThread`
+   (streams/lib/aui) — turn anatomy, markdown, and the shared `data` parts
+   (boundary/raw/status-line/error-line) all come from aui.css and friends
+   imported above. What remains below is only what the shared foundation has
+   no shape for: the named `agy-anomaly` event block
+   (./components/expanded/AntigravityDataParts.tsx) and the empty-transcript
+   placeholder.
+   ============================================================================= */
+
+html,
+body,
+#stream-root {
+  height: 100%;
+}
+
+body {
+  color: var(--stream-fg);
+}
+
+/* Compact mode renders inside the cards-detail StreamIframeHost iframe. Keep
+   the body transparent so the rounded corners on the inner container are
+   visible, and anchor the root to the host's em basis (see the Claude renderer
+   for the full rationale on the font-size match). */
+body.mode-compact {
+  background: transparent;
+  margin: 0;
+  font-size: var(--vscode-font-size, 13px);
+}
+
+body.mode-expanded {
+  background: var(--stream-surface);
+  margin: 0;
+}
+
+/* Named anomaly event — one host-drift / flush-partial / format-unknown
+   signal emitted by the engine. Must read as a distinct event row, never as
+   ordinary transcript content. */
+.agy-anomaly {
+  border: 1px solid var(--stream-severity-error-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 4px 0;
+  color: var(--stream-fg);
+  font-size: 12px;
+}
+
+.agy-anomaly-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--stream-severity-error-fg);
+}
+
+.agy-anomaly-idx {
+  font-weight: 400;
+  color: var(--stream-fg-muted);
+}
+
+.agy-anomaly-detail {
+  margin-top: 2px;
+  color: var(--stream-fg-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agy-anomaly-content {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  background: var(--stream-surface);
+  border-radius: 3px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+}
+
+.agy-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--stream-fg-muted);
+  font-size: 12px;
+}

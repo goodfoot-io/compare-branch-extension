@@ -19,6 +19,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateAntigravityEntry } from './generate-antigravity-entry.mjs';
 import { generateOpencodeEntry } from './generate-opencode-entry.mjs';
 import { publishBundle } from './publishBundle.mjs';
 
@@ -70,12 +71,14 @@ const dist = join(pkgRoot, 'dist');
 // 1. Clean dist.
 rmSync(dist, { recursive: true, force: true });
 
-// 1b. Materialize the opencode-session renderer's generated entrypoint. Its
-// configured wwwRoot is `./dist/www-entry/opencode-session` (the entrypoint
-// cannot be committed under src/ — see generate-opencode-entry.mjs), and the
-// settings build below fails closed when a stream's wwwRoot entrypoint is
-// missing, so it must exist before cards-sdk runs.
+// 1b. Materialize the generated renderer entrypoints. The opencode-session
+//     and antigravity-session wwwRoots point at generated directories (their
+//     entrypoints cannot be committed under src/ — see
+//     generate-opencode-entry.mjs / generate-antigravity-entry.mjs), and the
+//     settings build below fails closed when a stream's wwwRoot entrypoint is
+//     missing, so both must exist before cards-sdk runs.
 generateOpencodeEntry(pkgRoot);
+generateAntigravityEntry(pkgRoot);
 
 // 2. Generate the configuration bundle (settings.json + compiled handlers).
 //
@@ -94,7 +97,7 @@ runWithRetry('cards-sdk build -c settings.config.ts -o dist --loader .md=text');
 // {@link runWithRetry} — the failure alternates between renderers and
 // disappears under instrumentation or in isolation). Creating the tree here,
 // before any Bun process starts, removes the racy window for every renderer.
-const RENDERER_TYPES = ['claude-code-session', 'codex-session', 'opencode-session'];
+const RENDERER_TYPES = ['claude-code-session', 'codex-session', 'opencode-session', 'antigravity-session'];
 const wwwDir = join(dist, 'www');
 for (const type of RENDERER_TYPES) {
   mkdirSync(join(wwwDir, type), { recursive: true });
