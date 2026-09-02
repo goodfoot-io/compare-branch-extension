@@ -26,6 +26,8 @@ import { buildAdditionalContext } from '../../shared/context.js';
 import { ANTIGRAVITY_STREAM_TYPE, type AntigravityCardMeta, type AntigravityHandlerDeps } from './deps.js';
 import {
   type AntigravityInvocationInput,
+  CARDS_ASSISTANT_WINDOW_ID_ENV_VAR,
+  classifyCardsManagedSession,
   isCardsActionSession,
   parseCommonInput,
   parseInvocationInput,
@@ -44,6 +46,7 @@ export type HandlerFailureStage =
   | 'action-env'
   | 'card-context'
   | 'session-registration'
+  | 'session-cleanup'
   | 'watcher-setup'
   | 'ready-marker'
   | 'decision'
@@ -75,6 +78,130 @@ export class HandlerFailure extends Error {
 export interface AntigravityHandlerResult {
   /** JSON value written to stdout; `undefined` writes nothing. */
   output?: unknown;
+}
+
+/** Durable workspace/window registration emitted for Cards Assistant. */
+export interface CardsAssistantRuntimeRegistration {
+  /** Cards-owned session identity inherited from the launcher. */
+  sessionId: string;
+  /** VS Code window/session identity that owns this Assistant process. */
+  windowId: string;
+  /** Exact active workspace selected as the launch cwd. */
+  workspacePath: string;
+  /** Host conversation identity from the pinned hook input. */
+  conversationId: string;
+  /** Canonical read-only SQLite conversation path for this conversation. */
+  transcriptPath: string;
+  /** Host model name recorded for diagnostics. */
+  modelName: string;
+}
+
+/**
+ * Registers and marks a workspace/window Assistant invocation without
+ * entering any card-action routing or settlement path.
+ *
+ * @param raw - Raw pinned PreInvocation input.
+ * @param ctx - Handler dependencies and logger.
+ * @returns The standard no-message PreInvocation response.
+ * @throws {HandlerFailure} When identity, registration, or ready-marker persistence fails.
+ */
+export async function handleCardsAssistantPreInvocation(
+  raw: unknown,
+  ctx: HandlerContext
+): Promise<AntigravityHandlerResult> {
+  const { deps, logger } = ctx;
+  const input = parseInvocationOrThrow(raw);
+  const sessionId = requireSessionId(deps, input.conversationId);
+  const windowId = (process.env[CARDS_ASSISTANT_WINDOW_ID_ENV_VAR] ?? '').trim();
+  if (windowId.length === 0) {
+    throw new HandlerFailure(
+      'session-identity',
+      `${CARDS_ASSISTANT_WINDOW_ID_ENV_VAR} is not set: the launcher must export the owning window identity`,
+      input.conversationId
+    );
+  }
+
+  const workspacePath = input.workspacePaths[0] as string;
+  const transcriptPath = deps.conversationDbPath(input.conversationId);
+  try {
+    await deps.registerSession(sessionId, workspacePath, transcriptPath);
+  } catch (error) {
+    throw new HandlerFailure(
+      'session-registration',
+      error instanceof Error ? error.message : String(error),
+      input.conversationId
+    );
+  }
+
+  const registration: CardsAssistantRuntimeRegistration = {
+    sessionId,
+    windowId,
+    workspacePath,
+    conversationId: input.conversationId,
+    transcriptPath,
+    modelName: input.modelName
+  };
+  try {
+    writeMarker(deps.io, markerPath(deps.cardsConfigDir(), sessionId, input.conversationId, 'ready'), registration);
+  } catch (error) {
+    throw new HandlerFailure(
+      'ready-marker',
+      error instanceof Error ? error.message : String(error),
+      input.conversationId
+    );
+  }
+
+  logger.info('Antigravity Cards Assistant session ready', {
+    sessionId,
+    windowId,
+    conversationId: input.conversationId
+  });
+  return { output: preInvocationOutput() };
+}
+
+/**
+ * Flushes and cleans a workspace/window Assistant session without card
+ * shutdown acknowledgement, branch cleanup, or settlement.
+ *
+ * @param raw - Raw pinned Stop input.
+ * @param ctx - Handler dependencies and logger.
+ * @returns The standard no-decision Stop response.
+ * @throws {HandlerFailure} When registration/artifact cleanup or drain-marker persistence fails.
+ */
+export async function handleCardsAssistantStop(raw: unknown, ctx: HandlerContext): Promise<AntigravityHandlerResult> {
+  const { deps, logger } = ctx;
+  const input = parseCommonOrThrow(raw);
+  const sessionId = requireSessionId(deps, input.conversationId);
+  const cleanupErrors: Error[] = [];
+  try {
+    await deps.cleanupSessionRegistration(sessionId);
+  } catch (error) {
+    cleanupErrors.push(error instanceof Error ? error : new Error(String(error)));
+  }
+  try {
+    deps.cleanupSessionArtifacts(sessionId);
+  } catch (error) {
+    cleanupErrors.push(error instanceof Error ? error : new Error(String(error)));
+  }
+  if (cleanupErrors.length > 0) {
+    throw new HandlerFailure(
+      'session-cleanup',
+      new AggregateError(cleanupErrors, `Cards Assistant cleanup had ${cleanupErrors.length} failure(s)`).message,
+      input.conversationId
+    );
+  }
+
+  try {
+    writeMarker(deps.io, markerPath(deps.cardsConfigDir(), sessionId, input.conversationId, 'drain-ready'));
+  } catch (error) {
+    throw new HandlerFailure(
+      'drain-marker',
+      error instanceof Error ? error.message : String(error),
+      input.conversationId
+    );
+  }
+  logger.info('Antigravity Cards Assistant cleanup complete', { sessionId, conversationId: input.conversationId });
+  return { output: stopOutput() };
 }
 
 /** Dependencies and diagnostics handed to every handler invocation. */
@@ -196,8 +323,12 @@ function requireCardContext(actionInput: ActionInput, conversationId: string | n
  */
 export async function handlePreInvocation(raw: unknown, ctx: HandlerContext): Promise<AntigravityHandlerResult> {
   const { deps, logger } = ctx;
-  if (!isCardsActionSession()) {
+  const sessionKind = classifyCardsManagedSession();
+  if (sessionKind === 'foreign') {
     return { output: preInvocationOutput() };
+  }
+  if (sessionKind === 'cards-assistant') {
+    return handleCardsAssistantPreInvocation(raw, ctx);
   }
 
   const input = parseInvocationOrThrow(raw);
@@ -213,6 +344,7 @@ export async function handlePreInvocation(raw: unknown, ctx: HandlerContext): Pr
 
   const actionInput = requireActionInput(deps, input.conversationId);
   requireCardContext(actionInput, input.conversationId);
+  const conversationDbPath = deps.conversationDbPath(input.conversationId);
 
   const agentPid = await deps.findMonitorPid();
   if (agentPid === null) {
@@ -228,7 +360,7 @@ export async function handlePreInvocation(raw: unknown, ctx: HandlerContext): Pr
     manifest = deps.buildManifest({
       sessionId,
       cardId: actionInput.cardId,
-      transcriptPath: input.transcriptPath,
+      transcriptPath: conversationDbPath,
       monitorPid: agentPid,
       cardRepoPath: actionInput.cardRepoPath
     });
@@ -250,11 +382,7 @@ export async function handlePreInvocation(raw: unknown, ctx: HandlerContext): Pr
   // attach resolution derives the conversation id from the DB basename and
   // the poller waits for the file to appear.
   try {
-    await deps.registerSession(
-      sessionId,
-      input.workspacePaths[0] as string,
-      deps.conversationDbPath(input.conversationId)
-    );
+    await deps.registerSession(sessionId, input.workspacePaths[0] as string, conversationDbPath);
   } catch (error) {
     throw new HandlerFailure(
       'session-registration',
@@ -266,7 +394,7 @@ export async function handlePreInvocation(raw: unknown, ctx: HandlerContext): Pr
   const readyPayload: ReadyMarkerPayload = {
     conversationId: input.conversationId,
     sessionId,
-    transcriptPath: input.transcriptPath,
+    transcriptPath: conversationDbPath,
     modelName: input.modelName
   };
   try {
@@ -568,8 +696,12 @@ function writeFlushSentinel(deps: AntigravityHandlerDeps, cardRepoPath: string, 
  */
 export async function handleStop(raw: unknown, ctx: HandlerContext): Promise<AntigravityHandlerResult> {
   const { deps, logger } = ctx;
-  if (!isCardsActionSession()) {
+  const sessionKind = classifyCardsManagedSession();
+  if (sessionKind === 'foreign') {
     return { output: stopOutput() };
+  }
+  if (sessionKind === 'cards-assistant') {
+    return handleCardsAssistantStop(raw, ctx);
   }
 
   const input = parseCommonOrThrow(raw);

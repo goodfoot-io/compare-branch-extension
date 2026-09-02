@@ -22,7 +22,7 @@ import {
   HandlerFailure,
   type HandlerFailureStage
 } from './handlers.js';
-import { isCardsActionSession, peekConversationId } from './inputs.js';
+import { classifyCardsManagedSession, peekConversationId } from './inputs.js';
 import type { AntigravityIo } from './io.js';
 import type { RuntimeMarkerKind } from './markers.js';
 import { markerPath, writeMarker } from './markers.js';
@@ -157,7 +157,7 @@ export async function runAntigravityHook(
 ): Promise<void> {
   const stdin = await readStdin();
 
-  if (!isCardsActionSession()) {
+  if (classifyCardsManagedSession() === 'foreign') {
     process.stdout.write(`${JSON.stringify({})}\n`);
     return;
   }

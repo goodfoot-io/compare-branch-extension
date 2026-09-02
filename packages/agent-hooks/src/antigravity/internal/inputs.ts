@@ -100,6 +100,30 @@ export class InputValidationError extends Error {
   }
 }
 
+/** Exact opt-in value exported only by the Cards Assistant launcher. */
+export const CARDS_ASSISTANT_SESSION_ENV_VAR = 'CARDS_ASSISTANT_SESSION';
+
+/** Stable VS Code window/session identity exported with an Assistant launch. */
+export const CARDS_ASSISTANT_WINDOW_ID_ENV_VAR = 'CARDS_ASSISTANT_WINDOW_ID';
+
+/** Exhaustive ownership classification for an Antigravity hook process. */
+export type CardsManagedSessionKind = 'foreign' | 'card-action' | 'cards-assistant';
+
+/**
+ * Classifies whether the host process belongs to Cards and which lifecycle
+ * owns it. Assistant ownership is explicit and never inferred from the
+ * presence of `ANTIGRAVITY_SESSION_ID`; a foreign user may set that variable.
+ *
+ * @param env - Environment inherited by the hook subprocess.
+ * @returns Foreign, card-action, or workspace/window Assistant ownership.
+ */
+export function classifyCardsManagedSession(env: NodeJS.ProcessEnv = process.env): CardsManagedSessionKind {
+  if (env[CARDS_ENV_VARS.CARD_ID]) {
+    return 'card-action';
+  }
+  return env[CARDS_ASSISTANT_SESSION_ENV_VAR] === '1' ? 'cards-assistant' : 'foreign';
+}
+
 /**
  * Reports whether the current process runs inside a Cards action.
  *
@@ -110,7 +134,7 @@ export class InputValidationError extends Error {
  * @returns `true` when `CARD_ID` is present in the process environment.
  */
 export function isCardsActionSession(): boolean {
-  return Boolean(process.env[CARDS_ENV_VARS.CARD_ID]);
+  return classifyCardsManagedSession() === 'card-action';
 }
 
 /**

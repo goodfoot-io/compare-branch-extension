@@ -203,7 +203,8 @@ export class SqlitePollEngine {
   private absenceSince: number | null = null;
   private lastDataVersion: number | null = null;
   private identityVerified = false;
-  private rehashCursor = 0;
+  /** Ordinal SQL OFFSET into the current idx-ordered rehash cycle. */
+  private rehashOffset = 0;
   private cycleComplete = true;
   private permanentDetail: string | null = null;
   private lastEmittedSchemaFingerprint: string | null = null;
@@ -227,7 +228,7 @@ export class SqlitePollEngine {
     this.absenceSince = null;
     this.lastDataVersion = null;
     this.identityVerified = false;
-    this.rehashCursor = 0;
+    this.rehashOffset = 0;
     this.cycleComplete = true;
     this.permanentDetail = null;
     this.lastEmittedSchemaFingerprint = null;
@@ -369,7 +370,7 @@ export class SqlitePollEngine {
       return [];
     }
     if (dataVersion !== this.lastDataVersion) {
-      this.rehashCursor = 0;
+      this.rehashOffset = 0;
       this.cycleComplete = false;
     }
     this.lastDataVersion = dataVersion;
@@ -429,7 +430,7 @@ export class SqlitePollEngine {
       const slice = (
         connection
           .prepare(`SELECT ${SELECT_ALL_COLUMNS} FROM steps WHERE idx <= ? ORDER BY idx LIMIT ? OFFSET ?`)
-          .all(this.highWater, SQLITE_POLL_REHASH_ROWS_PER_TICK, this.rehashCursor) as unknown[]
+          .all(this.highWater, SQLITE_POLL_REHASH_ROWS_PER_TICK, this.rehashOffset) as unknown[]
       ).map(rowToStepRow);
       for (const row of slice) {
         const record = this.deriveRecord(row);
@@ -443,9 +444,9 @@ export class SqlitePollEngine {
         const lastIdx = slice[slice.length - 1]!.idx;
         if (lastIdx >= this.highWater) {
           this.cycleComplete = true;
-          this.rehashCursor = 0;
+          this.rehashOffset = 0;
         } else {
-          this.rehashCursor = lastIdx + 1;
+          this.rehashOffset += slice.length;
         }
       }
     }

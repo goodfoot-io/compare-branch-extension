@@ -68,6 +68,37 @@ describe('buildAntigravityArgs', () => {
   });
 });
 
+describe('Antigravity action argument matrix', () => {
+  it.each([
+    ['interactive', undefined, {}, ['-i']],
+    [
+      'interactive',
+      undefined,
+      { model: 'gemini-3-pro', effort: 'high' },
+      ['-i', '--model', 'gemini-3-pro', '--effort', 'high']
+    ],
+    ['interactive', 'prompt', {}, ['-i', 'prompt']],
+    ['interactive', 'prompt', { model: 'gemini-3-pro' }, ['-i', 'prompt', '--model', 'gemini-3-pro']],
+    ['interactive', 'prompt', { effort: 'high' }, ['-i', 'prompt', '--effort', 'high']],
+    [
+      'background',
+      'prompt',
+      { model: 'gemini-3-pro', effort: 'high' },
+      ['-p', 'prompt', '--output-format', 'stream-json', '--model', 'gemini-3-pro', '--effort', 'high']
+    ]
+  ] as const)('builds %s prompt/control argv without silently dropping selections', async (mode, prompt, controls, expected) => {
+    const { buildAntigravityArgs } = await import('../src/lib/antigravity-session.js');
+    expect(buildAntigravityArgs(prompt, mode, controls)).toEqual(expected);
+  });
+
+  it('rejects blank model/effort values and background mode without a prompt before spawn', async () => {
+    const { buildAntigravityArgs } = await import('../src/lib/antigravity-session.js');
+    expect(() => buildAntigravityArgs('prompt', 'interactive', { model: '' })).toThrow(/model/i);
+    expect(() => buildAntigravityArgs('prompt', 'interactive', { effort: ' ' })).toThrow(/effort/i);
+    expect(() => buildAntigravityArgs(undefined, 'background', { model: 'gemini-3-pro' })).toThrow(/prompt/i);
+  });
+});
+
 describe('parseAntigravityFinalRecord', () => {
   it('parses the pinned result tuple into conversationId/status/response', async () => {
     const { parseAntigravityFinalRecord } = await import('../src/lib/antigravity-session.js');

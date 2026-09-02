@@ -32,7 +32,7 @@ let restoreEnv: () => void;
 beforeEach(() => {
   root = makeTempDir('stop');
   makeCardRepo(root);
-  restoreEnv = withoutEnv('CARD_ID', 'ANTIGRAVITY_SESSION_ID');
+  restoreEnv = withoutEnv('CARD_ID', 'ANTIGRAVITY_SESSION_ID', 'CARDS_ASSISTANT_SESSION', 'CARDS_ASSISTANT_WINDOW_ID');
   process.env['CARD_ID'] = 'main-453';
   process.env['ANTIGRAVITY_SESSION_ID'] = SESSION_ID;
 });
@@ -85,9 +85,9 @@ describe('Stop drain and cleanup contract', () => {
     expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
   });
 
-  it('writes the transcript-watcher flush sentinel for the antigravity stream', async () => {
+  it('writes the transcript-watcher flush sentinel for the canonical antigravity session stream', async () => {
     await run();
-    const sentinel = join(root, 'cards', 'main-453', 'streams', 'antigravity-conversation', `${SESSION_ID}.flush`);
+    const sentinel = join(root, 'cards', 'main-453', 'streams', 'antigravity-session', `${SESSION_ID}.flush`);
     expect(defaultAntigravityIo.existsSync(sentinel)).toBe(true);
   });
 
@@ -123,6 +123,43 @@ describe('Stop drain and cleanup contract', () => {
     delete input['workspacePaths'];
     const { failure } = await run({}, input);
     expect(failure?.stage).toBe('input');
+    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
+    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
+  });
+});
+
+describe('Cards Assistant Stop contract', () => {
+  it('records drain readiness and cleans session artifacts without card shutdown or stream paths', async () => {
+    delete process.env['CARD_ID'];
+    process.env['CARDS_ASSISTANT_SESSION'] = '1';
+    process.env['CARDS_ASSISTANT_WINDOW_ID'] = 'window-453';
+    const cleaned: string[] = [];
+
+    const { failure, recorders } = await run({
+      loadActionInput: () => null,
+      cleanupSessionArtifacts: (sessionId) => cleaned.push(sessionId)
+    });
+
+    expect(failure).toBeNull();
+    expect(cleaned).toEqual([SESSION_ID]);
+    expect(recorders.shutdownAcks).toEqual([]);
+    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(join(root, 'cards', 'main-453', 'streams'))).toBe(false);
+  });
+
+  it('fails closed when Assistant cleanup fails', async () => {
+    delete process.env['CARD_ID'];
+    process.env['CARDS_ASSISTANT_SESSION'] = '1';
+    process.env['CARDS_ASSISTANT_WINDOW_ID'] = 'window-453';
+
+    const { failure } = await run({
+      loadActionInput: () => null,
+      cleanupSessionArtifacts: () => {
+        throw new Error('cleanup denied');
+      }
+    });
+
+    expect(failure?.stage).toBe('session-cleanup');
     expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
     expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
   });

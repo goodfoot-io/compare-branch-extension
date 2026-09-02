@@ -423,6 +423,61 @@ describe('sqlite-poll engine — absence, identity, schema bounds', () => {
 });
 
 describe('sqlite-poll engine — restart and composition', () => {
+  it('rehashes every sparse row beyond the first page and emits post-terminal drift', async () => {
+    for (let ordinal = 0; ordinal < SQLITE_POLL_REHASH_ROWS_PER_TICK + 2; ordinal += 1) {
+      db.insertStep({
+        idx: 10_000 + ordinal * 10,
+        stepType: 15,
+        status: 3,
+        payload: buildAssistantPayload(`answer-${String(ordinal)}`),
+        format: 0
+      });
+    }
+    const engine = harness.makeEngine(db);
+    await engine.attach();
+    ok(await engine.pollOnce());
+
+    const revisedIdx = 10_000 + (SQLITE_POLL_REHASH_ROWS_PER_TICK + 1) * 10;
+    db.db
+      .prepare('UPDATE steps SET step_payload = ? WHERE idx = ?')
+      .run(Buffer.from(buildAssistantPayload('revised-after-terminal')), revisedIdx);
+
+    const firstSlice = ok(await engine.pollOnce());
+    const secondSlice = ok(await engine.pollOnce());
+    expect([...firstSlice, ...secondSlice]).toContainEqual(
+      expect.objectContaining({
+        idx: revisedIdx,
+        content: 'revised-after-terminal',
+        anomaly: { kind: 'host-drift', detail: expect.any(String) }
+      })
+    );
+  });
+
+  it('finds a sparse below-high-water terminal row after restart', async () => {
+    for (let ordinal = 0; ordinal < SQLITE_POLL_REHASH_ROWS_PER_TICK + 2; ordinal += 1) {
+      db.insertStep({
+        idx: 20_000 + ordinal * 10,
+        stepType: 15,
+        status: 3,
+        payload: buildAssistantPayload(`existing-${String(ordinal)}`),
+        format: 0
+      });
+    }
+    const first = harness.makeEngine(db);
+    await first.attach();
+    ok(await first.pollOnce());
+
+    const lateIdx = 20_000 + SQLITE_POLL_REHASH_ROWS_PER_TICK * 10 + 5;
+    db.insertStep({ idx: lateIdx, stepType: 15, status: 3, payload: buildAssistantPayload('late-row'), format: 0 });
+    const restarted = harness.makeEngine(db);
+    await restarted.attach();
+    const firstSlice = ok(await restarted.pollOnce());
+    const secondSlice = ok(await restarted.pollOnce());
+    expect([...firstSlice, ...secondSlice]).toContainEqual(
+      expect.objectContaining({ idx: lateIdx, content: 'late-row', anomaly: null })
+    );
+  });
+
   it('resumes losslessly after a watcher restart mid-DB (no duplicates, no skips)', async () => {
     db.insertStep({ idx: 0, stepType: 14, status: 3, payload: buildUserPayload('q'), format: 0 });
     db.insertStep({ idx: 1, stepType: 15, status: 3, payload: buildAssistantPayload('a'), format: 0 });

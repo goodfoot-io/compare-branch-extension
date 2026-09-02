@@ -106,6 +106,8 @@ export interface DepsRecorders {
   clearedRequests: string[];
   /** Session ids whose artifact cleanup ran. */
   cleanedSessions: string[];
+  /** Session ids whose no-card registration cleanup ran. */
+  cleanedRegistrations: string[];
   /** In-memory session marker store. */
   markers: MemorySessionMarkers;
 }
@@ -131,6 +133,7 @@ export function makeDeps(
   const shutdownAcks: Array<{ socketPath: string; requestId: string }> = [];
   const clearedRequests: string[] = [];
   const cleanedSessions: string[] = [];
+  const cleanedRegistrations: string[] = [];
   const recorders: DepsRecorders = {
     manifests,
     watcherSpawns,
@@ -139,6 +142,7 @@ export function makeDeps(
     shutdownAcks,
     clearedRequests,
     cleanedSessions,
+    cleanedRegistrations,
     markers
   };
 
@@ -159,6 +163,9 @@ export function makeDeps(
     },
     registerSession: async (sessionId, worktreeDir, transcriptPath) => {
       registrations.push({ sessionId, worktreeDir, transcriptPath });
+    },
+    cleanupSessionRegistration: async (sessionId) => {
+      cleanedRegistrations.push(sessionId);
     },
     conversationDbPath: (conversationId) =>
       join(root, 'gemini-home', '.gemini', 'antigravity-cli', 'conversations', `${conversationId}.db`),

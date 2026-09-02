@@ -4,8 +4,8 @@
   "target": "public/antigravity/runtime/skills",
   "platform": "antigravity",
   "plugin": "runtime",
-  "version": "1.0.440",
-  "registrySha256": "0b0c2f65cbf87734289762c4bdc3f0191c800c150a14aaee33db5701d7813017",
+  "version": "1.0.441",
+  "registrySha256": "7f33d0b215b1625e8cbde304268df2d1c524797c538294d08a4793cfe6faf2f0",
   "files": [
     {
       "path": "captain/references/blocked.md",

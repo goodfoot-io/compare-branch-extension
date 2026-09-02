@@ -189,6 +189,8 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   delete process.env['API_TEST_MODE'];
   delete process.env['CARDS_AGENT_LAUNCH_GRANT'];
+  delete process.env['CARDS_AGENT_MODEL'];
+  delete process.env['CARDS_AGENT_EFFORT'];
 });
 
 function createMockContext(): ActionContext {
@@ -248,6 +250,34 @@ describe('resolveCodingAgent — antigravity', () => {
 });
 
 describe('launch action — antigravity branch', () => {
+  it('revalidates the launch grant after worktree settlement and refuses expiry before spawn', async () => {
+    const { spawn } = await import('node:child_process');
+    const { createWorktree } = await import('@cards.management/sdk/worktree');
+    const issuedAt = Date.now();
+    process.env['CARDS_AGENT_LAUNCH_GRANT'] = validGrant({
+      issuedAtMs: issuedAt - 1,
+      expiresAtMs: issuedAt + 50
+    });
+
+    let resolveSettle!: (value: { branch: string; worktree: string; baseSha: string }) => void;
+    const settle = new Promise<{ branch: string; worktree: string; baseSha: string }>((resolve) => {
+      resolveSettle = resolve;
+    });
+    vi.mocked(createWorktree).mockResolvedValue({ path: WORKTREE_PATH, settle });
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    const refusal = expect(promise).rejects.toThrow(/\[expired\]/);
+    await flushMicrotasks();
+    expect(spawn).not.toHaveBeenCalled();
+
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(issuedAt + 51);
+    resolveSettle({ branch: 'cards/card-123/1', worktree: WORKTREE_PATH, baseSha: 'abc123' });
+    await refusal;
+    expect(spawn).not.toHaveBeenCalled();
+    nowSpy.mockRestore();
+  });
+
   it('spawns terminal-owned agy -i in the card worktree with card env and the minted session id', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
@@ -290,6 +320,62 @@ describe('launch action — antigravity branch', () => {
       { cardId: 'card-123', repoRoot: '/test/workspace', cardRepoPath: '/test/repo', sessionId: expect.any(String) },
       expect.anything()
     );
+  });
+
+  it('forwards action-selected model and effort as separate argv values', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+    process.env['CARDS_AGENT_MODEL'] = 'gemini-3-pro';
+    process.env['CARDS_AGENT_EFFORT'] = 'high';
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+
+    expect(vi.mocked(spawn).mock.calls[0]![1]).toEqual([
+      '-i',
+      expect.stringMatching(/`runtime:card` skill/),
+      '--model',
+      'gemini-3-pro',
+      '--effort',
+      'high'
+    ]);
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it.each([
+    'interactive',
+    'background'
+  ] as const)('fails %s action completion when a runtime hook wrote a failure marker', async (executionMode) => {
+    const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(fs.readdir).mockResolvedValue(['conversation.failure'] as never);
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ stage: 'watcher-setup', reason: 'attach failed' }));
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput({ executionMode }), createMockContext());
+    await flushMicrotasks();
+    if (executionMode === 'background') {
+      child.stdout?.emit('data', Buffer.from(`${JSON.stringify({ conversation_id: 'conv-1', status: 'SUCCESS' })}\n`));
+    }
+    child.emit('close', 0);
+    await expect(promise).rejects.toThrow(/runtime hook failure \(watcher-setup: attach failed\)/);
+  });
+
+  it('fails an interactive action on a nonzero child exit', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+    child.emit('close', 23);
+    await expect(promise).rejects.toThrow(/agy exited with code 23/);
   });
 
   it('spawns child-owned agy -p --output-format stream-json and settles on the SUCCESS final record', async () => {

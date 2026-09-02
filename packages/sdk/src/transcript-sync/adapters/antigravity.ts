@@ -19,6 +19,9 @@ import { basename, dirname, join } from 'node:path';
 import type { SessionSyncManifest } from '../manifest.js';
 import type { StepDecodeResult } from '../records.js';
 
+/** Canonical stream type shared by the Antigravity hook, watcher, and renderer. */
+export const ANTIGRAVITY_STREAM_TYPE = 'antigravity-session';
+
 /** Input required to build an Antigravity {@link SessionSyncManifest}. */
 export interface AntigravityManifestInput {
   /** Session identifier for stream file naming. */
@@ -292,7 +295,7 @@ export function buildAntigravityManifest(input: AntigravityManifestInput): Sessi
   }
 
   const pattern = actualBasename;
-  const streamType = 'antigravity-session';
+  const streamType = ANTIGRAVITY_STREAM_TYPE;
   return {
     version: 2,
     sessionId,

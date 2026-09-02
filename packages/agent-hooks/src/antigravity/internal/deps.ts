@@ -36,7 +36,12 @@ import {
 } from '@cards.management/sdk/config';
 import { findAgentPid, isAgentProcessTreeDrained } from '@cards.management/sdk/process-tree';
 import type { SessionSyncManifest } from '@cards.management/sdk/transcript-sync';
-import { addUnboundCandidate } from '@cards.management/sdk/unbound-worktree-candidates';
+import {
+  ANTIGRAVITY_STREAM_TYPE,
+  type AntigravityManifestInput,
+  buildAntigravityManifest
+} from '@cards.management/sdk/transcript-sync/adapters';
+import { addUnboundCandidate, clearUnboundCandidates } from '@cards.management/sdk/unbound-worktree-candidates';
 import {
   getActiveSubagentCount,
   hasSessionExitWhenDoneNudgeFired,
@@ -77,22 +82,7 @@ export interface AntigravitySessionMarkers {
   getActiveSubagentCount(sessionId: string): number;
 }
 
-/** The transcript-sync `streamType` the Antigravity adapter owns. */
-export const ANTIGRAVITY_STREAM_TYPE = 'antigravity-conversation';
-
-/** Input for building the session's transcript-sync manifest. */
-export interface AntigravityManifestInput {
-  /** Cards session id for stream file naming. */
-  sessionId: string;
-  /** Card identifier for sidecar metadata. */
-  cardId: string;
-  /** Absolute path of the transcript the launcher materializes. */
-  transcriptPath: string;
-  /** PID of the agent process to monitor. */
-  monitorPid: number;
-  /** Absolute path of the card repository. */
-  cardRepoPath: string;
-}
+export { ANTIGRAVITY_STREAM_TYPE };
 
 /**
  * Everything an Antigravity runtime handler needs from the world outside its
@@ -125,6 +115,8 @@ export interface AntigravityHandlerDeps {
    * conversation DB path ({@link AntigravityHandlerDeps.conversationDbPath}).
    */
   registerSession(sessionId: string, worktreeDir: string, transcriptPath: string): Promise<void>;
+  /** Removes an Assistant's no-card session registration idempotently. */
+  cleanupSessionRegistration(sessionId: string): Promise<void>;
   /**
    * Resolves the canonical Antigravity conversation DB path for a
    * conversation id —
@@ -211,6 +203,9 @@ export function defaultAntigravityHandlerDeps(): AntigravityHandlerDeps {
       }),
     registerSession: async (sessionId, worktreeDir, transcriptPath) => {
       await addUnboundCandidate(sessionId, worktreeDir, transcriptPath);
+    },
+    cleanupSessionRegistration: async (sessionId) => {
+      await clearUnboundCandidates(sessionId);
     },
     conversationDbPath: (conversationId) => canonicalConversationDbPath(conversationId),
     sessionMarkers: {
@@ -313,37 +308,4 @@ function stringify(data?: Record<string, unknown>): string {
   } catch {
     return '';
   }
-}
-
-/**
- * Builds the transcript-sync manifest for an Antigravity session.
- *
- * The launcher materializes the conversation's stream-json transcript and
- * passes its path in the hook input, so the manifest tails exactly that file
- * — mirroring the Claude/Codex native-transcript adapters. Fails closed when
- * the transcript basename cannot name a stream file.
- *
- * @param input - Session identifiers and paths supplied by the PreInvocation
- *   handler.
- * @returns A manifest describing the session's transcript source.
- * @throws {Error} When the transcript path basename is empty.
- */
-function buildAntigravityManifest(input: AntigravityManifestInput): SessionSyncManifest {
-  const basename = input.transcriptPath.split(/[\\/]/).pop() ?? '';
-  if (basename.length === 0) {
-    throw new Error(`Antigravity transcriptPath does not name a file: "${input.transcriptPath}"`);
-  }
-  const watchRoot = input.transcriptPath.slice(0, input.transcriptPath.length - basename.length - 1);
-
-  return {
-    version: 1,
-    sessionId: input.sessionId,
-    cardId: input.cardId,
-    runtime: 'antigravity',
-    streamType: ANTIGRAVITY_STREAM_TYPE,
-    watchRoot,
-    sources: [{ pattern: basename, role: 'main', mode: 'jsonl-tail' }],
-    monitorPid: input.monitorPid,
-    cardRepoPath: input.cardRepoPath
-  };
 }

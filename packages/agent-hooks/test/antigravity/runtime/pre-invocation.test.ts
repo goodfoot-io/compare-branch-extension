@@ -32,7 +32,7 @@ let restoreEnv: () => void;
 beforeEach(() => {
   root = makeTempDir('pre-invocation');
   makeCardRepo(root);
-  restoreEnv = withoutEnv('CARD_ID', 'ANTIGRAVITY_SESSION_ID');
+  restoreEnv = withoutEnv('CARD_ID', 'ANTIGRAVITY_SESSION_ID', 'CARDS_ASSISTANT_SESSION', 'CARDS_ASSISTANT_WINDOW_ID');
   process.env['CARD_ID'] = 'main-453';
   process.env['ANTIGRAVITY_SESSION_ID'] = SESSION_ID;
 });
@@ -89,7 +89,7 @@ describe('PreInvocation success contract', () => {
     expect(JSON.parse(readMarker(defaultAntigravityIo, readyMarker()))).toEqual({
       conversationId: CONVERSATION_ID,
       sessionId: SESSION_ID,
-      transcriptPath: join(root, 'transcripts', `${CONVERSATION_ID}.jsonl`),
+      transcriptPath: join(root, 'gemini-home', '.gemini', 'antigravity-cli', 'conversations', `${CONVERSATION_ID}.db`),
       modelName: 'gemini-3-pro'
     });
   });
@@ -130,21 +130,38 @@ describe('PreInvocation success contract', () => {
     expect(recorders.reconciliations).toBe(1);
   });
 
-  it('spawns the watcher with an antigravity manifest keyed by the agent PID', async () => {
+  it('spawns the watcher with the canonical sqlite-poll manifest keyed by the agent PID', async () => {
     const { failure, recorders } = await run();
     expect(failure).toBeNull();
     expect(recorders.watcherSpawns).toHaveLength(1);
     expect(recorders.watcherSpawns[0]?.manifest).toMatchObject({
-      version: 1,
+      version: 2,
       sessionId: SESSION_ID,
       cardId: 'main-453',
       runtime: 'antigravity',
-      streamType: 'antigravity-conversation',
+      streamType: 'antigravity-session',
       monitorPid: 4242,
       cardRepoPath: join(root, 'cards', 'main-453'),
-      sources: [{ pattern: `${CONVERSATION_ID}.jsonl`, role: 'main', mode: 'jsonl-tail' }]
+      sources: [
+        {
+          pattern: `${CONVERSATION_ID}.db`,
+          role: 'main',
+          mode: 'sqlite-poll',
+          conversationId: CONVERSATION_ID,
+          sidecarPath: join(
+            root,
+            'cards',
+            'main-453',
+            'streams',
+            'antigravity-session',
+            `${CONVERSATION_ID}.db.emission-state.json`
+          )
+        }
+      ]
     });
-    expect(recorders.watcherSpawns[0]?.manifest.watchRoot).toBe(join(root, 'transcripts'));
+    expect(recorders.watcherSpawns[0]?.manifest.watchRoot).toBe(
+      join(root, 'gemini-home', '.gemini', 'antigravity-cli', 'conversations')
+    );
     expect(recorders.watcherSpawns[0]?.extensionPath).toBe(join(root, 'extension'));
   });
 
@@ -152,6 +169,63 @@ describe('PreInvocation success contract', () => {
     const { failure } = await run();
     expect(failure).toBeNull();
     expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(false);
+  });
+});
+
+describe('Cards Assistant PreInvocation contract', () => {
+  it('classifies an explicit Assistant launch without fabricating CARD_ID', async () => {
+    delete process.env['CARD_ID'];
+    process.env['CARDS_ASSISTANT_SESSION'] = '1';
+    process.env['CARDS_ASSISTANT_WINDOW_ID'] = 'window-453';
+
+    const { failure, recorders } = await run({ loadActionInput: () => null });
+
+    expect(failure).toBeNull();
+    expect(recorders.registrations).toEqual([
+      {
+        sessionId: SESSION_ID,
+        worktreeDir: join(root, 'workspace'),
+        transcriptPath: join(
+          root,
+          'gemini-home',
+          '.gemini',
+          'antigravity-cli',
+          'conversations',
+          `${CONVERSATION_ID}.db`
+        )
+      }
+    ]);
+    expect(recorders.watcherSpawns).toEqual([]);
+    expect(JSON.parse(readMarker(defaultAntigravityIo, readyMarker()))).toMatchObject({
+      sessionId: SESSION_ID,
+      windowId: 'window-453',
+      workspacePath: join(root, 'workspace'),
+      conversationId: CONVERSATION_ID
+    });
+  });
+
+  it('keeps a foreign agy session inert even when it inherits a session-like variable', async () => {
+    delete process.env['CARD_ID'];
+    delete process.env['CARDS_ASSISTANT_SESSION'];
+
+    const { result, recorders } = await run({ loadActionInput: () => null });
+
+    expect(result?.output).toEqual({});
+    expect(recorders.registrations).toEqual([]);
+    expect(recorders.watcherSpawns).toEqual([]);
+    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+  });
+
+  it('fails an Assistant launch when its window identity is missing', async () => {
+    delete process.env['CARD_ID'];
+    process.env['CARDS_ASSISTANT_SESSION'] = '1';
+    delete process.env['CARDS_ASSISTANT_WINDOW_ID'];
+
+    const { failure } = await run({ loadActionInput: () => null });
+
+    expect(failure?.stage).toBe('session-identity');
+    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
+    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
   });
 });
 
@@ -208,9 +282,8 @@ describe('PreInvocation failure contract', () => {
     expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
   });
 
-  it('fails closed when the manifest builder rejects the transcript path', async () => {
-    const input = makeInvocationInput(root, { transcriptPath: `${join(root, 'transcripts')}/` });
-    const { failure } = await run({}, input);
+  it('fails closed when the manifest builder rejects the canonical conversation DB path', async () => {
+    const { failure } = await run({ conversationDbPath: () => join(root, 'conversations', 'wrong.jsonl') });
     expect(failure?.stage).toBe('watcher-setup');
     expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
   });

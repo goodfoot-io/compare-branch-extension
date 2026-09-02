@@ -18,6 +18,9 @@
 
 import type { ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { resolveGlobalCardsConfigDir } from '@cards.management/sdk';
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards.management/sdk/config';
 import { createAntigravityTerminationController } from './antigravity-termination.js';
@@ -44,6 +47,47 @@ export interface AntigravitySessionOptions {
    * `cards shutdown` for interaction-only actions.
    */
   suppressExitWhenDone?: boolean;
+  /** Optional host model selected by the action invocation. */
+  model?: string;
+  /** Optional host effort selected by the action invocation. */
+  effort?: string;
+}
+
+/** Antigravity execution controls supported by the pinned CLI contract. */
+export interface AntigravityExecutionControls {
+  /** Exact model identifier forwarded to `agy --model`. */
+  model?: string;
+  /** Exact effort identifier forwarded to `agy --effort`. */
+  effort?: string;
+}
+
+/** Action-environment carriers for Antigravity's pinned execution controls. */
+export const CARDS_AGENT_MODEL_ENV_VAR = 'CARDS_AGENT_MODEL';
+export const CARDS_AGENT_EFFORT_ENV_VAR = 'CARDS_AGENT_EFFORT';
+
+/**
+ * Builds the pinned CLI flags for optional model and effort selections.
+ *
+ * @param controls - Optional action-selected execution controls.
+ * @returns Safe argv tail containing complete flag/value pairs.
+ * @throws {Error} Until the Phase 3 argv implementation replaces this stub.
+ */
+export function buildAntigravityExecutionControlArgs(controls: AntigravityExecutionControls): string[] {
+  const args: string[] = [];
+  for (const [flag, label, value] of [
+    ['--model', 'model', controls.model],
+    ['--effort', 'effort', controls.effort]
+  ] as const) {
+    if (value === undefined) continue;
+    if (value.trim().length === 0) {
+      throw new Error(`Antigravity ${label} selection must be a nonblank argv value`);
+    }
+    if (value.includes('\0')) {
+      throw new Error(`Antigravity ${label} selection must not contain a NUL byte`);
+    }
+    args.push(flag, value);
+  }
+  return args;
 }
 
 /**
@@ -78,6 +122,7 @@ export type AntigravitySessionFailureReason =
   | 'spawn-failure'
   | 'nonzero-exit'
   | 'signal-termination'
+  | 'hook-failure'
   | 'missing-final-record'
   | 'unsuccessful-final-record';
 
@@ -104,6 +149,36 @@ export class AntigravitySessionFailureError extends Error {
 }
 
 /**
+ * Reads the first durable hook failure written for a Cards-owned session.
+ *
+ * @param sessionId - Pre-spawn session identity exported to the host.
+ * @returns Named stage/reason text, or undefined when no failure marker exists.
+ * @throws For marker-store IO failures other than an absent session directory.
+ */
+export async function readAntigravityHookFailure(sessionId: string): Promise<string | undefined> {
+  const directory = join(resolveGlobalCardsConfigDir(), 'antigravity', 'runtime', 'markers', sessionId);
+  let names: string[];
+  try {
+    names = (await readdir(directory)).filter((name) => name.endsWith('.failure')).sort();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+  if (names.length === 0) return undefined;
+
+  const markerPath = join(directory, names[0]!);
+  const text = await readFile(markerPath, 'utf8');
+  try {
+    const value = JSON.parse(text) as { stage?: unknown; reason?: unknown };
+    const stage = typeof value.stage === 'string' && value.stage.trim() ? value.stage : 'unknown-stage';
+    const reason = typeof value.reason === 'string' && value.reason.trim() ? value.reason : 'missing failure reason';
+    return `${stage}: ${reason}`;
+  } catch {
+    return `malformed failure marker ${names[0]}`;
+  }
+}
+
+/**
  * Builds the CLI argument list for the `agy` process.
  *
  * Interactive actions run terminal-owned `agy -i <prompt>`. Background actions
@@ -113,15 +188,19 @@ export class AntigravitySessionFailureError extends Error {
  *
  * @param prompt - Prompt passed to Antigravity.
  * @param executionMode - Dispatch mode: `'interactive'` uses `-i`, `'background'` uses `-p` with stream-json output.
+ * @param controls - Optional pinned host model/effort controls.
  * @returns Array of CLI arguments.
  * @throws {Error} When a background launch has no prompt (nothing to run one-shot).
  */
 export function buildAntigravityArgs(
   prompt: string | undefined,
-  executionMode: 'interactive' | 'background'
+  executionMode: 'interactive' | 'background',
+  controls: AntigravityExecutionControls = {}
 ): string[] {
+  const controlArgs =
+    controls.model !== undefined || controls.effort !== undefined ? buildAntigravityExecutionControlArgs(controls) : [];
   if (executionMode === 'interactive') {
-    return prompt === undefined ? ['-i'] : ['-i', prompt];
+    return prompt === undefined ? ['-i', ...controlArgs] : ['-i', prompt, ...controlArgs];
   }
 
   if (prompt === undefined) {
@@ -129,7 +208,7 @@ export function buildAntigravityArgs(
       'Cannot launch Antigravity in background mode without a prompt: `agy -p` runs exactly one prompt and exits.'
     );
   }
-  return ['-p', prompt, '--output-format', 'stream-json'];
+  return ['-p', prompt, '--output-format', 'stream-json', ...controlArgs];
 }
 
 /**
@@ -202,9 +281,11 @@ export async function spawnAntigravitySession(
   const { prompt, suppressExitWhenDone } = options;
   const isInteractive = input.executionMode === 'interactive';
 
-  // Consume the extension's pre-spawn health/auth probe FIRST: a named grant
+  const encodedLaunchGrant = process.env[CARDS_AGENT_LAUNCH_GRANT_ENV_VAR];
+
+  // Consume the extension's health/auth probe FIRST: a named grant refusal
   // refusal must happen before any client, worktree, or session state exists.
-  validateAgentLaunchGrant(process.env[CARDS_AGENT_LAUNCH_GRANT_ENV_VAR], 'antigravity-cli', Date.now());
+  validateAgentLaunchGrant(encodedLaunchGrant, 'antigravity-cli', Date.now());
 
   context.logger.info(`${input.actionName} action started`, {
     cardId: input.cardId,
@@ -232,7 +313,22 @@ export async function spawnAntigravitySession(
 
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-  const args = buildAntigravityArgs(prompt, input.executionMode);
+  // Worktree outfit/registration is part of launch preparation. Await it
+  // before revalidating the short-lived grant and before exposing the path to
+  // an agent process; a rejected settle removes the worktree and must prevent
+  // spawn entirely.
+  if (settle) await settle;
+
+  const args = buildAntigravityArgs(prompt, input.executionMode, {
+    model: options.model ?? process.env[CARDS_AGENT_MODEL_ENV_VAR],
+    effort: options.effort ?? process.env[CARDS_AGENT_EFFORT_ENV_VAR]
+  });
+
+  // Worktree creation and settlement preparation can outlive the short grant
+  // TTL. Revalidate the same signed grant after all awaited preparation and in
+  // the synchronous step directly before spawn; expiry can never be silently
+  // converted into a launched session.
+  validateAgentLaunchGrant(encodedLaunchGrant, 'antigravity-cli', Date.now());
 
   const child: ChildProcess = spawnAgentCli('agy', args, {
     cwd,
@@ -259,19 +355,6 @@ export async function spawnAntigravitySession(
       ...(suppressExitWhenDone ? { [CARDS_ENV_VARS.EXIT_WHEN_DONE]: 'false' } : {})
     }
   });
-
-  // A settle rejection means createWorktree tore the worktree down (the
-  // settle-failure cleanup removed it) — the agent must never run in a missing
-  // or unprovisioned worktree. Fail the launch loudly: kill the spawned agent
-  // and surface the settle error below instead of logging and continuing.
-  let settleError: unknown;
-  if (settle) {
-    settle.catch((error: unknown) => {
-      settleError = error;
-      context.logger.error('Worktree settle failed — aborting launch', { error: errorMessage(error) });
-      child.kill('SIGTERM');
-    });
-  }
 
   const termination = createAntigravityTerminationController(child, {
     gracefulTimeoutMs: 5_000,
@@ -327,19 +410,33 @@ export async function spawnAntigravitySession(
     }
   );
 
-  // Fail the launch loudly when the settle phase rejected: the agent was
-  // killed and the worktree is gone, so the action must not report a normal
-  // completion (post-exit cleanup has nothing meaningful to do either — the
-  // settle-failure cleanup already removed the worktree).
-  if (settleError !== undefined) {
-    throw settleError instanceof Error ? settleError : new Error(String(settleError));
+  const hookFailure = await readAntigravityHookFailure(sessionId);
+  if (hookFailure !== undefined) {
+    throw new AntigravitySessionFailureError(
+      'hook-failure',
+      `${input.actionName} action failed: Antigravity runtime hook failure (${hookFailure})`
+    );
   }
 
-  if (isInteractive && outcome.spawnError !== undefined) {
-    throw new AntigravitySessionFailureError(
-      'spawn-failure',
-      `${input.actionName} action failed: the agy process could not be launched (${outcome.spawnError.message})`
-    );
+  if (isInteractive) {
+    if (outcome.spawnError !== undefined) {
+      throw new AntigravitySessionFailureError(
+        'spawn-failure',
+        `${input.actionName} action failed: the agy process could not be launched (${outcome.spawnError.message})`
+      );
+    }
+    if (outcome.signal) {
+      throw new AntigravitySessionFailureError(
+        'signal-termination',
+        `${input.actionName} action failed: agy terminated on signal ${outcome.signal}`
+      );
+    }
+    if (outcome.exitCode !== 0) {
+      throw new AntigravitySessionFailureError(
+        'nonzero-exit',
+        `${input.actionName} action failed: agy exited with code ${outcome.exitCode}`
+      );
+    }
   }
 
   context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode: outcome.exitCode });

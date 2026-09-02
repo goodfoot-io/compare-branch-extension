@@ -44,7 +44,7 @@ export interface ReadyMarkerPayload {
   conversationId: string;
   /** Cards session id the launcher exported pre-spawn. */
   sessionId: string;
-  /** Transcript path the launcher materializes for the session. */
+  /** Canonical conversation DB path registered and watched for the session. */
   transcriptPath: string;
   /** Model name reported by the host. */
   modelName: string;
