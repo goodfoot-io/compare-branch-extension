@@ -4,8 +4,8 @@
   "target": "public/antigravity/cards-assistant/skills",
   "platform": "antigravity",
   "plugin": "cards-assistant",
-  "version": "1.0.12",
-  "registrySha256": "91be8f037381deba54e4645c16f7917456a71ce29b405bb41648abc8720bed91",
+  "version": "1.0.13",
+  "registrySha256": "b284edca6defa08fc2e5a58660a9e3895a388fa0d3951e08457233968daa8b3b",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",

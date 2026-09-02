@@ -4,8 +4,8 @@
   "target": "public/codex/cards/skills",
   "platform": "codex",
   "plugin": "cards",
-  "version": "1.0.334",
-  "registrySha256": "91be8f037381deba54e4645c16f7917456a71ce29b405bb41648abc8720bed91",
+  "version": "1.0.335",
+  "registrySha256": "b284edca6defa08fc2e5a58660a9e3895a388fa0d3951e08457233968daa8b3b",
   "files": [
     {
       "path": "cards/references/bug-report.md",

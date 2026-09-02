@@ -1,6 +1,6 @@
 {
   "name": "cards-assistant",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Cards Assistant session-start announcement plugin for Claude Code",
   "author": {
     "name": "Goodfoot Media LLC"
