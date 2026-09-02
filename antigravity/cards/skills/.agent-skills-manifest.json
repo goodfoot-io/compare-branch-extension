@@ -4,8 +4,8 @@
   "target": "public/antigravity/cards/skills",
   "platform": "antigravity",
   "plugin": "cards",
-  "version": "1.0.331",
-  "registrySha256": "c11db42e35c89c4a2da81c6732934c53558c6f406e9ffb7bb0b2fb176f66f54d",
+  "version": "1.0.332",
+  "registrySha256": "b1a972b92bdbd310b62bac426c59e3fd9dc6146b098e5f9f85b10e4cdf64e184",
   "files": [
     {
       "path": "cards/references/bug-report.md",
