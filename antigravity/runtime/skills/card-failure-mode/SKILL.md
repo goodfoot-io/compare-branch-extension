@@ -2,7 +2,6 @@
 name: card-failure-mode
 description: Identify potential failure modes in card implementations
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-failure-mode/SKILL.md.eta sha256:bc7a88c78c661eb9510afb0a47a1e5c4c6a925b7c81d4d67f351889bdca08908 -->
 
 <dm-envelope>
 
@@ -73,7 +72,7 @@ Your scope is all code the change interacts with, not just code it introduced. P
 
 A load-bearing claim clears only on execution or workspace evidence.
 
-**Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings — load the `cards:cards` skill, create a new card about the issue with a `related` relation to the current card, and add the reciprocal relation to the current card's `CARD.meta.json`.
+**Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings — load the `cards` skill, create a new card about the issue with a `related` relation to the current card, and add the reciprocal relation to the current card's `CARD.meta.json`.
 
 Run the code where possible. On Deep, your peer exercises the same worktree concurrently: before filing a nondeterminism, flake, or "the gate disagrees with itself" finding, rule out a peer's transient edit or run (mtimes, `git status`, its last DM). A witness that holds a shared resource for long (lock, port, service, load run) blocks your peer and the lead's gate — run it last or tell `team-lead` first.
 

@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/developer-wave.md.eta sha256:9e3f611efe273b8ec0a18962c71e57de0c8b412cdf74d2dcfb4c7ab4166b0e13 -->
 # Developer Team
 
 Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md`/`./evaluation-wave.md` (finding fixes). You are the lead — you never implement, and you own every gate, merge, and integration. Each worker implements, tests, and commits in its own package worktree; only you run git in the card worktree.

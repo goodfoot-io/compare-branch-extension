@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/interview-documentation.md.eta sha256:6198b7c28afae93dc87d0a7eff4eb3059f4b515cc0cbe9d536220aef2ed87f47 -->
 <interview-before-creating-a-documentation-card>
 
 Reach the signal required to write a well-formed documentation request before the card is created. The companion `./documentation.md` defines the target CARD.md structure; this guide defines how to get there.
@@ -41,7 +40,7 @@ As research subagents return and as the conversation settles pieces of the desti
 
 ## 3. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards:cards` skill. Compose CARD.md against `./documentation.md`. Include candidate-source inventory, freshness findings, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards` skill. Compose CARD.md against `./documentation.md`. Include candidate-source inventory, freshness findings, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
 
 ## 4. Constraints
 

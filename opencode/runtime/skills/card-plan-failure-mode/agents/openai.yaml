@@ -1,3 +1,4 @@
+
 interface:
   display_name: "Card Plan Failure-Mode Reviewer"
   short_description: "Review parallel plans for failure modes and select the strongest qualifier as winner."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Card Failure-Mode Evaluator"
-  short_description: "Identify potential failure modes in implemented code."
-  default_prompt: "Use $card-failure-mode to evaluate the implementation for failure modes and report findings and a verdict."

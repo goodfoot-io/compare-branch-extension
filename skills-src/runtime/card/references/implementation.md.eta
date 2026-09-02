@@ -1,4 +1,10 @@
-
+<!-- agent-skills
+lintSuppressions:
+  - rule: skill-relative-path
+    lines: [79, 79]
+  - rule: literal-platform-prose
+    lines: [117, 117]
+-->
 <instructions>
 
 ## 1. Prepare Environment
@@ -31,7 +37,7 @@ When all units are complete, pass the `<completion-gate>` before proceeding to S
 
 Every commit in this flow follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `<%= it.skillRef('runtime','tdd-bootstrap') %>` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the <%= it.skillRef('runtime:tdd-bootstrap') %> skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 ## 3. Evaluate Quality
 
@@ -68,7 +74,7 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 <implementation-discipline>
 
-**Scope is the card's scope.** Implement only what the card (or plan) specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `<%= it.skillRef('cards','cards') %>`) for discoveries in code the change does not interact with before finalizing.
+**Scope is the card's scope.** Implement only what the card (or plan) specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load <%= it.skillRef('cards:cards') %>) for discoveries in code the change does not interact with before finalizing.
 
 **Zero errors in affected packages.** Fix priority: pre-existing errors, then direct implementation, then test infrastructure, then environment.
 
@@ -82,12 +88,8 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 <per-unit-gate>
 
-<%= it.variant({
-  claude: "Lint and typecheck per the project's CLAUDE.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to `<completion-gate>`.\n",
-  codex: "Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to `<completion-gate>`.\n",
-  opencode: "Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to `<completion-gate>`.\n",
-  antigravity: "Lint and typecheck per the project's AGENTS.md validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to `<completion-gate>`.\n"
-}) %>
+Lint and typecheck per the project's <%= it.conventionsFile %> validation conventions. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package runs to `<completion-gate>`.
+
 - **All pass** — commit, then tag the rollback point.
 - **Failure originates in this unit's changes** — fix and re-run.
 - **Otherwise** — proceed to `<completion-gate>` and apply its routing.
@@ -107,13 +109,13 @@ After all logical units are complete, run workspace-wide lint and typecheck plus
 <pre-existing-diagnosis>
 
 <%= it.variant({
-  claude: "Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `runtime:card:pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:\n",
+  "claude-code": "Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `runtime:card-pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:\n",
   codex: "Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$runtime:card-pre-existing-condition` — it reproduces on baseline, repairs pre-existing root causes, and reports back `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise:\n",
   opencode: "Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$card-pre-existing-condition` — it reproduces on baseline, repairs pre-existing root causes, and reports back `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise:\n",
-  antigravity: "Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `runtime:card:pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:\n"
+  antigravity: "Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `card-pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:\n"
 }) %>
 <%= it.variant({
-  claude: "",
+  "claude-code": "",
   codex: "```\nUse the $runtime:card-pre-existing-condition skill.\n\n## Failing Command\n[the failing command]\n\n## Failure Output\n[full stdout/stderr from the failing command]\n\n## Active Card Diff Scope\n[list of files this card has modified since `implement/$CARD_ID/baseline`]\n\n## Task\nDecide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the failing command. If it does not, return NOT_PRE_EXISTING with the baseline output.\n```\n\nTo diagnose yourself instead, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:\n\n",
   opencode: "```\nUse the $card-pre-existing-condition skill.\n\n## Failing Command\n[the failing command]\n\n## Failure Output\n[full stdout/stderr from the failing command]\n\n## Active Card Diff Scope\n[list of files this card has modified since `implement/$CARD_ID/baseline`]\n\n## Task\nDecide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the failing command. If it does not, return NOT_PRE_EXISTING with the baseline output.\n```\n\nTo diagnose yourself instead, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:\n\n",
   antigravity: ""

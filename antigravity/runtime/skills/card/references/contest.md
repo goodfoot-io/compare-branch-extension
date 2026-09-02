@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/contest.md.eta sha256:c2c86c68bbfe669977f817153cd0b67bf0cb68e86fffeca27aca350249bc80f9 -->
 # Parallel Planner Contest
 
 Dispatch multiple planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.
@@ -125,7 +124,7 @@ After the `WINNER:` DM, before Step 5: DM each losing live planner a red-team as
 
 - **All planners blocked.** No viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Skip to Step 5: End the Contest with no winner, then return `BLOCKED` to the caller.
 - **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue monitoring. Do not intervene.
-- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `runtime:card-plan-failure-mode`; you do not BLOCK planners yourself. You may DM the planner to ask its intent if its state is genuinely unclear to you.
+- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `card-plan-failure-mode`; you do not BLOCK planners yourself. You may DM the planner to ask its intent if its state is genuinely unclear to you.
 
 Do not adjudicate findings. Route on the contest state you can see.
 

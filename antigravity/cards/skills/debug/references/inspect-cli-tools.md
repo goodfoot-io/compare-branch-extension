@@ -101,8 +101,8 @@ Routes through `POST /execute-command` with `{command: "cards.reportIssue", args
 
 | Daemon | Spawned by | Purpose |
 |--------|-----------|---------|
-| `stream-sync-watcher` | SessionStart/EnterWorktree hooks | Monitors agent PID, syncs manifest-described transcript files → card repo stream files |
-| `adhoc-cleanup` | EnterWorktree hook | Monitors agent PID, transitions card to `needs_review` on session end |
+| `stream-sync-watcher` | SessionStart/`EnterWorktree` hooks | Monitors agent PID, syncs manifest-described transcript files → card repo stream files |
+| `adhoc-cleanup` | `EnterWorktree` hook | Monitors agent PID, transitions card to `needs_review` on session end |
 | Branch cleanup watcher | ActionDispatcher (detached) | Cleans up branches after interactive sessions |
 
 ## Shell Shim Pattern

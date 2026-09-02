@@ -1,4 +1,0 @@
-interface:
-  display_name: "Card Pre-Existing Condition Fixer"
-  short_description: "Repair a pre-existing condition blocking workspace validation."
-  default_prompt: "Use $card-pre-existing-condition to decide whether the validation failure is pre-existing and repair it or bounce it back."

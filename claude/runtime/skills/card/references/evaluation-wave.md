@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/evaluation-wave.md.eta sha256:15eefe0c5e8ca90a1925ff855c149981aeb952d8add0fa4c21066e7ff019616f -->
 # Evaluator Wave
 
 Independent adversarial evaluation via background evaluator subagents. Entered from `./implementation-evaluation.md` Step 3 (or `./validate.md` Step 4) with changes committed, validation passing, and a clean tree.
@@ -80,7 +79,7 @@ All validation has passed. Focus on what a user would experience as broken, wron
 </invoke>
 ```
 
-When an evaluator needs to compare behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.
+When an evaluator needs to compare behavior against the pre-implementation state, dispatch `runtime:card-pre-existing-condition` with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.
 
 ## 2. Collect Verdicts and Route
 

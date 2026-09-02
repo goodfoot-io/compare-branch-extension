@@ -1,0 +1,62 @@
+<!-- agent-skills
+lintSuppressions:
+  - rule: cross-dialect-reference
+    lines: [46, 46]
+--># Work Diagrams — What to Represent
+
+Semantic guide for diagramming a card's work in an HTML page. Pick the notation with `work-diagram-notations.md`; style it with `work-diagram-style.md`. This file owns the *meaning* a diagram must carry, not its appearance.
+
+A work diagram lets a reader answer at a glance: what state each piece of work is in, what depends on what, where the choices and approval points are, and what execution discovered that the plan didn't anticipate. Diagram the smallest structure that answers the card's question.
+
+## Non-negotiables
+
+- **Do not invent structure.** No dependency, order, rationale, owner, or alternative appears merely because it would make sense. A numbered list is not a dependency chain; adjacency is not causation.
+- **Plan and execution stay distinct.** Never redraw the original plan to match what happened. Discovered work is marked as discovered; a plan revision is shown as a revision, not silently absorbed.
+- **Preserve uncertainty.** An unknown ordering or unconfirmed dependency is marked as uncertain, never drawn as a confident edge (marks: `work-diagram-style.md`).
+- **Structure must survive without labels.** If erasing every text label would leave the important relationships unreadable, the structure is in the words, not the diagram. Encode it in topology, grouping, and state marks.
+
+## Granularity
+
+Model meaningful units of work. "Investigate authentication behavior" is a node; "run grep" is trace, not a node — unless that single action explains a decision, failure, or scope change. Test: *would a person supervising the work care that this happened as a distinct step?*
+
+## What can be a node
+
+- **Objective** — a desired result, not an activity.
+- **Stage** — a meaningful group or phase. Not every heading is a stage.
+- **Task** — a unit of work (investigate, create, modify, validate, review, approve, communicate, wait…).
+- **Milestone** — an achieved condition ("tests passed"), not an activity ("run tests").
+- **Decision** — a material judgment with an outcome. A decision *produces* a conclusion; the branch that follows is a separate thing.
+- **Artifact** — a persistent object (file, commit, report, PR). It becomes *evidence* only when it visibly informs something.
+- **Observation / event** — a finding or occurrence (alert arrives, test fails) that triggers or affects work.
+- **Participant / system** — shown only when responsibility, handoff, review, or authority matters.
+- **Constraint** — a governing limit (deadline, approval requirement, scope bound) worth showing at its point of effect.
+
+## Edges worth drawing
+
+Draw a relationship only when it adds meaning — never a complete graph.
+
+- **Order vs. necessity**: `precedes` (sequence) is not `depends_on` (prerequisite). Keep them visually distinct.
+- **Waiting vs. blocking**: waiting for a review window is correct execution; blocked on missing credentials is a problem. Different marks.
+- **Provenance**: consumes/produces/derives-from/informs — draw the path from evidence through decisions to outputs when it explains why the result should be trusted.
+- **Authority**: reviewed-by, approved-by, requires-approval-from. Assignment does not prove performance; review does not prove approval.
+
+## Compound logic
+
+Pairwise edges mislead when several items share one condition; give these an explicit visual device:
+
+- **Join** — later work waits on branches: all-of vs. any-of vs. n-of must be distinguishable, not inferred from converging lines.
+- **Choice** — alternatives with cardinality (exactly one, at most one, any subset), tied to the decision that routes them.
+- **Condition** — work that activates, becomes required, or is skipped under a condition. Conditional is not optional.
+- **Time** — schedules, deadlines, timeouts are temporal, not logical, constraints; don't render "Tuesday 09:00" as a dependency edge.
+
+## Execution state
+
+Use only the states the record supports — but never collapse distinct outcomes: `failed` ≠ `skipped` ≠ `cancelled` ≠ `superseded`. The vocabulary: `not_started`, `ready`, `active`, `waiting`, `blocked`, `completed`, `failed`, `skipped`, `cancelled`, `superseded`. A retry is a new attempt on the same task, not a new task. Completion is not validation — a task can complete and fail validation; show both when both matter.
+
+## Before committing the diagram
+
+- Did I convert list order, containment, or adjacency into dependency or chronology?
+- Did I hide failure, discovery, or revision inside a cleaner story?
+- Is every all-of/any-of join explicit?
+- Are plan and execution recoverable as separate readings?
+- Would a supervisor find the thing needing attention within seconds?

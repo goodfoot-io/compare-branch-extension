@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/interview-enhancement.md.eta sha256:fb109d4c039bd4309a6cdcde8ac9309e9156bb2b2a49c2eef28ef81034ac5b5d -->
 <interview-before-creating-an-enhancement-card>
 
 Reach the signal required to write a well-formed enhancement request before the card is created. The companion `./enhancement.md` defines the target CARD.md structure; this guide defines how to get there.
@@ -40,7 +39,7 @@ As research subagents return and as the conversation settles pieces of the desti
 
 ## 3. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards:cards` skill. Compose CARD.md against `./enhancement.md`. Include research excerpts, rejected alternatives, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards` skill. Compose CARD.md against `./enhancement.md`. Include research excerpts, rejected alternatives, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
 
 ## 4. Constraints
 

@@ -94,11 +94,11 @@ Empty lock file for de-duplication — prevents two ad-hoc attribution spawns fo
 
 **Contents**: `{ worktreeDir, sessionId, transcriptPath }`.
 
-**Written by**: `addUnboundCandidate()` during EnterWorktree hook.
+**Written by**: `addUnboundCandidate()` during `EnterWorktree` hook.
 
 **Read by**: `readUnboundCandidates()` during `cards attach`.
 
-**Purpose**: When the EnterWorktree hook fires but the worktree isn't yet card-bound, the worktree path and transcript are recorded as an unbound candidate. The `cards attach` command resolves the binding later, consuming the candidate.
+**Purpose**: When the `EnterWorktree` hook fires but the worktree isn't yet card-bound, the worktree path and transcript are recorded as an unbound candidate. The `cards attach` command resolves the binding later, consuming the candidate.
 
 **Source**: `public/packages/sdk/src/unboundWorktreeCandidates.ts`.
 
@@ -169,4 +169,4 @@ Sessions end through two equivalent paths: a natural exit, or an agent-initiated
 - Worktree binding → `diagnose-worktree.md`
 - Server health → `diagnose-server-health.md`
 - Agent internal session data → Claude Code / Codex documentation
-- Card repository structure (plans, comments, attachments) → `cards:cards` skill
+- Card repository structure (plans, comments, attachments) → `$cards:cards` skill

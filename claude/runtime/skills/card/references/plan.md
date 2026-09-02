@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/plan.md.eta sha256:43d73609425f3665efcbba61819e399c79f99f98bf81ae86dcf2bf5d967581b0 -->
 
 <placeholder-variables>
 [PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plans/initial.md`, or `plans/phase-N.md` for follow-on work)
@@ -84,7 +83,7 @@ After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spi
 
 Build the failure-mode question set for the card — from `CARD.md`, the plan, your notes, adjacent cards, and similar workspace code: what must hold at runtime for the plan to work? Verify each answer against workspace source, not the plan's own assertions; a question the plan cannot answer is a finding.
 
-If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff. For the failure-mode angle on a high-stakes solo plan, dispatch `runtime:card:plan-failure-mode` in the background with: the card repository and workspace paths; "Solo review — there are no planners. Review `[PLAN_FILE]` as `[PLANNER]` = `team-lead`, round-1. Draft your questions note, then stream `FINDING:` and the single `VERDICT:` to `team-lead`; skip `SELECT_WINNER`/`WINNER:` and end your turn after the verdict." Revise per its findings yourself; wake it with a `PLAN: READY round-K+1` DM for re-review.
+If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff. For the failure-mode angle on a high-stakes solo plan, dispatch `runtime:card-plan-failure-mode` in the background with: the card repository and workspace paths; "Solo review — there are no planners. Review `[PLAN_FILE]` as `[PLANNER]` = `team-lead`, round-1. Draft your questions note, then stream `FINDING:` and the single `VERDICT:` to `team-lead`; skip `SELECT_WINNER`/`WINNER:` and end your turn after the verdict." Revise per its findings yourself; wake it with a `PLAN: READY round-K+1` DM for re-review.
 
 Evaluate from the angles below and list every finding — do not stop at the first one:
 

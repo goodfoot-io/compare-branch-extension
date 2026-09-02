@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/implementation.md.eta sha256:0408264c79cfb833ba8e87c0fa22952a0056a9a108a59dd7756ff4fb89a6b5a7 -->
 
 <instructions>
 
@@ -32,7 +31,7 @@ When all units are complete, pass the `<completion-gate>` before proceeding to S
 
 Every commit in this flow follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `runtime:tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 ## 3. Evaluate Quality
 
@@ -69,7 +68,7 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 <implementation-discipline>
 
-**Scope is the card's scope.** Implement only what the card (or plan) specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `cards:cards`) for discoveries in code the change does not interact with before finalizing.
+**Scope is the card's scope.** Implement only what the card (or plan) specifies; do not introduce unrelated cleanup, refactoring, or abstractions. File a card (load `cards`) for discoveries in code the change does not interact with before finalizing.
 
 **Zero errors in affected packages.** Fix priority: pre-existing errors, then direct implementation, then test infrastructure, then environment.
 
@@ -103,7 +102,7 @@ After all logical units are complete, run workspace-wide lint and typecheck plus
 
 <pre-existing-diagnosis>
 
-Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `runtime:card:pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
+Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `card-pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
 
 ```bash
 create-worktree "implement/$CARD_ID/baseline"

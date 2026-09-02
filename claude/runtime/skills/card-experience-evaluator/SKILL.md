@@ -2,7 +2,6 @@
 name: card-experience-evaluator
 description: Find user-experienced failure modes in an implementation.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-experience-evaluator/SKILL.md.eta sha256:fbe9e81f580647a447a320f3ce0b9ba7194357e8771e849fab4bca52b012eddd -->
 
 <dm-envelope>
 

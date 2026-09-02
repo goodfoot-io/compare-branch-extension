@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/interview-investigation.md.eta sha256:57de902e68074e2bb6e471138830338c8d7b12f89d5498c6f693e7523e5a5576 -->
 <interview-before-creating-an-investigation-card>
 
 Reach the signal required to write a well-formed investigation request before the card is created. The companion `./investigation.md` defines the target CARD.md structure; this guide defines how to get there.
@@ -41,7 +40,7 @@ As research subagents return and as the conversation settles pieces of the desti
 
 ## 3. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards:cards` skill. Compose CARD.md against `./investigation.md`. Include evidence-source inventory, prior-art references, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards` skill. Compose CARD.md against `./investigation.md`. Include evidence-source inventory, prior-art references, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
 
 ## 4. Constraints
 

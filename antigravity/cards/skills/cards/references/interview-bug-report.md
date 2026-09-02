@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/interview-bug-report.md.eta sha256:28e9c97804158dc1c019591d3cc2eda56269fa15c653d2ffa04e44cb3f7b0b89 -->
 <interview-before-creating-a-bug-report-card>
 
 Reach the signal required to write a well-formed bug report before the card is created. The companion `./bug-report.md` defines the target CARD.md structure; this guide defines how to get there.
@@ -41,7 +40,7 @@ As research subagents return and as the conversation settles pieces of the desti
 
 ## 3. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards:cards` skill. Compose CARD.md against `./bug-report.md`. Include research excerpts, rejected hypotheses, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `cards` skill. Compose CARD.md against `./bug-report.md`. Include research excerpts, rejected hypotheses, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
 
 ## 4. Constraints
 

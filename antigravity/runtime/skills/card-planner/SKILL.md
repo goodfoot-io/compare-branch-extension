@@ -2,7 +2,6 @@
 name: card-planner
 description: Create or update a card plan while collaborating with parallel planners.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-planner/SKILL.md.eta sha256:6d72f41d5c7d1c8e33a851840c00adab6c0868ac3d86aa545d64addef0c82a5d -->
 
 <placeholder-variables>
 [AGENT_NAME] — Your subagent name (e.g., `planner-1`). Set by the orchestrator at dispatch.
@@ -81,7 +80,7 @@ Write your plan to `[PLAN_FILE]` per `<markdown-guidelines>`, with a sidecar `[P
 
 When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), follow the `<tdd-bootstrap>` instructions and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
 
-For load-bearing assumptions you cannot resolve from the workspace alone, load `runtime:spike` and follow its procedure. Revise `[PLAN_FILE]` after spikes return.
+For load-bearing assumptions you cannot resolve from the workspace alone, load `spike` and follow its procedure. Revise `[PLAN_FILE]` after spikes return.
 
 While doing this work, DM research findings as required by Step 2. Peer findings arrive in your inbox the same way — read them and use them.
 
@@ -110,14 +109,14 @@ After Step 3, handle incoming messages until the contest ends. Route by message 
 
 **Message ordering.** Process inbound messages serially in arrival order. Do not batch findings: each streamed finding (§4.1) gets its own revise-and-commit before the next is processed, so the reviewer's commit history has per-finding granularity. If a message arrives mid-revision, finish the current revise-and-commit first. The single exception is `VERDICT: BLOCKED for:[AGENT_NAME]`: terminal, overrides in-flight work, proceed to §4.6 immediately.
 
-**Drain before DMing `PLAN: READY round-K+1`.** When §4.2 sends you back to Step 3, drain every pending inbound finding from the reviewer first, committing each. DMing `PLAN: READY` while findings remain unaddressed forces the reviewer to discard its in-flight verdict via the round-tag race (`runtime:card-plan-failure-mode` §5).
+**Drain before DMing `PLAN: READY round-K+1`.** When §4.2 sends you back to Step 3, drain every pending inbound finding from the reviewer first, committing each. DMing `PLAN: READY` while findings remain unaddressed forces the reviewer to discard its in-flight verdict via the round-tag race (`card-plan-failure-mode` §5).
 
 ### 4.1 Streamed Finding from the Reviewer
 
 The reviewer DMs `FINDING: <label> for:[AGENT_NAME] round-K` as it discovers them, before any verdict — cause/mode/effect plus severity/occurrence/detection tags in the body. Act on each immediately; do not wait for the verdict:
 
 - Understand the concern and whether the plan's approach addresses it.
-- Route empirically-testable uncertainties through the `runtime:spike` skill before revising.
+- Route empirically-testable uncertainties through the `spike` skill before revising.
 - Decide which axis to attack: reduce **occurrence** (change the mechanism so the bet is no longer fragile), narrow **severity** (shrink the blast radius), or add **detection** (a test, assertion, or runtime check that surfaces the failure).
 - Revise `[PLAN_FILE]` directly and commit. Write a single-sentence message per `<card-repo-commit-style>` prefixed with the axis you attacked: `occurrence:`, `severity:`, `detection:`, or `accepted:` (the last when you accept the finding without changing the plan and want it on the record). The axis label tells the reviewer where on the failure-mode triangle the revision landed.
 - A **class finding** (the reviewer names a flaw class with constructible siblings) closes only by construction over the whole class, witnessed by a committed PoC test, fixture, or exhaustive argument — patching the cited instance or claiming closure in prose reopens it next round. Commit fixture witnesses under `notes/` and PoC-test witnesses under `spike/` in the card repo.

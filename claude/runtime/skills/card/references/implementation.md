@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/implementation.md.eta sha256:0408264c79cfb833ba8e87c0fa22952a0056a9a108a59dd7756ff4fb89a6b5a7 -->
 
 <instructions>
 
@@ -103,7 +102,7 @@ After all logical units are complete, run workspace-wide lint and typecheck plus
 
 <pre-existing-diagnosis>
 
-Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `runtime:card:pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
+Reproduce the failing command against the baseline instead of guessing. If the reproduction looks like it will be long or noisy, dispatch a `runtime:card-pre-existing-condition` subagent with the failing command, its full output, and the card's diff scope — it reproduces on baseline, repairs pre-existing root causes, and returns `NOT_PRE_EXISTING` (with baseline output) or `BLOCKED` otherwise. To diagnose yourself, use a disposable worktree at the baseline ref — never switch branches or stash in the active workspace:
 
 ```bash
 create-worktree "implement/$CARD_ID/baseline"

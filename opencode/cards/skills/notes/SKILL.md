@@ -2,7 +2,6 @@
 name: notes
 description: Reusable notes in a card's notes/ directory.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/shared/notes/SKILL.md.eta sha256:c2c57df550a5ae1b8a287c14deac9415ffff2551127b3ce2175185ae5a673c3c -->
 
 <placeholder-variables>
 [CARD_REPO_PATH] — Absolute path to the card's git repository (the `repositoryPath` field from `card` output, or the `$CARD_REPO_PATH` environment variable)
@@ -22,7 +21,7 @@ While working on this card, write a note whenever you encounter any of the follo
 
 ## Note Format
 
-Write two files per note. Load the `cards:markdown` skill if not already loaded — both the note content and its sidecar summary follow the `<markdown-guidelines>`.
+Write two files per note. Load the `$markdown` skill if not already loaded — both the note content and its sidecar summary follow the `<markdown-guidelines>`.
 
 Use a kebab-case slug that matches the trigger category (e.g. `entry-points`, `key-types`).
 

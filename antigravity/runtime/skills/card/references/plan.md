@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/plan.md.eta sha256:43d73609425f3665efcbba61819e399c79f99f98bf81ae86dcf2bf5d967581b0 -->
 
 <placeholder-variables>
 [PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plans/initial.md`, or `plans/phase-N.md` for follow-on work)
@@ -48,7 +47,7 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 
 When correctness depends on the shape of real-world data the plan will process (live payloads, environment-injected values, file formats), capture a real sample **now** and commit it as a fixture in the card repo's `notes/`.
 
-Follow the `<take-notes>` instructions from `cards:notes` skill — write a note to the card repository for each architectural discovery made during research.
+Follow the `<take-notes>` instructions from `notes` skill — write a note to the card repository for each architectural discovery made during research.
 
 #### Apply Markdown Guidelines
 
@@ -58,7 +57,7 @@ The plan file is stored in the card repository (`$CARD_REPO_PATH`), but the card
 
 #### Consider Bootstrap Sequencing
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `runtime:tdd-bootstrap` skill and structure the plan's implementation steps along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `tdd-bootstrap` skill and structure the plan's implementation steps along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 #### Write and Store Plan
 
@@ -76,7 +75,7 @@ git commit -m "[single sentence summarizing the approach and key decisions]"
 
 Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source — including CARD.md claims about third-party behavior). Any assumption that affects a planned implementation step warrants investigation; spike it per the procedure below. Load-bearing assumptions are work items for this step, not questions to surface to the user as a choice — converting a spike into an (a)/(b) prompt is a protocol violation. Skip only when no load-bearing assumptions exist.
 
-For each testable uncertainty, load the `runtime:spike` skill and follow its instructions. With several independent uncertainties, they can run as concurrent subagents rather than in sequence.
+For each testable uncertainty, load the `spike` skill and follow its instructions. With several independent uncertainties, they can run as concurrent subagents rather than in sequence.
 
 After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spike that disproves a load-bearing assumption invalidates the plan from intent through approach, so rewrite rather than patch.
 
@@ -84,7 +83,7 @@ After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spi
 
 Build the failure-mode question set for the card — from `CARD.md`, the plan, your notes, adjacent cards, and similar workspace code: what must hold at runtime for the plan to work? Verify each answer against workspace source, not the plan's own assertions; a question the plan cannot answer is a finding.
 
-If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff. For the failure-mode angle on a high-stakes solo plan, dispatch `runtime:card:plan-failure-mode` in the background with: the card repository and workspace paths; "Solo review — there are no planners. Review `[PLAN_FILE]` as `[PLANNER]` = `team-lead`, round-1. Draft your questions note, then stream `FINDING:` and the single `VERDICT:` to `team-lead`; skip `SELECT_WINNER`/`WINNER:` and end your turn after the verdict." Revise per its findings yourself; wake it with a `PLAN: READY round-K+1` DM for re-review.
+If the plan is large enough that you have lost distance from it, a fresh-eyes subagent per angle is worth the handoff. For the failure-mode angle on a high-stakes solo plan, dispatch `card-plan-failure-mode` in the background with: the card repository and workspace paths; "Solo review — there are no planners. Review `[PLAN_FILE]` as `[PLANNER]` = `team-lead`, round-1. Draft your questions note, then stream `FINDING:` and the single `VERDICT:` to `team-lead`; skip `SELECT_WINNER`/`WINNER:` and end your turn after the verdict." Revise per its findings yourself; wake it with a `PLAN: READY round-K+1` DM for re-review.
 
 Evaluate from the angles below and list every finding — do not stop at the first one:
 

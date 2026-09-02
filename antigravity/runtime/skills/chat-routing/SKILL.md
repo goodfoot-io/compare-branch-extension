@@ -2,7 +2,6 @@
 name: chat-routing
 description: Route conversational intent to the appropriate skill.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/chat-routing/SKILL.md.eta sha256:d9c8593064c739f17356460d830a553fe52927ff65fe198010e2723a345fa8c1 -->
 
 <routing-constraints>
 Route only — evaluate, select, and load. The loaded reference does the work.
@@ -27,15 +26,15 @@ Read the user's conversational message(s) to classify intent.
 
 Select the **first** matching condition:
 
-- **1. REQUESTING_INTERVIEW**: `runtime:interview`
-- **2. REQUESTING_DEVELOPMENT**: `runtime:card`
+- **1. REQUESTING_INTERVIEW**: `interview`
+- **2. REQUESTING_DEVELOPMENT**: `card`
 - **3. Otherwise**: non-routed — agent handles directly
 
 **Fallback**: When conditions conflict, default to non-routed. Do not force a structured flow the user did not request.
 
 ## 3. Load Routed Skill
 
-For conditions 1 and 2, invoke the matched skill by addressing it as `[MATCHED_SKILL]` (for example, `runtime:interview` or `runtime:card`) — Antigravity discovers skills natively by that address.
+For conditions 1 and 2, invoke the matched skill by addressing it as `[MATCHED_SKILL]` (for example, `interview` or `card`) — Antigravity discovers skills natively by that address.
 
 For condition 3, continue without loading a skill.
 

@@ -1,7 +1,7 @@
 # FMEA Review Loop
 
 <%= it.variant({
-  claude: "Iteratively review a card's design corpus with a dedicated reviewer subagent until it reports no remaining failure modes. The card is the unit under review — the loop hardens the card's specification, not the code.\n",
+  "claude-code": "Iteratively review a card's design corpus with a dedicated reviewer subagent until it reports no remaining failure modes. The card is the unit under review — the loop hardens the card's specification, not the code.\n",
   codex: "Iteratively review a card's design corpus with a dedicated reviewer worker until it reports no remaining failure modes. The card is the unit under review — the loop hardens the card's specification, not the code.\n",
   opencode: "Iteratively review a card's design corpus with a dedicated reviewer worker until it reports no remaining failure modes. The card is the unit under review — the loop hardens the card's specification, not the code.\n",
   antigravity: "Iteratively review a card's design corpus with a dedicated reviewer subagent until it reports no remaining failure modes. The card is the unit under review — the loop hardens the card's specification, not the code.\n"
@@ -9,7 +9,7 @@
 ## 1. Launch the reviewer
 
 <%= it.variant({
-  claude: "Spawn one **named** subagent on the strongest available model (a name lets SendMessage continue it across rounds). Its prompt must direct it to:\n",
+  "claude-code": "Spawn one **named** subagent on the strongest available model (a name lets SendMessage continue it across rounds). Its prompt must direct it to:\n",
   codex: "Spawn one worker on the strongest available model with `spawn_agent` (re-task it via `send_message`/`resume_agent` across rounds). Its prompt must direct it to:\n",
   opencode: "Spawn one worker on the strongest available model with `spawn_agent` (re-task it via `send_message`/`resume_agent` across rounds). Its prompt must direct it to:\n",
   antigravity: "Spawn one **named** subagent on the strongest available model (a name lets SendMessage continue it across rounds). Its prompt must direct it to:\n"
@@ -20,7 +20,7 @@
 - For each failure mode the card handles, verify the stated control is real and specified precisely enough to implement with no other context; report the rest as findings: failure mode, effect, severity (H/M/L), and a concrete recommendation naming the card file(s) to change.
 - Deliver a verdict — SATISFIED or NOT SATISFIED — with findings ordered by severity. Be strict, but never report the absence of explicitly out-of-scope items.
 <%= it.variant({
-  claude: "- Keep the analysis organized by finding number for follow-up rounds via SendMessage.\n",
+  "claude-code": "- Keep the analysis organized by finding number for follow-up rounds via SendMessage.\n",
   codex: "- Keep the analysis organized by finding number for follow-up rounds via `send_message`.\n",
   opencode: "- Keep the analysis organized by finding number for follow-up rounds via `send_message`.\n",
   antigravity: "- Keep the analysis organized by finding number for follow-up rounds via SendMessage.\n"
@@ -28,7 +28,7 @@
 ## 2. Collect the full report
 
 <%= it.variant({
-  claude: "- **Only a headline summary arrives**: SendMessage the reviewer for the complete numbered findings list (failure mode, effect, severity, recommendation each). It may span several messages — wait for all parts before editing anything.\n",
+  "claude-code": "- **Only a headline summary arrives**: SendMessage the reviewer for the complete numbered findings list (failure mode, effect, severity, recommendation each). It may span several messages — wait for all parts before editing anything.\n",
   codex: "- **Only a headline summary arrives**: `send_message` the reviewer for the complete numbered findings list (failure mode, effect, severity, recommendation each). It may span several messages — wait for all parts before editing anything.\n",
   opencode: "- **Only a headline summary arrives**: `send_message` the reviewer for the complete numbered findings list (failure mode, effect, severity, recommendation each). It may span several messages — wait for all parts before editing anything.\n",
   antigravity: "- **Only a headline summary arrives**: SendMessage the reviewer for the complete numbered findings list (failure mode, effect, severity, recommendation each). It may span several messages — wait for all parts before editing anything.\n"
@@ -44,7 +44,7 @@
 ## 4. Request re-review
 
 <%= it.variant({
-  claude: "SendMessage a finding-by-finding resolution map: for each finding number, the file/step changed and how, plus the commit SHA(s). Ask for SATISFIED or a numbered list of residuals.\n",
+  "claude-code": "SendMessage a finding-by-finding resolution map: for each finding number, the file/step changed and how, plus the commit SHA(s). Ask for SATISFIED or a numbered list of residuals.\n",
   codex: "`send_message`/`resume_agent` (whichever applies) a finding-by-finding resolution map: for each finding number, the file/step changed and how, plus the commit SHA(s). Ask for SATISFIED or a numbered list of residuals.\n",
   opencode: "`send_message`/`resume_agent` (whichever applies) a finding-by-finding resolution map: for each finding number, the file/step changed and how, plus the commit SHA(s). Ask for SATISFIED or a numbered list of residuals.\n",
   antigravity: "SendMessage a finding-by-finding resolution map: for each finding number, the file/step changed and how, plus the commit SHA(s). Ask for SATISFIED or a numbered list of residuals.\n"

@@ -1,7 +1,6 @@
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/work-diagram-style.md.eta sha256:4ddfc15192bc1ee4e623fdf8ef2f62f3de89bb149a116d7c77d53205f45b83ef -->
 # Work Diagrams — Visual Language
 
-Stylized-2.5D grammar for work diagrams rendered as inline SVG in a card HTML page. What to represent: `work-diagram-concepts.md`. Which notation: `work-diagram-notations.md`. Page mechanics belong to the `cards:html-files` skill; the design system and its color/shadow tokens to `cards:design` — this file only specializes them for diagram artwork.
+Stylized-2.5D grammar for work diagrams rendered as inline SVG in a card HTML page. What to represent: `work-diagram-concepts.md`. Which notation: `work-diagram-notations.md`. Page mechanics belong to the `html-files` skill; the design system and its color/shadow tokens to `design` — this file only specializes them for diagram artwork.
 
 The diagram is a designed exhibit: a title block states its thesis, a legend decodes every mark, generous margins frame a dense center. Depth is permitted inside the diagram frame — a named exception in the design skill's §5 — where elevation encodes hierarchy; the page chrome around it stays flat.
 

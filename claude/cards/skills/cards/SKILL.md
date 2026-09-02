@@ -2,7 +2,6 @@
 name: cards
 description: You must load this skill whenever the user asks to create, read, comment on, or modify a card
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/SKILL.md.eta sha256:9b3ba863f4913283bd33de6c6faf92033e15452cf9b1a10caced778a08f93347 -->
 
 # Cards
 

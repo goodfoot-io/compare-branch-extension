@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/developer-wave.md.eta sha256:9e3f611efe273b8ec0a18962c71e57de0c8b412cdf74d2dcfb4c7ab4166b0e13 -->
 # Developer Team
 
 Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md`/`./evaluation-wave.md` (finding fixes). You are the lead — you never implement, and you own every gate, merge, and integration. Each worker implements, tests, and commits in its own package worktree; only you run git in the card worktree.
@@ -67,7 +66,7 @@ You own [absolute paths under WORKER_WORKTREE]. Do not touch files outside this 
 [Peer packages or outside work this task consumes that has not merged yet, or "None". Build against the stated contract; report what remains BLOCKED on it — never fetch, rebase onto, or reconstruct the missing side.]
 
 ## Workflow
-When this task adds new behavior worth validating ahead of implementation, follow `runtime:tdd-bootstrap`: Phase 1 contract + stubs → checkpoint below (if required) → Phase 2 skipped checks → Phase 3 implement and unskip. Bug fixes skip the bootstrap — reproduce first. Commit each validated logical unit on `[WORKER_BRANCH]` per `<workspace-commit-style>` and `<markdown-guidelines>`. [Task-specific additions]
+When this task adds new behavior worth validating ahead of implementation, follow `tdd-bootstrap`: Phase 1 contract + stubs → checkpoint below (if required) → Phase 2 skipped checks → Phase 3 implement and unskip. Bug fixes skip the bootstrap — reproduce first. Commit each validated logical unit on `[WORKER_BRANCH]` per `<workspace-commit-style>` and `<markdown-guidelines>`. [Task-specific additions]
 
 ## Checkpoint
 [Required | Not required]. When required: after Phase 1, DM team-lead `CHECKPOINT: contract-ready` and hold — no tests, no implementation — until team-lead DMs `PROCEED`. Silence is a stall, not a green light. If you discover a cross-package coupling this brief didn't flag, DM `CHECKPOINT: unanticipated-contract` and hold the same way, even when marked "Not required."
@@ -102,7 +101,7 @@ A `CHECKPOINT:` DM (`contract-ready` or `unanticipated-contract`) holds the work
 
 When a task's `REVISE:` rounds stop producing new information (usually by the third), stop correcting: split it, re-scope it, or replace the worker with a fresh one given the restated task and the failed attempts.
 
-Route contract questions and integration bugs to the worker that owns the affected package; bug fixes skip `runtime:tdd-bootstrap` — reproduce first. Workers do not message each other — contract questions come to you. Use the `Sender:` line, not timing or content, to attribute every inbound DM to its package — concurrent workers make timing-based attribution unreliable.
+Route contract questions and integration bugs to the worker that owns the affected package; bug fixes skip `tdd-bootstrap` — reproduce first. Workers do not message each other — contract questions come to you. Use the `Sender:` line, not timing or content, to attribute every inbound DM to its package — concurrent workers make timing-based attribution unreliable.
 
 </checkpoints>
 

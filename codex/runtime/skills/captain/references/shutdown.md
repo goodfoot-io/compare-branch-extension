@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/shutdown.md.eta sha256:3f0b2de1beb43e9f56436d155ae74655773dd7572dcd2fdb80c85d924c207a60 -->
 <instructions>
 
 At any natural terminal state — after a merge, after recording a blocker, or after all tasks are complete — check whether `EXIT_WHEN_DONE` is `true` in your environment context. If it is not set, stop here and continue normally.

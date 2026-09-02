@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/clarify-and-enrich.md.eta sha256:0221593ae55e4f891e37ffe2a51754b999c038b6bbb0a2a9e6d4a3d7ff04f6b2 -->
 
 <instructions>
 

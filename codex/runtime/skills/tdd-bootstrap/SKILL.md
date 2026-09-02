@@ -2,7 +2,6 @@
 name: tdd-bootstrap
 description: Three-phase bootstrap for new behavior — define the contract, write skipped checks against it, then implement and unskip.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/tdd-bootstrap/SKILL.md.eta sha256:7dc59cfb8ef54bd56d8eb68ae582216ffe359d0057425bf695242b088b118606 -->
 
 <tdd-bootstrap>
 

@@ -1,0 +1,8 @@
+<!-- agent-skills
+platforms: [codex, opencode]
+outputName: openai.yaml
+-->
+interface:
+  display_name: "Card Developer"
+  short_description: "Implement scoped card work in the worktree."
+  default_prompt: "Use $card-developer to implement the scoped card work and return a structured result."

@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/bug.md.eta sha256:d59efa9199b004fa6dfac65b3b6126862f06c4a7f6d3157f17a0e0828a8db173 -->
 
 <placeholder-variables>
 [BUG_DESCRIPTION] — One-sentence summary extracted in Step 1.2: "[Expected behavior] but [actual behavior]"

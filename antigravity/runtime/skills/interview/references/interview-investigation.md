@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/interview/references/interview-investigation.md.eta sha256:9ed1dbd9b384fcd865da7500a9b7bab16c2d790703f61e366aca8ede7f45d1f4 -->
 <first-principles>
 1. An investigation exists to unblock a decision. Without a decision, it is research, not investigation.
 2. Questions must be falsifiable — if no evidence could change the answer, the question is wrong.
@@ -32,7 +31,7 @@ Do not block on research. Proceed to Section 2 while subagents run.
 
 ## 2. Load Card Skills
 
-Load `cards:notes`.
+Load `notes`.
 
 ## 3. Interview and Shape the Card
 

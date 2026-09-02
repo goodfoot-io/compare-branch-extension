@@ -21,7 +21,7 @@
 ## 1. Dispatch Research Immediately
 
 <%= it.variant({
-  claude: "Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:\n",
+  "claude-code": "Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:\n",
   codex: "Spawn `explorer` sub-agents in parallel (`spawn_agent` with `agent_type: explorer`) before engaging the user. Research targets:\n",
   opencode: "Spawn `explorer` sub-agents in parallel (`spawn_agent` with `agent_type: explorer`) before engaging the user. Research targets:\n",
   antigravity: "Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:\n"
@@ -35,7 +35,7 @@ Do not block on research. Proceed to Section 2 while subagents run.
 
 ## 2. Load Card Skills
 
-Load `<%= it.skillRef('cards','notes') %>`.
+Load <%= it.skillRef('cards:notes') %>.
 
 ## 3. Interview and Shape the Card
 

@@ -1,4 +1,12 @@
----
+<!-- agent-skills
+lintSuppressions:
+  - rule: skill-relative-path
+    lines: [37, 37]
+  - rule: skill-relative-path
+    lines: [43, 43]
+  - rule: skill-relative-path
+    lines: [49, 49]
+-->---
 name: chat-routing
 description: Route conversational intent to the appropriate skill.
 ---
@@ -26,8 +34,8 @@ Read the user's conversational message(s) to classify intent.
 
 Select the **first** matching condition:
 
-- **1. REQUESTING_INTERVIEW**: `<%= it.skillRef('runtime','interview') %>`
-- **2. REQUESTING_DEVELOPMENT**: `<%= it.skillRef('runtime','card') %>`
+- **1. REQUESTING_INTERVIEW**: <%= it.skillRef('runtime:interview') %>
+- **2. REQUESTING_DEVELOPMENT**: <%= it.skillRef('runtime:card') %>
 - **3. Otherwise**: non-routed — agent handles directly
 
 **Fallback**: When conditions conflict, default to non-routed. Do not force a structured flow the user did not request.
@@ -35,10 +43,10 @@ Select the **first** matching condition:
 ## 3. Load Routed Skill
 
 <%= it.variant({
-  claude: "For conditions 1 and 2, load the matched skill using the Skill tool:\n\n```xml\n<invoke name=\"Skill\">\n<parameter name=\"skill\">[MATCHED_SKILL]</parameter>\n</invoke>\n```\n",
+  "claude-code": "For conditions 1 and 2, load the matched skill using the Skill tool:\n\n```xml\n<invoke name=\"Skill\">\n<parameter name=\"skill\">[MATCHED_SKILL]</parameter>\n</invoke>\n```\n",
   codex: "For conditions 1 and 2, invoke the matched skill by mentioning it as `$[MATCHED_SKILL]` (for example, `$runtime:interview` or `$runtime:card`).\n",
   opencode: "For conditions 1 and 2, invoke the matched skill by mentioning it as `$[MATCHED_SKILL]` (for example, `$interview` or `$card`).\n",
-  antigravity: "For conditions 1 and 2, invoke the matched skill by addressing it as `[MATCHED_SKILL]` (for example, `runtime:interview` or `runtime:card`) — Antigravity discovers skills natively by that address.\n"
+  antigravity: "For conditions 1 and 2, invoke the matched skill by addressing it as `[MATCHED_SKILL]` (for example, `interview` or `card`) — Antigravity discovers skills natively by that address.\n"
 }) %>
 For condition 3, continue without loading a skill.
 

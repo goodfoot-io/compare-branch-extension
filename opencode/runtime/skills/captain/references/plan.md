@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/plan.md.eta sha256:428c97d4d7b20e21333297ffe00a877f7f46e720d6e1509389141d7a323198e1 -->
 
 <placeholder-variables>
 [PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plans/initial.md`, or `plans/phase-N.md` for follow-on work)

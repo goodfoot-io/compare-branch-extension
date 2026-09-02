@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/clarify-and-enrich.md.eta sha256:6b6e187db3dbd4afccffa86d42da464d0afb48740f16f56351f6f12c31228f0b -->
 
 <instructions>
 
@@ -124,7 +123,7 @@ git commit -m "[single sentence summarizing which requirements are missing and w
 
 ## 4. Re-route After Enrichment
 
-Load the `runtime:card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.
+Load the `card` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.
 
 ```xml
 <invoke name="Skill">

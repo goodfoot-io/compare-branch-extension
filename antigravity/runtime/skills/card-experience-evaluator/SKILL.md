@@ -2,7 +2,6 @@
 name: card-experience-evaluator
 description: Find user-experienced failure modes in an implementation.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-experience-evaluator/SKILL.md.eta sha256:fbe9e81f580647a447a320f3ce0b9ba7194357e8771e849fab4bca52b012eddd -->
 
 <dm-envelope>
 
@@ -59,7 +58,7 @@ Run the implementation where possible. For UI code, determine what actually rend
 
 Exercise failure paths, not just the happy path. When you cannot run a path, read it carefully and note the limit in your findings. On Deep, your peer exercises the same worktree concurrently: before filing a flake or inconsistent-behavior finding, rule out a peer's transient edit or run (mtimes, `git status`, its last DM).
 
-**Out-of-scope issues**: If you encounter a user-facing failure in code or a flow this card does not interact with, do not include it in your findings — load the `cards:cards` skill, create a new card describing the issue with a `related` relation to the current card, and add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
+**Out-of-scope issues**: If you encounter a user-facing failure in code or a flow this card does not interact with, do not include it in your findings — load the `cards` skill, create a new card describing the issue with a `related` relation to the current card, and add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
 ## 3. Evaluate the Implementation Against the Questions
 

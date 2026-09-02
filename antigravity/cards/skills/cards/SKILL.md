@@ -2,7 +2,6 @@
 name: cards
 description: You must load this skill whenever the user asks to create, read, comment on, or modify a card
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/SKILL.md.eta sha256:9b3ba863f4913283bd33de6c6faf92033e15452cf9b1a10caced778a08f93347 -->
 
 # Cards
 
@@ -22,7 +21,7 @@ The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before creating a card, load the `cards:markdown` skill, `./references/commanders-intent.md`, and both references for the matched card type. Two references load together:
+Before creating a card, load the `markdown` skill, `./references/commanders-intent.md`, and both references for the matched card type. Two references load together:
 - An **interview** guide describing how to reach enough signal for the card.
 - A **writing** guide describing the target CARD.md structure.
 
@@ -72,8 +71,8 @@ EOF
 
 Then, in order:
 
-1. Load the `cards:markdown` skill before writing CARD.md.
-2. When the card has something worth rendering — a mockup, diagram, data model, flow, or comparison of options — author an HTML page and commit each page's `.html`/`.meta.json` pair in a commit of its own; load `cards:html-files` for mechanics and `cards:design` for styling. When a page's subject is the card's own work rather than the product being built, first load the three `work-diagram-*` references (see Work-Diagram Pages below). Timeline position follows commit order: commit before CARD.md to open the card with a hero the reader takes in first, after CARD.md to elaborate what the description lays out.
+1. Load the `markdown` skill before writing CARD.md.
+2. When the card has something worth rendering — a mockup, diagram, data model, flow, or comparison of options — author an HTML page and commit each page's `.html`/`.meta.json` pair in a commit of its own; load `html-files` for mechanics and `design` for styling. When a page's subject is the card's own work rather than the product being built, first load the three `work-diagram-*` references (see Work-Diagram Pages below). Timeline position follows commit order: commit before CARD.md to open the card with a hero the reader takes in first, after CARD.md to elaborate what the description lays out.
 
 ```bash
 cards html check "$REPO/proposed-panel.html"
@@ -89,7 +88,7 @@ CARD_EOF
 cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
-4. Load the `cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
+4. Load the `notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
 
 Include `relations` when the new card relates to an existing one. Each entry has a `type` (only `"related"` is valid) and a `cardId`. The CLI sets relations only at creation; edit `CARD.meta.json` afterward.
 
@@ -217,7 +216,7 @@ Source of truth: `COMMITS_DIR`, `BRANCHES_DIR`, and `WorkspaceBranch` in `public
 
 ### Work-Diagram Pages
 
-HTML pages may be committed at any point in a card's life (`cards:html-files`). When a page's subject is the card's own work — its proposed decomposition and task dependencies at creation; execution history, attempts, or the decision trail afterward — rather than the product being built, first load `./references/work-diagram-concepts.md` (what to represent), `./references/work-diagram-notations.md` (which notation), and `./references/work-diagram-style.md` (visual language).
+HTML pages may be committed at any point in a card's life (`html-files`). When a page's subject is the card's own work — its proposed decomposition and task dependencies at creation; execution history, attempts, or the decision trail afterward — rather than the product being built, first load `./references/work-diagram-concepts.md` (what to represent), `./references/work-diagram-notations.md` (which notation), and `./references/work-diagram-style.md` (visual language).
 
 ### Adding a Comment
 

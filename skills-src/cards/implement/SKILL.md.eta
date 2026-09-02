@@ -1,7 +1,7 @@
 ---
 name: implement
 <%= it.variant({
-  claude: "description: Worktree workflow for implementing a task — enter a worktree, create a bound card, implement, rebase, fast-forward merge back, and clean up.\n",
+  "claude-code": "description: Worktree workflow for implementing a task — enter a worktree, create a bound card, implement, rebase, fast-forward merge back, and clean up.\n",
   codex: "description: Worktree workflow for implementing a task — create a worktree, create a bound card, implement, rebase, fast-forward merge back, and clean up.\n",
   opencode: "description: Worktree workflow for implementing a task — create a worktree, create a bound card, implement, rebase, fast-forward merge back, and clean up.\n",
   antigravity: "description: Worktree workflow for implementing a task — create a worktree, create a bound card, implement, rebase, fast-forward merge back, and clean up.\n"
@@ -14,7 +14,7 @@ name: implement
    - `ORIGIN_BRANCH` — the branch currently checked out there.
 
 <%= it.variant({
-  claude: "2. **Enter a worktree** with the `EnterWorktree` tool. Do not create one manually (`git worktree add`, etc.) first.\n",
+  "claude-code": "2. **Enter a worktree** with the `EnterWorktree` tool. Do not create one manually (`git worktree add`, etc.) first.\n",
   codex: "2. **Create a worktree** with the `create-worktree` CLI — Codex CLI has no built-in worktree tool:\n   `create-worktree <task-branch>`\n   then `cd` into the printed `worktree` path (parsed from the JSON output).\n",
   opencode: "2. **Create a worktree** with the `create-worktree` CLI — Codex CLI has no built-in worktree tool:\n   `create-worktree <task-branch>`\n   then `cd` into the printed `worktree` path (parsed from the JSON output).\n",
   antigravity: "2. **Create a worktree** with the `create-worktree` CLI — the agent CLI has no built-in worktree tool:\n   `create-worktree <task-branch>`\n   then `cd` into the printed `worktree` path (parsed from the JSON output).\n"
@@ -31,7 +31,7 @@ name: implement
    Fails loudly on divergence instead of creating a merge commit — resolve by rebasing again rather than forcing a merge commit.
 
 <%= it.variant({
-  claude: "7. **Exit the worktree** with `ExitWorktree`, `action: \"remove\"`.\n",
+  "claude-code": "7. **Exit the worktree** with `ExitWorktree`, `action: \"remove\"`.\n",
   codex: "7. **Remove the worktree**, from `$ORIGIN_DIR`, with the `remove-worktree` CLI:\n   `remove-worktree <worktree-path>`\n",
   opencode: "7. **Remove the worktree**, from `$ORIGIN_DIR`, with the `remove-worktree` CLI:\n   `remove-worktree <worktree-path>`\n",
   antigravity: "7. **Exit the worktree** with `ExitWorktree`, `action: \"remove\"`.\n"

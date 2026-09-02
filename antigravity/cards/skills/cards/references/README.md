@@ -1,4 +1,3 @@
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/README.md.eta sha256:b15471b6123322c9a8f2d52ff538643be844a73e027005dd3664e0af48eebda2 -->
 # Card-Type References
 
 Single source of truth for card-type guidance. Two files per card type:
@@ -19,9 +18,9 @@ Non-type references loaded on demand from the skill body:
 
 ## Consumers
 
-1. **Card creation** (`cards:cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `cards create` time.
-2. **Post-creation interview** (`runtime:interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`; also loads `deep-card.md` when the card repo has documentation tiers.
-3. **Card planner** (`runtime:card-planner` skill) — reads a deep card's `explanation/`, `how-to/`, and `reference/` tiers before planning.
+1. **Card creation** (`cards` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `cards create` time.
+2. **Post-creation interview** (`interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`; also loads `deep-card.md` when the card repo has documentation tiers.
+3. **Card planner** (`card-planner` skill) — reads a deep card's `explanation/`, `how-to/`, and `reference/` tiers before planning.
 
 ## Generated copies
 
@@ -40,8 +39,8 @@ deep-card.md
 
 Edit those files here; publication refreshes every consumer from this authored source.
 
-The `interview-<type>.md` files are deliberately not shared with `runtime:interview`. The copies here are pre-creation — no card exists yet. The runtime skill keeps distinct post-creation copies, which interview against an existing CARD.md.
+The `interview-<type>.md` files are deliberately not shared with `interview`. The copies here are pre-creation — no card exists yet. The runtime skill keeps distinct post-creation copies, which interview against an existing CARD.md.
 
 ## Markdown Formatting
 
-Fragment links, mermaid diagrams, collapsible sections, and code blocks are consolidated in the `cards:markdown` skill; each card-type guide references those guidelines in its writing principles.
+Fragment links, mermaid diagrams, collapsible sections, and code blocks are consolidated in the `markdown` skill; each card-type guide references those guidelines in its writing principles.

@@ -124,9 +124,9 @@ git commit -m "[single sentence summarizing which requirements are missing and w
 ## 4. Re-route After Enrichment
 
 <%= it.variant({
-  claude: "Load the `runtime:captain` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.\n\n```xml\n<invoke name=\"Skill\">\n<parameter name=\"skill\">runtime:captain</parameter>\n</invoke>\n```\n",
+  "claude-code": "Load the `runtime:captain` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.\n\n```xml\n<invoke name=\"Skill\">\n<parameter name=\"skill\">runtime:captain</parameter>\n</invoke>\n```\n",
   codex: "Use the `$runtime:captain` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.\n",
   opencode: "Use the `$captain` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.\n",
-  antigravity: "Load the `runtime:captain` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.\n\n```xml\n<invoke name=\"Skill\">\n<parameter name=\"skill\">runtime:captain</parameter>\n</invoke>\n```\n"
+  antigravity: "Load the `captain` skill to re-evaluate the card's state and route to the appropriate next reference. On this second pass, skip the NOT DOR_MET route — enrichment has already been attempted this session.\n\n```xml\n<invoke name=\"Skill\">\n<parameter name=\"skill\">runtime:captain</parameter>\n</invoke>\n```\n"
 }) %>
 </instructions>

@@ -1,3 +1,4 @@
+
 interface:
   display_name: "Cards Configuration SDK"
   short_description: "Build Cards Extension settings and stream renderers"

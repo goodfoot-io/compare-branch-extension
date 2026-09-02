@@ -2,7 +2,6 @@
 name: card-plan-failure-mode
 description: Review parallel plans for technical and user-facing failure modes, hold the contest open until every live plan qualifies, then select the strongest qualifier as winner.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-plan-failure-mode/SKILL.md.eta sha256:037aa4ea63689424b6c81adce21474a795b7e8191ca52c188f851b47bd0d2c05 -->
 
 <placeholder-variables>
 [PLANNER] — The originating planner's subagent name (e.g., `planner-1`) for the plan under review
@@ -103,7 +102,7 @@ Your scope is all code the plan interacts with, not just what it modifies. Pre-e
 
 A consumer the plan does not account for is a failure mode the planner doesn't know about. Apply the rule symmetrically: every finding asserting what the workspace does or does not contain ("the plan is missing X," "feature Y is not shipped," "no caller handles Z") must be verified by reading or grepping, not inferred from the plan's silence. The bar is symmetric for clearing: a load-bearing claim clears only on workspace evidence or execution — a claim you cleared by argument alone stays an open question.
 
-**Out-of-scope issues**: For an issue in code the plan does not interact with, do not file a finding. Load the `cards:cards` skill, create a new card with a `related` relation to the current card, add the reciprocal relation to `CARD.meta.json`, then continue.
+**Out-of-scope issues**: For an issue in code the plan does not interact with, do not file a finding. Load the `cards` skill, create a new card with a `related` relation to the current card, add the reciprocal relation to `CARD.meta.json`, then continue.
 
 ### 2.1. Answer the Failure-Mode Questions Against the Plan
 

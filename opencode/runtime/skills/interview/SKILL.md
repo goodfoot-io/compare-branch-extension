@@ -2,7 +2,6 @@
 name: interview
 description: Route interview cards to the appropriate skill.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/interview/SKILL.md.eta sha256:1a83e9218a4a7f3176edd657e2e74e49dfb61b4e2eab0e5745d66491c8bd2625 -->
 
 <routing-constraints>
 Route only — evaluate, select, and load. The loaded reference does the work.

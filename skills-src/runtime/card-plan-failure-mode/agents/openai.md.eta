@@ -1,0 +1,8 @@
+<!-- agent-skills
+platforms: [codex, opencode]
+outputName: openai.yaml
+-->
+interface:
+  display_name: "Card Plan Failure-Mode Reviewer"
+  short_description: "Review parallel plans for failure modes and select the strongest qualifier as winner."
+  default_prompt: "Use $card-plan-failure-mode to review the plans for failure modes and report verdicts and a winner."

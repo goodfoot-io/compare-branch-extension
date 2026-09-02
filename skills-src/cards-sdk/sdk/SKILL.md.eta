@@ -1,12 +1,7 @@
 ---
 name: sdk
 description: Build Cards Extension settings and stream renderers.
-<%= it.variant({
-  claude: "version: 1.0.0\n",
-  codex: "",
-  opencode: "",
-  antigravity: "version: 1.0.0\n"
-}) %>---
+---
 
 Type-safe action handlers for the Cards Extension via `@cards.management/sdk/config`.
 

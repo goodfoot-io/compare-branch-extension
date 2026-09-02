@@ -2,7 +2,6 @@
 name: card-developer
 description: Implements code changes.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-developer/SKILL.md.eta sha256:b5763325dbd9e3d19d1ca71700ce2918e5e46e74ec17a9a35de5e67a7d36fd69 -->
 
 # Card Developer
 

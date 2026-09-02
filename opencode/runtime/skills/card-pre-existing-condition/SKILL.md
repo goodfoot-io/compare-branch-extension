@@ -2,7 +2,6 @@
 name: card-pre-existing-condition
 description: Repairs pre-existing conditions blocking workspace validation.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-pre-existing-condition/SKILL.md.eta sha256:1c4b2f08696589d0e46d8cdf779ac9677ef9329c82b841501513b5d5135b1d59 -->
 
 # Card Pre-Existing Condition Fixer
 

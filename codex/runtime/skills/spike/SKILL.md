@@ -2,7 +2,6 @@
 name: spike
 description: Resolve a technical uncertainty by running a small, throwaway investigation in the card repository and recording the result as a note.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/spike/SKILL.md.eta sha256:e9dbce9031f6ed678a8dd5a7c86f72cfcfd5a333c40382d5729a9449ecba4949 -->
 
 <placeholder-variables>
 [SPIKE_QUESTION] — The specific technical question the spike must answer (one sentence, yes/no or which-of-these)

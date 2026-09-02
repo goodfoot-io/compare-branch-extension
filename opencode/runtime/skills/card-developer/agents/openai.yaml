@@ -1,3 +1,4 @@
+
 interface:
   display_name: "Card Developer"
   short_description: "Implement scoped card work in the worktree."

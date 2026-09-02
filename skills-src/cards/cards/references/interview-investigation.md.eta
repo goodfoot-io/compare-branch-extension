@@ -14,7 +14,7 @@ Reach the signal required to write a well-formed investigation request before th
 ## 1. Dispatch Research Immediately
 
 <%= it.variant({
-  claude: "Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:\n",
+  "claude-code": "Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:\n",
   codex: "Spawn `explorer` sub-agents in parallel (`spawn_agent` with `agent_type: explorer`) before engaging the user. Research targets:\n",
   opencode: "Spawn `explorer` sub-agents in parallel (`spawn_agent` with `agent_type: explorer`) before engaging the user. Research targets:\n",
   antigravity: "Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:\n"
@@ -44,7 +44,7 @@ As research subagents return and as the conversation settles pieces of the desti
 
 ## 3. Create the Card
 
-When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent `<%= it.skillRef('cards','cards') %>` skill. Compose CARD.md against `./investigation.md`. Include evidence-source inventory, prior-art references, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `cards create` flow in the parent <%= it.skillRef('cards:cards') %> skill. Compose CARD.md against `./investigation.md`. Include evidence-source inventory, prior-art references, and any approach that emerged from research in `notes/` in the initial commit. Report the new card ID.
 
 ## 4. Constraints
 

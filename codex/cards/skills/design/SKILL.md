@@ -2,7 +2,6 @@
 name: design
 description: The single, authoritative design system for themable VSCode UI in this project — VS Code's own webview conventions fused with the Cards extension's concrete tokens and component specs. Use whenever building, styling, or reviewing UI in a Cards extension webview or HTML embedded in a card; every component follows the modules bundled here rather than ad-hoc values or generic best-practice guesses.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/shared/design/SKILL.md.eta sha256:5c529bce30201c4f1b68efb255453854c2da46b0ee47da12a0b81ad23ab1e958 -->
 
 # VSCode / Cards Design System
 
@@ -102,7 +101,7 @@ Domain-specific decisions live here; generic engineering rules live in `principl
 - **Status colors trace to one source.** `statusColors.ts` in code, `--cards-status-*` in pages, both documented in `foundation/colors.md`.
 - **Respect host-injected context.** Webviews inherit body padding, font, and scrollbar width from the host; don't re-declare them. Card HTML gets none of that and must self-paint (see `contexts.md`).
 - **Theme changes are live.** Never cache a resolved color in JS without re-reading on `data-vscode-theme-kind` / theme-class change.
-- **Card-HTML authoring mechanics** (sidecar meta, `cards html check`, two-file pairing) belong to the `cards:html-files` skill — this skill owns design only.
+- **Card-HTML authoring mechanics** (sidecar meta, `cards html check`, two-file pairing) belong to the `$cards:html-files` skill — this skill owns design only.
 
 ## 5. Named exceptions
 
