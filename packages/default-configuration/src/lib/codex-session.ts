@@ -21,6 +21,7 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { applyCodexConfig } from './applyCodexConfig.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import {
+  cleanupMergedBranches,
   errorMessage,
   resolveBaseBranch,
   resolveMarketplacePath,
@@ -854,19 +855,23 @@ export function composeDeveloperInstructions(fragments: ReadonlyArray<string | u
  * @param cardRepoPath - Additional writable directory for the card repo.
  * @param appendSystemPrompt - Content injected as `developer_instructions`
  *   via `-c`. This is the Codex analog of Claude's `--append-system-prompt`.
+ * @param executionMode - Dispatch mode: `'interactive'` boots the TUI,
+ *   `'background'` runs the non-interactive `codex exec` command.
  * @returns Array of CLI arguments.
  */
 export function buildCodexArgs(
   prompt: string | undefined,
   workspacePath: string,
   cardRepoPath: string,
-  appendSystemPrompt?: string
+  appendSystemPrompt: string | undefined,
+  executionMode: 'interactive' | 'background'
 ): string[] {
   // Enable the bundled plugins via the Cards profile-v2 User-config layer
   // (`${CODEX_HOME}/cards.config.toml`, written by writeCodexProfileConfig).
   // codex loads that file only under `--profile cards`, so the user's own
   // `config.toml` is never touched and their plain `codex` sees no Cards plugins.
   const args = [
+    ...(executionMode === 'background' ? ['exec'] : []),
     '--dangerously-bypass-approvals-and-sandbox',
     '--profile',
     CODEX_DEFAULT_PROFILE_NAME,
@@ -939,12 +944,18 @@ export async function spawnCodexSession(
   // not displace the global ~/.codex/AGENTS.md or a <workspace>/AGENTS.md.
   const cardRepoAgentsMd = readCardRepoAgentsMd(input.cardRepoPath);
   const developerInstructions = composeDeveloperInstructions([cardRepoAgentsMd, appendSystemPrompt]);
-  const args = buildCodexArgs(rawPrompt, cwd, input.cardRepoPath, developerInstructions);
+  const args = buildCodexArgs(rawPrompt, cwd, input.cardRepoPath, developerInstructions, input.executionMode);
+  const isInteractive = input.executionMode === 'interactive';
 
   const child: ChildProcess = spawnAgentCli('codex', args, {
     cwd,
     detached: process.platform !== 'win32',
-    stdio: 'inherit',
+    // `codex exec` is the CLI's non-interactive automation surface. Background
+    // actions have no terminal reader, so discard stdin/stdout and retain stderr
+    // for progress and diagnostics; interactive sessions keep direct terminal
+    // control. Hide the console-less Windows cross-spawn shell hop.
+    stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
+    ...(isInteractive ? {} : { windowsHide: true }),
     env: {
       ...process.env,
       CODEX_HOME: codexHome,
@@ -974,7 +985,24 @@ export async function spawnCodexSession(
     return result;
   });
 
+  if (!isInteractive) {
+    child.stderr?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString().trim();
+      if (text) {
+        context.logger.warn(text);
+      }
+    });
+  }
+
   const exitCode = await new Promise<number | null>((resolve) => {
+    // A spawn failure emits `error` without guaranteeing `close`. Resolve the
+    // lifecycle wait so a background action cannot hang indefinitely.
+    child.on('error', (error) => {
+      context.logger.error('Failed to spawn codex', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      resolve(null);
+    });
     child.on('close', resolve);
   });
 
@@ -986,18 +1014,33 @@ export async function spawnCodexSession(
   // {@link settleCardStatusForCleanup}.
   await settleCardStatusForCleanup(input.cardRepoPath, context.logger);
 
-  try {
-    await spawnBranchCleanupWatcher(
-      {
-        cardId: input.cardId,
-        repoRoot: input.repoRoot,
-        cardRepoPath: input.cardRepoPath
-      },
-      context.logger
-    );
-  } catch (error) {
-    context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', {
-      error: errorMessage(error)
-    });
+  // Interactive sessions hand cleanup to a detached watcher so their terminal
+  // closes immediately. Background actions have no terminal to release, so run
+  // the same sweep inline before reporting completion.
+  if (isInteractive) {
+    try {
+      await spawnBranchCleanupWatcher(
+        {
+          cardId: input.cardId,
+          repoRoot: input.repoRoot,
+          cardRepoPath: input.cardRepoPath
+        },
+        context.logger
+      );
+    } catch (error) {
+      context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', {
+        error: errorMessage(error)
+      });
+    }
+  } else {
+    try {
+      await cleanupMergedBranches(input, input.cardRepoPath, context.logger);
+    } catch (error) {
+      const message = errorMessage(error);
+      if (message.includes('self-referential parentBranch') || message.includes('data corruption')) {
+        throw error;
+      }
+      context.logger.warn('Post-exit cleanup failed (non-fatal)', { error: message });
+    }
   }
 }

@@ -1074,20 +1074,6 @@ describe('Default Actions', () => {
 
         expect(spawn).not.toHaveBeenCalled();
       });
-
-      it('rejects codex-cli background mode and does not spawn', async () => {
-        const { spawn } = await import('node:child_process');
-
-        const action = (await import('../src/actions/captain.js')).default;
-        await expect(
-          action(
-            baseInput({ codingAgent: 'codex-cli', executionMode: 'background', actionName: 'Captain' }),
-            createMockContext()
-          )
-        ).rejects.toThrow(/codex-cli.*does not support background-mode launch/);
-
-        expect(spawn).not.toHaveBeenCalled();
-      });
     });
   });
 

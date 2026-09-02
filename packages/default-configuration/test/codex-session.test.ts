@@ -140,7 +140,7 @@ describe('codex-session library', () => {
   it('buildCodexArgs enables plugins via --profile, not -c plugin flags', async () => {
     const { buildCodexArgs } = await import('../src/lib/codex-session.js');
 
-    const args = buildCodexArgs('do the thing', '/test/workspace', '/test/repo', 'be helpful');
+    const args = buildCodexArgs('do the thing', '/test/workspace', '/test/repo', 'be helpful', 'interactive');
 
     // Enablement is supplied by the Cards profile-v2 layer, selected here.
     expect(args[args.indexOf('--profile') + 1]).toBe('cards');
@@ -157,6 +157,16 @@ describe('codex-session library', () => {
     expect(args[args.indexOf('--add-dir') + 1]).toBe('/test/repo');
     // developer_instructions is still injected via -c.
     expect(cFlagValues.some((value) => value.startsWith('developer_instructions'))).toBe(true);
+    expect(args[args.length - 1]).toBe('do the thing');
+  });
+
+  it('buildCodexArgs selects codex exec for background mode', async () => {
+    const { buildCodexArgs } = await import('../src/lib/codex-session.js');
+
+    const args = buildCodexArgs('do the thing', '/test/workspace', '/test/repo', undefined, 'background');
+
+    expect(args[0]).toBe('exec');
+    expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
     expect(args[args.length - 1]).toBe('do the thing');
   });
 

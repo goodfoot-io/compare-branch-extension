@@ -6,11 +6,11 @@
  *   stdio so the user gets direct terminal control. In background mode, Claude
  *   runs with `--print` so it executes non-interactively (takes a prompt, runs,
  *   and exits). The watcher handles all transcript streaming.
- * - Codex: spawns the `codex` CLI interactively with a short prompt that
+ * - Codex: spawns the `codex` CLI with a short prompt that
  *   instructs Codex to load the `$runtime:card` skill and follow its
  *   `<routing-instructions>`. The skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch `CODEX_HOME`. Background mode
- *   is rejected explicitly.
+ *   runs through the non-interactive `codex exec` command.
  * - OpenCode: spawns the `opencode` CLI. Interactive actions boot the TUI with
  *   a short prompt that instructs it to load the `card` skill and follow its
  *   `<routing-instructions>`; the skill itself is provided by the bundled
@@ -40,13 +40,9 @@ import { spawnOpencodeSession } from '../lib/opencode-session.js';
  * Spawns the `claude`, `codex`, or `opencode` CLI as a child process, selected
  * by `input.codingAgent`. The process lifecycle is tied to the action:
  * cancellation sends SIGTERM. In the Claude branch, switching to interactive
- * mode preserves the session ID for resumption; OpenCode background sessions
- * deliberately register no switch-to-interactive callback (the headless run's
- * session ID is server-assigned and unknowable until exit).
- *
- * Codex + background mode is rejected explicitly: background launch is a
- * Claude/OpenCode capability until `spawnCodexSession` grows a background-mode
- * implementation.
+ * mode preserves the session ID for resumption; Codex and OpenCode background
+ * sessions deliberately register no switch-to-interactive callback because a
+ * resumable headless session identity is not available to the action at launch.
  */
 export default defineAction(
   {
@@ -59,12 +55,6 @@ export default defineAction(
     const agent = resolveCodingAgent(input);
 
     if (agent === 'codex-cli') {
-      if (input.executionMode === 'background') {
-        throw new Error(
-          `cards.defaultCodingAgent='codex-cli' does not support background-mode launch. ` +
-            `Run the Launch action in interactive mode, or switch cards.defaultCodingAgent to 'claude-code-cli'.`
-        );
-      }
       await spawnCodexSession(input, context, {
         prompt: 'Load the `$runtime:card` skill and follow the `<routing-instructions>`.'
       });

@@ -9,6 +9,7 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { homedir } from 'node:os';
 import { join, sep } from 'node:path';
 import type { ActionContext, ActionInput } from '@cards.management/sdk/config';
@@ -612,15 +613,57 @@ describe('launch action — codex branch', () => {
     expect(mergeBaseCall).toBeUndefined();
   });
 
-  it('rejects background-mode launch with a codingAgent-specific error and does not spawn', async () => {
+  it('runs background-mode launch through codex exec with console-less stdio and inline cleanup', async () => {
     const { spawn } = await import('node:child_process');
+    const stderr = new EventEmitter();
+    const child = createMockChild();
+    child.stderr = stderr as ChildProcess['stderr'];
+    vi.mocked(spawn).mockReturnValue(child);
+    const context = createMockContext();
+    const warn = vi.spyOn(context.logger, 'warn');
 
     const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput({ executionMode: 'background' }), context);
+    await flushMicrotasks();
 
-    await expect(action(baseInput({ executionMode: 'background' }), createMockContext())).rejects.toThrow(
-      /does not support background-mode/
+    const args = vi.mocked(spawn).mock.calls[0]![1] as string[];
+    expect(args[0]).toBe('exec');
+    expect(vi.mocked(spawn).mock.calls[0]![2]).toEqual(
+      expect.objectContaining({
+        stdio: ['ignore', 'ignore', 'pipe'],
+        windowsHide: true
+      })
     );
-    expect(spawn).not.toHaveBeenCalled();
+
+    stderr.emit('data', Buffer.from('codex progress'));
+    expect(warn).toHaveBeenCalledWith('codex progress');
+
+    child.emit('close', 0);
+    await promise;
+
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+    expect(spawnBranchCleanupWatcher).not.toHaveBeenCalled();
+  });
+});
+
+describe('captain action — codex branch', () => {
+  it('runs background-mode captain through codex exec', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/captain.js')).default;
+    const promise = action(baseInput({ actionName: 'Captain', executionMode: 'background' }), createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[0]![1] as string[];
+    expect(args[0]).toBe('exec');
+    expect(args[args.length - 1]).toMatch(
+      /Load the `\$runtime:captain` skill and follow the `<routing-instructions>`\.$/
+    );
+
+    child.emit('close', 0);
+    await promise;
   });
 });
 
