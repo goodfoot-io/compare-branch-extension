@@ -4,8 +4,8 @@
   "target": "public/opencode/cards-assistant/skills",
   "platform": "opencode",
   "plugin": "cards-assistant",
-  "version": "1.0.11",
-  "registrySha256": "8675f5fea97b5d4ba7df62094cff45ce25b02a7dba6044d6e0449d3b58e58269",
+  "version": "1.0.12",
+  "registrySha256": "91be8f037381deba54e4645c16f7917456a71ce29b405bb41648abc8720bed91",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",

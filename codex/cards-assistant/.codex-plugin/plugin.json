@@ -1,6 +1,6 @@
 {
   "name": "cards-assistant",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Cards Assistant session-start announcement plugin for Codex",
   "author": {
     "name": "Goodfoot Media LLC"
