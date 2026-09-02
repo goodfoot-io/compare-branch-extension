@@ -4,8 +4,8 @@
   "target": "public/opencode/cards/skills",
   "platform": "opencode",
   "plugin": "cards",
-  "version": "1.0.337",
-  "registrySha256": "389314ba1e129d83917a2ff2f1c6941f366715cd35639b7569c56541efde5de8",
+  "version": "1.0.338",
+  "registrySha256": "d9ecb14db7d589eeb43664135b8f2463d6e8f747e122bc3f76fe93637d078dc9",
   "files": [
     {
       "path": "cards/references/bug-report.md",
@@ -199,8 +199,8 @@
     {
       "path": "cards/SKILL.md",
       "source": "public/skills-src/cards/cards/SKILL.md.eta",
-      "sourceSha256": "640bd5a9e2b0ff1d1376f5f26932534a627a12321aa813fb24a3df1a0dd10a20",
-      "sha256": "b8b9ab355768781d0a599c199aa82078cff2547a73690ea6b3654ea67aaa321a",
+      "sourceSha256": "9b3ba863f4913283bd33de6c6faf92033e15452cf9b1a10caced778a08f93347",
+      "sha256": "7f025640a9b33bdfc6d4d0dcf92379f3872966d5b5e9d7c1d06e75cf411fcb3d",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -253,8 +253,8 @@
     {
       "path": "debug/references/diagnose-worktree.md",
       "source": "public/skills-src/shared/debug/references/diagnose-worktree.md",
-      "sourceSha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
-      "sha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
+      "sourceSha256": "13c062ce67bcfec1e2dc5a0db5a57391fd0b9e2815eb214a51a6e3625d3bf67a",
+      "sha256": "13c062ce67bcfec1e2dc5a0db5a57391fd0b9e2815eb214a51a6e3625d3bf67a",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
@@ -271,8 +271,8 @@
     {
       "path": "debug/references/find-session-state.md",
       "source": "public/skills-src/shared/debug/references/find-session-state.md",
-      "sourceSha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
-      "sha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
+      "sourceSha256": "ee122e0f389003c9ebd4438a092b4fb4808b22bf5cd2efc8b0b7c6874a45d939",
+      "sha256": "ee122e0f389003c9ebd4438a092b4fb4808b22bf5cd2efc8b0b7c6874a45d939",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
@@ -280,8 +280,8 @@
     {
       "path": "debug/references/inspect-cli-tools.md",
       "source": "public/skills-src/shared/debug/references/inspect-cli-tools.md",
-      "sourceSha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
-      "sha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
+      "sourceSha256": "53784cc38254d3df6db104ad9f343ce61872f3e709ecf498560b6a6a0347a978",
+      "sha256": "53784cc38254d3df6db104ad9f343ce61872f3e709ecf498560b6a6a0347a978",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
@@ -334,8 +334,8 @@
     {
       "path": "debug/SKILL.md",
       "source": "public/skills-src/shared/debug/SKILL.md.eta",
-      "sourceSha256": "9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f",
-      "sha256": "502486ed486424cd7da5195ffd8709d668141e69e39aa6797d046ff0c2b826d5",
+      "sourceSha256": "0932d26c20db17610504c73375c31d3e7881a9625751a282c5c3e60e85e920ee",
+      "sha256": "9ca4c05b8386ce145e2212eaa4fa13252dfd522d7c83556051415521499d065a",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
@@ -595,8 +595,8 @@
     {
       "path": "implement/SKILL.md",
       "source": "public/skills-src/cards/implement/SKILL.md.eta",
-      "sourceSha256": "cf32f51899597b89c10407715e97dd76c84941a1001f0ce1ba2db510ecaa0ace",
-      "sha256": "5599682c9eb32e70082e5e56ee961cb42dc2ddaede8aebc85e681d5f08713362",
+      "sourceSha256": "d6b17319e63caf3587606a149f09e0acfd1da047273a828beead9cced9a40370",
+      "sha256": "c760a1234806c72b5ec242679a6e4d21e8e7567c555bb64f24b03c4cdb287f58",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"

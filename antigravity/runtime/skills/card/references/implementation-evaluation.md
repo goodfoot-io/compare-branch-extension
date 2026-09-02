@@ -1,4 +1,4 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/implementation-evaluation.md.eta sha256:fe76f79576f81313e76fd442052c22fe3006c7b7aaa6d9e3e1cf161aaa944695 -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/implementation-evaluation.md.eta sha256:673f923a2cee982d6b6b66e6579763a12dc8c12f16b3780f57d9fc976619cc33 -->
 
 <instructions>
 
@@ -42,7 +42,7 @@ Each finding names the mechanism — the wrong rule, axis, or key — and the wi
 
 ## 4. Apply Fixes
 
-Fix every finding at the mechanism, not the flagged instance — a class finding closes only when the mechanism removes every instance, and every witness configuration lands as a green in-suite control. Keep changes minimal and focused on the findings. If a developer team is live, route every finding to its package's worker as a `TASK:` (a fresh worker for a package with none) — do not fix inline. Once every routed worker reports green, proceed to Step 5 (lint/typecheck/scoped tests, not `./developer-wave.md`'s `<integration-gate>`; the full validation suite runs only in `merge.md`, after rebase). Otherwise fix inline; with many findings, dispatch a developer team per `./developer-wave.md`.
+Fix every finding at the mechanism, not the flagged instance — a class finding closes only when the mechanism removes every instance, and every witness configuration lands as a green in-suite control. Keep changes minimal and focused on the findings. If a developer team is live, route every finding to its package's worker as a `TASK:` (a fresh worker for a package with none) — do not fix inline. Merge each green report per `./developer-wave.md`'s `<integration-gate>`, then proceed to Step 5 (lint/typecheck/scoped tests, not `./developer-wave.md`'s `<integration-gate>`; the full validation suite runs only in `merge.md`, after rebase). Otherwise fix inline; with many findings, dispatch a developer team per `./developer-wave.md`.
 
 ## 5. Validate and Commit
 

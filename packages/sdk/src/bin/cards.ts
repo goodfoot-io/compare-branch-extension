@@ -110,7 +110,7 @@ Commands:
   search [query] [options]       Search cards using #tag @relation text syntax
   <card-id> action <action-id> [options]  Execute an action on a card
   <card-id> watch [glob...]     Wait for next unattributed commit
-  <card-id> bind [options]      Bind an existing card to the current worktree
+  <card-id> attach [options]    Attach an existing card to the current worktree
   <card-id> shutdown [options]  Signal agent shutdown to the running action
   html check [path...]          Validate card-repo HTML files
 
@@ -207,7 +207,7 @@ Watch:
     cards <card-id> watch "src/auth/**"
     cards <card-id> watch "src/**" "tests/**"
 
-Bind:
+Attach:
   Attaches an existing card to the current worktree. Installs git hooks,
   registers the branch with the Cards API, and (when a transcript path is
   available) spawns transcript attribution. Outputs card-repo-log and
@@ -224,8 +224,8 @@ Bind:
     --parent-branch <ref>  Explicit parent branch (overrides git config and reflog detection)
 
   Examples:
-    cards main-42 bind
-    cards main-42 bind --parent-branch main
+    cards main-42 attach
+    cards main-42 attach --parent-branch main
 
 Html:
   Validates a card repo's HTML documents (any *.html outside attachments/):
@@ -715,7 +715,7 @@ async function outfitCreatedWorktree(
     // does not reach the catch below, so without this it is completely silent:
     // the warn it emits goes only to a detached CLI stderr that no log captures.
     // Surface it on the create CLI's stderr naming the reason, mirroring the
-    // fail-closed notice bindCard emits. The create path deliberately does NOT
+    // fail-closed notice attachCard emits. The create path deliberately does NOT
     // exit non-zero — the card WAS created and the stdout JSON payload must
     // remain the sole machine-readable result — preserving the fail-open stance
     // for genuinely un-monitorable cases while making the cause visible.
@@ -1348,7 +1348,7 @@ export async function runShutdownVerb(args: string[]): Promise<void> {
 }
 
 /**
- * Binds an existing card to the current worktree.
+ * Attaches an existing card to the current worktree.
  *
  * Applies four fail-closed gates before any state change:
  *
@@ -1363,19 +1363,19 @@ export async function runShutdownVerb(args: string[]): Promise<void> {
  *
  * Fail-closed on skipped activation: if the outfit's attribution outcome
  * reports that session activation was skipped (lock held, card not
- * activatable, or a preflight failure), bind prints a "branch registered but
+ * activatable, or a preflight failure), attach prints a "branch registered but
  * card not activated" diagnostic to stderr and exits non-zero instead of
  * printing the success payload.
  *
- * @param cardId - The card identifier to bind to the current worktree.
+ * @param cardId - The card identifier to attach to the current worktree.
  * @param parentBranchFlag - Optional `--parent-branch` flag value.
  */
-export async function bindCard(cardId: string, parentBranchFlag?: string): Promise<void> {
+export async function attachCard(cardId: string, parentBranchFlag?: string): Promise<void> {
   // Gate 1: must be inside a linked worktree.
   const worktreeDir = await resolveLinkedWorktreeDir();
   if (!worktreeDir) {
     console.error(
-      'cards bind: not in a linked worktree. Run this command from inside a worktree created with `git worktree add`.'
+      'cards attach: not in a linked worktree. Run this command from inside a worktree created with `git worktree add`.'
     );
     process.exit(1);
   }
@@ -1385,8 +1385,8 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   if (existsSync(cardIdFile)) {
     const existingId = readFileSync(cardIdFile, 'utf-8').trim();
     console.error(
-      `cards bind: this worktree is already bound to card ${existingId}. ` +
-        `To bind a different card, remove this worktree and create a new one.`
+      `cards attach: this worktree is already bound to card ${existingId}. ` +
+        `To attach a different card, remove this worktree and create a new one.`
     );
     process.exit(1);
   }
@@ -1410,13 +1410,13 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
     cardRepoPath = card.repositoryPath;
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NOT_FOUND') {
-      console.error(`cards bind: card "${cardId}" not found.`);
+      console.error(`cards attach: card "${cardId}" not found.`);
     } else if (error instanceof NetworkError) {
       console.error(
-        `cards bind: card service unavailable — check that the extension/daemon is running. (${error.message})`
+        `cards attach: card service unavailable — check that the extension/daemon is running. (${error.message})`
       );
     } else {
-      console.error(`cards bind: unable to fetch card "${cardId}".`, error);
+      console.error(`cards attach: unable to fetch card "${cardId}".`, error);
     }
     process.exitCode = 1;
     return;
@@ -1425,7 +1425,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   // Gate 4: parent branch must be determinable.
   const parent = await resolveCardsParentBranch(worktreeDir, parentBranchFlag);
   if (parent.kind === 'refuse') {
-    console.error(`cards bind: ${parent.reason}`);
+    console.error(`cards attach: ${parent.reason}`);
     process.exitCode = 1;
     return;
   }
@@ -1434,8 +1434,8 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   const sessionId = await resolveSessionId();
   if (sessionId === null) {
     console.error(
-      'cards bind: refusing to bind worktree — no session id could be resolved. ' +
-        'Re-enter the worktree via the EnterWorktree tool, then run `cards <id> bind` again.'
+      'cards attach: refusing to attach worktree — no session id could be resolved. ' +
+        'Re-enter the worktree via the EnterWorktree tool, then run `cards <id> attach` again.'
     );
     process.exitCode = 1;
     return;
@@ -1444,7 +1444,7 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
   const transcriptPath = await resolveTranscriptPath(sessionId, worktreeDir);
   if (!transcriptPath) {
     console.error(
-      'cards bind: warning: transcript path could not be resolved — session streaming is disabled for this bind.'
+      'cards attach: warning: transcript path could not be resolved — session streaming is disabled for this attach.'
     );
   }
 
@@ -1464,11 +1464,11 @@ export async function bindCard(cardId: string, parentBranchFlag?: string): Promi
 
   // Fail closed: at this point the branch is registered, but if session
   // activation was skipped (de-dupe lock held by another card, card not in an
-  // activatable status, or an attribution preflight failed) the bind must not
+  // activatable status, or an attribution preflight failed) the attach must not
   // masquerade as a plain success — surface the partial state on stderr and
   // exit non-zero so scripted callers can detect it.
   if (outcome && (outcome.activated === false || outcome.attribution === 'skipped')) {
-    console.error(`cards bind: branch registered but card not activated (${outcome.reason ?? 'unknown reason'}).`);
+    console.error(`cards attach: branch registered but card not activated (${outcome.reason ?? 'unknown reason'}).`);
     // Post-connection (the client + `outfitWorktreeForCard` opened sockets) —
     // set the code and return so the top-level `requestProcessExit` drains the
     // loop instead of a synchronous `process.exit` racing libuv (0xC0000409).
@@ -1551,9 +1551,9 @@ if (process.argv[1]?.match(/cards\.(mjs|ts)$/)) {
         const watchGlobs = process.argv.slice(4);
         run = watchCard(command, watchGlobs);
         isWatch = true;
-      } else if (verb === 'bind') {
-        const bindFlags = parseFlags(process.argv.slice(4));
-        run = bindCard(command, bindFlags['parent-branch']?.[0]);
+      } else if (verb === 'attach') {
+        const attachFlags = parseFlags(process.argv.slice(4));
+        run = attachCard(command, attachFlags['parent-branch']?.[0]);
       } else if (verb === 'shutdown') {
         run = runShutdownVerb(process.argv.slice(4));
       } else if (verb?.startsWith('--')) {

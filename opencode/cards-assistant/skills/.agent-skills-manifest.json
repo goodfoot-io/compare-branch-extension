@@ -4,8 +4,8 @@
   "target": "public/opencode/cards-assistant/skills",
   "platform": "opencode",
   "plugin": "cards-assistant",
-  "version": "1.0.15",
-  "registrySha256": "389314ba1e129d83917a2ff2f1c6941f366715cd35639b7569c56541efde5de8",
+  "version": "1.0.16",
+  "registrySha256": "d9ecb14db7d589eeb43664135b8f2463d6e8f747e122bc3f76fe93637d078dc9",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",
@@ -55,8 +55,8 @@
     {
       "path": "debug/references/diagnose-worktree.md",
       "source": "public/skills-src/shared/debug/references/diagnose-worktree.md",
-      "sourceSha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
-      "sha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
+      "sourceSha256": "13c062ce67bcfec1e2dc5a0db5a57391fd0b9e2815eb214a51a6e3625d3bf67a",
+      "sha256": "13c062ce67bcfec1e2dc5a0db5a57391fd0b9e2815eb214a51a6e3625d3bf67a",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
@@ -73,8 +73,8 @@
     {
       "path": "debug/references/find-session-state.md",
       "source": "public/skills-src/shared/debug/references/find-session-state.md",
-      "sourceSha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
-      "sha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
+      "sourceSha256": "ee122e0f389003c9ebd4438a092b4fb4808b22bf5cd2efc8b0b7c6874a45d939",
+      "sha256": "ee122e0f389003c9ebd4438a092b4fb4808b22bf5cd2efc8b0b7c6874a45d939",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
@@ -82,8 +82,8 @@
     {
       "path": "debug/references/inspect-cli-tools.md",
       "source": "public/skills-src/shared/debug/references/inspect-cli-tools.md",
-      "sourceSha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
-      "sha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
+      "sourceSha256": "53784cc38254d3df6db104ad9f343ce61872f3e709ecf498560b6a6a0347a978",
+      "sha256": "53784cc38254d3df6db104ad9f343ce61872f3e709ecf498560b6a6a0347a978",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
@@ -136,8 +136,8 @@
     {
       "path": "debug/SKILL.md",
       "source": "public/skills-src/shared/debug/SKILL.md.eta",
-      "sourceSha256": "9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f",
-      "sha256": "502486ed486424cd7da5195ffd8709d668141e69e39aa6797d046ff0c2b826d5",
+      "sourceSha256": "0932d26c20db17610504c73375c31d3e7881a9625751a282c5c3e60e85e920ee",
+      "sha256": "9ca4c05b8386ce145e2212eaa4fa13252dfd522d7c83556051415521499d065a",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"

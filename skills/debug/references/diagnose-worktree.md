@@ -26,7 +26,7 @@ ls ~/.cards/bind-locks/ 2>/dev/null
 
 | File | Written by | Read by | Contents |
 |------|-----------|---------|----------|
-| `CARD_ID` | `writeCardBoundFile()` in `worktree.ts` | `cards bind`, `remove-worktree`, watchers | Card ID string |
+| `CARD_ID` | `writeCardBoundFile()` in `worktree.ts` | `cards attach`, `remove-worktree`, watchers | Card ID string |
 | `CARD_ORIGINAL_HOOK_PATH` | `outfitWorktreeForCard()` (guarded snapshot — never overwritten on re-run) | Restoration on unbind | Original `core.hooksPath` value |
 
 The parent branch is not a `.cards/` file: `outfitWorktreeForCard()` records it as durable git config `branch.<name>.cardsParent` via `writeCardsParentConfig()`.
@@ -63,25 +63,25 @@ Ranked by probability:
 
 **Post-fix verification**: `create-worktree` succeeds. `git worktree list` shows the new entry.
 
-### Bind Fails (Already Bound) — HIGH probability
+### Attach Fails (Already Bound) — HIGH probability
 
-**Evidence**: `cards <id> bind` fails. `.cards/CARD_ID` already exists in the worktree with a different card ID.
+**Evidence**: `cards <id> attach` fails. `.cards/CARD_ID` already exists in the worktree with a different card ID.
 
 **Cause**: A worktree can only be bound to one card. The worktree was previously bound and not cleaned up.
 
 **Recovery**: Remove the existing `.cards/CARD_ID` only if the previous bind is stale (no active session). Check `~/.cards/adhoc-active/{cardId}/` for live ref files — if all ref PIDs are dead, the bind is stale and the file can be safely removed.
 **Risk**: **risky — removing CARD_ID during an active session breaks attribution and triggers orphan cleanup**.
 
-### Bind Fails (Lock Held) — MEDIUM probability
+### Attach Fails (Lock Held) — MEDIUM probability
 
-**Evidence**: `cards <id> bind` hangs or fails. A bind-lock file exists at `~/.cards/bind-locks/{sha256(worktreeDir)}.lock`.
+**Evidence**: `cards <id> attach` hangs or fails. A bind-lock file exists at `~/.cards/bind-locks/{sha256(worktreeDir)}.lock`.
 
 **Cause**: Another bind operation is in progress, or a previous bind crashed and left a stale lock.
 
 **Recovery**: Check if a bind operation is running (`ps aux | grep bind`). If no bind is in progress, remove the lock file manually.
 **Risk**: **risky — removing a live lock causes double-bind**. Verify no bind operation is running first.
 
-**Post-fix verification**: `cards <id> bind` succeeds. `.cards/CARD_ID` contains the card ID.
+**Post-fix verification**: `cards <id> attach` succeeds. `.cards/CARD_ID` contains the card ID.
 
 ### Hooks Not Running in Worktree — MEDIUM probability
 
@@ -89,7 +89,7 @@ Ranked by probability:
 
 **Cause**: `core.hooksPath` wasn't set during outfit, or the shared hooks directory wasn't provisioned.
 
-**Recovery**: Rerun `cards <id> bind` to re-outfit the worktree — **safe**. Check `.cards/CARD_ORIGINAL_HOOK_PATH` for the previous value.
+**Recovery**: Rerun `cards <id> attach` to re-outfit the worktree — **safe**. Check `.cards/CARD_ORIGINAL_HOOK_PATH` for the previous value.
 
 ### Worktree Contents Not Isolated (Path Policy) — MEDIUM probability
 
@@ -154,7 +154,7 @@ Fix the pattern or file permissions, then re-run `create-worktree` — there is 
 
 **Cause**: When `--card-id` is given, the CLI must reach the server for branch registration. Without `--card-id`, the CLI is fully offline.
 
-**Recovery**: Verify the server is running (load `diagnose-server-health.md`), or create the worktree without `--card-id` and bind separately. **Risk**: **safe**.
+**Recovery**: Verify the server is running (load `diagnose-server-health.md`), or create the worktree without `--card-id` and attach separately. **Risk**: **safe**.
 
 ## Escalation
 

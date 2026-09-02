@@ -3,7 +3,7 @@
  *
  * Produces `<card-repo-log>` and `<workspace-repo-log>` XML blocks from git
  * history and workspace tracking data. Used by the agent-hooks session/subagent
- * hooks and by the `cards <id> bind` CLI verb to inject card context into agent
+ * hooks and by the `cards <id> attach` CLI verb to inject card context into agent
  * sessions.
  *
  * @summary Context-building utilities for card and workspace repo log blocks

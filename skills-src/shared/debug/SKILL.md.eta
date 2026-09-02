@@ -4,7 +4,7 @@ description: This skill should be used when the user asks to "debug the cards as
 ---
 
 <tools>
-cards — Card operations CLI (get, create, list, search, bind, watch, action)
+cards — Card operations CLI (get, create, list, search, attach, watch, action)
 cards-extension — VS Code extension control CLI (editor, notify, issue, workspace, debug, panel)
 curl — HTTP health checks against the Cards API server
 jq — Parse JSON discovery files and JSON Lines logs
@@ -416,7 +416,7 @@ done
 | Agent won't start, terminal flashes and closes, ENOENT, handler crashes | `references/diagnose-agent-launch.md` | Full spawn chain: VS Code command → handler .mjs → agent CLI → plugin hooks, with guard checks, env vars, per-platform spawn behavior |
 | Server not responding, "Server not running", ECONNREFUSED, SQLITE_CORRUPT | `references/diagnose-server-health.md` | Server liveness, discovery file validation, database corruption recovery, safe-vs-risky action markers |
 | Hook not firing, SessionStart announcement missing, trust interstitial | `references/diagnose-hooks.md` | Hook registration and execution for Claude + Codex plugins, plus the Antigravity fingerprint above |
-| Card won't bind, worktree already in use, bind lock held | `references/diagnose-worktree.md` | Worktree creation, binding, outfit, shared hooks provisioning, stale lock cleanup |
+| Card won't attach, worktree already in use, bind lock held | `references/diagnose-worktree.md` | Worktree creation, binding, outfit, shared hooks provisioning, stale lock cleanup |
 | Worktree contents wrong — files missing, unexpected symlinks, `create-worktree` exits 3, a listed `.worktreeinclude` path never arrives, Windows symlink privilege denied | `references/diagnose-worktree.md` | Worktree path policy (`.worktreeignore` omit / `.worktreeinclude` copy), copy-is-an-intersection rule, fail-closed config, per-path classification checks |
 | Can't find logs, need to see what happened, no log output | `references/find-logs.md` | Every log file produced by the extension + plugins, organized by subsystem, with JSON Lines query recipes |
 | Transcript missing, session not streamed, commit attribution broken | `references/find-session-state.md` | Session identity, transcript streaming, commit attribution, route-nudge markers, flush sentinels |

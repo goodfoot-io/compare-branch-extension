@@ -19,7 +19,7 @@ name: implement
   opencode: "2. **Create a worktree** with the `create-worktree` CLI — Codex CLI has no built-in worktree tool:\n   `create-worktree <task-branch>`\n   then `cd` into the printed `worktree` path (parsed from the JSON output).\n",
   antigravity: "2. **Create a worktree** with the `create-worktree` CLI — the agent CLI has no built-in worktree tool:\n   `create-worktree <task-branch>`\n   then `cd` into the printed `worktree` path (parsed from the JSON output).\n"
 }) %>
-3. **Create a card for the task** by running `cards create` from inside the worktree. Creating it from within the worktree auto-binds the card to it — no separate bind step.
+3. **Create a card for the task** by running `cards create` from inside the worktree. Creating it from within the worktree auto-attaches the card to it — no separate attach step.
 
 4. **Implement the change** in the worktree, on its branch.
 

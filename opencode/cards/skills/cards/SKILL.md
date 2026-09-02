@@ -2,7 +2,7 @@
 name: cards
 description: You must load this skill whenever the user asks to create, read, comment on, or modify a card
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/SKILL.md.eta sha256:640bd5a9e2b0ff1d1376f5f26932534a627a12321aa813fb24a3df1a0dd10a20 -->
+<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/SKILL.md.eta sha256:9b3ba863f4913283bd33de6c6faf92033e15452cf9b1a10caced778a08f93347 -->
 
 # Cards
 
@@ -50,7 +50,7 @@ After composing a complex or uncertain card — a deep card, a design touching s
 
 ## `cards` CLI
 
-`cards` is a plugin-provided executable on `PATH` covering get, create, list, search, bind, action, and watch. Invoke it directly as a bare command.
+`cards` is a plugin-provided executable on `PATH` covering get, create, list, search, attach, action, and watch. Invoke it directly as a bare command.
 
 **Get a card** — Fetch card details by ID. The response includes `repositoryPath` for filesystem access:
 ```
@@ -99,19 +99,19 @@ cards create <<'EOF'
 EOF
 ```
 
-**Bind a card to a worktree** — Attach an existing card to the current linked worktree:
+**Attach a card to a worktree** — Attach an existing card to the current linked worktree:
 ```
-cards <card-id> bind
-cards <card-id> bind --parent-branch <ref>
+cards <card-id> attach
+cards <card-id> attach --parent-branch <ref>
 ```
 
-Binding installs hooks, registers the worktree branch with the card, and enables session streaming. The command succeeds only if:
+Attaching installs hooks, registers the worktree branch with the card, and enables session streaming. The command succeeds only if:
 - You are in a linked worktree (not the main repository)
 - The worktree has no existing card bound to it
 - The card exists and is accessible
 - A parent branch can be resolved (checked in order: `branch.<name>.cardsParent` git config, reflog decoration, `--parent-branch` flag, then refuses)
 
-Outputs card-repo-log and workspace-repo-log context blocks to stdout (no env block). If the transcript path cannot be resolved, binding succeeds with a stderr streaming-disabled warning.
+Outputs card-repo-log and workspace-repo-log context blocks to stdout (no env block). If the transcript path cannot be resolved, attaching succeeds with a stderr streaming-disabled warning.
 
 **Search cards** — Search cards using a unified query syntax with `#tag`, `@relation`, and free text:
 ```

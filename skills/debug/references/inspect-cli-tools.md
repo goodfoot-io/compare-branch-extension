@@ -25,7 +25,7 @@ All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows
 
 ### `cards`
 
-**Purpose**: read, create, list, search, bind, watch, and execute actions on cards.
+**Purpose**: read, create, list, search, attach, watch, and execute actions on cards.
 
 **Subcommands**: `<card-id>` (get), `create`, `list`, `search`, `bind`, `watch`, `action`.
 
@@ -136,7 +136,7 @@ exit /b %ERRORLEVEL%
 
 All CLIs use: `git rev-parse --show-toplevel` (3s timeout). Explicit override: `--workspace-path <path>`.
 
-Worktree detection (`cards create` / `cards bind`): compares `git rev-parse --git-dir` against `--git-common-dir` — a linked worktree has them distinct.
+Worktree detection (`cards create` / `cards attach`): compares `git rev-parse --git-dir` against `--git-common-dir` — a linked worktree has them distinct.
 
 ## Authentication
 

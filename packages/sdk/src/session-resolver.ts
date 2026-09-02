@@ -90,7 +90,7 @@ export async function resolveRuntime(): Promise<'claude-code' | 'codex' | 'openc
  * When the env var is absent, the function looks up the per-session
  * unbound-candidate record for `worktreeDir`. If a matching entry carries a
  * `transcriptPath`, that path is returned. This allows `cards create` and
- * `cards bind` to recover the transcript recorded at worktree-creation time even
+ * `cards attach` to recover the transcript recorded at worktree-creation time even
  * when the env var was not inherited.
  *
  * An empty string is returned when neither tier resolves — callers must treat

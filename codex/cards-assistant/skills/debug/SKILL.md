@@ -2,10 +2,10 @@
 name: debug
 description: This skill should be used when the user asks to "debug the cards assistant", "troubleshoot cards", "find cards logs", "check cards server health", "cards not working", "where are cards logs", "test cards API", asks what a Cards error code means, or reports a failure with Cards packages, the extension, licensing or registration, Claude Code hooks, Codex or Antigravity sessions, worktrees, configuration, authentication, or release tooling.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/shared/debug/SKILL.md.eta sha256:9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f -->
+<!-- @cards.management/agent-skills source: public/skills-src/shared/debug/SKILL.md.eta sha256:0932d26c20db17610504c73375c31d3e7881a9625751a282c5c3e60e85e920ee -->
 
 <tools>
-cards — Card operations CLI (get, create, list, search, bind, watch, action)
+cards — Card operations CLI (get, create, list, search, attach, watch, action)
 cards-extension — VS Code extension control CLI (editor, notify, issue, workspace, debug, panel)
 curl — HTTP health checks against the Cards API server
 jq — Parse JSON discovery files and JSON Lines logs
@@ -417,7 +417,7 @@ done
 | Agent won't start, terminal flashes and closes, ENOENT, handler crashes | `references/diagnose-agent-launch.md` | Full spawn chain: VS Code command → handler .mjs → agent CLI → plugin hooks, with guard checks, env vars, per-platform spawn behavior |
 | Server not responding, "Server not running", ECONNREFUSED, SQLITE_CORRUPT | `references/diagnose-server-health.md` | Server liveness, discovery file validation, database corruption recovery, safe-vs-risky action markers |
 | Hook not firing, SessionStart announcement missing, trust interstitial | `references/diagnose-hooks.md` | Hook registration and execution for Claude + Codex plugins, plus the Antigravity fingerprint above |
-| Card won't bind, worktree already in use, bind lock held | `references/diagnose-worktree.md` | Worktree creation, binding, outfit, shared hooks provisioning, stale lock cleanup |
+| Card won't attach, worktree already in use, bind lock held | `references/diagnose-worktree.md` | Worktree creation, binding, outfit, shared hooks provisioning, stale lock cleanup |
 | Worktree contents wrong — files missing, unexpected symlinks, `create-worktree` exits 3, a listed `.worktreeinclude` path never arrives, Windows symlink privilege denied | `references/diagnose-worktree.md` | Worktree path policy (`.worktreeignore` omit / `.worktreeinclude` copy), copy-is-an-intersection rule, fail-closed config, per-path classification checks |
 | Can't find logs, need to see what happened, no log output | `references/find-logs.md` | Every log file produced by the extension + plugins, organized by subsystem, with JSON Lines query recipes |
 | Transcript missing, session not streamed, commit attribution broken | `references/find-session-state.md` | Session identity, transcript streaming, commit attribution, route-nudge markers, flush sentinels |

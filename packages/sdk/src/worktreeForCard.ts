@@ -193,7 +193,7 @@ export interface OutfitAttributionOutcome {
  * @param worktreeDir - Absolute path to the (already-created) worktree root.
  * @param options - Card id, parent branch, session, transcript, and compiled hook paths.
  * @returns An {@link OutfitAttributionOutcome} describing whether attribution
- *   was spawned or skipped (and why), so callers like `cards <id> bind` can
+ *   was spawned or skipped (and why), so callers like `cards <id> attach` can
  *   fail closed when the branch was registered but the card was not activated.
  */
 export async function outfitWorktreeForCard(

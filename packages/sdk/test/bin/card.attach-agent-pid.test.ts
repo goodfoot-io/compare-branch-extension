@@ -1,17 +1,18 @@
 /**
- * Reproduction for: `cards <id> bind` reports plain success (exit 0 +
- * card-repo-log on stdout) even when session activation was silently skipped
- * inside outfitWorktreeForCard (de-dupe lock held by another card, card not
- * activatable, attribution preflight failed).
+ * Reproduction for: attachCard() passes agentPid: process.pid to
+ * outfitWorktreeForCard, supplying the short-lived CLI invocation PID
+ * instead of the real long-running agent process. When the CLI exits
+ * seconds after attach, the adhoc-cleanup process sees the PID die and
+ * flips the card to needs_review prematurely.
  *
- * Hypothesis under test: bindCard() ignores any activation outcome returned by
- * outfitWorktreeForCard and unconditionally prints the success payload and
- * completes with exit 0. The fail-closed contract is: when activation was
- * skipped, bind must exit non-zero (or at minimum emit an unmistakable
- * "branch registered but card not activated" notice instead of the bare
- * success payload).
+ * Hypothesis under test: attachCard() hard-codes agentPid: process.pid
+ * at line 1253 instead of omitting it so outfitWorktreeForCard resolves
+ * the real agent PID via findAgentPid(). The fix is to remove that line
+ * from the options object. This test asserts that outfitWorktreeForCard
+ * is called WITHOUT agentPid in the options — an assertion that fails
+ * against the current unfixed code.
  *
- * @summary bindCard fail-closed contract when activation is skipped
+ * @summary attachCard passes CLI process.pid as agentPid instead of letting outfitWorktreeForCard resolve it
  */
 
 import { execFileSync } from 'node:child_process';
@@ -31,15 +32,12 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-// Mock the worktree-outfit orchestrator so we can have it report that session
-// activation was skipped (e.g. the de-dupe lock is held by another card).
+// Mock outfitWorktreeForCard so we can inspect the options object passed to it.
 const outfitWorktreeForCard = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve());
 vi.mock('@cards.management/sdk/worktree-for-card', () => ({
   outfitWorktreeForCard: (...args: unknown[]) => outfitWorktreeForCard(...args)
 }));
 
-// Mock the candidate-set reads/removals so bind never touches the global
-// cards config dir.
 const readUnboundCandidates = vi.fn<
   (...args: unknown[]) => Promise<{ worktreeDir: string; sessionId: string; transcriptPath: string }[]>
 >(() => Promise.resolve([]));
@@ -49,8 +47,6 @@ vi.mock('@cards.management/sdk/unbound-worktree-candidates', () => ({
   removeUnboundCandidate: (...args: unknown[]) => removeUnboundCandidate(...args)
 }));
 
-// resolveExtensionPath is invoked only to build compiledScriptPaths for the
-// (mocked) outfit call; stub it so it never touches the real install.
 vi.mock('@cards.management/sdk', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards.management/sdk')>();
   return {
@@ -59,7 +55,7 @@ vi.mock('@cards.management/sdk', async (importOriginal) => {
   };
 });
 
-import { bindCard } from '../../src/bin/cards.js';
+import { attachCard } from '../../src/bin/cards.js';
 
 /**
  * Restores an environment variable to a previously-saved value, deleting it
@@ -76,7 +72,7 @@ function restoreEnv(key: string, saved: string | undefined): void {
   }
 }
 
-describe('bindCard activation outcome (fail-closed)', () => {
+describe('attachCard agentPid (CLI PID vs agent PID)', () => {
   let testDir: string;
   let server: Server;
   /** Cards stored in the test server, keyed by ID. */
@@ -85,7 +81,7 @@ describe('bindCard activation outcome (fail-closed)', () => {
   let savedXdgDataHome: string | undefined;
   let savedXdgConfigHome: string | undefined;
 
-  /** A main repo + linked worktree that bindCard is invoked from. */
+  /** A main repo + linked worktree that attachCard is invoked from. */
   let base: string;
   let mainRepo: string;
   let linkedWorktree: string;
@@ -96,7 +92,7 @@ describe('bindCard activation outcome (fail-closed)', () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
 
   /**
-   * Creates a real linked git worktree (git-dir ≠ common-dir) so
+   * Creates a real linked git worktree (git-dir !== common-dir) so
    * resolveLinkedWorktreeDir treats it as a bind target, with
    * `branch.feature/bind.cardsParent` configured so parent-branch resolution
    * succeeds.
@@ -117,7 +113,7 @@ describe('bindCard activation outcome (fail-closed)', () => {
     cards = new Map();
 
     // Create temp directory for homedir mock and pin discovery to it.
-    testDir = join(realTmpdir(), `card-bind-outcome-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = join(realTmpdir(), `card-bind-pid-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(join(testDir, '.cards'), { recursive: true });
     process.env['MOCK_HOMEDIR'] = testDir;
     savedCardsHome = process.env['CARDS_HOME'];
@@ -127,7 +123,7 @@ describe('bindCard activation outcome (fail-closed)', () => {
     delete process.env['XDG_DATA_HOME'];
     delete process.env['XDG_CONFIG_HOME'];
 
-    // Minimal HTTP server: bind only needs GET /cards/:id.
+    // Minimal HTTP server: attach only needs GET /cards/:id.
     server = createServer((req: IncomingMessage, res: ServerResponse) => {
       const url = new URL(req.url ?? '/', `http://localhost`);
       const getCardMatch = url.pathname.match(/^\/cards\/([^/]+)$/);
@@ -164,7 +160,7 @@ describe('bindCard activation outcome (fail-closed)', () => {
     savedTranscript = process.env['CARDS_TRANSCRIPT_PATH'];
     base = realpathSync(
       (() => {
-        const b = join(realTmpdir(), `card-bind-outcome-wt-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        const b = join(realTmpdir(), `card-bind-pid-wt-${Date.now()}-${Math.random().toString(36).slice(2)}`);
         mkdirSync(b, { recursive: true });
         return b;
       })()
@@ -196,7 +192,7 @@ describe('bindCard activation outcome (fail-closed)', () => {
     restoreEnv('XDG_CONFIG_HOME', savedXdgConfigHome);
   });
 
-  it('exits non-zero when outfitWorktreeForCard reports activation was skipped', async () => {
+  it('does not pass agentPid to outfitWorktreeForCard, letting it resolve the real agent PID via findAgentPid', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
@@ -208,27 +204,21 @@ describe('bindCard activation outcome (fail-closed)', () => {
         repositoryPath: '/tmp/test-card-repo'
       });
       process.chdir(linkedWorktree);
-      process.env['CARDS_SESSION_ID'] = 'sess-skipped-activation';
+      process.env['CARDS_SESSION_ID'] = 'sess-agent-pid-test';
       process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/transcript.jsonl';
 
-      // Activation was silently skipped: the card is not in an activatable
-      // state, so the worktree got its branch registered but the card was
-      // never activated and attribution never attached.
-      outfitWorktreeForCard.mockResolvedValue({ activated: false, reason: 'not-activatable' });
+      await expect(attachCard('main-001')).resolves.toBeUndefined();
 
-      // Fail-closed contract: bind must NOT complete as a plain success.
-      // Primary expectation: a non-zero exit code so scripted callers can detect
-      // that the card was not activated. This gate runs AFTER the CardsClient +
-      // `outfitWorktreeForCard` opened sockets, so it sets `process.exitCode` and
-      // returns rather than calling `process.exit` (which races libuv teardown →
-      // 0xC0000409 on Windows). The function therefore resolves.
-      await expect(bindCard('main-001')).resolves.toBeUndefined();
-      expect(process.exitCode).toBe(1);
-      expect(exitSpy).not.toHaveBeenCalled();
+      // Verify outfitWorktreeForCard was invoked exactly once.
+      expect(outfitWorktreeForCard).toHaveBeenCalledTimes(1);
 
-      // And the diagnostic must make the partial state unmistakable.
-      const stderr = errSpy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
-      expect(stderr).toMatch(/not activated/i);
+      // The third positional argument to outfitWorktreeForCard(client, worktreeDir, options)
+      // is the OutfitWorktreeForCardOptions object. Current buggy code at attachCard L1253
+      // hard-codes `agentPid: process.pid` — this assertion that agentPid is undefined
+      // MUST FAIL against the unfixed code (where it is a concrete number).
+      const options = outfitWorktreeForCard.mock.calls[0]?.[2] as Record<string, unknown> | undefined;
+      expect(options).toBeDefined();
+      expect(options!['agentPid']).toBeUndefined();
     } finally {
       errSpy.mockRestore();
       logSpy.mockRestore();

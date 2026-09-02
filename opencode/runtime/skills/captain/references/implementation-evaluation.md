@@ -1,4 +1,4 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/implementation-evaluation.md.eta sha256:79253a7c704c94e215797e75c41fd735d07b71b68ac727ebc0b37dd9108ce657 -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/implementation-evaluation.md.eta sha256:880ad3faa9e719e2c9a1fb8441a64c01b86f007b5b7bfcf71ad1381248631f36 -->
 
 <instructions>
 

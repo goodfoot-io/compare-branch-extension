@@ -4,8 +4,8 @@
   "target": "public/claude/runtime/skills",
   "platform": "claude",
   "plugin": "runtime",
-  "version": "1.0.450",
-  "registrySha256": "389314ba1e129d83917a2ff2f1c6941f366715cd35639b7569c56541efde5de8",
+  "version": "1.0.451",
+  "registrySha256": "d9ecb14db7d589eeb43664135b8f2463d6e8f747e122bc3f76fe93637d078dc9",
   "files": [
     {
       "path": "captain/references/blocked.md",
@@ -46,8 +46,8 @@
     {
       "path": "captain/references/developer-wave.md",
       "source": "public/skills-src/runtime/captain/references/developer-wave.md.eta",
-      "sourceSha256": "2ae8b7cc5453ff7ab5725fb5b41cd5df1246af5c97de1a6239c9376285dc9353",
-      "sha256": "5cc919c2b1857b0c792557abe12340556c1751667d9cc3b34c114bf848896a05",
+      "sourceSha256": "214f4d774837e324020d64bb36f80c0148d77b864c3d0edec74af94df9c30b1c",
+      "sha256": "14990da5cc3ed2523740807ab897b003b2c5ab53e62171938993db40c2ec34df",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -55,8 +55,8 @@
     {
       "path": "captain/references/implementation-evaluation.md",
       "source": "public/skills-src/runtime/captain/references/implementation-evaluation.md.eta",
-      "sourceSha256": "79253a7c704c94e215797e75c41fd735d07b71b68ac727ebc0b37dd9108ce657",
-      "sha256": "d1c4c721a24280e1d795a59df9da45cb94ba1814a0c3699c0b525b37f494440c",
+      "sourceSha256": "880ad3faa9e719e2c9a1fb8441a64c01b86f007b5b7bfcf71ad1381248631f36",
+      "sha256": "86dcb138d41de0cfc44ae7d55d8f71b8702f5a42ff3be65ca2e289c97ad8336b",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -154,8 +154,8 @@
     {
       "path": "card-developer/SKILL.md",
       "source": "public/skills-src/runtime/card-developer/SKILL.md.eta",
-      "sourceSha256": "c88fc91b8c9fd9f104141ce4588ff8458d25a050ac77cbcf3842ddb08ac8f3a5",
-      "sha256": "33758c9dabcd7d312bcbaf92330f306f72e7bf5e4352a14003e35297151efc97",
+      "sourceSha256": "b5763325dbd9e3d19d1ca71700ce2918e5e46e74ec17a9a35de5e67a7d36fd69",
+      "sha256": "47803e5cd5d458d1d503a33e44114f1bc77796f660a192048f1f62222b4049bb",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -253,8 +253,8 @@
     {
       "path": "card/references/developer-wave.md",
       "source": "public/skills-src/runtime/card/references/developer-wave.md.eta",
-      "sourceSha256": "f0cc437b7e62cba320b8cf0748886733de5481fb3da5f7299d3901acb1b8ac8f",
-      "sha256": "3d8e7e2b344dc372d9c3401814dec1583598a75c35f15e000dbf76217da93c81",
+      "sourceSha256": "9e3f611efe273b8ec0a18962c71e57de0c8b412cdf74d2dcfb4c7ab4166b0e13",
+      "sha256": "be9df89793a93bed75d843a5389d7e81487eb9a680257c60928a00830fbcdda5",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -262,8 +262,8 @@
     {
       "path": "card/references/evaluation-wave.md",
       "source": "public/skills-src/runtime/card/references/evaluation-wave.md.eta",
-      "sourceSha256": "e9f5a3dbf43d94bf8461edf4b4955bfeeb1af57960d3e5fa5dd0d26a8401e95c",
-      "sha256": "ecf2893c55b3f38dd0cd93775048616a284dc3dc3a909de12ebaba03216d2032",
+      "sourceSha256": "15eefe0c5e8ca90a1925ff855c149981aeb952d8add0fa4c21066e7ff019616f",
+      "sha256": "5f397e5eeba8a17c63d0ae2d3f6619e7216216830914ff5eba56cdbc44c49caf",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -271,8 +271,8 @@
     {
       "path": "card/references/implementation-evaluation.md",
       "source": "public/skills-src/runtime/card/references/implementation-evaluation.md.eta",
-      "sourceSha256": "fe76f79576f81313e76fd442052c22fe3006c7b7aaa6d9e3e1cf161aaa944695",
-      "sha256": "a7356d4aad0da7aecfe898eb68f075547168f4831905a7600ea83100697ad88c",
+      "sourceSha256": "673f923a2cee982d6b6b66e6579763a12dc8c12f16b3780f57d9fc976619cc33",
+      "sha256": "907bc8f77d7256e3c4d7ecc372dd6a50955b27833b746d1c928ee79b1960b49b",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"

@@ -67,7 +67,7 @@ vi.mock('@cards.management/sdk', async (importOriginal) => {
 
 import {
   applyJsonPath,
-  bindCard,
+  attachCard,
   connectClient,
   createCard,
   executeAction,
@@ -1637,8 +1637,8 @@ describe('card binary', () => {
     });
   });
 
-  describe('bindCard', () => {
-    /** A main repo + linked worktree that bindCard is invoked from in binding tests. */
+  describe('attachCard', () => {
+    /** A main repo + linked worktree that attachCard is invoked from in binding tests. */
     let base: string;
     let mainRepo: string;
     let linkedWorktree: string;
@@ -1719,7 +1719,7 @@ describe('card binary', () => {
       try {
         makeLinkedWorktree();
         process.chdir(mainRepo);
-        await expect(bindCard('main-001')).rejects.toThrow('process.exit(1)');
+        await expect(attachCard('main-001')).rejects.toThrow('process.exit(1)');
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
         expect(diagnostic).toContain('not in a linked worktree');
         expect(outfitWorktreeForCard).not.toHaveBeenCalled();
@@ -1736,7 +1736,7 @@ describe('card binary', () => {
         writeFileSync(join(linkedWorktree, '.cards', 'CARD_ID'), 'main-007\n');
         process.chdir(linkedWorktree);
         process.env['CARDS_SESSION_ID'] = 'sess-gate2';
-        await expect(bindCard('main-001')).rejects.toThrow('process.exit(1)');
+        await expect(attachCard('main-001')).rejects.toThrow('process.exit(1)');
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
         expect(diagnostic).toContain('already bound to card main-007');
         expect(outfitWorktreeForCard).not.toHaveBeenCalled();
@@ -1755,7 +1755,7 @@ describe('card binary', () => {
         // AFTER `connectClient()` opens a CardsClient socket, so it must set
         // `process.exitCode` and return (not synchronously `process.exit`, which
         // races libuv teardown → 0xC0000409 on Windows). The function resolves.
-        await expect(bindCard('nonexistent-card')).resolves.toBeUndefined();
+        await expect(attachCard('nonexistent-card')).resolves.toBeUndefined();
         expect(process.exitCode).toBe(1);
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
         expect(diagnostic).toContain('card "nonexistent-card" not found');
@@ -1776,11 +1776,11 @@ describe('card binary', () => {
         process.chdir(linkedWorktree);
         process.env['CARDS_SESSION_ID'] = 'sess-gate4';
         // Gate 4 is also post-connection: set exit code + return, not process.exit.
-        await expect(bindCard('main-001')).resolves.toBeUndefined();
+        await expect(attachCard('main-001')).resolves.toBeUndefined();
         expect(process.exitCode).toBe(1);
         const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
-        // The gate 4 message begins with 'cards bind:' and contains the refusal reason.
-        expect(diagnostic).toMatch(/cards bind:/);
+        // The gate 4 message begins with 'cards attach:' and contains the refusal reason.
+        expect(diagnostic).toMatch(/cards attach:/);
         expect(exitSpy).not.toHaveBeenCalled();
         expect(outfitWorktreeForCard).not.toHaveBeenCalled();
       } finally {
@@ -1802,7 +1802,7 @@ describe('card binary', () => {
         process.env['CARDS_SESSION_ID'] = 'sess-bind-success';
         process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/transcript.jsonl';
 
-        await bindCard('main-001');
+        await attachCard('main-001');
 
         expect(outfitWorktreeForCard).toHaveBeenCalledOnce();
         const [, boundDir, outfitOptions] = outfitWorktreeForCard.mock.calls[0]! as [
@@ -1837,7 +1837,7 @@ describe('card binary', () => {
         process.env['CARDS_SESSION_ID'] = 'sess-parent-override';
         process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/transcript.jsonl';
 
-        await bindCard('main-002', 'main');
+        await attachCard('main-002', 'main');
 
         expect(outfitWorktreeForCard).toHaveBeenCalledOnce();
         const [, , outfitOptions] = outfitWorktreeForCard.mock.calls[0]! as [
@@ -1869,7 +1869,7 @@ describe('card binary', () => {
         delete process.env['CARDS_TRANSCRIPT_PATH'];
         readUnboundCandidates.mockResolvedValue([]);
 
-        await bindCard('main-003');
+        await attachCard('main-003');
 
         // outfit is still called (degraded, not refused).
         expect(outfitWorktreeForCard).toHaveBeenCalledOnce();

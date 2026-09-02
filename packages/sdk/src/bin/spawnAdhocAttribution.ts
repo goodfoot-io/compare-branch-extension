@@ -140,7 +140,7 @@ export type SpawnAdhocAttributionOutcome =
  * @param logger - Structured logger for warn and error output.
  * @returns Structured outcome: `{ activated: true }` when the spawns were
  *   attempted, or `{ activated: false, reason }` when a guard skipped
- *   activation — so callers (e.g. `cards <id> bind`) can fail closed instead of
+ *   activation — so callers (e.g. `cards <id> attach`) can fail closed instead of
  *   reporting success on a silently skipped activation.
  */
 export async function spawnAdhocAttribution(

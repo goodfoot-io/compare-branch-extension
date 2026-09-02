@@ -2,7 +2,7 @@
 name: implement
 description: Worktree workflow for implementing a task — create a worktree, create a bound card, implement, rebase, fast-forward merge back, and clean up.
 ---
-<!-- @cards.management/agent-skills source: public/skills-src/cards/implement/SKILL.md.eta sha256:cf32f51899597b89c10407715e97dd76c84941a1001f0ce1ba2db510ecaa0ace -->
+<!-- @cards.management/agent-skills source: public/skills-src/cards/implement/SKILL.md.eta sha256:d6b17319e63caf3587606a149f09e0acfd1da047273a828beead9cced9a40370 -->
 
 <worktree-task-workflow>
 
@@ -14,7 +14,7 @@ description: Worktree workflow for implementing a task — create a worktree, cr
    `create-worktree <task-branch>`
    then `cd` into the printed `worktree` path (parsed from the JSON output).
 
-3. **Create a card for the task** by running `cards create` from inside the worktree. Creating it from within the worktree auto-binds the card to it — no separate bind step.
+3. **Create a card for the task** by running `cards create` from inside the worktree. Creating it from within the worktree auto-attaches the card to it — no separate attach step.
 
 4. **Implement the change** in the worktree, on its branch.
 

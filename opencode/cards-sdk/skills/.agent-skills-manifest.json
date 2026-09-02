@@ -5,7 +5,7 @@
   "platform": "opencode",
   "plugin": "cards-sdk",
   "version": "1.0.42",
-  "registrySha256": "389314ba1e129d83917a2ff2f1c6941f366715cd35639b7569c56541efde5de8",
+  "registrySha256": "d9ecb14db7d589eeb43664135b8f2463d6e8f747e122bc3f76fe93637d078dc9",
   "files": [
     {
       "path": "AGENTS.md",

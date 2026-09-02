@@ -96,9 +96,9 @@ Empty lock file for de-duplication — prevents two ad-hoc attribution spawns fo
 
 **Written by**: `addUnboundCandidate()` during EnterWorktree hook.
 
-**Read by**: `readUnboundCandidates()` during `cards bind`.
+**Read by**: `readUnboundCandidates()` during `cards attach`.
 
-**Purpose**: When the EnterWorktree hook fires but the worktree isn't yet card-bound, the worktree path and transcript are recorded as an unbound candidate. The `cards bind` command resolves the binding later, consuming the candidate.
+**Purpose**: When the EnterWorktree hook fires but the worktree isn't yet card-bound, the worktree path and transcript are recorded as an unbound candidate. The `cards attach` command resolves the binding later, consuming the candidate.
 
 **Source**: `public/packages/sdk/src/unboundWorktreeCandidates.ts`.
 

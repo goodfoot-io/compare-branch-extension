@@ -1,4 +1,4 @@
-<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/evaluation-wave.md.eta sha256:e9f5a3dbf43d94bf8461edf4b4955bfeeb1af57960d3e5fa5dd0d26a8401e95c -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/card/references/evaluation-wave.md.eta sha256:15eefe0c5e8ca90a1925ff855c149981aeb952d8add0fa4c21066e7ff019616f -->
 # Evaluator Wave
 
 Independent adversarial evaluation via spawned evaluator children. Entered from `./implementation-evaluation.md` Step 3 (or `./validate.md` Step 4) with changes committed, validation passing, and a clean tree.
@@ -87,7 +87,7 @@ Group the findings by the package they touch and route each group to the owning 
 
 ## 4. Validate and Commit
 
-Wait for every worker's report and fold back any stray commits. Lint and typecheck, then re-run the affected tests, broadening to each touched package's suite — never the full validation suite, which runs only in `merge.md` after rebase. Commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.
+Merge every worker's branch per `./developer-wave.md`'s `<integration-gate>`. Lint and typecheck, then re-run the affected tests, broadening to each touched package's suite — never the full validation suite, which runs only in `merge.md` after rebase. Commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.
 
 If you arrived from the caller's pre-evaluation validation failure, return there; otherwise proceed to Step 5.
 

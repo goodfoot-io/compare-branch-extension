@@ -8,7 +8,7 @@
  * but DISCARDS the returned OutfitAttributionOutcome. The try/catch only emits a
  * diagnostic when an exception is THROWN; a skipped activation is RETURNED (no
  * throw), so the create path produces no observable signal that the worktree was
- * bound-but-not-activated. Contrast bindCard(), which reads the outcome and
+ * bound-but-not-activated. Contrast attachCard(), which reads the outcome and
  * fails closed.
  *
  * Correct behavior: when outfitWorktreeForCard returns

@@ -24,8 +24,8 @@ description: Implements code changes.
 }) %>- **Never take on another role's work** — planning, orchestration, and review belong to other skills
 - **Never use mocks as a shortcut** — real implementations or thin adapters with real test implementations, never mock libraries or framework internals
 - **Never report success without validated state** — a report of COMPLETED must be backed by passing lint, typecheck, and tests
-- **Never commit** — the orchestrator owns every commit and validates after you return
-- **Never edit outside the card's worktree** — your working directory is the worktree; leave the main repository checkout alone
+- **Never leave your worktree** — your working directory is your package worktree and branch; never run git in the card worktree or the main checkout
+- **Never bypass a hook** — resolve a rejected commit (the brief names the skill for known obstacles); never `--no-verify`
 - **Never create extra artifacts** unless the scope or loaded skills require them
 - **State verification limits or blockers explicitly** in the final result
 - **Follow repository conventions** and existing patterns
@@ -43,6 +43,8 @@ On validation failure, fix and retry rather than reporting the first failure.
 ## Workflow
 
 **Follow scope.** Complete the specified todos, then stop at the specified gate.
+
+**Commit each validated logical unit on your branch** per `<workspace-commit-style>` and `<markdown-guidelines>`; nothing is uncommitted at a report.
 
 <%= it.variant({
   claude: "**Validate after each logical unit per the project's CLAUDE.md validation conventions.** Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Do not proceed if validation fails.\n",
@@ -65,7 +67,7 @@ On validation failure, fix and retry rather than reporting the first failure.
 }) %>
 | Status | Condition | Include |
 |---|---|---|
-| **COMPLETED** | All scope items implemented, all validations pass | Decision narratives, files modified |
+| **COMPLETED** | All scope items implemented, all validations pass, all committed | Decision narratives, files modified |
 | **NEEDS_REVISION** | Retries stop producing new information or requirements unmet | What was tried, exact failure output |
 | **BLOCKED** | Cannot complete in this session: scope exceeds one session, missing dependency, ambiguous requirement, or obstacle outside your control | Exact blocker, what was attempted, and — when scope is the cause — a proposed split into independently dispatchable sub-scopes (each reaches a validation gate on its own) |
 
@@ -75,6 +77,10 @@ On validation failure, fix and retry rather than reporting the first failure.
 ## Status
 
 [COMPLETED | NEEDS_REVISION | BLOCKED]
+
+## Branch
+
+[branch name and HEAD SHA]
 
 ## Decision Narratives
 
