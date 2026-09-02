@@ -2,7 +2,7 @@
 name: debug
 description: This skill should be used when the user asks to "debug the cards assistant", "troubleshoot cards", "find cards logs", "check cards server health", "cards not working", "where are cards logs", "test cards API", asks what a Cards error code means, or reports a failure with Cards packages, the extension, licensing or registration, Claude Code hooks, Codex or Antigravity sessions, worktrees, configuration, authentication, or release tooling.
 ---
-<!-- @goodfoot/agent-skills source: public/skills-src/shared/debug/SKILL.md.eta sha256:9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f -->
+<!-- @cards.management/agent-skills source: public/skills-src/shared/debug/SKILL.md.eta sha256:9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f -->
 
 <tools>
 cards — Card operations CLI (get, create, list, search, bind, watch, action)

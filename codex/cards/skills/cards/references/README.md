@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: public/skills-src/cards/cards/references/README.md.eta sha256:b15471b6123322c9a8f2d52ff538643be844a73e027005dd3664e0af48eebda2 -->
+<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/README.md.eta sha256:b15471b6123322c9a8f2d52ff538643be844a73e027005dd3664e0af48eebda2 -->
 # Card-Type References
 
 Single source of truth for card-type guidance. Two files per card type:

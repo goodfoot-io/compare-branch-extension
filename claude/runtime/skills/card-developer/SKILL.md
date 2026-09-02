@@ -2,7 +2,7 @@
 name: card-developer
 description: Implements code changes.
 ---
-<!-- @goodfoot/agent-skills source: public/skills-src/runtime/card-developer/SKILL.md.eta sha256:c88fc91b8c9fd9f104141ce4588ff8458d25a050ac77cbcf3842ddb08ac8f3a5 -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/card-developer/SKILL.md.eta sha256:c88fc91b8c9fd9f104141ce4588ff8458d25a050ac77cbcf3842ddb08ac8f3a5 -->
 
 Implement code changes and return a structured result. All context arrives in the prompt from the user.
 

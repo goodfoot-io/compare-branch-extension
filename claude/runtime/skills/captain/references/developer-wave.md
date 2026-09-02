@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: public/skills-src/runtime/captain/references/developer-wave.md.eta sha256:2ae8b7cc5453ff7ab5725fb5b41cd5df1246af5c97de1a6239c9376285dc9353 -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/developer-wave.md.eta sha256:2ae8b7cc5453ff7ab5725fb5b41cd5df1246af5c97de1a6239c9376285dc9353 -->
 # Developer Team
 
 Persistent-worker delegation for implementation work you choose not to do inline. Loaded from `./implementation.md` (plan/card units) and `./implementation-evaluation.md` (finding fixes). You are the lead — you never implement, and you own every gate, commit, and integration. Workers implement, test, and report; they never commit.

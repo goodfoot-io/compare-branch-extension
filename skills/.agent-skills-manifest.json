@@ -5,7 +5,7 @@
   "platform": "claude",
   "plugin": "shared",
   "version": null,
-  "registrySha256": "98d7c54e47bd12a9d638cbe409cd7c1507a3d6e6ddf85367db5538ad72a55310",
+  "registrySha256": "389314ba1e129d83917a2ff2f1c6941f366715cd35639b7569c56541efde5de8",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",
@@ -137,7 +137,7 @@
       "path": "debug/SKILL.md",
       "source": "public/skills-src/shared/debug/SKILL.md.eta",
       "sourceSha256": "9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f",
-      "sha256": "10dd6153d8bf1d0197e81fab67c1a11e3041c3849a38cd115c9511a5108687d9",
+      "sha256": "502486ed486424cd7da5195ffd8709d668141e69e39aa6797d046ff0c2b826d5",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
@@ -380,7 +380,7 @@
       "path": "design/SKILL.md",
       "source": "public/skills-src/shared/design/SKILL.md.eta",
       "sourceSha256": "5c529bce30201c4f1b68efb255453854c2da46b0ee47da12a0b81ad23ab1e958",
-      "sha256": "f0acb03ea2f4be1d1b2ae62103b8367fd6bb1e9ead5758a7a400aef1ba4fe787",
+      "sha256": "320034805bb9b981f6498be9da4679968e321480164253afa3404ced3556799e",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
@@ -389,7 +389,7 @@
       "path": "html-files/SKILL.md",
       "source": "public/skills-src/shared/html-files/SKILL.md.eta",
       "sourceSha256": "fa62d4333eacc0306ff8e9f4d049ecdd0abb98ec34b6721ca1d7929c0394c3c7",
-      "sha256": "30ed405aa01fd566a727e5d85e7fe4e3d75cc8c9faf098ffbebe0a66a4022bb9",
+      "sha256": "889cb5ada8209ff7f282b3c693dd474b5d0e61e157b8f0150c77b914ee8985bf",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
@@ -398,7 +398,7 @@
       "path": "markdown/SKILL.md",
       "source": "public/skills-src/shared/markdown/SKILL.md.eta",
       "sourceSha256": "ec9b8d53ddfbca6bcb54e848d485f87447041bfd08d00f15190c3ef85f147879",
-      "sha256": "072eb2dc549c6bd165e0a55ad3a625199460f9748e586a0ad030c569c06c6a5a",
+      "sha256": "4d6c83e2f538d3d65a5ce0705ae23c7848296bb85b223fddc3218e5ad478188d",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
@@ -407,7 +407,7 @@
       "path": "notes/SKILL.md",
       "source": "public/skills-src/shared/notes/SKILL.md.eta",
       "sourceSha256": "c2c57df550a5ae1b8a287c14deac9415ffff2551127b3ce2175185ae5a673c3c",
-      "sha256": "7ca9b29ddd2d3348522ea026fe0777484e34f3066b512788236482afad8b0dad",
+      "sha256": "66a136b34e2b93f7d3c4bb6e7b435bc14515133bbce70f630e39a9b0846daf09",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"

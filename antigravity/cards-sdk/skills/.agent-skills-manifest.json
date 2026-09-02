@@ -4,14 +4,14 @@
   "target": "public/antigravity/cards-sdk/skills",
   "platform": "antigravity",
   "plugin": "cards-sdk",
-  "version": "1.0.41",
-  "registrySha256": "98d7c54e47bd12a9d638cbe409cd7c1507a3d6e6ddf85367db5538ad72a55310",
+  "version": "1.0.42",
+  "registrySha256": "389314ba1e129d83917a2ff2f1c6941f366715cd35639b7569c56541efde5de8",
   "files": [
     {
       "path": "AGENTS.md",
       "source": "public/skills-src/cards-sdk/conventions.md.eta",
       "sourceSha256": "bff3562393d82c88191f7a6c5adb8ac3552fbcd10518c1382b6cb27ccedfd307",
-      "sha256": "c396ef0b2abe18ed0627d880210d93b14eced52820a58d096eb7c814bc9d05a6",
+      "sha256": "72d1140d98f4d3aa265d41efcd089d6748889836c29b5da1f93e834a7ebe318b",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -65,7 +65,7 @@
       "path": "sdk/SKILL.md",
       "source": "public/skills-src/cards-sdk/sdk/SKILL.md.eta",
       "sourceSha256": "8faaa3bddd20e5b13cf2b62c56ca9f90e0fc713a1d9f4154350f7c71757cf3ef",
-      "sha256": "02a3bb223bcccfdf2710b5dea8ce214606e88c039f1773b8221ff73d508ff0c8",
+      "sha256": "1d6ff7d88b6a81dfbad3de92bd6bc3f3dea48dc9485ce581efe155f7b17163db",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"

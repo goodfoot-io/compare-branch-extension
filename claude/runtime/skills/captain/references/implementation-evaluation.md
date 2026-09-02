@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: public/skills-src/runtime/captain/references/implementation-evaluation.md.eta sha256:79253a7c704c94e215797e75c41fd735d07b71b68ac727ebc0b37dd9108ce657 -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/references/implementation-evaluation.md.eta sha256:79253a7c704c94e215797e75c41fd735d07b71b68ac727ebc0b37dd9108ce657 -->
 
 <instructions>
 

@@ -2,7 +2,7 @@
 name: captain
 description: Evaluate card state and load the appropriate reference.
 ---
-<!-- @goodfoot/agent-skills source: public/skills-src/runtime/captain/SKILL.md.eta sha256:169c0dfaf38b447cc8549121ad6cac2fb1f81d45b5536582eddee0b3bf345251 -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/captain/SKILL.md.eta sha256:169c0dfaf38b447cc8549121ad6cac2fb1f81d45b5536582eddee0b3bf345251 -->
 
 **Use as few tokens as possible in this session by using subagents.**
 

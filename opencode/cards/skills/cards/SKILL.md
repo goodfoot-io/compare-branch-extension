@@ -2,7 +2,7 @@
 name: cards
 description: You must load this skill whenever the user asks to create, read, comment on, or modify a card
 ---
-<!-- @goodfoot/agent-skills source: public/skills-src/cards/cards/SKILL.md.eta sha256:640bd5a9e2b0ff1d1376f5f26932534a627a12321aa813fb24a3df1a0dd10a20 -->
+<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/SKILL.md.eta sha256:640bd5a9e2b0ff1d1376f5f26932534a627a12321aa813fb24a3df1a0dd10a20 -->
 
 # Cards
 

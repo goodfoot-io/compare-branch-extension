@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: public/skills-src/cards/cards/references/interview-maintenance.md.eta sha256:9f97e2e2835062e1dd7bd4ae9239fd0a7dc611c2413406112a7081d31720c3c5 -->
+<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/interview-maintenance.md.eta sha256:9f97e2e2835062e1dd7bd4ae9239fd0a7dc611c2413406112a7081d31720c3c5 -->
 <interview-before-creating-a-maintenance-card>
 
 Reach the signal required to write a well-formed maintenance request before the card is created. The companion `./maintenance.md` defines the target CARD.md structure; this guide defines how to get there.

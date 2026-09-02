@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: public/skills-src/runtime/interview/references/README.md.eta sha256:31594901505eeac78e8b502d3efff1f2b27f732ce26d564291ca523849ae1d8e -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/interview/references/README.md.eta sha256:31594901505eeac78e8b502d3efff1f2b27f732ce26d564291ca523849ae1d8e -->
 # Interview References
 
 Per-type reference files for the `$interview` skill. Two files per card type:

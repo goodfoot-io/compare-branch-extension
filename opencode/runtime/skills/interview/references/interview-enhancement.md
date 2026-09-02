@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: public/skills-src/runtime/interview/references/interview-enhancement.md.eta sha256:cfa0921c0369c957a2e4d35a9de89bf82e689e85e5e7e093fca5cc2eb88b8f8d -->
+<!-- @cards.management/agent-skills source: public/skills-src/runtime/interview/references/interview-enhancement.md.eta sha256:cfa0921c0369c957a2e4d35a9de89bf82e689e85e5e7e093fca5cc2eb88b8f8d -->
 <first-principles>
 1. The stated solution is a hypothesis — recover the underlying job.
 2. A feature is defined by its contract (inputs, outputs, invariants, error behavior), not its code.

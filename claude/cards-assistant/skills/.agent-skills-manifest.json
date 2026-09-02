@@ -4,8 +4,8 @@
   "target": "public/claude/cards-assistant/skills",
   "platform": "claude",
   "plugin": "cards-assistant",
-  "version": "1.0.14",
-  "registrySha256": "98d7c54e47bd12a9d638cbe409cd7c1507a3d6e6ddf85367db5538ad72a55310",
+  "version": "1.0.15",
+  "registrySha256": "389314ba1e129d83917a2ff2f1c6941f366715cd35639b7569c56541efde5de8",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",
@@ -137,7 +137,7 @@
       "path": "debug/SKILL.md",
       "source": "public/skills-src/shared/debug/SKILL.md.eta",
       "sourceSha256": "9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f",
-      "sha256": "10dd6153d8bf1d0197e81fab67c1a11e3041c3849a38cd115c9511a5108687d9",
+      "sha256": "502486ed486424cd7da5195ffd8709d668141e69e39aa6797d046ff0c2b826d5",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"

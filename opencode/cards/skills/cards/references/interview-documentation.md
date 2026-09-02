@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: public/skills-src/cards/cards/references/interview-documentation.md.eta sha256:6198b7c28afae93dc87d0a7eff4eb3059f4b515cc0cbe9d536220aef2ed87f47 -->
+<!-- @cards.management/agent-skills source: public/skills-src/cards/cards/references/interview-documentation.md.eta sha256:6198b7c28afae93dc87d0a7eff4eb3059f4b515cc0cbe9d536220aef2ed87f47 -->
 <interview-before-creating-a-documentation-card>
 
 Reach the signal required to write a well-formed documentation request before the card is created. The companion `./documentation.md` defines the target CARD.md structure; this guide defines how to get there.
