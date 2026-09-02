@@ -2,7 +2,7 @@
 name: debug
 description: This skill should be used when the user asks to "debug the cards assistant", "troubleshoot cards", "find cards logs", "check cards server health", "cards not working", "where are cards logs", "test cards API", asks what a Cards error code means, or reports a failure with Cards packages, the extension, licensing or registration, Claude Code hooks, Codex or Antigravity sessions, worktrees, configuration, authentication, or release tooling.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/shared/debug/SKILL.md.eta sha256:9468538e153149724f5a9e6070362c52bb4d0b78f2e4c91362fa601770fa7a03 -->
+<!-- @goodfoot/agent-skills source: skills-src/shared/debug/SKILL.md.eta sha256:9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f -->
 
 <tools>
 cards — Card operations CLI (get, create, list, search, bind, watch, action)
@@ -405,7 +405,7 @@ for plugin in cards runtime; do
 done
 ```
 
-- If `agy` is absent, use the official installer at `https://antigravity.google/docs/cli-install`, open a new terminal, and confirm `agy --version`. Cards currently pins `1.1.22`; a different version is compatibility drift, not an authentication failure.
+- If `agy` is absent or `agy --version` does not report exactly `1.1.22`, setup is blocked. Request the compatible pinned binary through the approved release channel and confirm the exact version on `PATH`; do not substitute an unpinned installer or a newer binary. Version drift is a compatibility failure, not an authentication failure.
 - If setup reports **Unmanaged installation**, do not run a Cards repair or remove operation: resolve the foreign `cards` or `runtime` tree manually. If it reports **Disabled**, **Update required**, or **Invalid installation**, use the setup wizard's **Repair** action; that action is offered only after durable Cards ownership is proved.
 - To recover authentication, run `agy` interactively and complete its sign-in flow. Then reproduce Cards' bounded read-only probe with `agy -p 'Reply with exactly: PONG' --output-format json --print-timeout 20s`; success must be exact JSON whose response is `PONG`. Do not inspect or copy credential files.
 - For hook or transcript failures, confirm `$HOME/.gemini/config/plugins/runtime/hooks.json` exists, then inspect `$CARD_REPO_PATH/streams/antigravity-session/*.jsonl` and the session/log references below. Do not copy generated payload files into the live Antigravity home; use **Repair** when ownership is proved.

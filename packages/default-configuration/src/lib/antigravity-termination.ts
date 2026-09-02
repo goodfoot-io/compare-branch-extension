@@ -20,7 +20,7 @@ export type AntigravityTerminationResult = 'graceful' | 'forced' | 'failed';
 /**
  * Why the owned tree is being drained.
  */
-export type AntigravityTerminationReason = 'cancel' | 'shutdown';
+export type AntigravityTerminationReason = 'cancel' | 'shutdown' | 'normal-exit';
 
 /**
  * Options for {@link createAntigravityTerminationController}.

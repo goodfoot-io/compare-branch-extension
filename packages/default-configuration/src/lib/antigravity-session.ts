@@ -127,6 +127,8 @@ export type AntigravitySessionFailureReason =
   | 'nonzero-exit'
   | 'signal-termination'
   | 'hook-failure'
+  | 'lifecycle-evidence-missing'
+  | 'process-tree-drain-failed'
   | 'transcript-finalization-degraded'
   | 'missing-final-record'
   | 'unsuccessful-final-record';
@@ -181,6 +183,95 @@ export async function readAntigravityHookFailure(sessionId: string): Promise<str
   } catch {
     return `malformed failure marker ${names[0]}`;
   }
+}
+
+/** Positive hook evidence required before a card action may settle. */
+export interface AntigravityLifecycleEvidence {
+  /** Conversation identity proven by PreInvocation and, in background mode, stdout. */
+  conversationId: string;
+  /** Whether PostInvocation recorded an idle decision or an injected route. */
+  postInvocation: 'idle' | 'route';
+}
+
+/**
+ * Requires the complete hook lifecycle for one Cards-owned action session.
+ *
+ * @param sessionId - Cards-owned session identity exported before spawn.
+ * @param expectedConversationId - Background stdout conversation identity, when available.
+ * @returns Validated positive lifecycle evidence.
+ * @throws {AntigravitySessionFailureError} When failure evidence exists or any positive marker is absent/invalid.
+ */
+export async function requireAntigravityLifecycleEvidence(
+  sessionId: string,
+  expectedConversationId?: string
+): Promise<AntigravityLifecycleEvidence> {
+  const directory = join(resolveGlobalCardsConfigDir(), 'antigravity', 'runtime', 'markers', sessionId);
+  let names: string[];
+  try {
+    names = await readdir(directory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') names = [];
+    else throw error;
+  }
+
+  const failures = names.filter((name) => name.endsWith('.failure')).sort();
+  if (failures.length > 0) {
+    const failure = await readAntigravityHookFailure(sessionId);
+    throw new AntigravitySessionFailureError(
+      'hook-failure',
+      `Antigravity runtime hook failure (${failure ?? 'failure marker could not be decoded'})`
+    );
+  }
+
+  const readyNames = names.filter((name) => name.endsWith('.ready')).sort();
+  if (readyNames.length !== 1) {
+    throw new AntigravitySessionFailureError(
+      'lifecycle-evidence-missing',
+      `Antigravity lifecycle requires exactly one ready marker, found ${String(readyNames.length)}`
+    );
+  }
+  const readyName = readyNames[0] as string;
+  const conversationId = readyName.slice(0, -'.ready'.length);
+  let ready: { conversationId?: unknown; sessionId?: unknown; transcriptPath?: unknown; modelName?: unknown };
+  try {
+    ready = JSON.parse(await readFile(join(directory, readyName), 'utf8')) as typeof ready;
+  } catch (error) {
+    throw new AntigravitySessionFailureError(
+      'lifecycle-evidence-missing',
+      `Antigravity ready marker is unreadable: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  if (
+    ready.conversationId !== conversationId ||
+    ready.sessionId !== sessionId ||
+    typeof ready.transcriptPath !== 'string' ||
+    ready.transcriptPath.length === 0 ||
+    typeof ready.modelName !== 'string' ||
+    ready.modelName.length === 0 ||
+    (expectedConversationId !== undefined && conversationId !== expectedConversationId)
+  ) {
+    throw new AntigravitySessionFailureError(
+      'lifecycle-evidence-missing',
+      'Antigravity ready marker does not prove the launched session/conversation identity'
+    );
+  }
+
+  const hasIdle = names.includes(`${conversationId}.idle`);
+  const hasRoute = names.includes(`${conversationId}.route`);
+  if (!hasIdle && !hasRoute) {
+    throw new AntigravitySessionFailureError(
+      'lifecycle-evidence-missing',
+      'Antigravity PostInvocation produced neither idle nor route evidence'
+    );
+  }
+  if (!names.includes(`${conversationId}.drain-ready`)) {
+    throw new AntigravitySessionFailureError(
+      'lifecycle-evidence-missing',
+      'Antigravity Stop did not produce drain-ready evidence'
+    );
+  }
+
+  return { conversationId, postInvocation: hasIdle ? 'idle' : 'route' };
 }
 
 /**
@@ -444,75 +535,103 @@ export async function spawnAntigravitySession(
     }
   );
 
-  const finalization = outcome.spawnError === undefined ? await finalizeTranscript() : undefined;
-
-  const hookFailure = await readAntigravityHookFailure(sessionId);
-  if (hookFailure !== undefined) {
-    throw new AntigravitySessionFailureError(
-      'hook-failure',
-      `${input.actionName} action failed: Antigravity runtime hook failure (${hookFailure})`
-    );
-  }
-
   if (outcome.spawnError !== undefined) {
     throw new AntigravitySessionFailureError(
       'spawn-failure',
       `${input.actionName} action failed: the agy process could not be launched (${outcome.spawnError.message})`
     );
   }
-  if (outcome.signal) {
+
+  let final: AntigravityFinalRecord | null = null;
+  let lifecycle: AntigravityLifecycleEvidence | undefined;
+  let primaryFailure: unknown;
+  let hasPrimaryFailure = false;
+  try {
+    // Root exit does not prove the detached process group is gone: surviving
+    // descendants can still own the worktree. Run the same bounded tree drain
+    // on every normal close before any success evidence or settlement.
+    const normalDrain = await termination.terminate('normal-exit');
+    if (outcome.signal) {
+      throw new AntigravitySessionFailureError(
+        'signal-termination',
+        `${input.actionName} action failed: agy terminated on signal ${outcome.signal}`
+      );
+    }
+    if (outcome.exitCode !== 0) {
+      throw new AntigravitySessionFailureError(
+        'nonzero-exit',
+        `${input.actionName} action failed: agy exited with code ${outcome.exitCode}`
+      );
+    }
+    if (normalDrain === 'failed') {
+      throw new AntigravitySessionFailureError(
+        'process-tree-drain-failed',
+        `${input.actionName} action failed: Antigravity descendants remained after the bounded normal-exit drain`
+      );
+    }
+
+    if (!isInteractive) {
+      // Exit zero without the expected final record is failure, per the action
+      // matrix lifecycle — a clean exit alone never settles a background launch.
+      try {
+        final = parseAntigravityFinalRecord(stdoutText);
+      } catch (error) {
+        context.logger.error(`${input.actionName} action failed: unparseable agy stream-json output`, {
+          error: errorMessage(error)
+        });
+        throw error;
+      }
+
+      if (final === null) {
+        throw new AntigravitySessionFailureError(
+          'missing-final-record',
+          `${input.actionName} action failed: agy exited 0 without the expected final stream-json record ` +
+            '(exit zero without the final result record is failure)'
+        );
+      }
+      if (final.status !== 'SUCCESS') {
+        throw new AntigravitySessionFailureError(
+          'unsuccessful-final-record',
+          `${input.actionName} action failed: agy final record status is '${final.status}' (expected 'SUCCESS')`
+        );
+      }
+    }
+
+    lifecycle = await requireAntigravityLifecycleEvidence(sessionId, final?.conversationId);
+  } catch (error) {
+    primaryFailure = error;
+    hasPrimaryFailure = true;
+  }
+
+  let finalization: SqlitePollFinalizationOutcome;
+  try {
+    finalization = await finalizeTranscript();
+  } catch (error) {
+    if (hasPrimaryFailure) {
+      context.logger.error(`${input.actionName} transcript finalization also failed`, { error: errorMessage(error) });
+      throw primaryFailure;
+    }
     throw new AntigravitySessionFailureError(
-      'signal-termination',
-      `${input.actionName} action failed: agy terminated on signal ${outcome.signal}`
+      'transcript-finalization-degraded',
+      `${input.actionName} action failed: final Antigravity transcript drain threw (${errorMessage(error)})`
     );
   }
-  if (outcome.exitCode !== 0) {
+  if (hasPrimaryFailure) throw primaryFailure;
+  if (finalization.kind === 'degraded') {
     throw new AntigravitySessionFailureError(
-      'nonzero-exit',
-      `${input.actionName} action failed: agy exited with code ${outcome.exitCode}`
+      'transcript-finalization-degraded',
+      `${input.actionName} action failed: final Antigravity transcript drain degraded (${finalization.reason}: ${finalization.detail})`
     );
   }
 
   if (!isInteractive) {
-    // Exit zero without the expected final record is failure, per the action
-    // matrix lifecycle — a clean exit alone never settles a background launch.
-    let final: AntigravityFinalRecord | null;
-    try {
-      final = parseAntigravityFinalRecord(stdoutText);
-    } catch (error) {
-      context.logger.error(`${input.actionName} action failed: unparseable agy stream-json output`, {
-        error: errorMessage(error)
-      });
-      throw error;
-    }
-
-    if (final === null) {
-      throw new AntigravitySessionFailureError(
-        'missing-final-record',
-        `${input.actionName} action failed: agy exited 0 without the expected final stream-json record ` +
-          '(exit zero without the final result record is failure)'
-      );
-    }
-    if (final.status !== 'SUCCESS') {
-      throw new AntigravitySessionFailureError(
-        'unsuccessful-final-record',
-        `${input.actionName} action failed: agy final record status is '${final.status}' (expected 'SUCCESS')`
-      );
-    }
-    if (finalization?.kind === 'degraded') {
-      throw new AntigravitySessionFailureError(
-        'transcript-finalization-degraded',
-        `${input.actionName} action failed: final Antigravity transcript drain degraded (${finalization.reason}: ${finalization.detail})`
-      );
-    }
-
     // Settle only after process, structured-result, hook, and transcript
     // finalization success. Cleanup reads this status as its first gate.
     await settleCardStatusForCleanup(input.cardRepoPath, context.logger);
 
     context.logger.info(`${input.actionName} background launch settled`, {
       sessionId,
-      conversationId: final.conversationId
+      conversationId: lifecycle?.conversationId
     });
 
     // Post-exit cleanup: remove fully-merged branches inline — there is no
@@ -527,13 +646,6 @@ export async function spawnAntigravitySession(
       context.logger.warn('Post-exit cleanup failed (non-fatal)', { error: message, sessionId });
     }
     return;
-  }
-
-  if (finalization?.kind === 'degraded') {
-    throw new AntigravitySessionFailureError(
-      'transcript-finalization-degraded',
-      `${input.actionName} action failed: final Antigravity transcript drain degraded (${finalization.reason}: ${finalization.detail})`
-    );
   }
 
   // Interactive success uses the same verified-success settlement gate and

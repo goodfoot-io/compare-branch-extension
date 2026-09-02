@@ -183,13 +183,30 @@ beforeEach(async () => {
 
   const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
   vi.mocked(fs.access).mockResolvedValue(undefined);
-  vi.mocked(fs.readFile).mockRejectedValue(enoent);
+  vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+    const path = String(filePath);
+    if (path.endsWith('/conv-1.ready')) {
+      const sessionId = path.split('/').at(-2) as string;
+      return JSON.stringify({
+        conversationId: 'conv-1',
+        sessionId,
+        transcriptPath: '/home/user/.gemini/antigravity-cli/conversations/conv-1.db',
+        modelName: 'gemini-3-pro'
+      });
+    }
+    throw enoent;
+  });
   vi.mocked(fs.mkdir).mockResolvedValue(undefined);
   vi.mocked(fs.mkdtemp).mockImplementation(async (prefix: string | URL) => `${String(prefix)}XXXXXX`);
   vi.mocked(fs.cp).mockResolvedValue(undefined);
   vi.mocked(fs.rename).mockResolvedValue(undefined);
   vi.mocked(fs.rm).mockResolvedValue(undefined);
-  vi.mocked(fs.readdir).mockRejectedValue(enoent);
+  vi.mocked(fs.readdir).mockImplementation(async (directory) => {
+    if (String(directory).includes('/antigravity/runtime/markers/')) {
+      return ['conv-1.ready', 'conv-1.idle', 'conv-1.drain-ready'] as never;
+    }
+    throw enoent;
+  });
   vi.mocked(fs.stat).mockRejectedValue(enoent);
   vi.mocked(fs.writeFile).mockResolvedValue(undefined);
   const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
@@ -391,6 +408,76 @@ describe('launch action — antigravity branch', () => {
     expect(transitionCardStatus).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['ready', ['conv-1.idle', 'conv-1.drain-ready']],
+    ['PostInvocation idle-or-route', ['conv-1.ready', 'conv-1.drain-ready']],
+    ['Stop drain-ready', ['conv-1.ready', 'conv-1.idle']]
+  ] as const)('fails closed when %s positive hook evidence is missing', async (_label, markerNames) => {
+    const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(fs.readdir).mockResolvedValue([...markerNames] as never);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+    child.emit('close', 0);
+
+    await expect(promise).rejects.toThrow(/Antigravity (lifecycle|PostInvocation|Stop)/);
+    const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
+    expect(finalizePersistedSqlitePollSession).toHaveBeenCalledTimes(1);
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).not.toHaveBeenCalled();
+  });
+
+  it('preserves the primary lifecycle failure when finalization also rejects', async () => {
+    const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+    const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(fs.readdir).mockResolvedValue([] as never);
+    vi.mocked(finalizePersistedSqlitePollSession).mockRejectedValueOnce(new Error('finalizer unavailable'));
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+    child.emit('close', 0);
+
+    await expect(promise).rejects.toThrow(/requires exactly one ready marker/);
+    expect(finalizePersistedSqlitePollSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('drains surviving descendants before lifecycle settlement and cleanup', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+    let drained = false;
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(((_pid: number, signal?: string | number) => {
+      if (signal === 'SIGTERM') {
+        drained = true;
+        return true;
+      }
+      if (drained) throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
+      return true;
+    }) as typeof process.kill);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+    child.emit('close', 0);
+    await promise;
+
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    const termCall = vi.mocked(killSpy).mock.calls.findIndex(([, signal]) => signal === 'SIGTERM');
+    expect(termCall).toBeGreaterThanOrEqual(0);
+    expect(killSpy.mock.invocationCallOrder[termCall]).toBeLessThan(
+      vi.mocked(transitionCardStatus).mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
+    killSpy.mockRestore();
+  });
+
   it('forwards action-selected model and effort as separate argv values', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
@@ -447,6 +534,8 @@ describe('launch action — antigravity branch', () => {
     await flushMicrotasks();
     child.emit('close', 23);
     await expect(promise).rejects.toThrow(/agy exited with code 23/);
+    const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
+    expect(finalizePersistedSqlitePollSession).toHaveBeenCalledTimes(1);
     const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
     expect(transitionCardStatus).not.toHaveBeenCalled();
   });
@@ -561,6 +650,8 @@ describe('launch action — antigravity branch', () => {
     malformed.stdout?.emit('data', Buffer.from('not json\n'));
     malformed.emit('close', 0);
     await expect(malformedPromise).rejects.toThrow(/non-JSON line/);
+    const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
+    expect(finalizePersistedSqlitePollSession).toHaveBeenCalledTimes(4);
     const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
     expect(transitionCardStatus).not.toHaveBeenCalled();
   });

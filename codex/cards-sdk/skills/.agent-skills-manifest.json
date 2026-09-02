@@ -5,7 +5,7 @@
   "platform": "codex",
   "plugin": "cards-sdk",
   "version": "1.0.36",
-  "registrySha256": "e2cdbe60ae731a67cafd2d765c3d8b83d44f938fdcc88d97229380e89f12bcb4",
+  "registrySha256": "d18e480627c1ee4af5ed625e3d056205426edfec5994156c2e28e9f5bcafd647",
   "files": [
     {
       "path": "AGENTS.md",

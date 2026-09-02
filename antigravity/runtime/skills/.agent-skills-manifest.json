@@ -4,8 +4,8 @@
   "target": "public/antigravity/runtime/skills",
   "platform": "antigravity",
   "plugin": "runtime",
-  "version": "1.0.442",
-  "registrySha256": "e2cdbe60ae731a67cafd2d765c3d8b83d44f938fdcc88d97229380e89f12bcb4",
+  "version": "1.0.443",
+  "registrySha256": "d18e480627c1ee4af5ed625e3d056205426edfec5994156c2e28e9f5bcafd647",
   "files": [
     {
       "path": "captain/references/blocked.md",
@@ -172,8 +172,8 @@
     {
       "path": "card-failure-mode/SKILL.md",
       "source": "skills-src/runtime/card-failure-mode/SKILL.md.eta",
-      "sourceSha256": "132d6b7851daad896e927c398fbbaa2a52c8c2413024df362e6c411ff0e54d62",
-      "sha256": "2da35ed311f57adbed5f4498e90136dd883e06c228dd096124a4e69c830e31e8",
+      "sourceSha256": "bc7a88c78c661eb9510afb0a47a1e5c4c6a925b7c81d4d67f351889bdca08908",
+      "sha256": "72f0c82f094316df01c6852a9b44c79c19ecb0e6e0c9ab154f26110ec188bba3",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -181,8 +181,8 @@
     {
       "path": "card-plan-failure-mode/SKILL.md",
       "source": "skills-src/runtime/card-plan-failure-mode/SKILL.md.eta",
-      "sourceSha256": "92b09aa3be71a73d75f1f42419d06e951b22d10c26c7d37626d0503a1fe34835",
-      "sha256": "02486cf2a5084e74567b0d736b5728ac9f6a29d32e6685a6396bbf3781bb1acd",
+      "sourceSha256": "037aa4ea63689424b6c81adce21474a795b7e8191ca52c188f851b47bd0d2c05",
+      "sha256": "01f71819ee78a16ef6b674070d9115d524d1d08452189d7d0226e2a09a5b74c3",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"

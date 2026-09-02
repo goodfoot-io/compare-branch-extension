@@ -2,7 +2,7 @@
 name: card-failure-mode
 description: Identify potential failure modes in card implementations
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-failure-mode/SKILL.md.eta sha256:132d6b7851daad896e927c398fbbaa2a52c8c2413024df362e6c411ff0e54d62 -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card-failure-mode/SKILL.md.eta sha256:bc7a88c78c661eb9510afb0a47a1e5c4c6a925b7c81d4d67f351889bdca08908 -->
 
 <dm-envelope>
 

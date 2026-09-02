@@ -2,7 +2,7 @@
 name: card-failure-mode
 description: Identify potential failure modes in card implementations
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-failure-mode/SKILL.md.eta sha256:132d6b7851daad896e927c398fbbaa2a52c8c2413024df362e6c411ff0e54d62 -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card-failure-mode/SKILL.md.eta sha256:bc7a88c78c661eb9510afb0a47a1e5c4c6a925b7c81d4d67f351889bdca08908 -->
 
 <dm-envelope>
 
@@ -53,7 +53,7 @@ Frame each as a specific question tied to a surface or failure angle. Draw on, b
 - **Error and failure paths** — Where will things fail in production, and what does the implementation do about rollback, cleanup, timeouts, partial failure?
 - **Silent wrong results** — Where could the diff convert a visible failure into a silent wrong outcome (catch-and-continue, default fallbacks, optional chaining, retry exhaustion, mock/fake fallbacks outside tests)?
 - **Stale prose** — Which comments, docstrings, docs, or skill references describe a mechanism this diff changed, and are they still true?
-- **Claude-specific bias** — Which of these is this change especially exposed to: multi-file impact blindness, default-value bias, type-safety escape hatches (`as X`, forced casts, `any`), insecure defaults, copy-paste mutation, dead writes, async and ordering hazards?
+- **Model-generated-code bias** — Which of these is this change especially exposed to: multi-file impact blindness, default-value bias, type-safety escape hatches (`as X`, forced casts, `any`), insecure defaults, copy-paste mutation, dead writes, async and ordering hazards?
 
 Save the questions as a note per the `<take-notes>` instructions — slug `failure-mode-questions` — and commit before evaluating. On Deep depth, read your peer's questions note to deconflict lanes. The note is a floor, never a ceiling — every §3 sweep goes beyond it.
 

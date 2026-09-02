@@ -4,8 +4,8 @@
   "target": "public/opencode/cards-assistant/skills",
   "platform": "opencode",
   "plugin": "cards-assistant",
-  "version": "1.0.7",
-  "registrySha256": "e2cdbe60ae731a67cafd2d765c3d8b83d44f938fdcc88d97229380e89f12bcb4",
+  "version": "1.0.8",
+  "registrySha256": "d18e480627c1ee4af5ed625e3d056205426edfec5994156c2e28e9f5bcafd647",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",
@@ -136,8 +136,8 @@
     {
       "path": "debug/SKILL.md",
       "source": "skills-src/shared/debug/SKILL.md.eta",
-      "sourceSha256": "9468538e153149724f5a9e6070362c52bb4d0b78f2e4c91362fa601770fa7a03",
-      "sha256": "bb6cfa2915dce5b305400f780d8669a1ff5749fa66c44dc7c72d50ba8e4277b6",
+      "sourceSha256": "9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f",
+      "sha256": "bee4519a4a27acbd1e483655fbd8e54c367868ba14b56d0971285834bb1cadb5",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
