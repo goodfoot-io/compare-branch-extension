@@ -23,6 +23,10 @@ import { join } from 'node:path';
 import { resolveGlobalCardsConfigDir } from '@cards.management/sdk';
 import { createCardsClient } from '@cards.management/sdk/client/discovery';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards.management/sdk/config';
+import {
+  finalizePersistedSqlitePollSession,
+  type SqlitePollFinalizationOutcome
+} from '@cards.management/sdk/transcript-sync';
 import { createAntigravityTerminationController } from './antigravity-termination.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import {
@@ -123,6 +127,7 @@ export type AntigravitySessionFailureReason =
   | 'nonzero-exit'
   | 'signal-termination'
   | 'hook-failure'
+  | 'transcript-finalization-degraded'
   | 'missing-final-record'
   | 'unsuccessful-final-record';
 
@@ -361,16 +366,45 @@ export async function spawnAntigravitySession(
     forceTimeoutMs: 5_000
   });
 
+  let transcriptFinalization: Promise<SqlitePollFinalizationOutcome> | undefined;
+  const finalizeTranscript = (): Promise<SqlitePollFinalizationOutcome> => {
+    transcriptFinalization ??= finalizePersistedSqlitePollSession({
+      cardRepoPath: input.cardRepoPath,
+      sessionId,
+      warnFn: (message) => context.logger.warn(message),
+      errorFn: (message) => context.logger.error(message)
+    });
+    return transcriptFinalization;
+  };
+
   context.onCancel(async () => {
     context.logger.info(`${input.actionName} action cancelled, terminating agy`, { sessionId });
     const result = await termination.terminate('cancel');
-    context.logger.info(`${input.actionName} cancellation termination completed`, { sessionId, result });
+    const finalization = await finalizeTranscript();
+    const log =
+      finalization.kind === 'flushed'
+        ? context.logger.info.bind(context.logger)
+        : context.logger.error.bind(context.logger);
+    log(`${input.actionName} cancellation termination completed`, {
+      sessionId,
+      result,
+      transcriptFinalization: finalization
+    });
   });
 
   context.onAgentShutdown(async () => {
     context.logger.info(`${input.actionName} agent signalled shutdown, terminating agy`, { sessionId });
     const result = await termination.terminate('shutdown');
-    context.logger.info(`${input.actionName} shutdown termination completed`, { sessionId, result });
+    const finalization = await finalizeTranscript();
+    const log =
+      finalization.kind === 'flushed'
+        ? context.logger.info.bind(context.logger)
+        : context.logger.error.bind(context.logger);
+    log(`${input.actionName} shutdown termination completed`, {
+      sessionId,
+      result,
+      transcriptFinalization: finalization
+    });
     return result;
   });
 
@@ -410,6 +444,8 @@ export async function spawnAntigravitySession(
     }
   );
 
+  const finalization = outcome.spawnError === undefined ? await finalizeTranscript() : undefined;
+
   const hookFailure = await readAntigravityHookFailure(sessionId);
   if (hookFailure !== undefined) {
     throw new AntigravitySessionFailureError(
@@ -435,6 +471,12 @@ export async function spawnAntigravitySession(
       throw new AntigravitySessionFailureError(
         'nonzero-exit',
         `${input.actionName} action failed: agy exited with code ${outcome.exitCode}`
+      );
+    }
+    if (finalization?.kind === 'degraded') {
+      throw new AntigravitySessionFailureError(
+        'transcript-finalization-degraded',
+        `${input.actionName} action failed: final Antigravity transcript drain degraded (${finalization.reason}: ${finalization.detail})`
       );
     }
   }
@@ -489,6 +531,12 @@ export async function spawnAntigravitySession(
       throw new AntigravitySessionFailureError(
         'unsuccessful-final-record',
         `${input.actionName} action failed: agy final record status is '${final.status}' (expected 'SUCCESS')`
+      );
+    }
+    if (finalization?.kind === 'degraded') {
+      throw new AntigravitySessionFailureError(
+        'transcript-finalization-degraded',
+        `${input.actionName} action failed: final Antigravity transcript drain degraded (${finalization.reason}: ${finalization.detail})`
       );
     }
 

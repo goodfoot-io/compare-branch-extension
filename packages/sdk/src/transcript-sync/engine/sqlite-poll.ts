@@ -185,6 +185,15 @@ export type SqlitePollOutcome =
   | { kind: 'absence-expired'; detail: string }
   | { kind: 'permanent-unavailable'; detail: string };
 
+/** Named result of the single final poll plus non-terminal evidence flush. */
+export type SqlitePollFlushOutcome =
+  | { kind: 'flushed'; records: EmissionRecord[]; partial: number }
+  | {
+      kind: 'degraded';
+      reason: 'db-absent' | 'absence-expired' | 'permanent-unavailable' | 'poll-failed';
+      detail: string;
+    };
+
 /**
  * The sqlite-poll engine for one session's conversation DB.
  *
@@ -589,18 +598,45 @@ export class SqlitePollEngine {
    * @returns The flush-partial (or format-unknown) records appended, if any.
    */
   async flushTracked(): Promise<EmissionRecord[]> {
+    const outcome = await this.flushTrackedDetailed();
+    if (outcome.kind !== 'flushed') return [];
+    // Preserve the pre-existing method contract: callers of flushTracked()
+    // receive only records produced by the non-terminal flush pass. The
+    // detailed finalizer additionally owns terminal rows emitted by its poll.
+    return outcome.records.filter(
+      (record) =>
+        record.anomaly?.kind === 'flush-partial' ||
+        (record.anomaly?.kind === 'format-unknown' && record.anomaly.detail.startsWith('flush:'))
+    );
+  }
+
+  /**
+   * Performs the final bounded poll while preserving its named degradation.
+   *
+   * @returns Terminal and partial records emitted by the final pass, or a
+   * named degradation when the source cannot be drained safely.
+   */
+  async flushTrackedDetailed(): Promise<SqlitePollFlushOutcome> {
     // Final bounded poll: terminal rows drain as ordinary records first, then
     // every remaining tracked non-terminal row flushes with its observed
     // status as a named flush-partial record. Same adapter code path, no
     // DB writes.
     const outcome = await this.pollOnce();
-    if (outcome.kind !== 'ok' && outcome.kind !== 'permanent-unavailable') {
-      return [];
+    if (outcome.kind === 'db-absent') {
+      return {
+        kind: 'degraded',
+        reason: 'db-absent',
+        detail: `conversation DB "${this.dbPath}" is absent at final drain`
+      };
     }
-    const flushed: EmissionRecord[] = [];
+    if (outcome.kind === 'absence-expired') {
+      return { kind: 'degraded', reason: 'absence-expired', detail: outcome.detail };
+    }
     if (outcome.kind === 'permanent-unavailable') {
-      return flushed;
+      return { kind: 'degraded', reason: 'permanent-unavailable', detail: outcome.detail };
     }
+    const emitted = [...outcome.emitted];
+    const flushed: EmissionRecord[] = [];
 
     let connection: SqlitePollConnection;
     try {
@@ -628,17 +664,25 @@ export class SqlitePollEngine {
       }
     } catch (error) {
       if (this.permanentDetail !== null) {
-        return flushed;
+        return { kind: 'degraded', reason: 'permanent-unavailable', detail: this.permanentDetail };
       }
       this.closeConnection();
       this.deps.warnFn(
         `sqlite-poll: flush read pass failed transiently: ${error instanceof Error ? error.message : String(error)}`
       );
-      return flushed;
+      return {
+        kind: 'degraded',
+        reason: 'poll-failed',
+        detail: `sqlite-poll final read pass failed: ${error instanceof Error ? error.message : String(error)}`
+      };
     }
     if (flushed.length > 0) {
       await this.appendRecords(flushed);
     }
-    return flushed;
+    return {
+      kind: 'flushed',
+      records: [...emitted, ...flushed],
+      partial: flushed.filter((record) => record.anomaly?.kind === 'flush-partial').length
+    };
   }
 }

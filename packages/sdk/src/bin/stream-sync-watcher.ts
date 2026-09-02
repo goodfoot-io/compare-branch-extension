@@ -49,6 +49,7 @@ import {
 } from '../transcript-sync/engine/sqlite-poll.js';
 import { buildStatusHeartbeat, MainFileInvariantChecker } from '../transcript-sync/engine/status.js';
 import { SyncChain } from '../transcript-sync/engine/sync-chain.js';
+import { finalizeSqlitePollSession } from '../transcript-sync/engine/termination-flush.js';
 import { WatchInstaller } from '../transcript-sync/engine/watch-installer.js';
 import { parseManifest, type SessionSyncManifest, type SqlitePollSourceSpec } from '../transcript-sync/manifest.js';
 import { isProcessAlive } from './process-utils.js';
@@ -206,19 +207,14 @@ async function runPollSession(manifest: SessionSyncManifest, handle: Reconnectin
   const closeSession = async (): Promise<void> => {
     if (closed) return;
     closed = true;
-    // Termination path: final bounded poll + flush of remaining tracked
-    // non-terminal rows (named flush-partial evidence) — the same code path
-    // the antigravity termination module drives when this watcher is dead.
-    const flushed = await engine.flushTracked();
-    for (const record of flushed) {
-      if (record.anomaly?.kind === 'format-unknown') {
-        warnFn(
-          `stream-sync-watcher: flush of idx ${String(record.idx)} hit an undecodable payload: ${record.anomaly.detail}`
-        );
-      }
+    // The live watcher and launcher-owned takeover share one persisted-
+    // manifest finalizer. This closes the race where both owners could append
+    // the same terminal row after the child exits.
+    const finalization = await finalizeSqlitePollSession({ manifest, startedAt, warnFn, errorFn });
+    if (finalization.kind === 'degraded') {
+      errorFn(`stream-sync-watcher: final transcript drain degraded (${finalization.reason}): ${finalization.detail}`);
+      ctx.emit({ type: 'error', data: { message: finalization.detail } });
     }
-    await commitSessionClose(manifest, warnFn, errorFn);
-    await writeSessionStatus(manifest, { startedAt, closedAt: new Date().toISOString(), fileFailures: {} });
   };
 
   const signal = { stopped: false };

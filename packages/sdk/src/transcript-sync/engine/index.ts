@@ -39,6 +39,7 @@ export {
   SQLITE_POLL_STEADY_INTERVAL_MS,
   type SqlitePollDeps,
   SqlitePollEngine,
+  type SqlitePollFlushOutcome,
   type SqlitePollOutcome
 } from './sqlite-poll.js';
 export {
@@ -49,4 +50,12 @@ export {
 } from './status.js';
 export { SyncChain } from './sync-chain.js';
 export { type TailerCursor, tailAppend } from './tailer.js';
+export {
+  type FinalizePersistedSqlitePollSessionOptions,
+  type FinalizeSqlitePollSessionOptions,
+  finalizePersistedSqlitePollSession,
+  finalizeSqlitePollSession,
+  type SqlitePollFinalizationDegradation,
+  type SqlitePollFinalizationOutcome
+} from './termination-flush.js';
 export { WatchInstaller, type WatchInstallerDeps } from './watch-installer.js';

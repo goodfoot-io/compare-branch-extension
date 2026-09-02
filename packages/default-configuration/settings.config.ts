@@ -24,7 +24,7 @@ export default defineConfig({
   environments: {
     default: {
       version: 1,
-      description: 'Standard Claude Code workflows',
+      description: 'Standard Cards coding-agent workflows',
       actions: [launch, interview, chat, captain],
       streams: {
         'claude-code-session': {

@@ -57,6 +57,10 @@ vi.mock('@cards.management/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
+vi.mock('@cards.management/sdk/transcript-sync', () => ({
+  finalizePersistedSqlitePollSession: vi.fn()
+}));
+
 // createWorktreeForCard wraps the pure createWorktree git primitive with the
 // per-card outfit. Mock it as a thin adapter that forwards to the low-level
 // createWorktree mock (see claude-session.test.ts) so these tests keep asserting
@@ -183,6 +187,8 @@ beforeEach(async () => {
   vi.mocked(fs.readdir).mockRejectedValue(enoent);
   vi.mocked(fs.stat).mockRejectedValue(enoent);
   vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+  const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
+  vi.mocked(finalizePersistedSqlitePollSession).mockResolvedValue({ kind: 'flushed', emitted: 0, partial: 0 });
 });
 
 afterEach(() => {
@@ -320,6 +326,54 @@ describe('launch action — antigravity branch', () => {
       { cardId: 'card-123', repoRoot: '/test/workspace', cardRepoPath: '/test/repo', sessionId: expect.any(String) },
       expect.anything()
     );
+  });
+
+  it('does not settle a successful child exit before the launcher-owned final poll settles', async () => {
+    const { spawn } = await import('node:child_process');
+    const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+    let releaseFinalization: (() => void) | undefined;
+    vi.mocked(finalizePersistedSqlitePollSession).mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseFinalization = () => resolve({ kind: 'flushed', emitted: 1, partial: 0 });
+      })
+    );
+
+    const action = (await import('../src/actions/launch.js')).default;
+    let settled = false;
+    const promise = action(baseInput(), createMockContext()).finally(() => {
+      settled = true;
+    });
+    await flushMicrotasks();
+    child.emit('close', 0);
+    await flushMicrotasks();
+
+    expect(settled).toBe(false);
+    expect(finalizePersistedSqlitePollSession).toHaveBeenCalledWith(
+      expect.objectContaining({ cardRepoPath: '/test/repo', sessionId: expect.any(String) })
+    );
+    releaseFinalization?.();
+    await promise;
+  });
+
+  it('names final transcript degradation instead of reporting an otherwise successful exit', async () => {
+    const { spawn } = await import('node:child_process');
+    const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(finalizePersistedSqlitePollSession).mockResolvedValueOnce({
+      kind: 'degraded',
+      reason: 'db-absent',
+      detail: 'conversation DB is absent at final drain'
+    });
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+    child.emit('close', 0);
+
+    await expect(promise).rejects.toThrow(/final Antigravity transcript drain degraded \(db-absent:/);
   });
 
   it('forwards action-selected model and effort as separate argv values', async () => {
