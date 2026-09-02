@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/shutdown.md.eta sha256:595b49e9ecb7568a54d0227ec21035d1b13480234bbd41b45b0241e42c5fb505 -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/shutdown.md.eta sha256:3f0b2de1beb43e9f56436d155ae74655773dd7572dcd2fdb80c85d924c207a60 -->
 <instructions>
 
 At any natural terminal state — after a merge, after recording a blocker, or after all tasks are complete — check whether `EXIT_WHEN_DONE` is `true` in your environment context. If it is not set, stop here and continue normally.
@@ -36,7 +36,7 @@ cards "$CARD_ID" shutdown --outcome error --message "what failed"
 
 `--outcome` defaults to `success`; `--message` is optional free text. Exit 0 confirms the request was sent.
 
-Do not make any later tool call after the shutdown command. Delivery is not completion: the Claude Stop hook acknowledges readiness only after Cards proves the owned process tree is drained.
+Do not make any later tool call after the shutdown command. Delivery is not completion: the Antigravity termination relay acknowledges readiness only after Cards proves the owned process tree is drained.
 
 4. End the session cleanly. The action handler terminates this session gracefully in response to the signal — no kill commands are needed.
 

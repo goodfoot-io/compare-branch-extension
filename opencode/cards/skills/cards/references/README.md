@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/README.md.eta sha256:b2369f19570769cdf04fd8fbeb7e6e34826bf9c55341dc309921d36c298d8c9d -->
+<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/README.md.eta sha256:b15471b6123322c9a8f2d52ff538643be844a73e027005dd3664e0af48eebda2 -->
 # Card-Type References
 
 Single source of truth for card-type guidance. Two files per card type:
@@ -23,24 +23,24 @@ Non-type references loaded on demand from the skill body:
 2. **Post-creation interview** (`$interview` skill) — routes by card type, then loads `commanders-intent.md`, `<type>.md`, and its own `interview-<type>.md`; also loads `deep-card.md` when the card repo has documentation tiers.
 3. **Card planner** (`$card-planner` skill) — reads a deep card's `explanation/`, `how-to/`, and `reference/` tiers before planning.
 
-## Symlinks
+## Generated copies
 
-`public/codex/runtime/skills/interview/references/` symlinks the writing guides, `commanders-intent.md`, and `deep-card.md` back to this directory:
+The publisher materializes the writing guides, `commanders-intent.md`, and `deep-card.md` as regular files under `public/opencode/runtime/skills/interview/references/`:
 
 ```
-bug-report.md        -> ../../../../cards/skills/cards/references/bug-report.md
-enhancement.md       -> ../../../../cards/skills/cards/references/enhancement.md
-investigation.md     -> ../../../../cards/skills/cards/references/investigation.md
-documentation.md     -> ../../../../cards/skills/cards/references/documentation.md
-maintenance.md       -> ../../../../cards/skills/cards/references/maintenance.md
-operations.md        -> ../../../../cards/skills/cards/references/operations.md
-commanders-intent.md -> ../../../../cards/skills/cards/references/commanders-intent.md
-deep-card.md         -> ../../../../cards/skills/cards/references/deep-card.md
+bug-report.md
+enhancement.md
+investigation.md
+documentation.md
+maintenance.md
+operations.md
+commanders-intent.md
+deep-card.md
 ```
 
-Edit those files here; the symlinks keep both consumers on the same content.
+Edit those files here; publication refreshes every consumer from this authored source.
 
-The `interview-<type>.md` files are **not** symlinked, and must not be. The copies here are pre-creation — no card exists yet. `$interview` keeps its own post-creation copies, which interview against an existing CARD.md. The two sets are deliberately different documents.
+The `interview-<type>.md` files are deliberately not shared with `$interview`. The copies here are pre-creation — no card exists yet. The runtime skill keeps distinct post-creation copies, which interview against an existing CARD.md.
 
 ## Markdown Formatting
 

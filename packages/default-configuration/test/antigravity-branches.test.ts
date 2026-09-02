@@ -57,6 +57,11 @@ vi.mock('@cards.management/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
+vi.mock('@cards.management/sdk/bin/process-utils', () => ({
+  readCardStatus: vi.fn(),
+  transitionCardStatus: vi.fn()
+}));
+
 vi.mock('@cards.management/sdk/transcript-sync', () => ({
   finalizePersistedSqlitePollSession: vi.fn()
 }));
@@ -189,6 +194,9 @@ beforeEach(async () => {
   vi.mocked(fs.writeFile).mockResolvedValue(undefined);
   const { finalizePersistedSqlitePollSession } = await import('@cards.management/sdk/transcript-sync');
   vi.mocked(finalizePersistedSqlitePollSession).mockResolvedValue({ kind: 'flushed', emitted: 0, partial: 0 });
+  const { readCardStatus, transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+  vi.mocked(readCardStatus).mockResolvedValue('needs_review');
+  vi.mocked(transitionCardStatus).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -322,6 +330,11 @@ describe('launch action — antigravity branch', () => {
     await promise;
 
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).toHaveBeenCalledWith('/test/repo', expect.anything());
+    expect(vi.mocked(transitionCardStatus).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(spawnBranchCleanupWatcher).mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
     expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith(
       { cardId: 'card-123', repoRoot: '/test/workspace', cardRepoPath: '/test/repo', sessionId: expect.any(String) },
       expect.anything()
@@ -374,6 +387,8 @@ describe('launch action — antigravity branch', () => {
     child.emit('close', 0);
 
     await expect(promise).rejects.toThrow(/final Antigravity transcript drain degraded \(db-absent:/);
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).not.toHaveBeenCalled();
   });
 
   it('forwards action-selected model and effort as separate argv values', async () => {
@@ -418,6 +433,8 @@ describe('launch action — antigravity branch', () => {
     }
     child.emit('close', 0);
     await expect(promise).rejects.toThrow(/runtime hook failure \(watcher-setup: attach failed\)/);
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).not.toHaveBeenCalled();
   });
 
   it('fails an interactive action on a nonzero child exit', async () => {
@@ -430,6 +447,23 @@ describe('launch action — antigravity branch', () => {
     await flushMicrotasks();
     child.emit('close', 23);
     await expect(promise).rejects.toThrow(/agy exited with code 23/);
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).not.toHaveBeenCalled();
+  });
+
+  it('does not settle card status when the Antigravity process fails to spawn', async () => {
+    const { spawn } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+    child.emit('error', Object.assign(new Error('spawn agy ENOENT'), { code: 'ENOENT' }));
+
+    await expect(promise).rejects.toThrow(/agy process could not be launched/);
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).not.toHaveBeenCalled();
   });
 
   it('spawns child-owned agy -p --output-format stream-json and settles on the SUCCESS final record', async () => {
@@ -465,6 +499,11 @@ describe('launch action — antigravity branch', () => {
 
     // Inline cleanup only — no detached watcher behind a headless run.
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+    const { readCardStatus, transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).toHaveBeenCalledWith('/test/repo', expect.anything());
+    expect(vi.mocked(transitionCardStatus).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(readCardStatus).mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
     expect(spawnBranchCleanupWatcher).not.toHaveBeenCalled();
   });
 
@@ -479,6 +518,8 @@ describe('launch action — antigravity branch', () => {
 
     child.emit('close', 0);
     await expect(promise).rejects.toThrow(/exited 0 without the expected final stream-json record/);
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).not.toHaveBeenCalled();
 
     const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
     expect(spawnBranchCleanupWatcher).not.toHaveBeenCalled();
@@ -520,6 +561,8 @@ describe('launch action — antigravity branch', () => {
     malformed.stdout?.emit('data', Buffer.from('not json\n'));
     malformed.emit('close', 0);
     await expect(malformedPromise).rejects.toThrow(/non-JSON line/);
+    const { transitionCardStatus } = await import('@cards.management/sdk/bin/process-utils');
+    expect(transitionCardStatus).not.toHaveBeenCalled();
   });
 
   it('registers onCancel that drains the owned process group', async () => {

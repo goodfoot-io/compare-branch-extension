@@ -454,62 +454,28 @@ export async function spawnAntigravitySession(
     );
   }
 
-  if (isInteractive) {
-    if (outcome.spawnError !== undefined) {
-      throw new AntigravitySessionFailureError(
-        'spawn-failure',
-        `${input.actionName} action failed: the agy process could not be launched (${outcome.spawnError.message})`
-      );
-    }
-    if (outcome.signal) {
-      throw new AntigravitySessionFailureError(
-        'signal-termination',
-        `${input.actionName} action failed: agy terminated on signal ${outcome.signal}`
-      );
-    }
-    if (outcome.exitCode !== 0) {
-      throw new AntigravitySessionFailureError(
-        'nonzero-exit',
-        `${input.actionName} action failed: agy exited with code ${outcome.exitCode}`
-      );
-    }
-    if (finalization?.kind === 'degraded') {
-      throw new AntigravitySessionFailureError(
-        'transcript-finalization-degraded',
-        `${input.actionName} action failed: final Antigravity transcript drain degraded (${finalization.reason}: ${finalization.detail})`
-      );
-    }
+  if (outcome.spawnError !== undefined) {
+    throw new AntigravitySessionFailureError(
+      'spawn-failure',
+      `${input.actionName} action failed: the agy process could not be launched (${outcome.spawnError.message})`
+    );
   }
-
-  context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode: outcome.exitCode });
-
-  // Settle the card's status (active → needs_review) before cleanup can read
-  // it: the sweep's first gate is the on-disk status, which otherwise races
-  // this exit path from a separate process. See {@link settleCardStatusForCleanup}.
-  await settleCardStatusForCleanup(input.cardRepoPath, context.logger);
+  if (outcome.signal) {
+    throw new AntigravitySessionFailureError(
+      'signal-termination',
+      `${input.actionName} action failed: agy terminated on signal ${outcome.signal}`
+    );
+  }
+  if (outcome.exitCode !== 0) {
+    throw new AntigravitySessionFailureError(
+      'nonzero-exit',
+      `${input.actionName} action failed: agy exited with code ${outcome.exitCode}`
+    );
+  }
 
   if (!isInteractive) {
     // Exit zero without the expected final record is failure, per the action
     // matrix lifecycle — a clean exit alone never settles a background launch.
-    if (outcome.spawnError !== undefined) {
-      throw new AntigravitySessionFailureError(
-        'spawn-failure',
-        `${input.actionName} action failed: the agy process could not be launched (${outcome.spawnError.message})`
-      );
-    }
-    if (outcome.signal) {
-      throw new AntigravitySessionFailureError(
-        'signal-termination',
-        `${input.actionName} action failed: agy terminated on signal ${outcome.signal}`
-      );
-    }
-    if (outcome.exitCode !== 0) {
-      throw new AntigravitySessionFailureError(
-        'nonzero-exit',
-        `${input.actionName} action failed: agy exited with code ${outcome.exitCode}`
-      );
-    }
-
     let final: AntigravityFinalRecord | null;
     try {
       final = parseAntigravityFinalRecord(stdoutText);
@@ -540,6 +506,10 @@ export async function spawnAntigravitySession(
       );
     }
 
+    // Settle only after process, structured-result, hook, and transcript
+    // finalization success. Cleanup reads this status as its first gate.
+    await settleCardStatusForCleanup(input.cardRepoPath, context.logger);
+
     context.logger.info(`${input.actionName} background launch settled`, {
       sessionId,
       conversationId: final.conversationId
@@ -558,6 +528,18 @@ export async function spawnAntigravitySession(
     }
     return;
   }
+
+  if (finalization?.kind === 'degraded') {
+    throw new AntigravitySessionFailureError(
+      'transcript-finalization-degraded',
+      `${input.actionName} action failed: final Antigravity transcript drain degraded (${finalization.reason}: ${finalization.detail})`
+    );
+  }
+
+  // Interactive success uses the same verified-success settlement gate and
+  // still settles before the detached cleanup watcher can inspect status.
+  await settleCardStatusForCleanup(input.cardRepoPath, context.logger);
+  context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode: outcome.exitCode });
 
   // Interactive mode: hand post-exit cleanup to the detached watcher so the
   // terminal closes immediately (the watcher calls the same

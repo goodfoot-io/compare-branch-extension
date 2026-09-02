@@ -2,7 +2,7 @@
 name: card-plan-failure-mode
 description: Review parallel plans for technical and user-facing failure modes, hold the contest open until every live plan qualifies, then select the strongest qualifier as winner.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-plan-failure-mode/SKILL.md.eta sha256:92d139d6169f32f8e0247da52acd698c08cab5ae5a506f75d642b6dbcf0f87b7 -->
+<!-- @goodfoot/agent-skills source: skills-src/runtime/card-plan-failure-mode/SKILL.md.eta sha256:92b09aa3be71a73d75f1f42419d06e951b22d10c26c7d37626d0503a1fe34835 -->
 
 <placeholder-variables>
 [PLANNER] — The originating planner's subagent name (e.g., `planner-1`) for the plan under review
@@ -71,7 +71,7 @@ The failure-mode questions are the lens for every plan you review — questions,
 
 The published set is a floor, never a ceiling — every §2 sweep goes beyond the note.
 
-Research here (web searches, `~/.claude/**/*.jsonl` transcripts) takes time. If a `PLAN: READY` arrives mid-draft, do not block it — commit the note with what you have and start §2 for the arriving plan in parallel. Questions added later apply to plans already reviewed under §2.2's gating test.
+Research here (web searches, `$CARD_REPO_PATH/streams/antigravity-session/*.jsonl` transcripts) takes time. If a `PLAN: READY` arrives mid-draft, do not block it — commit the note with what you have and start §2 for the arriving plan in parallel. Questions added later apply to plans already reviewed under §2.2's gating test.
 
 Start from the outcomes the card must deliver. Each acceptance criterion is an outcome; `<card>` metadata and orchestrator context surface additional behaviors the card implies but does not enumerate. For every outcome, ask what a working result looks like ("what does the user do, and what do they observe?") and what plausible plans could produce instead.
 
@@ -81,7 +81,7 @@ Then widen the net across every source that reveals how work in this space fails
 - Adjacent cards and notes in the card repository.
 - Similar code elsewhere in the workspace.
 - Web searches for known pitfalls, CVEs, post-mortems, or library-specific footguns.
-- Prior Claude transcripts in `~/.claude/**/*.jsonl` — glob the files, grep for this card's domain terms, and read how past work here failed and what fixed it.
+- Prior Antigravity transcript streams in `$CARD_REPO_PATH/streams/antigravity-session/*.jsonl` — glob the files, grep for this card's domain terms, and read how past work here failed and what fixed it.
 
 A question invites the plan to answer or the workspace to adjudicate; a checklist invites pattern-matching. Frame each as a specific question tied to an outcome or failure angle. Draw on, but do not limit yourself to:
 

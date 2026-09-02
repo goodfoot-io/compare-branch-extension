@@ -4,8 +4,8 @@
   "target": "public/claude/runtime/skills",
   "platform": "claude",
   "plugin": "runtime",
-  "version": "1.0.441",
-  "registrySha256": "7f33d0b215b1625e8cbde304268df2d1c524797c538294d08a4793cfe6faf2f0",
+  "version": "1.0.442",
+  "registrySha256": "e2cdbe60ae731a67cafd2d765c3d8b83d44f938fdcc88d97229380e89f12bcb4",
   "files": [
     {
       "path": "captain/references/blocked.md",
@@ -127,8 +127,8 @@
     {
       "path": "captain/references/shutdown.md",
       "source": "skills-src/runtime/captain/references/shutdown.md.eta",
-      "sourceSha256": "595b49e9ecb7568a54d0227ec21035d1b13480234bbd41b45b0241e42c5fb505",
-      "sha256": "e29763c11807a5c644d78cd0c1d496f81cc2a2eeafa36442c9450e986e24b0fd",
+      "sourceSha256": "3f0b2de1beb43e9f56436d155ae74655773dd7572dcd2fdb80c85d924c207a60",
+      "sha256": "cd692e46fe61b5e93a68f41312b3d234a061d6fd37b425da50917e65970b1207",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -181,8 +181,8 @@
     {
       "path": "card-plan-failure-mode/SKILL.md",
       "source": "skills-src/runtime/card-plan-failure-mode/SKILL.md.eta",
-      "sourceSha256": "92d139d6169f32f8e0247da52acd698c08cab5ae5a506f75d642b6dbcf0f87b7",
-      "sha256": "7555d96eacf6250c0d8b08388e33f43dd1b8ea5f2632a70f664efc2612057161",
+      "sourceSha256": "92b09aa3be71a73d75f1f42419d06e951b22d10c26c7d37626d0503a1fe34835",
+      "sha256": "b4bd6e7a7a124556f6abb18cbf1bd079ca02b3e59359b5287db0a81ae88a99a3",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -343,8 +343,8 @@
     {
       "path": "card/references/shutdown.md",
       "source": "skills-src/runtime/card/references/shutdown.md.eta",
-      "sourceSha256": "595b49e9ecb7568a54d0227ec21035d1b13480234bbd41b45b0241e42c5fb505",
-      "sha256": "31d8929a910408a8ee97b3f35e30a2076d4e1d04e8fc1cdeb364ed3530555ea8",
+      "sourceSha256": "3f0b2de1beb43e9f56436d155ae74655773dd7572dcd2fdb80c85d924c207a60",
+      "sha256": "1ad5d07a63918fcf16d5a064015076e198edd4312320d3047e788a35049300ac",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"

@@ -6,11 +6,13 @@
  * @module
  */
 
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildAntigravityManifest } from '../../../src/transcript-sync/adapters/antigravity.js';
+import { acquireFinalizationLock } from '../../../src/transcript-sync/engine/finalization-lock.js';
 import { writeSessionStatus } from '../../../src/transcript-sync/engine/session-status.js';
 import { SqlitePollEngine } from '../../../src/transcript-sync/engine/sqlite-poll.js';
 import {
@@ -118,5 +120,58 @@ describe('sqlite-poll termination finalization', () => {
       { idx: 0, status: 3, anomaly: null },
       { idx: 1, status: 2, content: 'in flight', anomaly: { kind: 'flush-partial' } }
     ]);
+  });
+
+  it('serializes a blocked ordinary poll with launcher takeover without duplicate records or sidecar temp races', async () => {
+    db.insertStep({ idx: 0, stepType: 14, status: 3, payload: buildUserPayload('serialized'), format: 0 });
+    const spec = manifest.sources[0] as SqlitePollSourceSpec;
+    const warnings: string[] = [];
+    let releaseBusyRetry: (() => void) | undefined;
+    let busyRetryStarted: (() => void) | undefined;
+    const busyRetry = new Promise<void>((resolve) => {
+      busyRetryStarted = resolve;
+    });
+    let firstOpen = true;
+    const watcher = new SqlitePollEngine({
+      manifest,
+      spec,
+      destPath: destination,
+      warnFn: (message) => warnings.push(message),
+      now: () => Date.now(),
+      sleep: () =>
+        new Promise<void>((resolve) => {
+          releaseBusyRetry = resolve;
+          busyRetryStarted?.();
+        }),
+      openConnection: (path) => {
+        if (firstOpen) {
+          firstOpen = false;
+          const error = new Error('database is locked') as Error & { errcode: number };
+          error.errcode = 5;
+          throw error;
+        }
+        return new DatabaseSync(path, { readOnly: true, timeout: 2_000 });
+      }
+    });
+    await watcher.attach();
+
+    const lockPath = `${spec.sidecarPath}.finalize.lock`;
+    const releasePollLock = await acquireFinalizationLock(lockPath);
+    expect(releasePollLock).not.toBeNull();
+    const ordinaryPoll = watcher.pollOnce().finally(async () => releasePollLock?.());
+    await busyRetry;
+    const takeover = finalizeSqlitePollSession({
+      manifest,
+      startedAt: '2026-09-01T00:00:00.000Z',
+      warnFn: (message) => warnings.push(message),
+      errorFn: (message) => warnings.push(message)
+    });
+    releaseBusyRetry?.();
+
+    await expect(ordinaryPoll).resolves.toMatchObject({ kind: 'ok' });
+    await expect(takeover).resolves.toEqual({ kind: 'flushed', emitted: 0, partial: 0 });
+    expect(await records()).toHaveLength(1);
+    expect(warnings.join('\n')).not.toMatch(/ENOENT|\.tmp/i);
+    await expect(access(`${spec.sidecarPath}.tmp`)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

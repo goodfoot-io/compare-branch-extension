@@ -1,8 +1,8 @@
 ---
 name: debug
-description: This skill should be used when the user asks to "debug the cards assistant", "troubleshoot cards", "find cards logs", "check cards server health", "cards not working", "where are cards logs", "test cards API", asks what a Cards error code means, or reports a failure with Cards packages, the extension, licensing or registration, Claude Code hooks, Codex sessions, worktrees, configuration, authentication, or release tooling.
+description: This skill should be used when the user asks to "debug the cards assistant", "troubleshoot cards", "find cards logs", "check cards server health", "cards not working", "where are cards logs", "test cards API", asks what a Cards error code means, or reports a failure with Cards packages, the extension, licensing or registration, Claude Code hooks, Codex or Antigravity sessions, worktrees, configuration, authentication, or release tooling.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/shared/debug/SKILL.md.eta sha256:229e34a9afe75c2c92cd92f14a2873b14d2b350b0db17c9fd613e3914aeb9e1e -->
+<!-- @goodfoot/agent-skills source: skills-src/shared/debug/SKILL.md.eta sha256:9468538e153149724f5a9e6070362c52bb4d0b78f2e4c91362fa601770fa7a03 -->
 
 <tools>
 cards — Card operations CLI (get, create, list, search, bind, watch, action)
@@ -382,19 +382,47 @@ If the UI exposes only a coarse message, collect the corresponding logs before c
 
 Load only the file(s) whose symptom matches.
 
+### Antigravity installation, authentication, and hooks
+
+Collect this read-only fingerprint before choosing a recovery action:
+
+```bash
+command -v agy || true
+agy --version 2>&1 || true
+agy plugin list 2>&1 || true
+for plugin in cards runtime; do
+  root="$HOME/.gemini/config/plugins/$plugin"
+  printf '%s: ' "$plugin"
+  if [ -f "$root/plugin.json" ]; then
+    jq '{name,version,disabled}' "$root/plugin.json"
+  else
+    echo missing
+  fi
+  find "$root/skills" -name SKILL.md -type f -print 2>/dev/null | sort
+  if [ "$plugin" = runtime ] && [ -f "$root/hooks.json" ]; then
+    echo "runtime hooks.json present"
+  fi
+done
+```
+
+- If `agy` is absent, use the official installer at `https://antigravity.google/docs/cli-install`, open a new terminal, and confirm `agy --version`. Cards currently pins `1.1.22`; a different version is compatibility drift, not an authentication failure.
+- If setup reports **Unmanaged installation**, do not run a Cards repair or remove operation: resolve the foreign `cards` or `runtime` tree manually. If it reports **Disabled**, **Update required**, or **Invalid installation**, use the setup wizard's **Repair** action; that action is offered only after durable Cards ownership is proved.
+- To recover authentication, run `agy` interactively and complete its sign-in flow. Then reproduce Cards' bounded read-only probe with `agy -p 'Reply with exactly: PONG' --output-format json --print-timeout 20s`; success must be exact JSON whose response is `PONG`. Do not inspect or copy credential files.
+- For hook or transcript failures, confirm `$HOME/.gemini/config/plugins/runtime/hooks.json` exists, then inspect `$CARD_REPO_PATH/streams/antigravity-session/*.jsonl` and the session/log references below. Do not copy generated payload files into the live Antigravity home; use **Repair** when ownership is proved.
+
 | Symptom | Load | What it covers |
 |---------|------|----------------|
 | Known error code or exact failure message; logs reveal a typed failure | `references/diagnose-known-failure-states.md` | Error families across internal packages, public packages, and the extension. Identify the owning family, preserve fail-closed boundaries, apply only supported remediation, verify durable state, report at the stated threshold |
 | License activation, browser registration, refresh, or integrity failure | `references/diagnose-known-failure-states.md` | Distinguishes parsing, signing-environment, signature, expiry, revocation, device binding, polling, refresh, storage, and clock states |
 | Agent won't start, terminal flashes and closes, ENOENT, handler crashes | `references/diagnose-agent-launch.md` | Full spawn chain: VS Code command → handler .mjs → agent CLI → plugin hooks, with guard checks, env vars, per-platform spawn behavior |
 | Server not responding, "Server not running", ECONNREFUSED, SQLITE_CORRUPT | `references/diagnose-server-health.md` | Server liveness, discovery file validation, database corruption recovery, safe-vs-risky action markers |
-| Hook not firing, SessionStart announcement missing, trust interstitial | `references/diagnose-hooks.md` | Hook registration and execution for Claude + Codex plugins, trust hashes, failure modes |
+| Hook not firing, SessionStart announcement missing, trust interstitial | `references/diagnose-hooks.md` | Hook registration and execution for Claude + Codex plugins, plus the Antigravity fingerprint above |
 | Card won't bind, worktree already in use, bind lock held | `references/diagnose-worktree.md` | Worktree creation, binding, outfit, shared hooks provisioning, stale lock cleanup |
 | Worktree contents wrong — files missing, unexpected symlinks, `create-worktree` exits 3, a listed `.worktreeinclude` path never arrives, Windows symlink privilege denied | `references/diagnose-worktree.md` | Worktree path policy (`.worktreeignore` omit / `.worktreeinclude` copy), copy-is-an-intersection rule, fail-closed config, per-path classification checks |
 | Can't find logs, need to see what happened, no log output | `references/find-logs.md` | Every log file produced by the extension + plugins, organized by subsystem, with JSON Lines query recipes |
 | Transcript missing, session not streamed, commit attribution broken | `references/find-session-state.md` | Session identity, transcript streaming, commit attribution, route-nudge markers, flush sentinels |
 | Card stuck in active state, daemon crashed, cleanup not happening | `references/find-session-state.md` | Ad-hoc session monitoring — the reconciliation sweep that settles stranded cards when the adhoc-cleanup daemon crashes |
-| Settings not taking effect, agent behavior wrong, plugin not enabled | `references/inspect-settings.md` | Settings tiers across Claude Code, Codex, and Cards; merge behavior; what the extension writes |
+| Settings not taking effect, agent behavior wrong, plugin not enabled | `references/inspect-settings.md` | Settings tiers across Claude Code, Codex, and Cards; for Antigravity use the fingerprint and ownership-specific recovery above |
 | Plugin not loading, "unknown plugin", stale cached version | `references/inspect-plugin-cache.md` | Plugin cache staging for Claude and Codex, marketplace registration, version management |
 | CLI command fails, "command not found", interpreter broken | `references/inspect-cli-tools.md` | CLI inventory with auth, workspace discovery, shell shim patterns, platform-specific behavior |
 | Path differences across machines or OS | `references/platform-reference.md` | Cross-platform path tables, IPC mechanisms, Node interpreter selection, shell variable syntax |
@@ -410,6 +438,7 @@ When the subsystem is known but the symptom is not:
 - **Known package error**: `references/diagnose-known-failure-states.md` (ownership, remediation, verification, and escalation) plus the subsystem-specific reference below when one exists
 - **Claude Code hooks**: `references/diagnose-hooks.md` (hook execution) + `references/inspect-settings.md` (hook enablement in settings) + `references/inspect-plugin-cache.md` (hook binaries in cache)
 - **Codex hooks**: Same, plus `references/platform-reference.md` (Codex home path differences)
+- **Antigravity plugins, authentication, and hooks**: Run the §2 Antigravity fingerprint, then use `references/find-session-state.md` and `references/find-logs.md`; only the setup wizard performs Cards-owned repair or removal
 - **Session lifecycle**: `references/find-session-state.md` (session state) + `references/diagnose-hooks.md` (which hooks write session state) + `references/diagnose-worktree.md` (session binding)
 - **Worktree management**: `references/diagnose-worktree.md` (binding/outfit + path policy) + `references/inspect-cli-tools.md` (create/remove CLIs) + `references/find-session-state.md` (session markers in worktree)
 - **Plugin cache**: `references/inspect-plugin-cache.md` (staging) + `references/inspect-settings.md` (registration) + `references/diagnose-agent-launch.md` (consumed at spawn)

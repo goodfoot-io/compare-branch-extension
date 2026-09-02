@@ -58,6 +58,7 @@ export interface FinalizePersistedSqlitePollSessionOptions {
 
 const WATCHER_FINALIZATION_GRACE_MS = 1_500;
 const FINALIZATION_LOCK_RETRY_MS = 25;
+const FINALIZATION_LOCK_TIMEOUT_MS = 10_000;
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
@@ -82,7 +83,7 @@ export async function finalizeSqlitePollSession(
   }
 
   const lockPath = `${(spec as SqlitePollSourceSpec).sidecarPath}.finalize.lock`;
-  const releaseLock = await acquireFinalizationLock(lockPath);
+  const releaseLock = await acquireFinalizationLock(lockPath, FINALIZATION_LOCK_TIMEOUT_MS);
   if (releaseLock === null) {
     return {
       kind: 'degraded',

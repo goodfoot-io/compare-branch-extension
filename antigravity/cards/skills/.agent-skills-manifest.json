@@ -4,8 +4,8 @@
   "target": "public/antigravity/cards/skills",
   "platform": "antigravity",
   "plugin": "cards",
-  "version": "1.0.328",
-  "registrySha256": "7f33d0b215b1625e8cbde304268df2d1c524797c538294d08a4793cfe6faf2f0",
+  "version": "1.0.329",
+  "registrySha256": "e2cdbe60ae731a67cafd2d765c3d8b83d44f938fdcc88d97229380e89f12bcb4",
   "files": [
     {
       "path": "cards/references/bug-report.md",
@@ -163,8 +163,8 @@
     {
       "path": "cards/references/README.md",
       "source": "skills-src/cards/cards/references/README.md.eta",
-      "sourceSha256": "b2369f19570769cdf04fd8fbeb7e6e34826bf9c55341dc309921d36c298d8c9d",
-      "sha256": "38188d62306e2691d4099cf77a1fd1ad1968921794bb81b3bdd8872329329b3c",
+      "sourceSha256": "b15471b6123322c9a8f2d52ff538643be844a73e027005dd3664e0af48eebda2",
+      "sha256": "b19f27f3855cdd94771a53d837ace072e4052ee1c0d995768d82720e7960d68b",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
@@ -334,8 +334,8 @@
     {
       "path": "debug/SKILL.md",
       "source": "skills-src/shared/debug/SKILL.md.eta",
-      "sourceSha256": "229e34a9afe75c2c92cd92f14a2873b14d2b350b0db17c9fd613e3914aeb9e1e",
-      "sha256": "3a9282f191f5a52debebb4e40e5dc7e7ed756b7b5605799c5228ab80bb8cf01d",
+      "sourceSha256": "9468538e153149724f5a9e6070362c52bb4d0b78f2e4c91362fa601770fa7a03",
+      "sha256": "bb6cfa2915dce5b305400f780d8669a1ff5749fa66c44dc7c72d50ba8e4277b6",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"

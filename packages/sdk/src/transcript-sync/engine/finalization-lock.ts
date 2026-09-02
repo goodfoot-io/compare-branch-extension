@@ -11,8 +11,9 @@ import { basename, dirname, join } from 'node:path';
 import { isProcessAliveWithStartTime, readProcessStartTime } from '../../bin/process-utils.js';
 
 const LOCK_VERSION = 1;
-const RETRY_ATTEMPTS = 40;
 const RETRY_DELAY_MS = 25;
+const DEFAULT_ACQUIRE_TIMEOUT_MS = 1_000;
+const CURRENT_PROCESS_START_TIME = readProcessStartTime(process.pid);
 
 interface LockOwner {
   v: typeof LOCK_VERSION;
@@ -34,7 +35,7 @@ function delay(milliseconds: number): Promise<void> {
 }
 
 function newOwner(): LockOwner {
-  return { v: LOCK_VERSION, pid: process.pid, startTime: readProcessStartTime(process.pid), token: randomUUID() };
+  return { v: LOCK_VERSION, pid: process.pid, startTime: CURRENT_PROCESS_START_TIME, token: randomUUID() };
 }
 
 async function readOwner(path: string): Promise<OwnerRead> {
@@ -156,11 +157,16 @@ async function recoverAbandonedLock(lockPath: string, claimant: LockOwner): Prom
  * death evidence and serialized recovery-claim election.
  *
  * @param lockPath - Absolute lock-file path.
+ * @param timeoutMs - Bounded ownership/recovery wait.
  * @returns A token-checking release callback, or null when ownership remains live or unknown.
  */
-export async function acquireFinalizationLock(lockPath: string): Promise<(() => Promise<void>) | null> {
+export async function acquireFinalizationLock(
+  lockPath: string,
+  timeoutMs = DEFAULT_ACQUIRE_TIMEOUT_MS
+): Promise<(() => Promise<void>) | null> {
   const owner = newOwner();
-  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt += 1) {
+  const deadline = Date.now() + timeoutMs;
+  do {
     if ((await recoveryClaims(lockPath)).length === 0) {
       if (await publishOwnerFile(lockPath, owner)) {
         return () => releaseOwnedFile(lockPath, owner.token);
@@ -168,6 +174,6 @@ export async function acquireFinalizationLock(lockPath: string): Promise<(() => 
       await recoverAbandonedLock(lockPath, owner);
     }
     await delay(RETRY_DELAY_MS);
-  }
+  } while (Date.now() < deadline);
   return null;
 }

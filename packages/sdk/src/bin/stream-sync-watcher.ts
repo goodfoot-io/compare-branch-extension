@@ -30,6 +30,7 @@ import { join } from 'node:path';
 import type { WatcherContext } from '../config/watcher/context.js';
 import { createReconnectingWatcher, type ReconnectingWatcherHandle } from '../config/watcher/reconnectingWatcher.js';
 import { commitSessionClose, sentinelExists } from '../transcript-sync/engine/commit.js';
+import { acquireFinalizationLock } from '../transcript-sync/engine/finalization-lock.js';
 import { ensureGitignoreEntry } from '../transcript-sync/engine/gitignore.js';
 import {
   MAX_LIFETIME_MS,
@@ -198,7 +199,17 @@ async function runPollSession(manifest: SessionSyncManifest, handle: Reconnectin
   const errorFn = (message: string) => ctx.logger.error(message);
 
   const engine = createPollEngine(manifest, warnFn);
-  await engine.attach();
+  const spec = manifest.sources[0] as SqlitePollSourceSpec;
+  const lockPath = `${spec.sidecarPath}.finalize.lock`;
+  const attachRelease = await acquireFinalizationLock(lockPath, 10_000);
+  if (attachRelease === null) {
+    throw new Error(`stream-sync-watcher: could not acquire sqlite-poll mutation lock at ${lockPath} during attach`);
+  }
+  try {
+    await engine.attach();
+  } finally {
+    await attachRelease();
+  }
 
   const startedAt = new Date().toISOString();
   await writeSessionStatus(manifest, { startedAt, fileFailures: {} });
@@ -234,7 +245,20 @@ async function runPollSession(manifest: SessionSyncManifest, handle: Reconnectin
     onMaxLifetime: () =>
       warnFn(`stream-sync-watcher: exceeded maximum lifetime (${String(MAX_LIFETIME_MS)}ms), exiting`),
     onTick: async () => {
-      const outcome: SqlitePollOutcome = await engine.pollOnce();
+      const release = await acquireFinalizationLock(lockPath);
+      if (release === null) {
+        // A launcher-owned finalizer may be taking over after child exit. Do
+        // not mutate destination/sidecar state concurrently; the next loop
+        // lifecycle check observes its sentinel/monitor transition.
+        warnFn(`stream-sync-watcher: sqlite-poll mutation lock is busy at ${lockPath}; yielding this poll tick`);
+        return SQLITE_POLL_STEADY_INTERVAL_MS;
+      }
+      let outcome: SqlitePollOutcome;
+      try {
+        outcome = await engine.pollOnce();
+      } finally {
+        await release();
+      }
       if (outcome.kind === 'absence-expired' || outcome.kind === 'permanent-unavailable') {
         // Named terminal outcomes — never a hang or silent vanish.
         errorFn(`stream-sync-watcher: ${outcome.detail}`);
