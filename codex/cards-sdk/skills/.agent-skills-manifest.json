@@ -4,21 +4,21 @@
   "target": "public/codex/cards-sdk/skills",
   "platform": "codex",
   "plugin": "cards-sdk",
-  "version": "1.0.40",
-  "registrySha256": "b284edca6defa08fc2e5a58660a9e3895a388fa0d3951e08457233968daa8b3b",
+  "version": "1.0.41",
+  "registrySha256": "98d7c54e47bd12a9d638cbe409cd7c1507a3d6e6ddf85367db5538ad72a55310",
   "files": [
     {
       "path": "AGENTS.md",
-      "source": "skills-src/cards-sdk/conventions.md.eta",
+      "source": "public/skills-src/cards-sdk/conventions.md.eta",
       "sourceSha256": "bff3562393d82c88191f7a6c5adb8ac3552fbcd10518c1382b6cb27ccedfd307",
-      "sha256": "83560def5cddd5903b30cde1cf6826fd3b17d3733b32a0a7b9f40c48b4e48c72",
+      "sha256": "c396ef0b2abe18ed0627d880210d93b14eced52820a58d096eb7c814bc9d05a6",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"
     },
     {
       "path": "sdk/agents/openai.yaml",
-      "source": "skills-src/cards-sdk/sdk/agents/openai.yaml",
+      "source": "public/skills-src/cards-sdk/sdk/agents/openai.yaml",
       "sourceSha256": "eef6fe79b7b54b073ec2882d7ac65a73e3b0fb156d38ab133f67ac03770cdd8f",
       "sha256": "eef6fe79b7b54b073ec2882d7ac65a73e3b0fb156d38ab133f67ac03770cdd8f",
       "executable": false,
@@ -27,7 +27,7 @@
     },
     {
       "path": "sdk/reference/api-client.md",
-      "source": "skills-src/cards-sdk/sdk/reference/api-client.md",
+      "source": "public/skills-src/cards-sdk/sdk/reference/api-client.md",
       "sourceSha256": "fdd042904e217f9e42472333fb50cd7d8b1c87c676dfb0f0a0981289fd6d7830",
       "sha256": "fdd042904e217f9e42472333fb50cd7d8b1c87c676dfb0f0a0981289fd6d7830",
       "executable": false,
@@ -36,7 +36,7 @@
     },
     {
       "path": "sdk/reference/environment.md",
-      "source": "skills-src/cards-sdk/sdk/reference/environment.md",
+      "source": "public/skills-src/cards-sdk/sdk/reference/environment.md",
       "sourceSha256": "be990517ce0c1b26e3caa8f6213edbe32022993c79a65cbaeda9a1eabb81813b",
       "sha256": "be990517ce0c1b26e3caa8f6213edbe32022993c79a65cbaeda9a1eabb81813b",
       "executable": false,
@@ -45,7 +45,7 @@
     },
     {
       "path": "sdk/reference/input-types.md",
-      "source": "skills-src/cards-sdk/sdk/reference/input-types.md",
+      "source": "public/skills-src/cards-sdk/sdk/reference/input-types.md",
       "sourceSha256": "bc5c554b8d22d7104d10c401edac195b0bf5546d0ed0da8c846fe7e2e95bb98f",
       "sha256": "bc5c554b8d22d7104d10c401edac195b0bf5546d0ed0da8c846fe7e2e95bb98f",
       "executable": false,
@@ -54,7 +54,7 @@
     },
     {
       "path": "sdk/reference/logging.md",
-      "source": "skills-src/cards-sdk/sdk/reference/logging.md",
+      "source": "public/skills-src/cards-sdk/sdk/reference/logging.md",
       "sourceSha256": "7ee3a715ffd2696808a475ed2581d6dcef0c07137e66f9de5fedef05e55cfe10",
       "sha256": "7ee3a715ffd2696808a475ed2581d6dcef0c07137e66f9de5fedef05e55cfe10",
       "executable": false,
@@ -63,7 +63,7 @@
     },
     {
       "path": "sdk/reference/streams.md",
-      "source": "skills-src/cards-sdk/sdk/reference/streams.md",
+      "source": "public/skills-src/cards-sdk/sdk/reference/streams.md",
       "sourceSha256": "005b7c150901279794897dff3b0b6a6983470f0d929f14fc9fcccbdcd92ad79a",
       "sha256": "005b7c150901279794897dff3b0b6a6983470f0d929f14fc9fcccbdcd92ad79a",
       "executable": false,
@@ -72,9 +72,9 @@
     },
     {
       "path": "sdk/SKILL.md",
-      "source": "skills-src/cards-sdk/sdk/SKILL.md.eta",
+      "source": "public/skills-src/cards-sdk/sdk/SKILL.md.eta",
       "sourceSha256": "8faaa3bddd20e5b13cf2b62c56ca9f90e0fc713a1d9f4154350f7c71757cf3ef",
-      "sha256": "975b6294b6b6e915a791222735c8d2d62d35dffb2cb2309a443d05d6a56abf1c",
+      "sha256": "4ca5d2c1f477c54403278804a8fa3128f0412676193e97b4afd22056586d3080",
       "executable": false,
       "kind": "rendered",
       "origin": "plugin"

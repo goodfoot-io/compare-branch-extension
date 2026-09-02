@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/interview-investigation.md.eta sha256:57de902e68074e2bb6e471138830338c8d7b12f89d5498c6f693e7523e5a5576 -->
+<!-- @goodfoot/agent-skills source: public/skills-src/cards/cards/references/interview-investigation.md.eta sha256:57de902e68074e2bb6e471138830338c8d7b12f89d5498c6f693e7523e5a5576 -->
 <interview-before-creating-an-investigation-card>
 
 Reach the signal required to write a well-formed investigation request before the card is created. The companion `./investigation.md` defines the target CARD.md structure; this guide defines how to get there.

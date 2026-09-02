@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/interview-operations.md.eta sha256:19f0e89d9545808c00776a1f66c19dca4b3500e6927e95c5d9c30fa6f09c9477 -->
+<!-- @goodfoot/agent-skills source: public/skills-src/cards/cards/references/interview-operations.md.eta sha256:19f0e89d9545808c00776a1f66c19dca4b3500e6927e95c5d9c30fa6f09c9477 -->
 <interview-before-creating-an-operations-card>
 
 Reach the signal required to write a well-formed operations request before the card is created. The companion `./operations.md` defines the target CARD.md structure; this guide defines how to get there.

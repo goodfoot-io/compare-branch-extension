@@ -1,0 +1,326 @@
+# Parallel Planner Contest
+
+<%= it.variant({
+  claude: "Dispatch multiple planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.\n",
+  codex: "Spawn multiple planner children in parallel plus one reviewer, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.\n",
+  opencode: "Spawn multiple planner children in parallel plus one reviewer, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.\n",
+  antigravity: "Dispatch multiple planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.\n"
+}) %>
+<%= it.variant({
+  claude: "",
+  codex: "The orchestrator runs the contest as an ephemeral spawn tree: the planners and the reviewer are children spawned directly under the orchestrator. There is no team and no settlement handshake. All coordination is orchestrator-mediated — planners report up to the orchestrator, the orchestrator relays research and critiques between children, and the orchestrator routes the reviewer's findings and verdicts. The orchestrator decides closure by looking at the contest's state it has assembled from those reports, not by collecting confirmations from a peer roster.\n\n",
+  opencode: "The orchestrator runs the contest as an ephemeral spawn tree: the planners and the reviewer are children spawned directly under the orchestrator. There is no team and no settlement handshake. All coordination is orchestrator-mediated — planners report up to the orchestrator, the orchestrator relays research and critiques between children, and the orchestrator routes the reviewer's findings and verdicts. The orchestrator decides closure by looking at the contest's state it has assembled from those reports, not by collecting confirmations from a peer roster.\n\n",
+  antigravity: ""
+}) %>Approval is the *qualifying bar*, not the finish line — `APPROVED` is sticky-but-revocable (see `<definitions>` and Closure below).
+
+<definitions>
+
+<%= it.variant({
+  claude: "**Live planner.** A planner that has not DM'd `PLAN: BLOCKED for:planner-N` and has not been ruled `VERDICT: BLOCKED for:planner-N` by the reviewer. The set of live planners shrinks over the contest as planners self-quit or are disqualified.\n\n**Supersession.** A later DM for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner-N round-K` arriving after a `VERDICT: APPROVED` for that same round revokes the approval.\n",
+  codex: "**Live planner.** A planner that has not reported `PLAN: BLOCKED for:planner_N` and has not been ruled `VERDICT: BLOCKED for:planner_N` by the reviewer. The set of live planners shrinks over the contest as planners self-quit or are disqualified. The orchestrator tracks the live set from the reports it has collected.\n",
+  opencode: "**Live planner.** A planner that has not reported `PLAN: BLOCKED for:planner_N` and has not been ruled `VERDICT: BLOCKED for:planner_N` by the reviewer. The set of live planners shrinks over the contest as planners self-quit or are disqualified. The orchestrator tracks the live set from the reports it has collected.\n",
+  antigravity: "**Live planner.** A planner that has not DM'd `PLAN: BLOCKED for:planner-N` and has not been ruled `VERDICT: BLOCKED for:planner-N` by the reviewer. The set of live planners shrinks over the contest as planners self-quit or are disqualified.\n\n**Supersession.** A later DM for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner-N round-K` arriving after a `VERDICT: APPROVED` for that same round revokes the approval.\n"
+}) %>
+<%= it.variant({
+  claude: "**Idle notification.** The agent's process has stopped; it runs again only when an inbound message wakes it. Idle with nothing owed (approved and not revising; verdict delivered) is settled. Idle while owing a response, with nothing queued to wake it, is a stall — its last stated intent did not survive the idle. DM it what it needs to continue.\n",
+  codex: "**Most recent report.** When multiple reports of the same shape exist for the same subject (e.g., several `VERDICT:` reports for `planner_1 round-1`), \"most recent\" means the latest one the orchestrator received. A later report for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner_N round-K` that arrives after a `VERDICT: APPROVED for:planner_N round-K` revokes the earlier approval.\n",
+  opencode: "**Most recent report.** When multiple reports of the same shape exist for the same subject (e.g., several `VERDICT:` reports for `planner_1 round-1`), \"most recent\" means the latest one the orchestrator received. A later report for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner_N round-K` that arrives after a `VERDICT: APPROVED for:planner_N round-K` revokes the earlier approval.\n",
+  antigravity: "**Idle notification.** The agent's process has stopped; it runs again only when an inbound message wakes it. Idle with nothing owed (approved and not revising; verdict delivered) is settled. Idle while owing a response, with nothing queued to wake it, is a stall — its last stated intent did not survive the idle. DM it what it needs to continue.\n"
+}) %>
+</definitions>
+
+<placeholder-variables>
+[N_PLANNERS] — Number of parallel planners, chosen by the caller (2–4) by the size of the solution space
+<%= it.variant({
+  claude: "[PLANNER_MODEL] — Chosen per planner slot: the model that handles most planning work reliably by default; mix in the strongest available model for slots facing the deepest unknowns\n[REVIEWER_MODEL] — Chosen by the same unknowns-depth judgment as `[PLANNER_MODEL]`: the strongest available model when the contest's unknowns run deep, otherwise the model that handles most review work reliably\n[WINNING_PLANNER] — The `planner-N` subagent the reviewer named in its `WINNER:` DM\n[WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` DM (e.g., `initial`, `phase-2`, `schema-first`)\n",
+  codex: "[PLANNER_EFFORT] — Chosen per planner slot: the effort tier that handles most planning work reliably by default; mix in the deepest tier for slots facing the deepest unknowns\n[REVIEWER_EFFORT] — Chosen by the same unknowns-depth judgment as `[PLANNER_EFFORT]`: the deepest tier when the contest's unknowns run deep, otherwise the tier that handles most review work reliably\n[WINNING_PLANNER] — The `planner_N` child the reviewer named in its `WINNER:` report\n[WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` report (e.g., `initial`, `phase-2`, `schema-first`)\n",
+  opencode: "[PLANNER_EFFORT] — Chosen per planner slot: the effort tier that handles most planning work reliably by default; mix in the deepest tier for slots facing the deepest unknowns\n[REVIEWER_EFFORT] — Chosen by the same unknowns-depth judgment as `[PLANNER_EFFORT]`: the deepest tier when the contest's unknowns run deep, otherwise the tier that handles most review work reliably\n[WINNING_PLANNER] — The `planner_N` child the reviewer named in its `WINNER:` report\n[WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` report (e.g., `initial`, `phase-2`, `schema-first`)\n",
+  antigravity: "[PLANNER_MODEL] — Chosen per planner slot: the model that handles most planning work reliably by default; mix in the strongest available model for slots facing the deepest unknowns\n[REVIEWER_MODEL] — Chosen by the same unknowns-depth judgment as `[PLANNER_MODEL]`: the strongest available model when the contest's unknowns run deep, otherwise the model that handles most review work reliably\n[WINNING_PLANNER] — The `planner-N` subagent the reviewer named in its `WINNER:` DM\n[WINNING_SLUG] — Semantically descriptive slug chosen from the winner's most recent `PLAN: READY` DM (e.g., `initial`, `phase-2`, `schema-first`)\n"
+}) %>[PRE_EXISTING_UNAPPROVED_FILES] — Un-approved plan files (and sidecars) that existed before the contest and were not seeded as the incumbent; empty when none
+</placeholder-variables>
+
+<instructions>
+
+<%= it.variant({
+  claude: "## 1. Dispatch the Planners\n",
+  codex: "## 1. Spawn the Planners\n",
+  opencode: "## 1. Spawn the Planners\n",
+  antigravity: "## 1. Dispatch the Planners\n"
+}) %>
+<%= it.variant({
+  claude: "Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plans/[AGENT_NAME].md`.\n",
+  codex: "`spawn_agent` `[N_PLANNERS]` planner children in parallel, with `task_name`s `planner_1`, `planner_2`, ... `planner_[N_PLANNERS]`, and the reviewer (Step 2) in the same turn so its questions note lands before the planners' first round. Each planner writes its own plan file at `plans/[task_name].md`. Each child's `message` tells it to use `$runtime:card-planner`. Pass `[PLANNER_EFFORT]` as each planner's `agent_type` when a matching config role exists.\n",
+  opencode: "`spawn_agent` `[N_PLANNERS]` planner children in parallel, with `task_name`s `planner_1`, `planner_2`, ... `planner_[N_PLANNERS]`, and the reviewer (Step 2) in the same turn so its questions note lands before the planners' first round. Each planner writes its own plan file at `plans/[task_name].md`. Each child's `message` tells it to use `$card-planner`. Pass `[PLANNER_EFFORT]` as each planner's `agent_type` when a matching config role exists.\n",
+  antigravity: "Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plans/[AGENT_NAME].md`.\n"
+}) %>
+<%= it.variant({
+  claude: "**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a prior solo plan that never reached approval), pick the most substantive one and seed `planner-1` with it as the **incumbent**: `git mv` the file to `plans/planner-1.md` (and its `.meta.json` sidecar) before dispatch, and add an `## Incumbent Role` section to `planner-1`'s prompt below directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.\n",
+  codex: "**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a prior solo plan that never reached approval), pick the most substantive one and seed `planner_1` with it as the **incumbent**: `git mv` the file to `plans/planner_1.md` (and its `.meta.json` sidecar) before spawning, and add an `## Incumbent Role` section to `planner_1`'s message directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.\n",
+  opencode: "**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a prior solo plan that never reached approval), pick the most substantive one and seed `planner_1` with it as the **incumbent**: `git mv` the file to `plans/planner_1.md` (and its `.meta.json` sidecar) before spawning, and add an `## Incumbent Role` section to `planner_1`'s message directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.\n",
+  antigravity: "**Incumbent seeding.** If un-approved plan files already exist in `plans/` (e.g., a prior solo plan that never reached approval), pick the most substantive one and seed `planner-1` with it as the **incumbent**: `git mv` the file to `plans/planner-1.md` (and its `.meta.json` sidecar) before dispatch, and add an `## Incumbent Role` section to `planner-1`'s prompt below directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.\n"
+}) %>
+<%= it.variant({
+  claude: "```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Plan creation</parameter>\n<parameter name=\"subagent_type\">runtime:card:planner</parameter>\n<parameter name=\"model\">[PLANNER_MODEL]</parameter>\n<parameter name=\"name\">planner-[N]</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\n",
+  codex: "Each planner's spawn `message`:\n\n```\nUse the $runtime:card-planner and $cards:notes skills.\n\n",
+  opencode: "Each planner's spawn `message`:\n\n```\nUse the $card-planner and $notes skills.\n\n",
+  antigravity: "```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Plan creation</parameter>\n<parameter name=\"subagent_type\">runtime:card:planner</parameter>\n<parameter name=\"model\">[PLANNER_MODEL]</parameter>\n<parameter name=\"name\">planner-[N]</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\n"
+}) %>## Card Repository
+[CARD_REPO_PATH]
+
+## Workspace
+[WORKSPACE_PATH]
+
+<%= it.variant({
+  claude: "Read the card from the card repository. Create a plan at `plans/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to your peers as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.\n\nFollow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and contest-end handling.\n",
+  codex: "Read the card from the card repository. Create a plan at `plans/[task_name].md`, investigate uncertainties, and report research findings to me, the orchestrator, as you work — I relay them to the reviewer and the other live planners, and relay theirs to you. Cheating off relayed peer findings and plan files is encouraged.\n",
+  opencode: "Read the card from the card repository. Create a plan at `plans/[task_name].md`, investigate uncertainties, and report research findings to me, the orchestrator, as you work — I relay them to the reviewer and the other live planners, and relay theirs to you. Cheating off relayed peer findings and plan files is encouraged.\n",
+  antigravity: "Read the card from the card repository. Create a plan at `plans/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to your peers as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.\n\nFollow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and contest-end handling.\n"
+}) %>
+<%= it.variant({
+  claude: "## Peers\nYour peer planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]` (excluding yourself). The reviewer is `plan-failure-mode`. The orchestrator is `team-lead`. Track the live set from the `BLOCKED` DMs you receive — there is no roster file to read.\n</parameter>\n</invoke>\n",
+  codex: "Follow the $runtime:card-planner skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` reports, the post-approval revise-or-stay-put choice, and contest-end handling. Your `task_name` is `[task_name]`; report all findings, plan-state updates, and critiques to me.\n",
+  opencode: "Follow the $card-planner skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` reports, the post-approval revise-or-stay-put choice, and contest-end handling. Your `task_name` is `[task_name]`; report all findings, plan-state updates, and critiques to me.\n",
+  antigravity: "## Peers\nYour peer planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]` (excluding yourself). The reviewer is `plan-failure-mode`. The orchestrator is `team-lead`. Track the live set from the `BLOCKED` DMs you receive — there is no roster file to read.\n</parameter>\n</invoke>\n"
+}) %>```
+
+<%= it.variant({
+  claude: "## 2. Dispatch the Reviewer\n",
+  codex: "## 2. Spawn the Reviewer\n",
+  opencode: "## 2. Spawn the Reviewer\n",
+  antigravity: "## 2. Dispatch the Reviewer\n"
+}) %>
+<%= it.variant({
+  claude: "Dispatch exactly one `plan-failure-mode` subagent in the same message as the planners so its questions note lands before their first round. It reviews each plan as its `PLAN: READY` DM arrives and remains active until the contest closes:\n",
+  codex: "`spawn_agent` exactly one reviewer child (`task_name: plan_failure_mode`) in the same turn as the planners (Step 1), so its questions note lands before their first round. It reviews each plan as the orchestrator relays that plan's `PLAN: READY` report, and stays live until the contest closes. Its `message` tells it to use `$runtime:card-plan-failure-mode`. Pass `[REVIEWER_EFFORT]` as its `agent_type` when a matching config role exists:\n",
+  opencode: "`spawn_agent` exactly one reviewer child (`task_name: plan_failure_mode`) in the same turn as the planners (Step 1), so its questions note lands before their first round. It reviews each plan as the orchestrator relays that plan's `PLAN: READY` report, and stays live until the contest closes. Its `message` tells it to use `$card-plan-failure-mode`. Pass `[REVIEWER_EFFORT]` as its `agent_type` when a matching config role exists:\n",
+  antigravity: "Dispatch exactly one `plan-failure-mode` subagent in the same message as the planners so its questions note lands before their first round. It reviews each plan as its `PLAN: READY` DM arrives and remains active until the contest closes:\n"
+}) %>
+<%= it.variant({
+  claude: "```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Plan failure-mode review (multi-plan contest)</parameter>\n<parameter name=\"subagent_type\">runtime:card:plan-failure-mode</parameter>\n<parameter name=\"model\">[REVIEWER_MODEL]</parameter>\n<parameter name=\"name\">plan-failure-mode</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\n[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.\n",
+  codex: "```\nUse the $runtime:card-plan-failure-mode and $cards:notes skills.\n",
+  opencode: "```\nUse the $card-plan-failure-mode and $notes skills.\n",
+  antigravity: "```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Plan failure-mode review (multi-plan contest)</parameter>\n<parameter name=\"subagent_type\">runtime:card:plan-failure-mode</parameter>\n<parameter name=\"model\">[REVIEWER_MODEL]</parameter>\n<parameter name=\"name\">plan-failure-mode</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\n[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.\n"
+}) %>
+<%= it.variant({
+  claude: "Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and contest-end handling.\n",
+  codex: "[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner_N.md`. I, the orchestrator, relay each planner's round-numbered `PLAN: READY` updates to you, and relay your findings, verdicts, and winner selection back to the planners.\n",
+  opencode: "[N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plans/planner_N.md`. I, the orchestrator, relay each planner's round-numbered `PLAN: READY` updates to you, and relay your findings, verdicts, and winner selection back to the planners.\n",
+  antigravity: "Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and contest-end handling.\n"
+}) %>
+<%= it.variant({
+  claude: "## Peers\nThe planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `team-lead`. Track the live set from the `PLAN: BLOCKED` DMs you receive and your own `VERDICT: BLOCKED` rulings — there is no roster file to read.\n",
+  codex: "Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner_N` authority you hold over non-progressing planners, the `SELECT_WINNER` handler, and contest-end handling. Report all findings, verdicts, and the winner to me.\n",
+  opencode: "Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner_N` authority you hold over non-progressing planners, the `SELECT_WINNER` handler, and contest-end handling. Report all findings, verdicts, and the winner to me.\n",
+  antigravity: "## Peers\nThe planners are `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. The orchestrator is `team-lead`. Track the live set from the `PLAN: BLOCKED` DMs you receive and your own `VERDICT: BLOCKED` rulings — there is no roster file to read.\n"
+}) %>
+## Card Repository
+[CARD_REPO_PATH]
+
+## Workspace
+[WORKSPACE_PATH]
+<%= it.variant({
+  claude: "</parameter>\n</invoke>\n",
+  codex: "",
+  opencode: "",
+  antigravity: "</parameter>\n</invoke>\n"
+}) %>```
+
+<%= it.variant({
+  claude: "## 3. Monitor the Contest\n",
+  codex: "## 3. Mediate the Contest\n",
+  opencode: "## 3. Mediate the Contest\n",
+  antigravity: "## 3. Monitor the Contest\n"
+}) %>
+<%= it.variant({
+  claude: "Process inbound DMs from planners and the reviewer. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each DM arrives. The state-line marker on each inbound DM tells you what changed.\n",
+  codex: "Process the reports your children send and relay between them. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each report arrives. Relay each message to the children that need it:\n",
+  opencode: "Process the reports your children send and relay between them. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each report arrives. Relay each message to the children that need it:\n",
+  antigravity: "Process inbound DMs from planners and the reviewer. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each DM arrives. The state-line marker on each inbound DM tells you what changed.\n"
+}) %>
+<%= it.variant({
+  claude: "",
+  codex: "- A planner's `FINDING:` → relay to the reviewer and every other live planner.\n- A planner's `CRITIQUE: <label> for:planner_N` → relay to the reviewer only (it adjudicates; never relay a critique to the targeted planner).\n- A planner's `PLAN: READY for:planner_N round-K` → relay to the reviewer (so it evaluates the round) and to the other live planners (so they may steal or critique).\n- The reviewer's streamed `FINDING:` / `MONOCULTURE:` → relay to the named planner(s).\n- The reviewer's `VERDICT:` → relay to the targeted planner; a `VERDICT: BLOCKED for:planner_N` also goes to every other live planner so they update their live-set tracking.\n\nUse `send_message` by task path to deliver each relay to a live child. A planner that is uncertain about contest state will ask you a plain-language question — answer from your in-memory state, or query the relevant child yourself if you need to verify.\n\n",
+  opencode: "- A planner's `FINDING:` → relay to the reviewer and every other live planner.\n- A planner's `CRITIQUE: <label> for:planner_N` → relay to the reviewer only (it adjudicates; never relay a critique to the targeted planner).\n- A planner's `PLAN: READY for:planner_N round-K` → relay to the reviewer (so it evaluates the round) and to the other live planners (so they may steal or critique).\n- The reviewer's streamed `FINDING:` / `MONOCULTURE:` → relay to the named planner(s).\n- The reviewer's `VERDICT:` → relay to the targeted planner; a `VERDICT: BLOCKED for:planner_N` also goes to every other live planner so they update their live-set tracking.\n\nUse `send_message` by task path to deliver each relay to a live child. A planner that is uncertain about contest state will ask you a plain-language question — answer from your in-memory state, or query the relevant child yourself if you need to verify.\n\n",
+  antigravity: ""
+}) %>Each planner moves along the state machine:
+
+```
+PLANNING → READY round-K ⇄ APPROVED round-K
+                ↓
+                CHANGES_REQUESTED round-K → revise → READY round-K+1
+
+<%= it.variant({
+  claude: "BLOCKED is terminal — entered by self-DM'd `PLAN: BLOCKED` or by the\nreviewer's `VERDICT: BLOCKED for:planner-N` ruling.\n",
+  codex: "BLOCKED is terminal — entered by a self-reported `PLAN: BLOCKED` or by the\nreviewer's `VERDICT: BLOCKED for:planner_N` ruling.\n",
+  opencode: "BLOCKED is terminal — entered by a self-reported `PLAN: BLOCKED` or by the\nreviewer's `VERDICT: BLOCKED for:planner_N` ruling.\n",
+  antigravity: "BLOCKED is terminal — entered by self-DM'd `PLAN: BLOCKED` or by the\nreviewer's `VERDICT: BLOCKED for:planner-N` ruling.\n"
+}) %>```
+
+<%= it.variant({
+  claude: "The ⇄ is revocation: a question raised later by a peer's plan can drop an approved planner back into the revision loop.\n",
+  codex: "`APPROVED` is sticky-but-revocable: a question raised later by a peer's plan can drop an approved planner back into the revision loop. A planner that holds approval and is not revising has nothing more to send — that is what \"done\" looks like.\n",
+  opencode: "`APPROVED` is sticky-but-revocable: a question raised later by a peer's plan can drop an approved planner back into the revision loop. A planner that holds approval and is not revising has nothing more to send — that is what \"done\" looks like.\n",
+  antigravity: "The ⇄ is revocation: a question raised later by a peer's plan can drop an approved planner back into the revision loop.\n"
+}) %>
+<%= it.variant({
+  claude: "A reviewer idle with a `PLAN: READY` unanswered is a stall, never an implied verdict — wake it naming the planner and round.\n",
+  codex: "A reviewer that finishes its task with a `PLAN: READY` unanswered is a stall, never an implied verdict — re-engage it naming the planner and round.\n",
+  opencode: "A reviewer that finishes its task with a `PLAN: READY` unanswered is a stall, never an implied verdict — re-engage it naming the planner and round.\n",
+  antigravity: "A reviewer idle with a `PLAN: READY` unanswered is a stall, never an implied verdict — wake it naming the planner and round.\n"
+}) %>
+<%= it.variant({
+  claude: "A `VERDICT:` missing its `for:planner-N` tag — or missing its round tag, except `VERDICT: BLOCKED` and `WINNER:`, which are round-agnostic — updates no state; require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.\n",
+  codex: "A `VERDICT:` missing its `for:planner_N` or round tag updates no state — require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.\n",
+  opencode: "A `VERDICT:` missing its `for:planner_N` or round tag updates no state — require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.\n",
+  antigravity: "A `VERDICT:` missing its `for:planner-N` tag — or missing its round tag, except `VERDICT: BLOCKED` and `WINNER:`, which are round-agnostic — updates no state; require a re-issue. A revocation of an `APPROVED` must name the planner, the round it revokes, and the witnessed finding; anything less does not reopen the field.\n"
+}) %>
+### Closure — Judgment, Not a Handshake
+
+<%= it.variant({
+  claude: "Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. Planners do not announce post-approval revisions, so closing is safe even mid-revision — the next `PLAN: READY` reopens the field before any winner is finalized (Step 4).\n",
+  codex: "Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. A planner that revises after approval does not announce it — it just revises and later reports a new `PLAN: READY round-K+1`. So \"approved and silent\" is indistinguishable from \"approved and quietly revising,\" and you do not need to tell them apart: closing is safe even if a planner was mid-revision, because its next `PLAN: READY` reopens the field before any winner is finalized (Step 4). When several reports share the same subject, the latest supersedes earlier ones — that is how revocation works.\n",
+  opencode: "Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. A planner that revises after approval does not announce it — it just revises and later reports a new `PLAN: READY round-K+1`. So \"approved and silent\" is indistinguishable from \"approved and quietly revising,\" and you do not need to tell them apart: closing is safe even if a planner was mid-revision, because its next `PLAN: READY` reopens the field before any winner is finalized (Step 4). When several reports share the same subject, the latest supersedes earlier ones — that is how revocation works.\n",
+  antigravity: "Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. Planners do not announce post-approval revisions, so closing is safe even mid-revision — the next `PLAN: READY` reopens the field before any winner is finalized (Step 4).\n"
+}) %>
+<%= it.variant({
+  claude: "An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.\n",
+  codex: "You can see every open revision from the reports you have collected; you do not need planners to certify the peer field back to you. A planner that holds approval and has gone quiet is done. An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep mediating.\n",
+  opencode: "You can see every open revision from the reports you have collected; you do not need planners to certify the peer field back to you. A planner that holds approval and has gone quiet is done. An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep mediating.\n",
+  antigravity: "An approved set with nothing in flight is closeable now — proceed to Step 4: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.\n"
+}) %>
+<%= it.variant({
+  claude: "The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it DMs a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.\n",
+  codex: "The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it reports a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.\n",
+  opencode: "The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it reports a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.\n",
+  antigravity: "The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it DMs a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.\n"
+}) %>
+### Convergence Collapse (Instrumented)
+
+<%= it.variant({
+  claude: "When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` DMs (copied to you) plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` in the DM body — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.\n",
+  codex: "When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` reports plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` as the marker line — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.\n",
+  opencode: "When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` reports plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` as the marker line — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.\n",
+  antigravity: "When every live plan has converged on the same architecture — the reviewer's `MONOCULTURE:` DMs (copied to you) plus matching mechanisms across plan files are the signal — the design fork is settled. Record the collapse point (round and evidence) the moment the signal covers every live plan. From then on, at each `APPROVED` for a converged plan, either trigger Step 4 with `SELECT_WINNER (convergence collapse)` in the DM body — do not wait for the others to qualify — or append one card-note line stating why not; never continue silently. One deferral per collapse point: the next `APPROVED` for a converged plan triggers Step 4 unconditionally.\n"
+}) %>
+<%= it.variant({
+  claude: "After the `WINNER:` DM, before Step 5: DM each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; DM `CRITIQUE: ... for:[WINNING_PLANNER]` for every real risk you find in the winning plan. The reviewer verifies critiques, streams verified findings to the winner, and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and every red-teamer's idle notification has arrived — you cannot see `CRITIQUE:` traffic, so idle is the only settle signal. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.\n",
+  codex: "After the `WINNER:` report, before Step 5: `send_message` each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; report `CRITIQUE: ... for:[WINNING_PLANNER]` to the orchestrator for every real risk you find in the winning plan. Relay those critiques to the reviewer per §3; the reviewer verifies them, streams verified findings to the winner (relay them), and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and every red-teamer has gone silent — since every critique routes through you, silence is the settle signal, same as Step 3 closure. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.\n",
+  opencode: "After the `WINNER:` report, before Step 5: `send_message` each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; report `CRITIQUE: ... for:[WINNING_PLANNER]` to the orchestrator for every real risk you find in the winning plan. Relay those critiques to the reviewer per §3; the reviewer verifies them, streams verified findings to the winner (relay them), and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and every red-teamer has gone silent — since every critique routes through you, silence is the settle signal, same as Step 3 closure. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.\n",
+  antigravity: "After the `WINNER:` DM, before Step 5: DM each losing live planner a red-team assignment naming `[WINNING_PLANNER]` — stop revising your own plan; DM `CRITIQUE: ... for:[WINNING_PLANNER]` for every real risk you find in the winning plan. The reviewer verifies critiques, streams verified findings to the winner, and re-verdicts per its §5. Proceed to Step 5 once the winner holds `APPROVED` with no critique or finding in flight and every red-teamer's idle notification has arrived — you cannot see `CRITIQUE:` traffic, so idle is the only settle signal. Record the red-team yield (count of reviewer-verified findings) in a card note; this path is piloted.\n"
+}) %>
+**Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 4 — the reviewer's lone-survivor branch names the survivor without comparison.
+
+### Other Outcomes from Step 3
+
+- **All planners blocked.** No viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Skip to Step 5: End the Contest with no winner, then return `BLOCKED` to the caller.
+<%= it.variant({
+  claude: "- **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue monitoring. Do not intervene.\n- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `runtime:card-plan-failure-mode`; you do not BLOCK planners yourself. You may DM the planner to ask its intent if its state is genuinely unclear to you.\n",
+  codex: "- **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue mediating. Do not intervene.\n- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `$runtime:card-plan-failure-mode`; you do not BLOCK planners yourself. You may ask the planner its intent if its state is genuinely unclear to you.\n",
+  opencode: "- **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue mediating. Do not intervene.\n- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `$card-plan-failure-mode`; you do not BLOCK planners yourself. You may ask the planner its intent if its state is genuinely unclear to you.\n",
+  antigravity: "- **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue monitoring. Do not intervene.\n- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `runtime:card-plan-failure-mode`; you do not BLOCK planners yourself. You may DM the planner to ask its intent if its state is genuinely unclear to you.\n"
+}) %>
+Do not adjudicate findings. Route on the contest state you can see.
+
+### Answering State Questions
+
+<%= it.variant({
+  claude: "Teammates may DM you with plain-language questions about contest state — peer rounds, who is live. Answer in plain language from the contest state you track. Examples:\n",
+  codex: "A planner may ask you a plain-language question about contest state — peer rounds, who is live. Answer from the contest state you track. Examples:\n",
+  opencode: "A planner may ask you a plain-language question about contest state — peer rounds, who is live. Answer from the contest state you track. Examples:\n",
+  antigravity: "Teammates may DM you with plain-language questions about contest state — peer rounds, who is live. Answer in plain language from the contest state you track. Examples:\n"
+}) %>
+<%= it.variant({
+  claude: "- \"What is planner-2's current round?\" → \"planner-2 is at round-3, APPROVED.\"\n- \"Is planner-4 still live?\" → \"No, planner-4 was BLOCKED by the reviewer in round 2.\"\n",
+  codex: "- \"What is planner_2's current round?\" → \"planner_2 is at round-3, APPROVED.\"\n- \"Is planner_4 still live?\" → \"No, planner_4 was BLOCKED by the reviewer in round 2.\"\n",
+  opencode: "- \"What is planner_2's current round?\" → \"planner_2 is at round-3, APPROVED.\"\n- \"Is planner_4 still live?\" → \"No, planner_4 was BLOCKED by the reviewer in round 2.\"\n",
+  antigravity: "- \"What is planner-2's current round?\" → \"planner-2 is at round-3, APPROVED.\"\n- \"Is planner-4 still live?\" → \"No, planner-4 was BLOCKED by the reviewer in round 2.\"\n"
+}) %>
+<%= it.variant({
+  claude: "If a question requires verification beyond what you know directly (e.g., \"is planner-2 about to emit a new round?\"), DM that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.\n",
+  codex: "If a question requires verification beyond what you know directly (e.g., \"is planner_2 about to emit a new round?\"), message that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.\n",
+  opencode: "If a question requires verification beyond what you know directly (e.g., \"is planner_2 about to emit a new round?\"), message that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.\n",
+  antigravity: "If a question requires verification beyond what you know directly (e.g., \"is planner-2 about to emit a new round?\"), DM that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.\n"
+}) %>
+## 4. Trigger Selection
+
+Before sending, confirm the reviewer's `plan-failure-mode-questions` note and `review-ledger` note exist in the card repo's `notes/` — if either is missing, require it first.
+
+<%= it.variant({
+  claude: "Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary` and as the first line of the `message` body.\n",
+  codex: "`send_message` the reviewer requesting selection. Lead the message with the `SELECT_WINNER` marker; the body is empty or notes the closure-condition state for context:\n",
+  opencode: "`send_message` the reviewer requesting selection. Lead the message with the `SELECT_WINNER` marker; the body is empty or notes the closure-condition state for context:\n",
+  antigravity: "Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary` and as the first line of the `message` body.\n"
+}) %>
+<%= it.variant({
+  claude: "```xml\n<invoke name=\"SendMessage\">\n  <parameter name=\"to\">plan-failure-mode</parameter>\n  <parameter name=\"summary\">SELECT_WINNER</parameter>\n  <parameter name=\"message\">\n",
+  codex: "```\n",
+  opencode: "```\n",
+  antigravity: "```xml\n<invoke name=\"SendMessage\">\n  <parameter name=\"to\">plan-failure-mode</parameter>\n  <parameter name=\"summary\">SELECT_WINNER</parameter>\n  <parameter name=\"message\">\n"
+}) %>SELECT_WINNER
+<%= it.variant({
+  claude: "---\n",
+  codex: "",
+  opencode: "",
+  antigravity: "---\n"
+}) %>Every live plan is approved and nothing is in flight; please confirm the field is closed and name a winner.
+<%= it.variant({
+  claude: "  </parameter>\n</invoke>\n",
+  codex: "",
+  opencode: "",
+  antigravity: "  </parameter>\n</invoke>\n"
+}) %>```
+
+Two responses are possible:
+
+<%= it.variant({
+  claude: "- **`WINNER: planner-N` DM** from the reviewer: record `[WINNING_PLANNER] = planner-N`. Proceed to Step 5: End the Contest with a winner.\n- **A fresh `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM** from the reviewer: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — the affected planner is back in the revision loop, the closure condition no longer holds, and you return to Step 3: Monitor the Contest.\n",
+  codex: "- **`WINNER: planner_N`** from the reviewer: record `[WINNING_PLANNER] = planner_N`. Proceed to Step 5: End the Contest with a winner.\n- **A fresh `VERDICT: CHANGES_REQUESTED for:planner_N round-K`** from the reviewer: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — relay the verdict to the affected planner, the closure condition no longer holds, and you return to Step 3: Mediate the Contest.\n",
+  opencode: "- **`WINNER: planner_N`** from the reviewer: record `[WINNING_PLANNER] = planner_N`. Proceed to Step 5: End the Contest with a winner.\n- **A fresh `VERDICT: CHANGES_REQUESTED for:planner_N round-K`** from the reviewer: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — relay the verdict to the affected planner, the closure condition no longer holds, and you return to Step 3: Mediate the Contest.\n",
+  antigravity: "- **`WINNER: planner-N` DM** from the reviewer: record `[WINNING_PLANNER] = planner-N`. Proceed to Step 5: End the Contest with a winner.\n- **A fresh `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM** from the reviewer: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — the affected planner is back in the revision loop, the closure condition no longer holds, and you return to Step 3: Monitor the Contest.\n"
+}) %>
+<%= it.variant({
+  claude: "A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for that planner — the `WINNER:` DM is the authoritative end signal.\n",
+  codex: "A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for that planner — the `WINNER:` report is the authoritative end signal.\n",
+  opencode: "A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for that planner — the `WINNER:` report is the authoritative end signal.\n",
+  antigravity: "A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for that planner — the `WINNER:` DM is the authoritative end signal.\n"
+}) %>
+## 5. End the Contest
+
+This step runs on every exit path from Step 3 and Step 4 (winner, all-blocked, lone survivor).
+
+<%= it.variant({
+  claude: "By the time the contest closes the subagents have already settled and gone idle — a settled `planner-N` and a reviewer that has DM'd `WINNER:` each stop on their own — so there is normally nothing to tear down and no shutdown to wait for. Proceed directly to promoting the winner.\n\nOnly if a subagent is still actively working when you need to close — and you want to stop it early rather than let it finish — DM it `{\"type\": \"shutdown_request\"}` (this wakes it if already idle, then it exits):\n\n```xml\n<invoke name=\"SendMessage\">\n  <parameter name=\"to\">planner-N</parameter>\n  <parameter name=\"summary\">Shutdown request</parameter>\n  <parameter name=\"message\">{\"type\": \"shutdown_request\", \"reason\": \"Contest closed\"}</parameter>\n</invoke>\n```\n",
+  codex: "Tell every still-live child that the contest has ended via `send_message`, so each finishes its task cleanly and returns control to you. The children auto-terminate when their tasks complete; wait for them to finish before proceeding. There is no team to delete.\n",
+  opencode: "Tell every still-live child that the contest has ended via `send_message`, so each finishes its task cleanly and returns control to you. The children auto-terminate when their tasks complete; wait for them to finish before proceeding. There is no team to delete.\n",
+  antigravity: "By the time the contest closes the subagents have already settled and gone idle — a settled `planner-N` and a reviewer that has DM'd `WINNER:` each stop on their own — so there is normally nothing to tear down and no shutdown to wait for. Proceed directly to promoting the winner.\n\nOnly if a subagent is still actively working when you need to close — and you want to stop it early rather than let it finish — DM it `{\"type\": \"shutdown_request\"}` (this wakes it if already idle, then it exits):\n\n```xml\n<invoke name=\"SendMessage\">\n  <parameter name=\"to\">planner-N</parameter>\n  <parameter name=\"summary\">Shutdown request</parameter>\n  <parameter name=\"message\">{\"type\": \"shutdown_request\", \"reason\": \"Contest closed\"}</parameter>\n</invoke>\n```\n"
+}) %>
+<%= it.variant({
+  claude: "If there is a winner, first append the open sub-blocking findings from the `WINNER:` body (label + witness) as a `## Known Open Findings` section at the end of `plans/[WINNING_PLANNER].md` — implementation inherits them and reads the plan, not your context. Then promote the winning plan and delete the losing planner files. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` DM body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:\n",
+  codex: "If there is a winner, first append the open sub-blocking findings from the `WINNER:` body (label + witness) as a `## Known Open Findings` section at the end of `plans/[WINNING_PLANNER].md` — implementation inherits them and reads the plan, not your context. Then promote the winning plan and delete the losing planner files. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` report body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:\n",
+  opencode: "If there is a winner, first append the open sub-blocking findings from the `WINNER:` body (label + witness) as a `## Known Open Findings` section at the end of `plans/[WINNING_PLANNER].md` — implementation inherits them and reads the plan, not your context. Then promote the winning plan and delete the losing planner files. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` report body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:\n",
+  antigravity: "If there is a winner, first append the open sub-blocking findings from the `WINNER:` body (label + witness) as a `## Known Open Findings` section at the end of `plans/[WINNING_PLANNER].md` — implementation inherits them and reads the plan, not your context. Then promote the winning plan and delete the losing planner files. Choose `[WINNING_SLUG]` from the winner's *most recent* `PLAN: READY` DM body — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then run, with `[WINNING_PLANNER]` and `[WINNING_SLUG]` substituted in:\n"
+}) %>
+```bash
+cd $CARD_REPO_PATH
+
+# Promote the winner to a semantic slug
+git mv plans/[WINNING_PLANNER].md plans/[WINNING_SLUG].md
+git mv plans/[WINNING_PLANNER].md.meta.json plans/[WINNING_SLUG].md.meta.json
+
+# Remove the losing planner files and any pre-existing un-approved plan you chose not to
+# seed. Never remove approved or implemented plans — follow-on work layers on them.
+<%= it.variant({
+  claude: "git ls-files 'plans/planner-*' [PRE_EXISTING_UNAPPROVED_FILES] | xargs -r git rm\n",
+  codex: "git ls-files 'plans/planner_*' [PRE_EXISTING_UNAPPROVED_FILES] | xargs -r git rm\n",
+  opencode: "git ls-files 'plans/planner_*' [PRE_EXISTING_UNAPPROVED_FILES] | xargs -r git rm\n",
+  antigravity: "git ls-files 'plans/planner-*' [PRE_EXISTING_UNAPPROVED_FILES] | xargs -r git rm\n"
+}) %>
+git commit -m "[single sentence summarizing the winning approach]"
+```
+
+## 6. Return to Caller
+
+- **Winner**: return `APPROVED` so the caller routes to implementation.
+- **All planners blocked or no viable plan**: return `BLOCKED`.
+
+</instructions>

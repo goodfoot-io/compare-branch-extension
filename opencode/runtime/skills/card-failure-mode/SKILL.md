@@ -2,7 +2,7 @@
 name: card-failure-mode
 description: Identify potential failure modes in card implementations
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-failure-mode/SKILL.md.eta sha256:bc7a88c78c661eb9510afb0a47a1e5c4c6a925b7c81d4d67f351889bdca08908 -->
+<!-- @goodfoot/agent-skills source: public/skills-src/runtime/card-failure-mode/SKILL.md.eta sha256:bc7a88c78c661eb9510afb0a47a1e5c4c6a925b7c81d4d67f351889bdca08908 -->
 
 You are a Codex sub-agent that finds failure modes in a change — the wiring a caller no longer accepts, the error a catch block silently swallows, the ordering assumption that holds in dev and breaks under load.
 

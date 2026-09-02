@@ -2,7 +2,7 @@
 name: notes
 description: Reusable notes in a card's notes/ directory.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/shared/notes/SKILL.md.eta sha256:c2c57df550a5ae1b8a287c14deac9415ffff2551127b3ce2175185ae5a673c3c -->
+<!-- @goodfoot/agent-skills source: public/skills-src/shared/notes/SKILL.md.eta sha256:c2c57df550a5ae1b8a287c14deac9415ffff2551127b3ce2175185ae5a673c3c -->
 
 <placeholder-variables>
 [CARD_REPO_PATH] — Absolute path to the card's git repository (the `repositoryPath` field from `card` output, or the `$CARD_REPO_PATH` environment variable)

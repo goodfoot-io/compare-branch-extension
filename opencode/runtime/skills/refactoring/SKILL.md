@@ -2,7 +2,7 @@
 name: refactoring
 description: Refactor code to reduce complexity and duplication.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/refactoring/SKILL.md.eta sha256:7295f8280d8184ba56815162f8023dd2f4c96cbbd22f3dc76a84efc1b040c63f -->
+<!-- @goodfoot/agent-skills source: public/skills-src/runtime/refactoring/SKILL.md.eta sha256:7295f8280d8184ba56815162f8023dd2f4c96cbbd22f3dc76a84efc1b040c63f -->
 
 Reference documents are in `references/` relative to this skill's directory.
 

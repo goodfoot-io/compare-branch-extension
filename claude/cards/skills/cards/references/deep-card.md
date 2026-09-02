@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/cards/cards/references/deep-card.md.eta sha256:e09bd65a083c0cf4e778f814c5318e32071a7e1ffaa82ff5e31b81918f3bc357 -->
+<!-- @goodfoot/agent-skills source: public/skills-src/cards/cards/references/deep-card.md.eta sha256:e09bd65a083c0cf4e778f814c5318e32071a7e1ffaa82ff5e31b81918f3bc357 -->
 <how-to-create-a-deep-card>
 
 A deep card structures one card as a self-contained documentation corpus — a routing-hub `CARD.md` plus typed tiers — instead of a single-file description. Depth is measured by whether each reader can act after loading exactly one file.

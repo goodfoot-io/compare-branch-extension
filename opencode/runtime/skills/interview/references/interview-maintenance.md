@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/runtime/interview/references/interview-maintenance.md.eta sha256:1d5ee4d5bfb3e8b6f7cc935ccffb3f779909235575e717170d1a019756c6d976 -->
+<!-- @goodfoot/agent-skills source: public/skills-src/runtime/interview/references/interview-maintenance.md.eta sha256:1d5ee4d5bfb3e8b6f7cc935ccffb3f779909235575e717170d1a019756c6d976 -->
 <first-principles>
 1. Debt is only debt if it costs something observable — incidents, toil, risk, blocked work — not aesthetic.
 2. Invariants are the contract with the rest of the system. What must not change matters more than what will.

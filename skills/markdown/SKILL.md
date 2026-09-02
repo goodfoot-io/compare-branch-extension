@@ -2,7 +2,7 @@
 name: markdown
 description: Markdown guidelines for card content.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/shared/markdown/SKILL.md.eta sha256:ec9b8d53ddfbca6bcb54e848d485f87447041bfd08d00f15190c3ef85f147879 -->
+<!-- @goodfoot/agent-skills source: public/skills-src/shared/markdown/SKILL.md.eta sha256:ec9b8d53ddfbca6bcb54e848d485f87447041bfd08d00f15190c3ef85f147879 -->
 
 <markdown-guidelines>
 

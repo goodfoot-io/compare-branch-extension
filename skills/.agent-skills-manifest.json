@@ -5,11 +5,11 @@
   "platform": "claude",
   "plugin": "shared",
   "version": null,
-  "registrySha256": "b284edca6defa08fc2e5a58660a9e3895a388fa0d3951e08457233968daa8b3b",
+  "registrySha256": "98d7c54e47bd12a9d638cbe409cd7c1507a3d6e6ddf85367db5538ad72a55310",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",
-      "source": "skills-src/shared/debug/references/cards-api-server.md",
+      "source": "public/skills-src/shared/debug/references/cards-api-server.md",
       "sourceSha256": "6b5296af7462445e7eaa72d56807986514efa29ce3b7b9abe322a84150069432",
       "sha256": "6b5296af7462445e7eaa72d56807986514efa29ce3b7b9abe322a84150069432",
       "executable": false,
@@ -18,7 +18,7 @@
     },
     {
       "path": "debug/references/diagnose-agent-launch.md",
-      "source": "skills-src/shared/debug/references/diagnose-agent-launch.md",
+      "source": "public/skills-src/shared/debug/references/diagnose-agent-launch.md",
       "sourceSha256": "792aa64a46e777827bac6125bb85274b518cb341a11b66195d3998bc71b7de76",
       "sha256": "792aa64a46e777827bac6125bb85274b518cb341a11b66195d3998bc71b7de76",
       "executable": false,
@@ -27,7 +27,7 @@
     },
     {
       "path": "debug/references/diagnose-hooks.md",
-      "source": "skills-src/shared/debug/references/diagnose-hooks.md",
+      "source": "public/skills-src/shared/debug/references/diagnose-hooks.md",
       "sourceSha256": "e8e1456e3f0a7ae3db64a077195078a92d52f88cb219cc6d6fd1380e5c4bea4c",
       "sha256": "e8e1456e3f0a7ae3db64a077195078a92d52f88cb219cc6d6fd1380e5c4bea4c",
       "executable": false,
@@ -36,7 +36,7 @@
     },
     {
       "path": "debug/references/diagnose-known-failure-states.md",
-      "source": "skills-src/shared/debug/references/diagnose-known-failure-states.md",
+      "source": "public/skills-src/shared/debug/references/diagnose-known-failure-states.md",
       "sourceSha256": "82f6308d720dc17ff8acbc1ceffbe5dc841fc84f2a87d887dd56cdcb8b72a713",
       "sha256": "82f6308d720dc17ff8acbc1ceffbe5dc841fc84f2a87d887dd56cdcb8b72a713",
       "executable": false,
@@ -45,7 +45,7 @@
     },
     {
       "path": "debug/references/diagnose-server-health.md",
-      "source": "skills-src/shared/debug/references/diagnose-server-health.md",
+      "source": "public/skills-src/shared/debug/references/diagnose-server-health.md",
       "sourceSha256": "189b7a874a9a4b885691927df29857007be7f86e62b7d0345ecb5c7f9b19dad0",
       "sha256": "189b7a874a9a4b885691927df29857007be7f86e62b7d0345ecb5c7f9b19dad0",
       "executable": false,
@@ -54,7 +54,7 @@
     },
     {
       "path": "debug/references/diagnose-worktree.md",
-      "source": "skills-src/shared/debug/references/diagnose-worktree.md",
+      "source": "public/skills-src/shared/debug/references/diagnose-worktree.md",
       "sourceSha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
       "sha256": "b7606a5ad282d2fa5db810780f9e6abd9d74aa4d009ca7329bc44d78c33e85a6",
       "executable": false,
@@ -63,7 +63,7 @@
     },
     {
       "path": "debug/references/find-logs.md",
-      "source": "skills-src/shared/debug/references/find-logs.md",
+      "source": "public/skills-src/shared/debug/references/find-logs.md",
       "sourceSha256": "37ea8a88a3c37bbe6604b8257e8c25404e026260e0f3c6ffab052f70cd2caf64",
       "sha256": "37ea8a88a3c37bbe6604b8257e8c25404e026260e0f3c6ffab052f70cd2caf64",
       "executable": false,
@@ -72,7 +72,7 @@
     },
     {
       "path": "debug/references/find-session-state.md",
-      "source": "skills-src/shared/debug/references/find-session-state.md",
+      "source": "public/skills-src/shared/debug/references/find-session-state.md",
       "sourceSha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
       "sha256": "9a80bcf02a2dc4c7263608b9a7ce9488b0dc4e3b2c86166906a318b8c46258ae",
       "executable": false,
@@ -81,7 +81,7 @@
     },
     {
       "path": "debug/references/inspect-cli-tools.md",
-      "source": "skills-src/shared/debug/references/inspect-cli-tools.md",
+      "source": "public/skills-src/shared/debug/references/inspect-cli-tools.md",
       "sourceSha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
       "sha256": "d44e4cdf2e1462d455e56b90edfc099cc16a1d693605909a742184f4720688b1",
       "executable": false,
@@ -90,7 +90,7 @@
     },
     {
       "path": "debug/references/inspect-plugin-cache.md",
-      "source": "skills-src/shared/debug/references/inspect-plugin-cache.md",
+      "source": "public/skills-src/shared/debug/references/inspect-plugin-cache.md",
       "sourceSha256": "b6ce75017418d85907273338b51e1c0950e7153b22ea209dba425213b6e6b3b3",
       "sha256": "b6ce75017418d85907273338b51e1c0950e7153b22ea209dba425213b6e6b3b3",
       "executable": false,
@@ -99,7 +99,7 @@
     },
     {
       "path": "debug/references/inspect-settings.md",
-      "source": "skills-src/shared/debug/references/inspect-settings.md",
+      "source": "public/skills-src/shared/debug/references/inspect-settings.md",
       "sourceSha256": "9afe5f652ae9fb364a42d155b914e7185097823c80a4400286d16ff56f4c2691",
       "sha256": "9afe5f652ae9fb364a42d155b914e7185097823c80a4400286d16ff56f4c2691",
       "executable": false,
@@ -108,7 +108,7 @@
     },
     {
       "path": "debug/references/interview-issue-report.md",
-      "source": "skills-src/shared/debug/references/interview-issue-report.md",
+      "source": "public/skills-src/shared/debug/references/interview-issue-report.md",
       "sourceSha256": "f668377d9b340bd67a2de97e9e937e252f837ffc5dbf90831eb631eec6f199aa",
       "sha256": "f668377d9b340bd67a2de97e9e937e252f837ffc5dbf90831eb631eec6f199aa",
       "executable": false,
@@ -117,7 +117,7 @@
     },
     {
       "path": "debug/references/issue-report-guide.md",
-      "source": "skills-src/shared/debug/references/issue-report-guide.md",
+      "source": "public/skills-src/shared/debug/references/issue-report-guide.md",
       "sourceSha256": "f216c8243abcf64975529ac692d816bd77ae9236e29d38d3f59e24bd206f4dca",
       "sha256": "f216c8243abcf64975529ac692d816bd77ae9236e29d38d3f59e24bd206f4dca",
       "executable": false,
@@ -126,7 +126,7 @@
     },
     {
       "path": "debug/references/platform-reference.md",
-      "source": "skills-src/shared/debug/references/platform-reference.md",
+      "source": "public/skills-src/shared/debug/references/platform-reference.md",
       "sourceSha256": "aa118c3bc5e77b8511e0e29802e1109990ea25eb6c2306e6af0411b4e0cf238f",
       "sha256": "aa118c3bc5e77b8511e0e29802e1109990ea25eb6c2306e6af0411b4e0cf238f",
       "executable": false,
@@ -135,16 +135,16 @@
     },
     {
       "path": "debug/SKILL.md",
-      "source": "skills-src/shared/debug/SKILL.md.eta",
+      "source": "public/skills-src/shared/debug/SKILL.md.eta",
       "sourceSha256": "9d5908a113ad6e2220d535e37afdbf1a8f6f15ce82dd7db318a8eb2ce3968a5f",
-      "sha256": "bee4519a4a27acbd1e483655fbd8e54c367868ba14b56d0971285834bb1cadb5",
+      "sha256": "10dd6153d8bf1d0197e81fab67c1a11e3041c3849a38cd115c9511a5108687d9",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
     },
     {
       "path": "design/components/badges.md",
-      "source": "skills-src/shared/design/components/badges.md",
+      "source": "public/skills-src/shared/design/components/badges.md",
       "sourceSha256": "db6a03d107489bb76671af17ff14b0f0f1310d2b3dac8476c22b3df3f560d72f",
       "sha256": "db6a03d107489bb76671af17ff14b0f0f1310d2b3dac8476c22b3df3f560d72f",
       "executable": false,
@@ -153,7 +153,7 @@
     },
     {
       "path": "design/components/buttons.md",
-      "source": "skills-src/shared/design/components/buttons.md",
+      "source": "public/skills-src/shared/design/components/buttons.md",
       "sourceSha256": "7159fcba50fff665a48d6bf80a09aa149142a7ba658b2ab9a815b08f95cacd2e",
       "sha256": "7159fcba50fff665a48d6bf80a09aa149142a7ba658b2ab9a815b08f95cacd2e",
       "executable": false,
@@ -162,7 +162,7 @@
     },
     {
       "path": "design/components/checkbox-radio.md",
-      "source": "skills-src/shared/design/components/checkbox-radio.md",
+      "source": "public/skills-src/shared/design/components/checkbox-radio.md",
       "sourceSha256": "3929bba9a706c154ddc7678fb63b98f56f573dce27ad1295a6df4123f860b686",
       "sha256": "3929bba9a706c154ddc7678fb63b98f56f573dce27ad1295a6df4123f860b686",
       "executable": false,
@@ -171,7 +171,7 @@
     },
     {
       "path": "design/components/codicons.md",
-      "source": "skills-src/shared/design/components/codicons.md",
+      "source": "public/skills-src/shared/design/components/codicons.md",
       "sourceSha256": "48f0ddef60a4d0deb79f3b32f050b547d7f2f228c7edbb36be32208025344965",
       "sha256": "48f0ddef60a4d0deb79f3b32f050b547d7f2f228c7edbb36be32208025344965",
       "executable": false,
@@ -180,7 +180,7 @@
     },
     {
       "path": "design/components/dialogs.md",
-      "source": "skills-src/shared/design/components/dialogs.md",
+      "source": "public/skills-src/shared/design/components/dialogs.md",
       "sourceSha256": "bb406290deebd721983fb09af9e96e4172de19aab120ef945a6f4d24957dc1a9",
       "sha256": "bb406290deebd721983fb09af9e96e4172de19aab120ef945a6f4d24957dc1a9",
       "executable": false,
@@ -189,7 +189,7 @@
     },
     {
       "path": "design/components/inputs.md",
-      "source": "skills-src/shared/design/components/inputs.md",
+      "source": "public/skills-src/shared/design/components/inputs.md",
       "sourceSha256": "37870dacdcb10db4d929320495adb031811c96f1a661f751de98cd546af86656",
       "sha256": "37870dacdcb10db4d929320495adb031811c96f1a661f751de98cd546af86656",
       "executable": false,
@@ -198,7 +198,7 @@
     },
     {
       "path": "design/components/list-rows.md",
-      "source": "skills-src/shared/design/components/list-rows.md",
+      "source": "public/skills-src/shared/design/components/list-rows.md",
       "sourceSha256": "4dcdcf8dcd0e9581b9c3d8264091d9c837479173b27d4ef4f54ba5553c248716",
       "sha256": "4dcdcf8dcd0e9581b9c3d8264091d9c837479173b27d4ef4f54ba5553c248716",
       "executable": false,
@@ -207,7 +207,7 @@
     },
     {
       "path": "design/components/menus.md",
-      "source": "skills-src/shared/design/components/menus.md",
+      "source": "public/skills-src/shared/design/components/menus.md",
       "sourceSha256": "9fc31620fda47b78069b949ae45fa670d74d481bb0ef8ed723cbb26849594c58",
       "sha256": "9fc31620fda47b78069b949ae45fa670d74d481bb0ef8ed723cbb26849594c58",
       "executable": false,
@@ -216,7 +216,7 @@
     },
     {
       "path": "design/components/panels.md",
-      "source": "skills-src/shared/design/components/panels.md",
+      "source": "public/skills-src/shared/design/components/panels.md",
       "sourceSha256": "ecd8e2066bd17c5929fc8f501f713cda48ee742900770b4668513743c2f580c9",
       "sha256": "ecd8e2066bd17c5929fc8f501f713cda48ee742900770b4668513743c2f580c9",
       "executable": false,
@@ -225,7 +225,7 @@
     },
     {
       "path": "design/components/progress.md",
-      "source": "skills-src/shared/design/components/progress.md",
+      "source": "public/skills-src/shared/design/components/progress.md",
       "sourceSha256": "746c189990c64c60d8549ba9ff0c027f0d8146dee55c315738713a9bfbc191ff",
       "sha256": "746c189990c64c60d8549ba9ff0c027f0d8146dee55c315738713a9bfbc191ff",
       "executable": false,
@@ -234,7 +234,7 @@
     },
     {
       "path": "design/components/select.md",
-      "source": "skills-src/shared/design/components/select.md",
+      "source": "public/skills-src/shared/design/components/select.md",
       "sourceSha256": "027418ec1de6be5bababe9881d4e45e211f21d0fee59a77c8d0ff634c1a24679",
       "sha256": "027418ec1de6be5bababe9881d4e45e211f21d0fee59a77c8d0ff634c1a24679",
       "executable": false,
@@ -243,7 +243,7 @@
     },
     {
       "path": "design/components/tables.md",
-      "source": "skills-src/shared/design/components/tables.md",
+      "source": "public/skills-src/shared/design/components/tables.md",
       "sourceSha256": "3a3dbd320b521598f9a48774275c039e2dcb55a9f8a34968ffcc23d277192f89",
       "sha256": "3a3dbd320b521598f9a48774275c039e2dcb55a9f8a34968ffcc23d277192f89",
       "executable": false,
@@ -252,7 +252,7 @@
     },
     {
       "path": "design/components/tabs.md",
-      "source": "skills-src/shared/design/components/tabs.md",
+      "source": "public/skills-src/shared/design/components/tabs.md",
       "sourceSha256": "9c6cfb1ae687fea3c5d818df4927acca99b71a13eab9637326748283ca8a0d6f",
       "sha256": "9c6cfb1ae687fea3c5d818df4927acca99b71a13eab9637326748283ca8a0d6f",
       "executable": false,
@@ -261,7 +261,7 @@
     },
     {
       "path": "design/components/tooltips.md",
-      "source": "skills-src/shared/design/components/tooltips.md",
+      "source": "public/skills-src/shared/design/components/tooltips.md",
       "sourceSha256": "78d08fb1bd5541e2fc0f2565fb5c2f76710edc1621efb290c67b44f9a2d7622e",
       "sha256": "78d08fb1bd5541e2fc0f2565fb5c2f76710edc1621efb290c67b44f9a2d7622e",
       "executable": false,
@@ -270,7 +270,7 @@
     },
     {
       "path": "design/contexts.md",
-      "source": "skills-src/shared/design/contexts.md",
+      "source": "public/skills-src/shared/design/contexts.md",
       "sourceSha256": "3c99cccfbd1a4f743e392c77e5e6201e74656d65d596b8d71b8a8481a15ded71",
       "sha256": "3c99cccfbd1a4f743e392c77e5e6201e74656d65d596b8d71b8a8481a15ded71",
       "executable": false,
@@ -279,7 +279,7 @@
     },
     {
       "path": "design/foundation/colors.md",
-      "source": "skills-src/shared/design/foundation/colors.md",
+      "source": "public/skills-src/shared/design/foundation/colors.md",
       "sourceSha256": "7c1a707ce26a912139f9a2b65f2f794fc393a4430475221487ed6271f3ffc875",
       "sha256": "7c1a707ce26a912139f9a2b65f2f794fc393a4430475221487ed6271f3ffc875",
       "executable": false,
@@ -288,7 +288,7 @@
     },
     {
       "path": "design/foundation/layers.md",
-      "source": "skills-src/shared/design/foundation/layers.md",
+      "source": "public/skills-src/shared/design/foundation/layers.md",
       "sourceSha256": "17ba935177bd6faad3fcbcd0cbd51480ece04b152644f300846bc82bf6cfd208",
       "sha256": "17ba935177bd6faad3fcbcd0cbd51480ece04b152644f300846bc82bf6cfd208",
       "executable": false,
@@ -297,7 +297,7 @@
     },
     {
       "path": "design/foundation/motion.md",
-      "source": "skills-src/shared/design/foundation/motion.md",
+      "source": "public/skills-src/shared/design/foundation/motion.md",
       "sourceSha256": "501a9010b8ad44abdf9519bff820a7da9af77e95a9e7f567c16f800745b72a84",
       "sha256": "501a9010b8ad44abdf9519bff820a7da9af77e95a9e7f567c16f800745b72a84",
       "executable": false,
@@ -306,7 +306,7 @@
     },
     {
       "path": "design/foundation/radius.md",
-      "source": "skills-src/shared/design/foundation/radius.md",
+      "source": "public/skills-src/shared/design/foundation/radius.md",
       "sourceSha256": "dd10144ce9453762b0dff181aa6e028a7ea3f63c54b1895ccb5f6035b326cf16",
       "sha256": "dd10144ce9453762b0dff181aa6e028a7ea3f63c54b1895ccb5f6035b326cf16",
       "executable": false,
@@ -315,7 +315,7 @@
     },
     {
       "path": "design/foundation/shadows.md",
-      "source": "skills-src/shared/design/foundation/shadows.md",
+      "source": "public/skills-src/shared/design/foundation/shadows.md",
       "sourceSha256": "8fc67d92520a40c5bb540bd977549b747810fb8eafc07576b0d0ed3d595df551",
       "sha256": "8fc67d92520a40c5bb540bd977549b747810fb8eafc07576b0d0ed3d595df551",
       "executable": false,
@@ -324,7 +324,7 @@
     },
     {
       "path": "design/foundation/spacing.md",
-      "source": "skills-src/shared/design/foundation/spacing.md",
+      "source": "public/skills-src/shared/design/foundation/spacing.md",
       "sourceSha256": "fd4f3ae51b043fdb5d800f0b1b0beb77e3ca7bd3e5002d121ffd2dfe029f8f82",
       "sha256": "fd4f3ae51b043fdb5d800f0b1b0beb77e3ca7bd3e5002d121ffd2dfe029f8f82",
       "executable": false,
@@ -333,7 +333,7 @@
     },
     {
       "path": "design/foundation/typography.md",
-      "source": "skills-src/shared/design/foundation/typography.md",
+      "source": "public/skills-src/shared/design/foundation/typography.md",
       "sourceSha256": "2f368968de8a2e5e4e5264875cfd0e87bb22c668aeb04c05b7de7a84c8f94132",
       "sha256": "2f368968de8a2e5e4e5264875cfd0e87bb22c668aeb04c05b7de7a84c8f94132",
       "executable": false,
@@ -342,7 +342,7 @@
     },
     {
       "path": "design/principles/accessibility.md",
-      "source": "skills-src/shared/design/principles/accessibility.md",
+      "source": "public/skills-src/shared/design/principles/accessibility.md",
       "sourceSha256": "6755169c67b51154d601804bfa9116a8551a67a038fc76570e80cf8630ca0c96",
       "sha256": "6755169c67b51154d601804bfa9116a8551a67a038fc76570e80cf8630ca0c96",
       "executable": false,
@@ -351,7 +351,7 @@
     },
     {
       "path": "design/principles/implementation-hygiene.md",
-      "source": "skills-src/shared/design/principles/implementation-hygiene.md",
+      "source": "public/skills-src/shared/design/principles/implementation-hygiene.md",
       "sourceSha256": "4fefb35a21404a0cc47c86b9284036103a7853fdf9862ea285ef530b9b52fb9a",
       "sha256": "4fefb35a21404a0cc47c86b9284036103a7853fdf9862ea285ef530b9b52fb9a",
       "executable": false,
@@ -360,7 +360,7 @@
     },
     {
       "path": "design/principles/interaction-and-ux-laws.md",
-      "source": "skills-src/shared/design/principles/interaction-and-ux-laws.md",
+      "source": "public/skills-src/shared/design/principles/interaction-and-ux-laws.md",
       "sourceSha256": "10ae7c621965ace31fa5433ff0c7fc72d55150aac1027c33804bc69432ef3ba0",
       "sha256": "10ae7c621965ace31fa5433ff0c7fc72d55150aac1027c33804bc69432ef3ba0",
       "executable": false,
@@ -369,7 +369,7 @@
     },
     {
       "path": "design/principles/layout-and-hierarchy.md",
-      "source": "skills-src/shared/design/principles/layout-and-hierarchy.md",
+      "source": "public/skills-src/shared/design/principles/layout-and-hierarchy.md",
       "sourceSha256": "c2613be4c4fa0d11fded73fb906dc3d078fe8c61e2d95ddd7976025b9ff6e411",
       "sha256": "c2613be4c4fa0d11fded73fb906dc3d078fe8c61e2d95ddd7976025b9ff6e411",
       "executable": false,
@@ -378,36 +378,36 @@
     },
     {
       "path": "design/SKILL.md",
-      "source": "skills-src/shared/design/SKILL.md.eta",
+      "source": "public/skills-src/shared/design/SKILL.md.eta",
       "sourceSha256": "5c529bce30201c4f1b68efb255453854c2da46b0ee47da12a0b81ad23ab1e958",
-      "sha256": "1acd5cfa26c27672a2a57de481eb646e3453c33b60c5c008878531bc67ceab64",
+      "sha256": "f0acb03ea2f4be1d1b2ae62103b8367fd6bb1e9ead5758a7a400aef1ba4fe787",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
     },
     {
       "path": "html-files/SKILL.md",
-      "source": "skills-src/shared/html-files/SKILL.md.eta",
+      "source": "public/skills-src/shared/html-files/SKILL.md.eta",
       "sourceSha256": "fa62d4333eacc0306ff8e9f4d049ecdd0abb98ec34b6721ca1d7929c0394c3c7",
-      "sha256": "aa48d5792b045dfb8e152cc7a4340c7586ac8ed9934f64a3b340cb7a145e970c",
+      "sha256": "30ed405aa01fd566a727e5d85e7fe4e3d75cc8c9faf098ffbebe0a66a4022bb9",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
     },
     {
       "path": "markdown/SKILL.md",
-      "source": "skills-src/shared/markdown/SKILL.md.eta",
+      "source": "public/skills-src/shared/markdown/SKILL.md.eta",
       "sourceSha256": "ec9b8d53ddfbca6bcb54e848d485f87447041bfd08d00f15190c3ef85f147879",
-      "sha256": "10c8e454a6247587e165ee871341e212128e3ca47b65cc7de84e40ddd59989d6",
+      "sha256": "072eb2dc549c6bd165e0a55ad3a625199460f9748e586a0ad030c569c06c6a5a",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"
     },
     {
       "path": "notes/SKILL.md",
-      "source": "skills-src/shared/notes/SKILL.md.eta",
+      "source": "public/skills-src/shared/notes/SKILL.md.eta",
       "sourceSha256": "c2c57df550a5ae1b8a287c14deac9415ffff2551127b3ce2175185ae5a673c3c",
-      "sha256": "c4e1412344079bed9a027d9324ad9441cd971eaa83d091421f008c46c6f36f54",
+      "sha256": "7ca9b29ddd2d3348522ea026fe0777484e34f3066b512788236482afad8b0dad",
       "executable": false,
       "kind": "rendered",
       "origin": "shared"

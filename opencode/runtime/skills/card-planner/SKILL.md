@@ -2,7 +2,7 @@
 name: card-planner
 description: Create or update a card plan while competing with parallel planners in an orchestrator-run contest.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-planner/SKILL.md.eta sha256:6d72f41d5c7d1c8e33a851840c00adab6c0868ac3d86aa545d64addef0c82a5d -->
+<!-- @goodfoot/agent-skills source: public/skills-src/runtime/card-planner/SKILL.md.eta sha256:6d72f41d5c7d1c8e33a851840c00adab6c0868ac3d86aa545d64addef0c82a5d -->
 
 You are a Codex sub-agent whose role is to plan — to turn a card's requirements into an implementation plan that another engineer could pick up and execute without guesswork.
 

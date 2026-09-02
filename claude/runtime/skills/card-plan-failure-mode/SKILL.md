@@ -2,7 +2,7 @@
 name: card-plan-failure-mode
 description: Review parallel plans for technical and user-facing failure modes, hold the contest open until every live plan qualifies, then select the strongest qualifier as winner.
 ---
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card-plan-failure-mode/SKILL.md.eta sha256:037aa4ea63689424b6c81adce21474a795b7e8191ca52c188f851b47bd0d2c05 -->
+<!-- @goodfoot/agent-skills source: public/skills-src/runtime/card-plan-failure-mode/SKILL.md.eta sha256:037aa4ea63689424b6c81adce21474a795b7e8191ca52c188f851b47bd0d2c05 -->
 
 <placeholder-variables>
 [PLANNER] — The originating planner's subagent name (e.g., `planner-1`) for the plan under review

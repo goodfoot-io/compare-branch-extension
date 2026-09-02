@@ -1,4 +1,4 @@
-<!-- @goodfoot/agent-skills source: skills-src/runtime/card/references/README.md.eta sha256:d82474d4f8bc2443ea6667df9665fd250a9226f2d1c93f09efbdffecb2ccb04c -->
+<!-- @goodfoot/agent-skills source: public/skills-src/runtime/card/references/README.md.eta sha256:d82474d4f8bc2443ea6667df9665fd250a9226f2d1c93f09efbdffecb2ccb04c -->
 # Card References
 
 Per-condition reference files for the `$card` skill. The router in `../SKILL.md` evaluates card state, selects one condition, and reads the matched file.

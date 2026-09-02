@@ -1,0 +1,242 @@
+# Evaluator Wave
+
+<%= it.variant({
+  claude: "Independent adversarial evaluation via background evaluator subagents. Entered from `./implementation-evaluation.md` Step 3 (or `./validate.md` Step 4) with changes committed, validation passing, and a clean tree.\n",
+  codex: "Independent adversarial evaluation via spawned evaluator children. Entered from `./implementation-evaluation.md` Step 3 (or `./validate.md` Step 4) with changes committed, validation passing, and a clean tree.\n",
+  opencode: "Independent adversarial evaluation via spawned evaluator children. Entered from `./implementation-evaluation.md` Step 3 (or `./validate.md` Step 4) with changes committed, validation passing, and a clean tree.\n",
+  antigravity: "Independent adversarial evaluation via background evaluator subagents. Entered from `./implementation-evaluation.md` Step 3 (or `./validate.md` Step 4) with changes committed, validation passing, and a clean tree.\n"
+}) %>
+<%= it.variant({
+  claude: "",
+  codex: "The evaluator children form an ephemeral spawn tree under you. You spawn them directly in Step 1, and they report their result to you when their task completes.\n\n",
+  opencode: "The evaluator children form an ephemeral spawn tree under you. You spawn them directly in Step 1, and they report their result to you when their task completes.\n\n",
+  antigravity: ""
+}) %><placeholder-variables>
+[HEAD_SHA] — The commit under evaluation; the tree must be clean at dispatch
+<%= it.variant({
+  claude: "[EVALUATOR_MODEL] — Chosen by the diff's scope and risk, same criteria as `<dispatch>`'s model-tier judgment elsewhere\n",
+  codex: "[EFFORT] — Chosen by the diff's scope and risk, same criteria as `./developer-wave.md`'s `<effort-selection>`\n",
+  opencode: "[EFFORT] — Chosen by the diff's scope and risk, same criteria as `./developer-wave.md`'s `<effort-selection>`\n",
+  antigravity: "[EVALUATOR_MODEL] — Chosen by the diff's scope and risk, same criteria as `<dispatch>`'s model-tier judgment elsewhere\n"
+}) %></placeholder-variables>
+
+<instructions>
+
+<%= it.variant({
+  claude: "## 1. Dispatch Evaluators\n\nDiff `implement/[CARD_ID]/baseline..HEAD`. **Choose which evaluators to dispatch by judgment**: `failure-mode` always; add `experience-evaluator` when the change materially touches user-facing behavior, acceptance criteria are experiential, or the card's value is only observable from its entry points. Dispatching both is \"Deep\"; adjust the peer lines in the prompts to match.\n",
+  codex: "## 1. Spawn Evaluators\n",
+  opencode: "## 1. Spawn Evaluators\n",
+  antigravity: "## 1. Dispatch Evaluators\n\nDiff `implement/[CARD_ID]/baseline..HEAD`. **Choose which evaluators to dispatch by judgment**: `failure-mode` always; add `experience-evaluator` when the change materially touches user-facing behavior, acceptance criteria are experiential, or the card's value is only observable from its entry points. Dispatching both is \"Deep\"; adjust the peer lines in the prompts to match.\n"
+}) %>
+<%= it.variant({
+  claude: "The evaluators form an ad-hoc group purely by being named, and run in the background so you can collect their DMs. After DMing a round's `VERDICT:` an evaluator goes idle; your Step 5 re-evaluation DM wakes it with its prior context to resume at its skill's \"When Resuming for a Fixed Implementation\" section.\n",
+  codex: "Diff `implement/[CARD_ID]/baseline..HEAD`. **Choose which evaluators to spawn by judgment**: `failure_mode` always; add `experience_evaluator` when the change materially touches user-facing behavior, acceptance criteria are experiential, or the card's value is only observable from its entry points. Spawning both is \"Deep\"; adjust the peer references in the messages to match.\n",
+  opencode: "Diff `implement/[CARD_ID]/baseline..HEAD`. **Choose which evaluators to spawn by judgment**: `failure_mode` always; add `experience_evaluator` when the change materially touches user-facing behavior, acceptance criteria are experiential, or the card's value is only observable from its entry points. Spawning both is \"Deep\"; adjust the peer references in the messages to match.\n",
+  antigravity: "The evaluators form an ad-hoc group purely by being named, and run in the background so you can collect their DMs. After DMing a round's `VERDICT:` an evaluator goes idle; your Step 5 re-evaluation DM wakes it with its prior context to resume at its skill's \"When Resuming for a Fixed Implementation\" section.\n"
+}) %>
+<%= it.variant({
+  claude: "Read the diff and the card before writing the prompts — each must reflect this implementation and this card. Record the HEAD SHA you dispatch against and inline it in every prompt. When dispatching both evaluators, place both invokes in a single message.\n",
+  codex: "Read the diff and the card before writing the spawn messages — each must reflect this implementation and this card. Record the HEAD SHA you spawn against and inline it in every message. When spawning both evaluators, issue both `spawn_agent` calls in the same turn. Pass `[EFFORT]` as each evaluator's `agent_type` when a matching config role exists.\n",
+  opencode: "Read the diff and the card before writing the spawn messages — each must reflect this implementation and this card. Record the HEAD SHA you spawn against and inline it in every message. When spawning both evaluators, issue both `spawn_agent` calls in the same turn. Pass `[EFFORT]` as each evaluator's `agent_type` when a matching config role exists.\n",
+  antigravity: "Read the diff and the card before writing the prompts — each must reflect this implementation and this card. Record the HEAD SHA you dispatch against and inline it in every prompt. When dispatching both evaluators, place both invokes in a single message.\n"
+}) %>
+<%= it.variant({
+  claude: "```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Failure mode analysis</parameter>\n<parameter name=\"subagent_type\">runtime:card:failure-mode</parameter>\n<parameter name=\"model\">[EVALUATOR_MODEL]</parameter>\n<parameter name=\"name\">failure-mode</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\nFollow the skill from the top. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.\n",
+  codex: "For the `failure_mode` child (`task_name: failure_mode`), the `message`:\n",
+  opencode: "For the `failure_mode` child (`task_name: failure_mode`), the `message`:\n",
+  antigravity: "```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Failure mode analysis</parameter>\n<parameter name=\"subagent_type\">runtime:card:failure-mode</parameter>\n<parameter name=\"model\">[EVALUATOR_MODEL]</parameter>\n<parameter name=\"name\">failure-mode</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\nFollow the skill from the top. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.\n"
+}) %>
+<%= it.variant({
+  claude: "## Peers\nThe orchestrator is `team-lead`. On Deep depth, your peer evaluator is `experience-evaluator`.\n",
+  codex: "```\nUse the $runtime:card-failure-mode skill and follow it from the top. Record each finding with a `FINDING:` marker and report a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` as your final message to me, the orchestrator that spawned you. On Deep depth I relay the experience-evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.\n",
+  opencode: "```\nUse the $card-failure-mode skill and follow it from the top. Record each finding with a `FINDING:` marker and report a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` as your final message to me, the orchestrator that spawned you. On Deep depth I relay the experience-evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.\n",
+  antigravity: "## Peers\nThe orchestrator is `team-lead`. On Deep depth, your peer evaluator is `experience-evaluator`.\n"
+}) %>
+## Card Repository
+[CARD_REPO_PATH]
+
+## Workspace
+[WORKSPACE_PATH]
+
+## Baseline
+<%= it.variant({
+  claude: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, DM `team-lead` a question naming the dirty paths, and yield.\n",
+  codex: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.\n",
+  opencode: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.\n",
+  antigravity: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never evaluate the working tree — if `git status --porcelain` is non-empty, DM `team-lead` a question naming the dirty paths, and yield.\n"
+}) %>
+## Validation
+All validation has passed. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
+
+[Describe the specific failure risks this implementation presents. Where does the diff suggest the implementer's attention was concentrated, and where are the blind spots most likely? Which runtime paths are unexercised by tests, which contracts may drift silently, and which consumer assumptions break?]
+<%= it.variant({
+  claude: "</parameter>\n</invoke>\n",
+  codex: "",
+  opencode: "",
+  antigravity: "</parameter>\n</invoke>\n"
+}) %>```
+
+<%= it.variant({
+  claude: "For **Deep**, add the second dispatch in the same message:\n\n```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Experience evaluation</parameter>\n<parameter name=\"subagent_type\">runtime:card:experience-evaluator</parameter>\n<parameter name=\"model\">[EVALUATOR_MODEL]</parameter>\n<parameter name=\"name\">experience-evaluator</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\nFollow the skill from the top. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.\n",
+  codex: "For **Deep**, also spawn the `experience_evaluator` child (`task_name: experience_evaluator`) with the `message`:\n",
+  opencode: "For **Deep**, also spawn the `experience_evaluator` child (`task_name: experience_evaluator`) with the `message`:\n",
+  antigravity: "For **Deep**, add the second dispatch in the same message:\n\n```xml\n<invoke name=\"Agent\">\n<parameter name=\"description\">Experience evaluation</parameter>\n<parameter name=\"subagent_type\">runtime:card:experience-evaluator</parameter>\n<parameter name=\"model\">[EVALUATOR_MODEL]</parameter>\n<parameter name=\"name\">experience-evaluator</parameter>\n<parameter name=\"run_in_background\">true</parameter>\n<parameter name=\"prompt\">\nFollow the skill from the top. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.\n"
+}) %>
+<%= it.variant({
+  claude: "## Peers\nThe orchestrator is `team-lead`. Your peer evaluator is `failure-mode`.\n",
+  codex: "```\nUse the $runtime:card-experience-evaluator skill and follow it from the top. Record each finding with a `FINDING:` marker and report a verdict as your final message to me, the orchestrator that spawned you. I relay the failure-mode evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.\n",
+  opencode: "```\nUse the $card-experience-evaluator skill and follow it from the top. Record each finding with a `FINDING:` marker and report a verdict as your final message to me, the orchestrator that spawned you. I relay the failure-mode evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.\n",
+  antigravity: "## Peers\nThe orchestrator is `team-lead`. Your peer evaluator is `failure-mode`.\n"
+}) %>
+## Card Repository
+[CARD_REPO_PATH]
+
+## Workspace
+[WORKSPACE_PATH]
+
+## Baseline
+<%= it.variant({
+  claude: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never exercise the working tree — if `git status --porcelain` is non-empty, DM `team-lead` a question naming the dirty paths, and yield.\n",
+  codex: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never exercise the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.\n",
+  opencode: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never exercise the working tree — if `git status --porcelain` is non-empty, report the dirty paths to me instead of a verdict.\n",
+  antigravity: "Evaluate commit [HEAD_SHA]; changes are `implement/[CARD_ID]/baseline..HEAD`. Never exercise the working tree — if `git status --porcelain` is non-empty, DM `team-lead` a question naming the dirty paths, and yield.\n"
+}) %>
+## Validation
+All validation has passed. Focus on what a user would experience as broken, wrong, or missing that the validation suite does not cover.
+
+[Translate the card's requirements into user scenarios this implementation must satisfy: acceptance criteria to verify, user-facing entry points, what a user testing against the card should do and observe.]
+<%= it.variant({
+  claude: "</parameter>\n</invoke>\n",
+  codex: "",
+  opencode: "",
+  antigravity: "</parameter>\n</invoke>\n"
+}) %>```
+
+<%= it.variant({
+  claude: "When an evaluator needs to compare behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.\n",
+  codex: "When an evaluator needs to compare behavior against the pre-implementation state, spawn a `$runtime:card-pre-existing-condition` child with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.\n",
+  opencode: "When an evaluator needs to compare behavior against the pre-implementation state, spawn a `$card-pre-existing-condition` child with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.\n",
+  antigravity: "When an evaluator needs to compare behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` with the behavior under investigation and the card's diff scope rather than running the comparison in the active workspace.\n"
+}) %>
+## 2. Collect Verdicts and Route
+
+<%= it.variant({
+  claude: "Monitor inbound DMs from each evaluator:\n\n- **`FINDING:` DM**: Record the finding (short label and body) — what you need to route it into a developer wave in Step 3 and brief the evaluators after fixes land.\n- **`VERDICT:` DM**: Record the verdict for this round. From a `CHANGES_REQUESTED` body, capture each blocking finding's mechanism requirement and witness matrix — the developer wave is briefed from the verdict bodies, not the earlier streamed findings. From an `APPROVED` body, capture the open sub-blocking list (label + witness) — it is the pre-finalize sweep's only input.\n",
+  codex: "Each evaluator child returns a structured final report to you when its task completes, and on a live re-evaluation reports a fresh verdict via the same channel:\n",
+  opencode: "Each evaluator child returns a structured final report to you when its task completes, and on a live re-evaluation reports a fresh verdict via the same channel:\n",
+  antigravity: "Monitor inbound DMs from each evaluator:\n\n- **`FINDING:` DM**: Record the finding (short label and body) — what you need to route it into a developer wave in Step 3 and brief the evaluators after fixes land.\n- **`VERDICT:` DM**: Record the verdict for this round. From a `CHANGES_REQUESTED` body, capture each blocking finding's mechanism requirement and witness matrix — the developer wave is briefed from the verdict bodies, not the earlier streamed findings. From an `APPROVED` body, capture the open sub-blocking list (label + witness) — it is the pre-finalize sweep's only input.\n"
+}) %>
+<%= it.variant({
+  claude: "Cross-evaluator critiques travel as evaluator-to-evaluator DMs and do not reach you. On Deep, evaluators also DM each other their `FINDING:` markers directly; you receive your own copy. Do not deduplicate across evaluators.\n",
+  codex: "- **`FINDING:` entries**: Record each finding (short label and body) — what you need to route it into a developer wave in Step 3 and brief the evaluators after fixes land.\n- **`VERDICT:` line**: Record the verdict for this round. From a `CHANGES_REQUESTED` body, capture each blocking finding's mechanism requirement and witness matrix — the developer wave is briefed from the verdict bodies, not the earlier streamed findings. From an `APPROVED` body, capture the open sub-blocking list (label + witness) — it is the pre-finalize sweep's only input.\n",
+  opencode: "- **`FINDING:` entries**: Record each finding (short label and body) — what you need to route it into a developer wave in Step 3 and brief the evaluators after fixes land.\n- **`VERDICT:` line**: Record the verdict for this round. From a `CHANGES_REQUESTED` body, capture each blocking finding's mechanism requirement and witness matrix — the developer wave is briefed from the verdict bodies, not the earlier streamed findings. From an `APPROVED` body, capture the open sub-blocking list (label + witness) — it is the pre-finalize sweep's only input.\n",
+  antigravity: "Cross-evaluator critiques travel as evaluator-to-evaluator DMs and do not reach you. On Deep, evaluators also DM each other their `FINDING:` markers directly; you receive your own copy. Do not deduplicate across evaluators.\n"
+}) %>
+<%= it.variant({
+  claude: "Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, DM the evaluator to publish it and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` counts without its note; if missing at round 1, add \"publish your questions note before your next verdict\" to that evaluator's Step 5 re-evaluation DM. Do not dispatch fixes while any evaluator is still mid-round. Do not adjudicate findings — route on the verdict. A retracted finding is dropped; one under peer critique stays in the wave until its owner retracts it. You may not override a verdict, reclassify a finding as a \"limitation\" or \"follow-up,\" or document it as a known issue in lieu of fixing it.\n",
+  codex: "On Deep depth you mediate cross-evaluator critique: relay each evaluator's `FINDING:` entries to the peer evaluator (via `send_message` if the peer is still live, or inlined into the peer's next resume or spawn message), and relay any `CRITIQUE: <label>` an evaluator includes back to the evaluator it targets. If an evaluator verifies a relayed critique and folds it into its own findings, it returns that as a fresh `FINDING:` in its report. Treat each `FINDING:` as a record from its sender — do not deduplicate across evaluators.\n",
+  opencode: "On Deep depth you mediate cross-evaluator critique: relay each evaluator's `FINDING:` entries to the peer evaluator (via `send_message` if the peer is still live, or inlined into the peer's next resume or spawn message), and relay any `CRITIQUE: <label>` an evaluator includes back to the evaluator it targets. If an evaluator verifies a relayed critique and folds it into its own findings, it returns that as a fresh `FINDING:` in its report. Treat each `FINDING:` as a record from its sender — do not deduplicate across evaluators.\n",
+  antigravity: "Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, DM the evaluator to publish it and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` counts without its note; if missing at round 1, add \"publish your questions note before your next verdict\" to that evaluator's Step 5 re-evaluation DM. Do not dispatch fixes while any evaluator is still mid-round. Do not adjudicate findings — route on the verdict. A retracted finding is dropped; one under peer critique stays in the wave until its owner retracts it. You may not override a verdict, reclassify a finding as a \"limitation\" or \"follow-up,\" or document it as a known issue in lieu of fixing it.\n"
+}) %>
+<%= it.variant({
+  claude: "An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state; idle **without** it, the evaluator will never act again on its own — wake it with a DM inlining whatever it is waiting on; task-notifications for work it delegated may be delivered to you, not to it — forward those results in the wake-up DM.\n",
+  codex: "Continue until every spawned evaluator has reported a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, re-engage the evaluator to publish it and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` counts without its note; if the note is missing at round 1, add \"publish your questions note before your next verdict\" to that lane's Step 5 re-evaluation message. Do not spawn or re-engage developer workers while any evaluator is still mid-round. Do not adjudicate findings — route on the verdict. A retracted finding is dropped; one under peer critique stays in the wave until its owner retracts it. You may not override a verdict, reclassify a finding as a \"limitation\" or \"follow-up,\" or document it as a known issue in lieu of fixing it.\n",
+  opencode: "Continue until every spawned evaluator has reported a `VERDICT:` for the current round. Before accepting a `VERDICT: APPROVED`, confirm the evaluator's questions note (`failure-mode-questions` or `user-outcome-questions`) is committed in the card repo's `notes/`; if missing, re-engage the evaluator to publish it and re-issue — an unnoted `APPROVED` does not count. A `CHANGES_REQUESTED` counts without its note; if the note is missing at round 1, add \"publish your questions note before your next verdict\" to that lane's Step 5 re-evaluation message. Do not spawn or re-engage developer workers while any evaluator is still mid-round. Do not adjudicate findings — route on the verdict. A retracted finding is dropped; one under peer critique stays in the wave until its owner retracts it. You may not override a verdict, reclassify a finding as a \"limitation\" or \"follow-up,\" or document it as a known issue in lieu of fixing it.\n",
+  antigravity: "An `idle_notification` means the evaluator's process has stopped; it runs again only when an inbound message wakes it. Idle after DMing this round's `VERDICT:` is the normal settled state; idle **without** it, the evaluator will never act again on its own — wake it with a DM inlining whatever it is waiting on; task-notifications for work it delegated may be delivered to you, not to it — forward those results in the wake-up DM.\n"
+}) %>
+<%= it.variant({
+  claude: "An evaluator that yielded on a dirty tree is the exception. Commit or revert the outstanding changes, then wake it with the new HEAD SHA — never re-dispatch.\n",
+  codex: "An `idle_notification` or a report that arrives without a verdict means the evaluator's process has stopped; it runs again only when you re-engage it. An evaluator that reported dirty paths instead of a verdict is the exception. Commit or revert the outstanding changes, then re-engage that lane with the new HEAD SHA — never spawn a fresh replacement, which would re-open findings already accepted.\n",
+  opencode: "An `idle_notification` or a report that arrives without a verdict means the evaluator's process has stopped; it runs again only when you re-engage it. An evaluator that reported dirty paths instead of a verdict is the exception. Commit or revert the outstanding changes, then re-engage that lane with the new HEAD SHA — never spawn a fresh replacement, which would re-open findings already accepted.\n",
+  antigravity: "An evaluator that yielded on a dirty tree is the exception. Commit or revert the outstanding changes, then wake it with the new HEAD SHA — never re-dispatch.\n"
+}) %>
+<%= it.variant({
+  claude: "Otherwise, if it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below) — never without a failed wake attempt on record. A replacement is a fresh agent dispatched through Step 1 under the same name, evaluating current HEAD from scratch — point it at its lane's questions note in the card repo's `notes/`, inline the known prior-round findings for its lane, and state the round number it inherits.\n",
+  codex: "Otherwise, an evaluator that finished without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or BLOCKED per the branch below. Re-engage the lane first — `send_message` if live, `resume_agent` if completed — never spawn a replacement without a failed re-engagement attempt on record. A fresh replacement is a new child with no prior context: spawn it through Step 1, evaluating current HEAD from scratch — point it at its lane's questions note in the card repo's `notes/`, inline the known prior-round findings for its lane, and state the round number it inherits.\n",
+  opencode: "Otherwise, an evaluator that finished without a usable verdict, or that cannot run, is a judgment call: spawn a fresh replacement, or BLOCKED per the branch below. Re-engage the lane first — `send_message` if live, `resume_agent` if completed — never spawn a replacement without a failed re-engagement attempt on record. A fresh replacement is a new child with no prior context: spawn it through Step 1, evaluating current HEAD from scratch — point it at its lane's questions note in the card repo's `notes/`, inline the known prior-round findings for its lane, and state the round number it inherits.\n",
+  antigravity: "Otherwise, if it idles again without a verdict, or cannot run, re-dispatch a replacement (or BLOCKED per the branch below) — never without a failed wake attempt on record. A replacement is a fresh agent dispatched through Step 1 under the same name, evaluating current HEAD from scratch — point it at its lane's questions note in the card repo's `notes/`, inline the known prior-round findings for its lane, and state the round number it inherits.\n"
+}) %>
+A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED.
+
+<%= it.variant({
+  claude: "- **All APPROVED** (every dispatched evaluator): Proceed to Step 6: Finalize. This is the only path to Finalize.\n- **Any CHANGES_REQUESTED**: Proceed to Step 3: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.\n",
+  codex: "- **All APPROVED** (every spawned evaluator): Proceed to Step 6: Finalize. This is the only path to Finalize.\n- **Any CHANGES_REQUESTED**: Proceed to Step 3: Dispatch Developer Team with the recorded findings. You do not fix evaluator findings — the developer team does.\n",
+  opencode: "- **All APPROVED** (every spawned evaluator): Proceed to Step 6: Finalize. This is the only path to Finalize.\n- **Any CHANGES_REQUESTED**: Proceed to Step 3: Dispatch Developer Team with the recorded findings. You do not fix evaluator findings — the developer team does.\n",
+  antigravity: "- **All APPROVED** (every dispatched evaluator): Proceed to Step 6: Finalize. This is the only path to Finalize.\n- **Any CHANGES_REQUESTED**: Proceed to Step 3: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.\n"
+}) %>- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, then **STOP**.
+
+## 3. Dispatch Developer Team
+
+<%= it.variant({
+  claude: "Group the findings by the package they touch and route each group to the owning worker per `./developer-wave.md` — dispatch a fresh worker for a package with none yet. Inline every finding the worker must address into its task — full body, its mechanism requirement and witness matrix from the verdict, and the file or runtime path; do not stream new findings to a worker mid-task. Developer-team workers are **not** part of the evaluation group and receive no follow-up SendMessages from evaluators. Add to each task's Workflow: implement the finding's stated mechanism — not a patch of the flagged instance — and land a green in-suite control for every witness-matrix entry; a fix introducing a new mechanism lands with a regression test and an end-to-end exercise of the mechanism composed with what it touches; report each witness (matrix entry or mechanism → test/command) in the `REPORT:`.\n",
+  codex: "Group the findings by the package they touch and route each group to the owning worker per `./developer-wave.md` — spawn a fresh worker for a package with none yet. Inline every finding the worker must address into its task — full body, its mechanism requirement and witness matrix from the verdict, and the file or runtime path; do not stream new findings to a worker mid-task. Developer-team workers are **not** part of the evaluation group and receive no follow-up messages from evaluators. Add to each task's Workflow: implement the finding's stated mechanism — not a patch of the flagged instance — and land a green in-suite control for every witness-matrix entry; a fix introducing a new mechanism lands with a regression test and an end-to-end exercise of the mechanism composed with what it touches; report each witness (matrix entry or mechanism → test/command) in the `REPORT:`.\n",
+  opencode: "Group the findings by the package they touch and route each group to the owning worker per `./developer-wave.md` — spawn a fresh worker for a package with none yet. Inline every finding the worker must address into its task — full body, its mechanism requirement and witness matrix from the verdict, and the file or runtime path; do not stream new findings to a worker mid-task. Developer-team workers are **not** part of the evaluation group and receive no follow-up messages from evaluators. Add to each task's Workflow: implement the finding's stated mechanism — not a patch of the flagged instance — and land a green in-suite control for every witness-matrix entry; a fix introducing a new mechanism lands with a regression test and an end-to-end exercise of the mechanism composed with what it touches; report each witness (matrix entry or mechanism → test/command) in the `REPORT:`.\n",
+  antigravity: "Group the findings by the package they touch and route each group to the owning worker per `./developer-wave.md` — dispatch a fresh worker for a package with none yet. Inline every finding the worker must address into its task — full body, its mechanism requirement and witness matrix from the verdict, and the file or runtime path; do not stream new findings to a worker mid-task. Developer-team workers are **not** part of the evaluation group and receive no follow-up SendMessages from evaluators. Add to each task's Workflow: implement the finding's stated mechanism — not a patch of the flagged instance — and land a green in-suite control for every witness-matrix entry; a fix introducing a new mechanism lands with a regression test and an end-to-end exercise of the mechanism composed with what it touches; report each witness (matrix entry or mechanism → test/command) in the `REPORT:`.\n"
+}) %>
+## 4. Validate and Commit
+
+<%= it.variant({
+  claude: "Wait for every worker's report and fold back any stray commits. Lint and typecheck, then re-run the affected tests, broadening to each touched package's suite — never the full validation suite, which runs only in `merge.md` after rebase. Commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.\n",
+  codex: "Wait for every worker's report and fold back any stray commits. Lint and typecheck, then re-run the affected tests, broadening to each touched package's suite — never the full validation suite, which runs only in `merge.md` after rebase. Commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.\n",
+  opencode: "Apply `./developer-wave.md`'s `<integration-gate>`: wait for every worker's report, fold back any stray commits, lint/typecheck/scoped-test, then commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.\n",
+  antigravity: "Wait for every worker's report and fold back any stray commits. Lint and typecheck, then re-run the affected tests, broadening to each touched package's suite — never the full validation suite, which runs only in `merge.md` after rebase. Commit — or fix mechanical errors inline, or send an implementation error back to the owning worker. Confirm every witness-matrix entry is pinned by a green in-suite control and every new mechanism carries its regression test and composed exercise — a matrix entry covered only by a manual run, or a mechanism without its test, is an implementation error; send it back.\n"
+}) %>
+If you arrived from the caller's pre-evaluation validation failure, return there; otherwise proceed to Step 5.
+
+## 5. Trigger Re-Evaluation
+
+<%= it.variant({
+  claude: "DM a re-evaluation trigger to every dispatched evaluator (both DMs in a single message on Deep). The literal `RE_EVALUATE` marker wakes the evaluator's resume behavior — a free-form status DM with the same content does not. Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix.\n",
+  codex: "Re-engage every evaluator lane against the revised implementation. If an evaluator is still live, `send_message` it the re-evaluation context by its task path; if its task already completed, `resume_agent` it and send the same context — it resumes per its skill's \"When Resuming\" path. Only if re-engagement fails, `spawn_agent` a fresh child for that lane and inline its prior findings plus the re-evaluation context into the spawn `message`.\n",
+  opencode: "Re-engage every evaluator lane against the revised implementation. If an evaluator is still live, `send_message` it the re-evaluation context by its task path; if its task already completed, `resume_agent` it and send the same context — it resumes per its skill's \"When Resuming\" path. Only if re-engagement fails, `spawn_agent` a fresh child for that lane and inline its prior findings plus the re-evaluation context into the spawn `message`.\n",
+  antigravity: "DM a re-evaluation trigger to every dispatched evaluator (both DMs in a single message on Deep). The literal `RE_EVALUATE` marker wakes the evaluator's resume behavior — a free-form status DM with the same content does not. Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix.\n"
+}) %>
+<%= it.variant({
+  claude: "```xml\n<invoke name=\"SendMessage\">\n  <parameter name=\"to\">failure-mode</parameter>\n  <parameter name=\"summary\">Re-evaluate against revised implementation</parameter>\n  <parameter name=\"message\">\nRE_EVALUATE\n---\n",
+  codex: "Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The literal `RE_EVALUATE` marker wakes the evaluator's resume behavior — a free-form status message with the same content does not.\n\n```\n",
+  opencode: "Give it the new HEAD SHA, the commit range, a plain account of what the wave changed and why, and anything the wave could *not* fix. The literal `RE_EVALUATE` marker wakes the evaluator's resume behavior — a free-form status message with the same content does not.\n\n```\n",
+  antigravity: "```xml\n<invoke name=\"SendMessage\">\n  <parameter name=\"to\">failure-mode</parameter>\n  <parameter name=\"summary\">Re-evaluate against revised implementation</parameter>\n  <parameter name=\"message\">\nRE_EVALUATE\n---\n"
+}) %>The implementation has been updated to address the prior round's findings. Re-evaluate against commit [HEAD_SHA]; the tree is clean at that commit.
+
+Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
+What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
+New witnesses: [mechanism → test/command, for each new mechanism the wave introduced — omit if none]
+In-suite controls: [finding → matrix entry → committed test, for each entry the wave pinned — omit if none]
+Not fixed: [any finding the wave could not address, and why — including findings a worker disputed, with its reasoning; omit if none]
+<%= it.variant({
+  claude: "  </parameter>\n</invoke>\n",
+  codex: "\nRE_EVALUATE\n",
+  opencode: "\nRE_EVALUATE\n",
+  antigravity: "  </parameter>\n</invoke>\n"
+}) %>```
+
+<%= it.variant({
+  claude: "Each evaluator resumes and DMs a fresh verdict — return to Step 2 until every evaluator DMs `APPROVED`, or a BLOCKED branch fires.\n",
+  codex: "For Deep, deliver the same message to the `experience_evaluator` lane.\n",
+  opencode: "For Deep, deliver the same message to the `experience_evaluator` lane.\n",
+  antigravity: "Each evaluator resumes and DMs a fresh verdict — return to Step 2 until every evaluator DMs `APPROVED`, or a BLOCKED branch fires.\n"
+}) %>
+<%= it.variant({
+  claude: "",
+  codex: "Each evaluator resumes and reports a fresh verdict — return to Step 2 until every evaluator reports `APPROVED`, or a BLOCKED branch fires.\n\n",
+  opencode: "Each evaluator resumes and reports a fresh verdict — return to Step 2 until every evaluator reports `APPROVED`, or a BLOCKED branch fires.\n\n",
+  antigravity: ""
+}) %>## 6. Finalize
+
+<%= it.variant({
+  claude: "Enter only when every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round.\n",
+  codex: "Enter only when every spawned evaluator has reported `VERDICT: APPROVED` for the current round.\n",
+  opencode: "Enter only when every spawned evaluator has reported `VERDICT: APPROVED` for the current round.\n",
+  antigravity: "Enter only when every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round.\n"
+}) %>
+**Pre-finalize sweep.** If sub-blocking findings or witness repairs remain open (the lists from the `APPROVED` bodies), dispatch one final developer wave for them per Step 3, scoped to the listed findings' own files — no discretionary refactoring. Validate and commit per `./developer-wave.md`'s gate — do **not** route into Step 5 — then re-run each repaired witness yourself and run the caller's validation commands. If a witness re-run fails or validation cannot pass, fall back to Step 5. Skip the sweep when nothing is open.
+
+<%= it.variant({
+  claude: "Evaluators that DM'd `VERDICT: APPROVED` have already gone idle — proceed directly. Only if one is still actively working and you want to stop it early, DM it `{\"type\": \"shutdown_request\"}`.\n",
+  codex: "The evaluator children auto-terminate when their tasks complete — wait for any still-live evaluator to finish, and do not spawn new ones.\n",
+  opencode: "The evaluator children auto-terminate when their tasks complete — wait for any still-live evaluator to finish, and do not spawn new ones.\n",
+  antigravity: "Evaluators that DM'd `VERDICT: APPROVED` have already gone idle — proceed directly. Only if one is still actively working and you want to stop it early, DM it `{\"type\": \"shutdown_request\"}`.\n"
+}) %>
+If you dispatched the developer team in this wave, drain it per `./developer-wave.md` `<lifecycle>` before returning. Do not modify gates in `CARD.meta.json`. Return control to the caller.
+
+</instructions>
