@@ -5,7 +5,7 @@
   "platform": "antigravity",
   "plugin": "runtime",
   "version": "1.0.440",
-  "registrySha256": "85b1dbe2823162e84fea4112bc555caae585feb8087ba2e7f8b7b67f624cf0fc",
+  "registrySha256": "0b0c2f65cbf87734289762c4bdc3f0191c800c150a14aaee33db5701d7813017",
   "files": [
     {
       "path": "captain/references/blocked.md",

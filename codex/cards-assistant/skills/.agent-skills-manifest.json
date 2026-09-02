@@ -4,8 +4,8 @@
   "target": "public/codex/cards-assistant/skills",
   "platform": "codex",
   "plugin": "cards-assistant",
-  "version": "1.0.4",
-  "registrySha256": "85b1dbe2823162e84fea4112bc555caae585feb8087ba2e7f8b7b67f624cf0fc",
+  "version": "1.0.5",
+  "registrySha256": "0b0c2f65cbf87734289762c4bdc3f0191c800c150a14aaee33db5701d7813017",
   "files": [
     {
       "path": "debug/references/cards-api-server.md",
@@ -19,8 +19,8 @@
     {
       "path": "debug/references/diagnose-agent-launch.md",
       "source": "skills-src/shared/debug/references/diagnose-agent-launch.md",
-      "sourceSha256": "d2ba0764dd7955a280b6daad03e62c69e834704370aba9dcfaf0a73ef8814e58",
-      "sha256": "d2ba0764dd7955a280b6daad03e62c69e834704370aba9dcfaf0a73ef8814e58",
+      "sourceSha256": "792aa64a46e777827bac6125bb85274b518cb341a11b66195d3998bc71b7de76",
+      "sha256": "792aa64a46e777827bac6125bb85274b518cb341a11b66195d3998bc71b7de76",
       "executable": false,
       "kind": "literal",
       "origin": "shared"
