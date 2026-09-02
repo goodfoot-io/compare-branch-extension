@@ -71,6 +71,10 @@ describe('Antigravity live transcript chain', () => {
     for (const [name, value] of [
       ['CARDS_HOME', cardsHome],
       ['CARD_ID', 'main-645'],
+      // Empty string: the resolver treats it as absent, so a launcher-set
+      // CARDS_TRANSCRIPT_PATH in the outer session cannot shadow the fixture
+      // store this test exercises.
+      ['CARDS_TRANSCRIPT_PATH', ''],
       ['ANTIGRAVITY_SESSION_ID', SESSION_ID]
     ] as const) {
       savedEnv.set(name, process.env[name]);
