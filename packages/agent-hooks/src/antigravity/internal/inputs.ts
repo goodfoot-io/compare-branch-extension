@@ -75,7 +75,7 @@ export interface AntigravityCommonInput {
  * @summary Input for the PreInvocation and PostInvocation events
  */
 export interface AntigravityInvocationInput extends AntigravityCommonInput {
-  /** 1-based number of this invocation within the conversation. */
+  /** 0-based number of this invocation within the conversation (the host sends 0 on the first invocation). */
   invocationNum: number;
   /** Number of steps the invocation started with. */
   initialNumSteps: number;
@@ -241,7 +241,9 @@ export function parseInvocationInput(raw: unknown): AntigravityInvocationInput {
   const record = raw as Record<string, unknown>;
   return {
     ...common,
-    invocationNum: requireInteger(record, 'invocationNum', 1),
+    // The host's first invocation carries invocationNum 0 (pinned v1.1.22,
+    // disposable-host smoke witness) — negative values stay invalid.
+    invocationNum: requireInteger(record, 'invocationNum', 0),
     initialNumSteps: requireInteger(record, 'initialNumSteps', 0)
   };
 }

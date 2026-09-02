@@ -85,6 +85,17 @@ async function run(
 }
 
 describe('PostInvocation merge route', () => {
+  it('injects the merge route on the host 0-indexed first invocation', async () => {
+    const { result } = await run(
+      { unmergedCommitCount: () => 2 },
+      makeInvocationInput(root, { invocationNum: 0, initialNumSteps: 1 })
+    );
+    const injectSteps = (result?.output as { injectSteps?: Array<{ ephemeralMessage: string }> } | undefined)
+      ?.injectSteps;
+    expect(injectSteps).toHaveLength(1);
+    expect(injectSteps?.[0]?.ephemeralMessage).toContain('2 commit(s) not merged into `main`');
+  });
+
   it('injects one ephemeral merge step with the Antigravity-native address when commits are unmerged', async () => {
     const { result } = await run({ unmergedCommitCount: () => 3 });
     const injectSteps = (result?.output as { injectSteps?: Array<{ ephemeralMessage: string }> } | undefined)
@@ -244,7 +255,7 @@ describe('PostInvocation idle and failure invariants', () => {
   });
 
   it('fails closed on invalid invocation input', async () => {
-    const { failure } = await run({}, makeInvocationInput(root, { invocationNum: 0 }));
+    const { failure } = await run({}, makeInvocationInput(root, { invocationNum: -1 }));
     expect(failure?.stage).toBe('input');
     expect(markerExists(defaultAntigravityIo, marker('failure'))).toBe(true);
   });

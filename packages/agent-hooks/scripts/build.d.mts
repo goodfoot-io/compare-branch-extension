@@ -57,13 +57,17 @@ export declare const antigravityTargets: AntigravityBuildTarget[];
 /** The pinned hooks.json registration matrix (three events, bounded timeouts). */
 export declare const ANTIGRAVITY_HOOK_REGISTRATIONS: AntigravityHookRegistration[];
 
+/** The hook name the host registers the three runtime event entries under. */
+export declare const ANTIGRAVITY_HOOK_NAME: string;
+
 /** Bounded explicit timeout (seconds) stamped into every registration. */
 export declare const ANTIGRAVITY_HOOK_TIMEOUT_SECONDS: number;
 
-/** Builds the exact `runtime/hooks.json` document value. */
-export declare function antigravityHooksJson(): {
-  hooks: Record<string, Array<{ hooks: Array<{ type: string; command: string; timeout: number }> }>>;
-};
+/** Builds the exact `runtime/hooks.json` document value (named hooks schema). */
+export declare function antigravityHooksJson(): Record<
+  string,
+  Record<string, Array<{ type: string; command: string; timeout: number }>>
+>;
 
 /** Builds one Antigravity target (bin/ bundles + generated hooks.json). */
 export declare function buildAntigravityTarget(target: AntigravityBuildTarget): Promise<void>;

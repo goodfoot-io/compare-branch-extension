@@ -255,10 +255,11 @@ async function buildOpencodeTarget(target) {
  * (see the card's notes/antigravity-host-contract.md "Cards hook matrix").
  * Like OpenCode, there is no SDK CLI support for this agent, so the target
  * follows the OpenCode direct-esbuild pattern: one self-contained `.mjs` per
- * handler on the Node platform, plus a generated root `hooks.json` carrying
- * exactly the three pinned registrations with bounded timeouts and command
- * paths relative to the hooks.json root (the host resolves hook commands with
- * the hooks.json directory as the working directory).
+ * handler on the Node platform, plus a generated root `hooks.json` in the
+ * host's *named hooks* schema — one hook (`cards-runtime`) mapping the three
+ * pinned events to bounded-timeout command specs whose command paths are
+ * relative to the hooks.json root (the host resolves hook commands with the
+ * hooks.json directory as the working directory).
  *
  * The output base is the shared Antigravity plugin root — `plugin.json` and
  * `skills/` are owned by other payload generators, so the cleaner removes
@@ -278,6 +279,13 @@ const antigravityTargets = [
  * relative to the hooks.json root, bounded explicit timeouts (seconds). There
  * are intentionally no Cards PreToolUse hooks — in this host a PreToolUse
  * response `{}` is a denial, and no allow path is shipped.
+ *
+ * The host's hooks.json schema (pinned CLI v1.1.22, docs
+ * antigravity.google/docs/hooks, disposable-host smoke witness) is *named
+ * hooks*: the top level maps a hook name to an event → command-spec map. The
+ * flat Claude-Code-style `{"hooks": {…}}` wrapper is rejected by the host
+ * (`invalid hook "hooks": command hook must specify 'command'`) and no hook
+ * ever fires.
  */
 const ANTIGRAVITY_HOOK_REGISTRATIONS = [
   { event: 'PreInvocation', handler: 'runtime-pre-invocation.mjs' },
@@ -285,30 +293,30 @@ const ANTIGRAVITY_HOOK_REGISTRATIONS = [
   { event: 'Stop', handler: 'runtime-stop.mjs' }
 ];
 
+/** The hook name the host registers the three runtime event entries under. */
+const ANTIGRAVITY_HOOK_NAME = 'cards-runtime';
+
 /** Bounded explicit timeout (seconds) stamped into every registration. */
 const ANTIGRAVITY_HOOK_TIMEOUT_SECONDS = 30;
 
 /**
  * Builds the exact `runtime/hooks.json` document.
  *
- * @returns The hooks.json value: exactly the three pinned registrations.
+ * @returns The hooks.json value: the named `cards-runtime` hook carrying
+ *   exactly the three pinned registrations.
  */
 function antigravityHooksJson() {
-  const hooks = {};
+  const events = {};
   for (const { event, handler } of ANTIGRAVITY_HOOK_REGISTRATIONS) {
-    hooks[event] = [
+    events[event] = [
       {
-        hooks: [
-          {
-            type: 'command',
-            command: `node bin/${handler}`,
-            timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS
-          }
-        ]
+        type: 'command',
+        command: `node bin/${handler}`,
+        timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS
       }
     ];
   }
-  return { hooks };
+  return { [ANTIGRAVITY_HOOK_NAME]: events };
 }
 
 /**
@@ -420,6 +428,7 @@ export {
   opencodeTargets,
   antigravityTargets,
   ANTIGRAVITY_HOOK_REGISTRATIONS,
+  ANTIGRAVITY_HOOK_NAME,
   ANTIGRAVITY_HOOK_TIMEOUT_SECONDS,
   antigravityHooksJson,
   listEntryFiles,

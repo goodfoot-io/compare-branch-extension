@@ -17,6 +17,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  ANTIGRAVITY_HOOK_NAME,
   ANTIGRAVITY_HOOK_REGISTRATIONS,
   ANTIGRAVITY_HOOK_TIMEOUT_SECONDS,
   antigravityHooksJson
@@ -72,28 +73,14 @@ function brokenActionEnvironment(env: Record<string, string>): Record<string, st
 }
 
 const PINNED_HOOKS_JSON = {
-  hooks: {
+  [ANTIGRAVITY_HOOK_NAME]: {
     PreInvocation: [
-      {
-        hooks: [
-          { type: 'command', command: 'node bin/runtime-pre-invocation.mjs', timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS }
-        ]
-      }
+      { type: 'command', command: 'node bin/runtime-pre-invocation.mjs', timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS }
     ],
     PostInvocation: [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: 'node bin/runtime-post-invocation.mjs',
-            timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS
-          }
-        ]
-      }
+      { type: 'command', command: 'node bin/runtime-post-invocation.mjs', timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS }
     ],
-    Stop: [
-      { hooks: [{ type: 'command', command: 'node bin/runtime-stop.mjs', timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS }] }
-    ]
+    Stop: [{ type: 'command', command: 'node bin/runtime-stop.mjs', timeout: ANTIGRAVITY_HOOK_TIMEOUT_SECONDS }]
   }
 };
 
@@ -122,14 +109,17 @@ describe('compiled Antigravity runtime output', () => {
   });
 
   it('registers exactly the three pinned events with relative bin paths and bounded timeouts', () => {
-    const hooks = JSON.parse(readFileSync(hooksJsonPath, 'utf8')) as {
-      hooks: Record<string, Array<{ hooks: Array<{ type: string; command: string; timeout: number }> }>>;
-    };
-    expect(Object.keys(hooks.hooks).sort()).toEqual(['PostInvocation', 'PreInvocation', 'Stop']);
+    const hooks = JSON.parse(readFileSync(hooksJsonPath, 'utf8')) as Record<
+      string,
+      Record<string, Array<{ type: string; command: string; timeout: number }>>
+    >;
+    expect(Object.keys(hooks)).toEqual([ANTIGRAVITY_HOOK_NAME]);
+    const events = hooks[ANTIGRAVITY_HOOK_NAME] ?? {};
+    expect(Object.keys(events).sort()).toEqual(['PostInvocation', 'PreInvocation', 'Stop']);
     for (const registration of ANTIGRAVITY_HOOK_REGISTRATIONS) {
-      const entries = hooks.hooks[registration.event];
+      const entries = events[registration.event];
       expect(entries).toHaveLength(1);
-      const command = entries?.[0]?.hooks?.[0];
+      const command = entries?.[0];
       expect(command?.type).toBe('command');
       expect(command?.command).toBe(`node bin/${registration.handler}`);
       expect(command?.command.startsWith('node bin/')).toBe(true);

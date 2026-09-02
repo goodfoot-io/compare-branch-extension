@@ -77,7 +77,7 @@ async function run(
 }
 
 describe('PreInvocation success contract', () => {
-  it('returns no message and writes the conversation-scoped ready marker', async () => {
+  it('returns no message and writes the ready marker on the host 0-indexed first invocation', async () => {
     const { result } = await run();
     expect(result?.output).toEqual({});
     expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(true);

@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "cards",
-      "version": "1.0.330",
+      "version": "1.0.331",
       "source": "./claude/cards",
       "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {
@@ -32,7 +32,7 @@
     },
     {
       "name": "runtime",
-      "version": "1.0.443",
+      "version": "1.0.444",
       "source": "./claude/runtime",
       "description": "Plugin for the Cards extension Claude Code runtime",
       "author": {
@@ -42,7 +42,7 @@
     },
     {
       "name": "cards-assistant",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "source": "./claude/cards-assistant",
       "description": "Cards Assistant session-start announcement plugin",
       "author": {

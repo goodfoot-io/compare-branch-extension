@@ -257,7 +257,7 @@ export function makeInvocationInput(
   const { invocationNum, initialNumSteps, ...commonOverrides } = overrides;
   return {
     ...makeCommonInput(root, commonOverrides),
-    invocationNum: invocationNum ?? 1,
+    invocationNum: invocationNum ?? 0,
     initialNumSteps: initialNumSteps ?? 3
   };
 }

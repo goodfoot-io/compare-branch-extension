@@ -92,7 +92,6 @@ describe('parseInvocationInput', () => {
   });
 
   const invalidInvocationCases: Array<[string, unknown, string]> = [
-    ['invocationNum zero', { ...validInvocation, invocationNum: 0 }, 'invocationNum'],
     ['invocationNum negative', { ...validInvocation, invocationNum: -1 }, 'invocationNum'],
     ['invocationNum fractional', { ...validInvocation, invocationNum: 1.5 }, 'invocationNum'],
     ['invocationNum mistyped', { ...validInvocation, invocationNum: '1' }, 'invocationNum'],
@@ -117,6 +116,13 @@ describe('parseInvocationInput', () => {
     expect(parseInvocationInput({ ...validInvocation, initialNumSteps: 0 })).toEqual({
       ...validInvocation,
       initialNumSteps: 0
+    });
+  });
+
+  it('accepts invocationNum zero — the host sends 0 on the first invocation', () => {
+    expect(parseInvocationInput({ ...validInvocation, invocationNum: 0 })).toEqual({
+      ...validInvocation,
+      invocationNum: 0
     });
   });
 });
