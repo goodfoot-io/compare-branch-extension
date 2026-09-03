@@ -238,5 +238,60 @@ describe('CardsStopExitWhenDone (runtime)', () => {
       expect(received).toContainEqual({ type: 'shutdownReady', requestId: 'req-1' });
       expect(readPendingShutdownRequest('ses-root')).toBeUndefined();
     });
+
+    it('acknowledges shutdownReady even when EXIT_WHEN_DONE is false or absent (regression)', async () => {
+      // Bug: the drain-ack was gated behind `actionInput?.exitWhenDone`, so a
+      // plain `Chat`-launched session (which never sets EXIT_WHEN_DONE=true)
+      // could never acknowledge a pending `cards shutdown` request, no matter
+      // how long it sat idle. The drain-ack must be unconditional; only the
+      // separate exit-when-done nudge should depend on that flag.
+      writePendingShutdownRequest('ses-root', { version: 1, requestId: 'req-2', socketPath });
+
+      const { deps } = makeDeps(tempDir, {
+        // No loadActionInput override: defaults to `() => null`, matching a
+        // real Chat-launched session with no action input at all.
+        findMonitorPid: () => process.pid
+      });
+      const plugin = createStopExitWhenDonePlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionIdleEvent('ses-root'));
+
+      const deadline = Date.now() + 2_000;
+      while (received.length === 0 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      expect(received).toContainEqual({ type: 'shutdownReady', requestId: 'req-2' });
+      expect(readPendingShutdownRequest('ses-root')).toBeUndefined();
+      // No exit-when-done nudge should have fired for this non-exit-when-done session.
+      expect(deps.markers.hasExitWhenDoneFired('ses-root')).toBe(false);
+    });
+
+    it('drains a pending request and still returns before the nudge when EXIT_WHEN_DONE is true', async () => {
+      // When both a pending request exists and exitWhenDone is true, the
+      // drain-ack still runs, and the function must not also fire the nudge
+      // on the same idle event (matches the existing early-return-after-
+      // pendingRequest-handling behavior).
+      writePendingShutdownRequest('ses-root', { version: 1, requestId: 'req-3', socketPath });
+
+      const { deps } = makeDeps(tempDir, {
+        loadActionInput: () => actionInput(true),
+        findMonitorPid: () => process.pid
+      });
+      const plugin = createStopExitWhenDonePlugin(deps);
+      const hooks = await plugin(makePluginInput(tempDir, makeClient(logEntries)));
+      await hooks.event?.(sessionCreatedEvent('ses-root'));
+      await hooks.event?.(sessionIdleEvent('ses-root'));
+
+      const deadline = Date.now() + 2_000;
+      while (received.length === 0 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      expect(received).toContainEqual({ type: 'shutdownReady', requestId: 'req-3' });
+      expect(readPendingShutdownRequest('ses-root')).toBeUndefined();
+      expect(deps.markers.hasExitWhenDoneFired('ses-root')).toBe(false);
+    });
   });
 });

@@ -12,14 +12,9 @@
  * @see https://code.claude.com/docs/en/hooks#stop
  */
 
-import {
-  clearPendingShutdownRequest,
-  extractActionInput,
-  readPendingShutdownRequest,
-  sendShutdownReady
-} from '@cards.management/sdk/config';
+import { extractActionInput } from '@cards.management/sdk/config';
 import { stopHook } from '@goodfoot/agent-hooks/claude-code';
-import { isSessionIdle } from '../../shared/session-idle.js';
+import { attemptShutdownDrain } from '../../shared/shutdown-drain.js';
 
 export default stopHook({}, async (input, { logger }) => {
   try {
@@ -31,45 +26,7 @@ export default stopHook({}, async (input, { logger }) => {
     return null;
   }
 
-  let pendingRequest: ReturnType<typeof readPendingShutdownRequest>;
-  try {
-    pendingRequest = readPendingShutdownRequest(input.session_id);
-  } catch (error) {
-    logger.warn('stop-shutdown-drain: failed to read pending shutdown request', {
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return null;
-  }
-
-  if (!pendingRequest) {
-    return null;
-  }
-
-  let idle: boolean;
-  try {
-    idle = await isSessionIdle(input.session_id, { strict: true });
-  } catch (error) {
-    logger.warn('stop-shutdown-drain: strict idle authority failed', {
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return null;
-  }
-
-  if (!idle) {
-    return null;
-  }
-
-  try {
-    await sendShutdownReady(pendingRequest.socketPath, {
-      type: 'shutdownReady',
-      requestId: pendingRequest.requestId
-    });
-    clearPendingShutdownRequest(input.session_id, pendingRequest.requestId);
-  } catch (error) {
-    logger.warn('stop-shutdown-drain: failed to acknowledge shutdown readiness', {
-      error: error instanceof Error ? error.message : String(error)
-    });
-  }
+  await attemptShutdownDrain(input.session_id, logger, 'stop-shutdown-drain');
 
   return null;
 });

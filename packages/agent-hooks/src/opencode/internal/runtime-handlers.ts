@@ -888,25 +888,34 @@ async function isOpencodeSessionStrictlyIdle(sessionId: string, deps: OpencodeHa
 }
 
 /**
- * Creates the exit-when-done nudge plugin.
+ * Creates the combined shutdown-drain-ack and exit-when-done nudge plugin.
  *
- * Fires at most once per idle root session launched with `EXIT_WHEN_DONE=true`
- * and announces the shutdown protocol through the log channels: it instructs
- * the model to run `cards "$CARD_ID" shutdown`, and the action handler —
- * parent of this process — performs the graceful termination in response.
+ * Handles two unrelated concerns that happen to share `session.idle` as their
+ * only per-turn boundary in OpenCode:
  *
- * Once the `cards shutdown` verb has actually run, it durably records a
- * pending shutdown request (`readPendingShutdownRequest`/`sendShutdownReady`
- * in `@cards.management/sdk/config`) that this plugin must acknowledge before
- * `ActionDispatcher` (packages/extension/src/runtime/ActionDispatcher.ts)
- * will forward `agentShutdown` to the launcher. `session.idle` is OpenCode's
- * only per-turn boundary, so it doubles as the check point: on every idle
- * event for a root session with a pending request, the strict, fail-closed
- * authority ({@link isOpencodeSessionStrictlyIdle} — active-subagent count
- * plus owned-process-tree drain proof, rooted at the in-process server PID)
- * decides whether to acknowledge. Mirrors the Codex Stop hook
- * (`../../codex/runtime/stop-exit-when-done.ts`), adapted from a per-turn
- * hook to OpenCode's idle event.
+ * 1. **Drain-ack (unconditional).** Once the `cards shutdown` verb has run,
+ *    it durably records a pending shutdown request
+ *    (`readPendingShutdownRequest`/`sendShutdownReady` in
+ *    `@cards.management/sdk/config`) that this plugin must acknowledge before
+ *    `ActionDispatcher` (packages/extension/src/runtime/ActionDispatcher.ts)
+ *    will forward `agentShutdown` to the launcher. On every idle event for a
+ *    root session with a pending request, the strict, fail-closed authority
+ *    ({@link isOpencodeSessionStrictlyIdle} — active-subagent count plus
+ *    owned-process-tree drain proof, rooted at the in-process server PID)
+ *    decides whether to acknowledge. This runs regardless of how the session
+ *    was launched — including a plain interactive `Chat` action, which never
+ *    sets `EXIT_WHEN_DONE=true` — mirroring how the Claude drain-ack
+ *    (`../../shared/shutdown-drain.ts`) is independent of any "exit when
+ *    done" nudge feature.
+ * 2. **Exit-when-done nudge (gated).** Fires at most once per idle root
+ *    session launched with `EXIT_WHEN_DONE=true` and announces the shutdown
+ *    protocol through the log channels: it instructs the model to run
+ *    `cards "$CARD_ID" shutdown`, and the action handler — parent of this
+ *    process — performs the graceful termination in response. This half only
+ *    runs when no pending request was already handled above, and only for
+ *    sessions with `exitWhenDone` set. Mirrors the Codex Stop hook
+ *    (`../../codex/runtime/stop-exit-when-done.ts`), adapted from a per-turn
+ *    hook to OpenCode's idle event.
  *
  * @param deps - Injectable edges; defaults wire the real SDK.
  * @returns An OpenCode plugin registering `event`/`session.idle` handling.
@@ -931,11 +940,6 @@ export function createStopExitWhenDonePlugin(deps: OpencodeHandlerDeps = default
           // Resumed sessions never re-emit `created`; their first idle classifies.
           registry.noteObserved(sessionId);
           if (!registry.isRoot(sessionId)) {
-            return;
-          }
-
-          const actionInput = deps.loadActionInput();
-          if (!actionInput?.exitWhenDone) {
             return;
           }
 
@@ -976,6 +980,11 @@ export function createStopExitWhenDonePlugin(deps: OpencodeHandlerDeps = default
                 error: error instanceof Error ? error.message : String(error)
               });
             }
+            return;
+          }
+
+          const actionInput = deps.loadActionInput();
+          if (!actionInput?.exitWhenDone) {
             return;
           }
 
