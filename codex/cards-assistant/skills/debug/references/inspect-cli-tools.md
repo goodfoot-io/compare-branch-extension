@@ -27,7 +27,7 @@ All shipped as `{ext}/dist/bin/{name}` (POSIX shell shim), `{name}.cmd` (Windows
 
 **Purpose**: read, create, list, search, attach, watch, and execute actions on cards.
 
-**Subcommands**: `<card-id>` (get), `create`, `list`, `search`, `bind`, `watch`, `action`.
+**Subcommands**: `<card-id>` (get), `create`, `list`, `search`, `attach`, `watch`, `action`.
 
 **Auth**: Bearer token from `~/.cards/cards-api.json`.
 
