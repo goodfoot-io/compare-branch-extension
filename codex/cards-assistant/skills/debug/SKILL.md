@@ -404,7 +404,7 @@ for plugin in cards runtime; do
 done
 ```
 
-- If `agy` is absent or `agy --version` does not report exactly `1.1.22`, setup is blocked. Request the compatible pinned binary through the approved release channel and confirm the exact version on `PATH`; do not substitute an unpinned installer or a newer binary. Version drift is a compatibility failure, not an authentication failure.
+- If `agy` is absent, setup is blocked. Install the Antigravity CLI from the approved release channel (antigravity.google) so `agy` resolves on `PATH`; Cards does not pin or enforce a specific `agy` version.
 - If setup reports **Unmanaged installation**, do not run a Cards repair or remove operation: resolve the foreign `cards` or `runtime` tree manually. If it reports **Disabled**, **Update required**, or **Invalid installation**, use the setup wizard's **Repair** action; that action is offered only after durable Cards ownership is proved.
 - To recover authentication, run `agy` interactively and complete its sign-in flow. Then reproduce Cards' bounded read-only probe with `agy -p 'Reply with exactly: PONG' --output-format json --print-timeout 20s`; success must be exact JSON whose response is `PONG`. Do not inspect or copy credential files.
 - For hook or transcript failures, confirm `$HOME/.gemini/config/plugins/runtime/hooks.json` exists, then inspect `$CARD_REPO_PATH/streams/antigravity-session/*.jsonl` and the session/log references below. Do not copy generated payload files into the live Antigravity home; use **Repair** when ownership is proved.
