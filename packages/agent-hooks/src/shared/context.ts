@@ -12,9 +12,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActionInput } from '@cards.management/sdk/config';
 import { CARDS_ENV_VARS } from '@cards.management/sdk/config';
-import { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
+import { buildCardRepoLogBlock, buildDependsOnBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
 
-export { buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
+export { buildCardRepoLogBlock, buildDependsOnBlock, buildWorkspaceRepoLogBlocks } from '@cards.management/sdk/context';
 
 /**
  * Error thrown when the card repository cannot be read.
@@ -111,9 +111,11 @@ export function buildAdditionalContext(actionInput: ActionInput): string {
   const envBlock = buildEnvBlock(actionInput);
   const logBlock = buildCardRepoLogBlock(actionInput.cardRepoPath);
   const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.repoRoot, actionInput.cardRepoPath);
+  const dependsOnBlock = buildDependsOnBlock(actionInput.cardRepoPath);
 
   const parts = [envBlock];
   if (logBlock) parts.push(logBlock);
   parts.push(...workspaceLogBlocks);
+  if (dependsOnBlock) parts.push(dependsOnBlock);
   return parts.join('\n\n');
 }

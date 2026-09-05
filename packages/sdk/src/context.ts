@@ -12,9 +12,10 @@
 
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from './client/index.js';
 import { CARDS_ENV_VARS } from './config/index.js';
+import type { CardMetadata } from './protocol/index.js';
 import { BRANCHES_DIR, COMMITS_DIR } from './protocol/index.js';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -336,4 +337,60 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
   }
 
   return blocks;
+}
+
+// ============================================================================
+// Depends-on prerequisites block
+// ============================================================================
+
+/**
+ * Builds the `<depends-on>` block listing this card's outgoing `depends_on`
+ * prerequisites, so a launched agent reads each one's description, plan, and
+ * commits before starting.
+ *
+ * Sibling card repositories live as sibling directories of `cardRepoPath`
+ * under the same parent, named exactly by card ID. A prerequisite whose
+ * sibling directory or `CARD.meta.json` is missing (e.g. deleted after the
+ * relation was written) is skipped rather than throwing, since this runs at
+ * session start and must not block the agent.
+ *
+ * @param cardRepoPath - Root directory of the current card's repository.
+ * @returns The `<depends-on>...</depends-on>` block string, or `undefined` when
+ *   the card has no `depends_on` relations or none of their sibling repos are readable.
+ */
+export function buildDependsOnBlock(cardRepoPath: string): string | undefined {
+  let meta: CardMetadata;
+  try {
+    meta = JSON.parse(readFileSync(join(cardRepoPath, 'CARD.meta.json'), 'utf-8')) as CardMetadata;
+  } catch {
+    return undefined;
+  }
+
+  const prerequisiteIds = (meta.relations ?? [])
+    .filter((relation) => relation.type === 'depends_on')
+    .map((relation) => relation.cardId);
+  if (prerequisiteIds.length === 0) return undefined;
+
+  const cardsRoot = dirname(cardRepoPath);
+  const entries: string[] = [];
+  for (const prerequisiteId of prerequisiteIds) {
+    const prerequisitePath = join(cardsRoot, prerequisiteId);
+    let prerequisiteMeta: CardMetadata;
+    try {
+      prerequisiteMeta = JSON.parse(readFileSync(join(prerequisitePath, 'CARD.meta.json'), 'utf-8')) as CardMetadata;
+    } catch {
+      continue;
+    }
+    entries.push(
+      `- ${prerequisiteId} (${prerequisiteMeta.status}): ${prerequisiteMeta.title}\n  Path: ${prerequisitePath}`
+    );
+  }
+  if (entries.length === 0) return undefined;
+
+  const body = [
+    "This card depends on the following prerequisite cards. Read each one's description, plan, and commits before starting — this card's work is expected to build on theirs.",
+    '',
+    ...entries
+  ].join('\n');
+  return `<depends-on>\n${body}\n</depends-on>`;
 }

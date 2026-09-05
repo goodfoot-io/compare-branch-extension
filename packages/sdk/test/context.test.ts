@@ -14,7 +14,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { TestGitWorkspace } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildWorkspaceRepoLogBlocks } from '../src/context.js';
+import { buildDependsOnBlock, buildWorkspaceRepoLogBlocks } from '../src/context.js';
 import { BRANCHES_DIR, COMMITS_DIR } from '../src/protocol/index.js';
 
 describe('buildWorkspaceRepoLogBlocks per-file tolerance', () => {
@@ -107,5 +107,85 @@ describe('buildWorkspaceRepoLogBlocks per-file tolerance', () => {
       expect.stringContaining('corrupt-b.json'),
       expect.any(String)
     );
+  });
+});
+
+describe('buildDependsOnBlock', () => {
+  let tmpDir = '';
+  let cardsRoot = '';
+
+  beforeEach(async () => {
+    tmpDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'context-depends-on-test-')));
+    cardsRoot = path.join(tmpDir, 'cards-repos');
+    await fs.mkdir(cardsRoot, { recursive: true });
+  });
+
+  afterEach(async () => {
+    if (tmpDir) {
+      await fs.rm(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      tmpDir = '';
+    }
+  });
+
+  /**
+   * Writes a CARD.meta.json for a card under `cardsRoot`.
+   *
+   * @param cardId - The card's ID, also used as its sibling directory name.
+   * @param overrides - Fields to merge into the default metadata.
+   * @returns The absolute path to the card's directory.
+   */
+  async function writeCardMeta(cardId: string, overrides: Record<string, unknown> = {}): Promise<string> {
+    const cardPath = path.join(cardsRoot, cardId);
+    await fs.mkdir(cardPath, { recursive: true });
+    await fs.writeFile(
+      path.join(cardPath, 'CARD.meta.json'),
+      JSON.stringify({
+        id: cardId,
+        title: `Title for ${cardId}`,
+        status: 'active',
+        tags: [],
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isPinned: false,
+        order: 0,
+        repositoryId: 'main',
+        environment: 'default',
+        parentBranch: 'main',
+        ...overrides
+      })
+    );
+    return cardPath;
+  }
+
+  it('returns undefined when the card has no depends_on relations', async () => {
+    const cardPath = await writeCardMeta('main-1', { relations: [{ type: 'related', cardId: 'main-2' }] });
+    expect(buildDependsOnBlock(cardPath)).toBeUndefined();
+  });
+
+  it('returns undefined when the card has no relations at all', async () => {
+    const cardPath = await writeCardMeta('main-1');
+    expect(buildDependsOnBlock(cardPath)).toBeUndefined();
+  });
+
+  it('lists a prerequisite by id, title, status, and path', async () => {
+    const prerequisitePath = await writeCardMeta('main-2', { title: 'Prerequisite card', status: 'in_progress' });
+    const cardPath = await writeCardMeta('main-1', { relations: [{ type: 'depends_on', cardId: 'main-2' }] });
+
+    const block = buildDependsOnBlock(cardPath);
+
+    expect(block).toBeDefined();
+    expect(block).toContain('<depends-on>');
+    expect(block).toContain('main-2');
+    expect(block).toContain('Prerequisite card');
+    expect(block).toContain('in_progress');
+    expect(block).toContain(prerequisitePath);
+  });
+
+  it('skips a prerequisite whose sibling directory is missing, without throwing', async () => {
+    const cardPath = await writeCardMeta('main-1', {
+      relations: [{ type: 'depends_on', cardId: 'main-does-not-exist' }]
+    });
+
+    expect(() => buildDependsOnBlock(cardPath)).not.toThrow();
+    expect(buildDependsOnBlock(cardPath)).toBeUndefined();
   });
 });
