@@ -13,7 +13,7 @@
  */
 
 import type { CardListSummary } from './cardSummary.js';
-import type { CardRelation } from './protocol/index.js';
+import type { CardRelation, CardRelationType } from './protocol/index.js';
 
 /**
  * Derived tag names that can be searched with `#tag` syntax.
@@ -131,6 +131,8 @@ export function getDerivedTags(card: CardListSummary): DerivedTag[] {
 export interface RelationPseudotag {
   /** The target card ID (e.g., "main-5"). */
   cardId: string;
+  /** The relation's type. */
+  type: CardRelationType;
   /** Whether this card has an outgoing relation to the target. */
   outgoing: boolean;
   /** Whether the target has an incoming relation to this card. */
@@ -140,8 +142,10 @@ export interface RelationPseudotag {
 /**
  * Compute relation pseudotags from outgoing and incoming relations.
  *
- * Deduplicates by cardId — if the same card appears in both directions,
- * one pseudotag is produced with both flags set.
+ * Deduplicates by (type, cardId) — if the same card appears in both
+ * directions under the same relation type, one pseudotag is produced with
+ * both flags set. A `related` and a `depends_on` relation to the same card
+ * produce two separate pseudotags.
  *
  * @param outgoing - Outgoing relations from the current card.
  * @param incoming - Incoming relations targeting the current card.
@@ -151,19 +155,21 @@ export interface RelationPseudotag {
 export function getRelationPseudotags(outgoing: CardRelation[], incoming: CardRelation[]): RelationPseudotag[] {
   const map = new Map<string, RelationPseudotag>();
   for (const r of outgoing) {
-    const existing = map.get(r.cardId);
+    const key = `${r.type}:${r.cardId}`;
+    const existing = map.get(key);
     if (existing) {
       existing.outgoing = true;
     } else {
-      map.set(r.cardId, { cardId: r.cardId, outgoing: true, incoming: false });
+      map.set(key, { cardId: r.cardId, type: r.type, outgoing: true, incoming: false });
     }
   }
   for (const r of incoming) {
-    const existing = map.get(r.cardId);
+    const key = `${r.type}:${r.cardId}`;
+    const existing = map.get(key);
     if (existing) {
       existing.incoming = true;
     } else {
-      map.set(r.cardId, { cardId: r.cardId, outgoing: false, incoming: true });
+      map.set(key, { cardId: r.cardId, type: r.type, outgoing: false, incoming: true });
     }
   }
   return Array.from(map.values());
