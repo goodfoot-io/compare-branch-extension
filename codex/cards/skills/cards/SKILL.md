@@ -90,7 +90,7 @@ cd "$REPO" && git add CARD.md && git commit -m "Added description [single senten
 
 4. Load the `$cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
 
-Include `relations` when the new card relates to an existing one. Each entry has a `type` (only `"related"` is valid) and a `cardId`. The CLI sets relations only at creation; edit `CARD.meta.json` afterward.
+Include `relations` when the new card relates to an existing one. Each entry has a `type` (`"related"` for a symmetric, informational link, or `"depends_on"` for a directional prerequisite link — enforced to target an existing card and to never close a cycle) and a `cardId`. The CLI sets relations only at creation; edit `CARD.meta.json` afterward.
 
 ```
 cards create <<'EOF'

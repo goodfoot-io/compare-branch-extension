@@ -63,7 +63,7 @@ The `commits/` and `branches/` directories are automatically updated by Cards in
 }
 ```
 
-`relations` is optional — omitted when the card has no outgoing relations. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card.
+`relations` is optional — omitted when the card has no outgoing relations. Each entry has a `type` (`"related"` for a symmetric, informational link, or `"depends_on"` for a directional prerequisite link — enforced to target an existing card and to never close a cycle) and a `cardId` referencing the target card.
 
 ### Gates
 
