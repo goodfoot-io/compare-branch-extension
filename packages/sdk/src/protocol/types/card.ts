@@ -113,15 +113,16 @@ export const DEFAULT_CARD_GATES: CardGates = {
  * The type of relationship between two cards.
  *
  * - `related`: this card is related to the target (informational)
+ * - `depends_on`: this card's work relies on the target's work (informational, directional)
  */
-export type CardRelationType = 'related';
+export type CardRelationType = 'related' | 'depends_on';
 
 /**
  * All valid {@link CardRelationType} values as a readonly tuple.
  *
  * Use this for validation and exhaustiveness checks.
  */
-export const CARD_RELATION_TYPES = ['related'] as const satisfies readonly CardRelationType[];
+export const CARD_RELATION_TYPES = ['related', 'depends_on'] as const satisfies readonly CardRelationType[];
 
 /**
  * A directed relationship from one card to another.
