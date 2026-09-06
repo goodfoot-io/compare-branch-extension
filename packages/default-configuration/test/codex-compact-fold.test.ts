@@ -13,7 +13,6 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  buildCodexCompactState,
   buildFoldedState,
   type FoldedState,
   reconcileFolded
@@ -203,7 +202,7 @@ describe('reconcileFolded — incremental equivalence', () => {
     folded = reconcileFolded(folded, [...batch1, ...batch2], true);
     folded = reconcileFolded(folded, all, true);
 
-    expect(folded.state).toEqual(buildCodexCompactState(all, true));
+    expect(folded.state).toEqual(buildFoldedState(all, true).state);
     expect(folded.lineCount).toBe(all.length);
   });
 });
@@ -228,7 +227,7 @@ describe('reconcileFolded — cross-batch state carried forward', () => {
     const resolved = reconcileFolded(folded, all, false);
     expect(resolved.state.hasErrors).toBe(true);
     expect(resolved.state.tail.find((e) => e.callId === 'shell-010')?.severity).toBe('error');
-    expect(resolved.state).toEqual(buildCodexCompactState(all, false));
+    expect(resolved.state).toEqual(buildFoldedState(all, false).state);
   });
 
   it('escalates tail severity when an errored patch_apply_end arrives before its tool call', () => {
@@ -239,7 +238,7 @@ describe('reconcileFolded — cross-batch state carried forward', () => {
     const reconciled = reconcileFolded(folded, all, false);
     expect(reconciled.state.hasErrors).toBe(true);
     expect(reconciled.state.tail.find((e) => e.callId === 'patch-011')?.severity).toBe('error');
-    expect(reconciled.state).toEqual(buildCodexCompactState(all, false));
+    expect(reconciled.state).toEqual(buildFoldedState(all, false).state);
   });
 
   it('suppresses an event_msg mirror that arrives in a later batch than its response_item', () => {

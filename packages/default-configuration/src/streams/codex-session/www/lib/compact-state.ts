@@ -375,25 +375,6 @@ function snapshot(fold: CodexFoldState, isActive: boolean): CodexCompactState {
 }
 
 /**
- * Rebuilds {@link CodexCompactState} from the full rollout line array.
- *
- * Pure with respect to `lines`: counts, headline, token totals, duration, and
- * the bounded tail are all recomputed from scratch, so passing a shorter
- * replacement array after a reset yields fresh state with no stale carryover.
- *
- * @param lines - The authoritative accumulated rollout JSONL lines.
- * @param isActive - Whether the underlying stream is still live.
- * @returns The bounded compact-view state.
- */
-export function buildCodexCompactState(lines: string[], isActive: boolean): CodexCompactState {
-  const fold = makeFold();
-  for (const raw of lines) {
-    processLine(fold, raw);
-  }
-  return snapshot(fold, isActive);
-}
-
-/**
  * Folds `lines` from scratch into a {@link FoldedState} ready for
  * {@link reconcileFolded}. This is the view's boot value.
  *

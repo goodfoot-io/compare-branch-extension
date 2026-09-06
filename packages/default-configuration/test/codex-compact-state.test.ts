@@ -1,16 +1,16 @@
 /**
  * Tests for the Codex compact-state builder.
  *
- * `buildCodexCompactState` is a pure function that folds an array of raw
- * rollout JSONL lines into the bounded state the compact timeline view
- * displays. Because it is pure (no watermark), passing a different array
- * always produces fresh state with no stale carryover.
+ * `buildFoldedState` folds an array of raw rollout JSONL lines from scratch
+ * into the bounded state the compact timeline view displays. Because each
+ * call folds from an empty accumulator, passing a different array always
+ * produces fresh state with no stale carryover.
  *
  * @summary Unit tests for the Codex compact-state builder
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildCodexCompactState } from '../src/streams/codex-session/www/lib/compact-state.js';
+import { buildFoldedState } from '../src/streams/codex-session/www/lib/compact-state.js';
 
 // ============================================================================
 // Fixture helpers — real tag-137 rollout envelope shapes
@@ -185,9 +185,9 @@ function patchApplyEndLine(callId: string, success: boolean, timestamp = '2026-0
 // Tests
 // ============================================================================
 
-describe('buildCodexCompactState — empty and zero state', () => {
+describe('buildFoldedState — empty and zero state', () => {
   it('returns sensible zero state for an empty stream', () => {
-    const state = buildCodexCompactState([], false);
+    const state = buildFoldedState([], false).state;
     expect(state.isActive).toBe(false);
     expect(state.headlineText).toBe('');
     expect(state.turnCount).toBe(0);
@@ -199,25 +199,25 @@ describe('buildCodexCompactState — empty and zero state', () => {
   });
 
   it('reflects isActive=true when stream is live', () => {
-    const state = buildCodexCompactState([], true);
+    const state = buildFoldedState([], true).state;
     expect(state.isActive).toBe(true);
   });
 });
 
-describe('buildCodexCompactState — model from turn_context', () => {
+describe('buildFoldedState — model from turn_context', () => {
   it('populates model from the first turn_context (SessionMeta carries no model)', () => {
     // Protocol truth: the model lives on TurnContextItem.model, not SessionMeta.
     const lines = [
       sessionMetaLine(),
       envelope('turn_context', { turn_id: 'turn-1', model: 'gpt-4o-mini', cwd: '/home/user/project' })
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.model).toBe('gpt-4o-mini');
     expect(state.turnCount).toBe(1);
   });
 
   it('leaves model undefined when no turn_context is present', () => {
-    const state = buildCodexCompactState([sessionMetaLine()], false);
+    const state = buildFoldedState([sessionMetaLine()], false).state;
     expect(state.model).toBeUndefined();
     expect(state.turnCount).toBe(0);
   });
@@ -228,28 +228,28 @@ describe('buildCodexCompactState — model from turn_context', () => {
       type: 'session_meta',
       payload: {}
     });
-    expect(() => buildCodexCompactState([raw], false)).not.toThrow();
+    expect(() => buildFoldedState([raw], false)).not.toThrow();
   });
 });
 
-describe('buildCodexCompactState — incremental append', () => {
+describe('buildFoldedState — incremental append', () => {
   it('each call with a longer array produces updated counts', () => {
     const line1 = sessionMetaLine();
     const line2 = turnContextLine();
     const line3 = functionCallLine('read_file', 'call-001');
 
-    const state1 = buildCodexCompactState([line1], false);
+    const state1 = buildFoldedState([line1], false).state;
     expect(state1.toolCallCount).toBe(0);
 
-    const state2 = buildCodexCompactState([line1, line2], false);
+    const state2 = buildFoldedState([line1, line2], false).state;
     expect(state2.turnCount).toBeGreaterThanOrEqual(0);
 
-    const state3 = buildCodexCompactState([line1, line2, line3], false);
+    const state3 = buildFoldedState([line1, line2, line3], false).state;
     expect(state3.toolCallCount).toBe(1);
   });
 });
 
-describe('buildCodexCompactState — shrink/reset full rebuild', () => {
+describe('buildFoldedState — shrink/reset full rebuild', () => {
   it('full rebuild from replacement lines produces no stale carryover', () => {
     const many = [
       sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),
@@ -257,40 +257,40 @@ describe('buildCodexCompactState — shrink/reset full rebuild', () => {
       functionCallLine('tool_b', 'call-002', '2026-06-04T10:02:00.000Z'),
       functionCallLine('tool_c', 'call-003', '2026-06-04T10:03:00.000Z')
     ];
-    const big = buildCodexCompactState(many, false);
+    const big = buildFoldedState(many, false).state;
     expect(big.toolCallCount).toBe(3);
 
     // Replace with a single-line stream (simulating a reset)
     const small = [sessionMetaLine({ timestamp: '2026-06-04T11:00:00.000Z' })];
-    const rebuilt = buildCodexCompactState(small, false);
+    const rebuilt = buildFoldedState(small, false).state;
     expect(rebuilt.toolCallCount).toBe(0); // no stale tool calls from prior call
   });
 });
 
-describe('buildCodexCompactState — tool call counting', () => {
+describe('buildFoldedState — tool call counting', () => {
   it('tallies function_call items', () => {
     const lines = [functionCallLine('read_file', 'call-001'), functionCallLine('write_file', 'call-002')];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.toolCallCount).toBe(2);
   });
 
   it('tallies local_shell_call items', () => {
     const lines = [localShellCallLine('shell-001'), localShellCallLine('shell-002')];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.toolCallCount).toBe(2);
   });
 
   it('tallies both function_call and local_shell_call together', () => {
     const lines = [functionCallLine('read_file', 'call-001'), localShellCallLine('shell-001')];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.toolCallCount).toBe(2);
   });
 });
 
-describe('buildCodexCompactState — token accumulation', () => {
+describe('buildFoldedState — token accumulation', () => {
   it('accumulates token counts from event_msg token_count events', () => {
     const lines = [tokenCountLine(500, 200)];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.tokenCount).toBeDefined();
     expect(state.tokenCount?.input).toBe(500);
     expect(state.tokenCount?.output).toBe(200);
@@ -301,7 +301,7 @@ describe('buildCodexCompactState — token accumulation', () => {
       tokenCountLine(100, 50, '2026-06-04T10:01:00.000Z'),
       tokenCountLine(800, 300, '2026-06-04T10:05:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     // Latest total_token_usage wins (or they accumulate — either is acceptable
     // as long as the value reflects the final count, not zero)
     expect(state.tokenCount).toBeDefined();
@@ -310,24 +310,24 @@ describe('buildCodexCompactState — token accumulation', () => {
 
   it('leaves tokenCount undefined when no token events are present', () => {
     const lines = [sessionMetaLine()];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.tokenCount).toBeUndefined();
   });
 });
 
-describe('buildCodexCompactState — headline selection', () => {
+describe('buildFoldedState — headline selection', () => {
   it('returns the latest assistant message text as headline', () => {
     const lines = [
       responseMsgLine('assistant', 'First response.', '2026-06-04T10:01:00.000Z'),
       responseMsgLine('assistant', 'Latest response wins.', '2026-06-04T10:02:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.headlineText).toBe('Latest response wins.');
   });
 
   it('falls back to latest tool name when no assistant message is present', () => {
     const lines = [functionCallLine('read_file', 'call-001')];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     // headline should mention the tool name or be non-empty
     expect(state.headlineText.length).toBeGreaterThan(0);
   });
@@ -335,19 +335,19 @@ describe('buildCodexCompactState — headline selection', () => {
   it('returns empty string when stream has no displayable content', () => {
     // Only a session_meta with no messages or tools
     const lines = [sessionMetaLine()];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     // Acceptable outcomes: empty string or the model name — but not undefined/null
     expect(typeof state.headlineText).toBe('string');
   });
 
   it('uses agent_message event as headline when no response_item message is present', () => {
     const lines = [agentMsgLine('Task completed successfully.')];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.headlineText).toBe('Task completed successfully.');
   });
 });
 
-describe('buildCodexCompactState — tail bounded ≤5, newest last', () => {
+describe('buildFoldedState — tail bounded ≤5, newest last', () => {
   it('tail contains at most 5 items', () => {
     const lines = [
       functionCallLine('tool_1', 'c1', '2026-06-04T10:01:00.000Z'),
@@ -358,7 +358,7 @@ describe('buildCodexCompactState — tail bounded ≤5, newest last', () => {
       functionCallLine('tool_6', 'c6', '2026-06-04T10:06:00.000Z'),
       functionCallLine('tool_7', 'c7', '2026-06-04T10:07:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.tail.length).toBeLessThanOrEqual(5);
   });
 
@@ -367,7 +367,7 @@ describe('buildCodexCompactState — tail bounded ≤5, newest last', () => {
       responseMsgLine('assistant', 'First message.', '2026-06-04T10:01:00.000Z'),
       responseMsgLine('assistant', 'Last message.', '2026-06-04T10:09:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     if (state.tail.length >= 2) {
       // The last item in tail should correspond to the most recent line
       const lastTailText = state.tail[state.tail.length - 1]!.text;
@@ -381,7 +381,7 @@ describe('buildCodexCompactState — tail bounded ≤5, newest last', () => {
       responseMsgLine('assistant', 'Agent reply.'),
       functionCallLine('read_file', 'call-001')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     for (const item of state.tail) {
       expect(['message', 'tool', 'event']).toContain(item.kind);
       expect(typeof item.text).toBe('string');
@@ -389,20 +389,20 @@ describe('buildCodexCompactState — tail bounded ≤5, newest last', () => {
   });
 });
 
-describe('buildCodexCompactState — durationMs from timestamps', () => {
+describe('buildFoldedState — durationMs from timestamps', () => {
   it('computes durationMs from first and last line timestamps', () => {
     const lines = [
       sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),
       responseMsgLine('assistant', 'Done.', '2026-06-04T10:05:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     // 5 minutes = 300_000 ms
     expect(state.durationMs).toBe(300_000);
   });
 
   it('returns undefined durationMs for a single-line stream', () => {
     const lines = [sessionMetaLine()];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     // With only one timestamp, duration is either 0 or undefined
     if (state.durationMs !== undefined) {
       expect(state.durationMs).toBe(0);
@@ -415,7 +415,7 @@ describe('buildCodexCompactState — durationMs from timestamps', () => {
 // task_complete.duration_ms (which is per-turn, not per-session).
 // ============================================================================
 
-describe('buildCodexCompactState — durationMs is always from first/last timestamps', () => {
+describe('buildFoldedState — durationMs is always from first/last timestamps', () => {
   it('uses the timestamp span across two turns, not the last turn task_complete.duration_ms', () => {
     // Two turns each emit a task_complete with a small per-turn duration_ms (50 ms).
     // The timestamps span 10 minutes (600_000 ms).
@@ -427,7 +427,7 @@ describe('buildCodexCompactState — durationMs is always from first/last timest
       envelope('turn_context', { turn_id: 'turn-2', model: 'gpt-4o' }, '2026-06-04T10:06:00.000Z'),
       envelope('event_msg', { type: 'task_complete', turn_id: 'turn-2', duration_ms: 50 }, '2026-06-04T10:10:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     // Timestamp span: 10:00 → 10:10 = 600_000 ms
     expect(state.durationMs).toBe(600_000);
     // Confirm it is NOT the per-turn value
@@ -441,7 +441,7 @@ describe('buildCodexCompactState — durationMs is always from first/last timest
       sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),
       envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1', duration_ms: 1234 }, '2026-06-04T10:05:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.durationMs).toBe(300_000);
     expect(state.durationMs).not.toBe(1234);
   });
@@ -451,7 +451,7 @@ describe('buildCodexCompactState — durationMs is always from first/last timest
 // Deduplication — same-turn event_msg suppressed; cross-turn preserved
 // ============================================================================
 
-describe('buildCodexCompactState — same-turn dedup: event_msg mirrors response_item', () => {
+describe('buildFoldedState — same-turn dedup: event_msg mirrors response_item', () => {
   it('omits a mirrored assistant event_msg from the tail so the message appears exactly once', () => {
     const lines = [
       sessionMetaLine(),
@@ -459,7 +459,7 @@ describe('buildCodexCompactState — same-turn dedup: event_msg mirrors response
       responseMsgLine('assistant', 'Hi! Done.'),
       agentMsgLine('Hi! Done.')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const messageTail = state.tail.filter((e) => e.kind === 'message');
     expect(messageTail).toHaveLength(1);
     expect(messageTail[0]?.text).toBe('Hi! Done.');
@@ -472,7 +472,7 @@ describe('buildCodexCompactState — same-turn dedup: event_msg mirrors response
       responseMsgLine('assistant', 'Task complete.'),
       agentMsgLine('Task complete.')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.headlineText).toBe('Task complete.');
     // Verify the tail has only one message entry
     expect(state.tail.filter((e) => e.kind === 'message')).toHaveLength(1);
@@ -485,14 +485,14 @@ describe('buildCodexCompactState — same-turn dedup: event_msg mirrors response
       responseMsgLine('user', 'Hello there'),
       userEventMsgLine('Hello there')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const messageTail = state.tail.filter((e) => e.kind === 'message');
     expect(messageTail).toHaveLength(1);
     expect(messageTail[0]?.text).toBe('Hello there');
   });
 });
 
-describe('buildCodexCompactState — same-turn dedup: event_msg BEFORE response_item (real Codex order)', () => {
+describe('buildFoldedState — same-turn dedup: event_msg BEFORE response_item (real Codex order)', () => {
   it('omits a mirrored assistant response_item from the tail when event_msg arrives first', () => {
     // Real Codex persistence order: turn_context → event_msg (agent_message) → response_item (assistant message)
     const lines = [
@@ -501,7 +501,7 @@ describe('buildCodexCompactState — same-turn dedup: event_msg BEFORE response_
       agentMsgLine('Hi! Done.'),
       responseMsgLine('assistant', 'Hi! Done.')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const messageTail = state.tail.filter((e) => e.kind === 'message');
     expect(messageTail).toHaveLength(1);
     expect(messageTail[0]?.text).toBe('Hi! Done.');
@@ -514,7 +514,7 @@ describe('buildCodexCompactState — same-turn dedup: event_msg BEFORE response_
       agentMsgLine('Task complete.'),
       responseMsgLine('assistant', 'Task complete.')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.headlineText).toBe('Task complete.');
     expect(state.tail.filter((e) => e.kind === 'message')).toHaveLength(1);
   });
@@ -527,14 +527,14 @@ describe('buildCodexCompactState — same-turn dedup: event_msg BEFORE response_
       userEventMsgLine('Hello there'),
       responseMsgLine('user', 'Hello there')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const messageTail = state.tail.filter((e) => e.kind === 'message');
     expect(messageTail).toHaveLength(1);
     expect(messageTail[0]?.text).toBe('Hello there');
   });
 });
 
-describe('buildCodexCompactState — cross-turn identical text is not suppressed', () => {
+describe('buildFoldedState — cross-turn identical text is not suppressed', () => {
   it('keeps per-turn-deduped count across two turns with the same text', () => {
     // Each turn: response_item "Done." + event_msg "Done." → 1 tail entry (deduped)
     // Two turns → 2 tail entries total
@@ -547,7 +547,7 @@ describe('buildCodexCompactState — cross-turn identical text is not suppressed
       responseMsgLine('assistant', 'Done.', '2026-06-04T10:05:00.000Z'),
       agentMsgLine('Done.', '2026-06-04T10:06:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const messageTail = state.tail.filter((e) => e.kind === 'message');
     expect(messageTail).toHaveLength(2);
     expect(state.turnCount).toBe(2);
@@ -558,10 +558,10 @@ describe('buildCodexCompactState — cross-turn identical text is not suppressed
 // Error detection — patch_apply_end failure and shell exit codes
 // ============================================================================
 
-describe('buildCodexCompactState — error detection', () => {
+describe('buildFoldedState — error detection', () => {
   it('hasErrors defaults to false when no errors are present', () => {
     const lines = [sessionMetaLine()];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(false);
   });
 
@@ -571,7 +571,7 @@ describe('buildCodexCompactState — error detection', () => {
       functionCallLine('apply_patch', 'patch-001', '2026-06-04T10:00:00.000Z'),
       patchApplyEndLine('patch-001', false, '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
   });
 
@@ -581,7 +581,7 @@ describe('buildCodexCompactState — error detection', () => {
       functionCallLine('apply_patch', 'patch-001', '2026-06-04T10:00:00.000Z'),
       patchApplyEndLine('patch-001', true, '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(false);
   });
 
@@ -591,7 +591,7 @@ describe('buildCodexCompactState — error detection', () => {
       shellFunctionCallLine('shell-001', '2026-06-04T10:00:00.000Z'),
       functionCallOutputLine('shell-001', 'Exit code: 1', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
   });
 
@@ -601,7 +601,7 @@ describe('buildCodexCompactState — error detection', () => {
       localShellCallLine('shell-002', '2026-06-04T10:00:00.000Z'),
       functionCallOutputLine('shell-002', 'Process exited with code: 2', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
   });
 
@@ -611,7 +611,7 @@ describe('buildCodexCompactState — error detection', () => {
       shellFunctionCallLine('shell-003', '2026-06-04T10:00:00.000Z'),
       functionCallOutputLine('shell-003', 'Exit code: 0', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(false);
   });
 
@@ -621,7 +621,7 @@ describe('buildCodexCompactState — error detection', () => {
       shellFunctionCallLine('shell-004', '2026-06-04T10:00:00.000Z'),
       functionCallOutputLine('shell-004', 'Some stdout output', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(false);
   });
 
@@ -631,7 +631,7 @@ describe('buildCodexCompactState — error detection', () => {
       functionCallLine('read_file', 'call-005', '2026-06-04T10:00:00.000Z'),
       functionCallOutputLine('call-005', 'Exit code: 1', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(false);
   });
 
@@ -641,7 +641,7 @@ describe('buildCodexCompactState — error detection', () => {
       functionCallLine('apply_patch', 'patch-010', '2026-06-04T10:00:00.000Z'),
       patchApplyEndLine('patch-010', false, '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
     const toolEntry = state.tail.find((e) => e.callId === 'patch-010');
     expect(toolEntry).toBeDefined();
@@ -658,7 +658,7 @@ describe('buildCodexCompactState — error detection', () => {
       functionCallOutputLine('shell-010', 'Exit code: 1', '2026-06-04T10:00:00.000Z'),
       shellFunctionCallLine('shell-010', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
   });
 
@@ -668,7 +668,7 @@ describe('buildCodexCompactState — error detection', () => {
       functionCallOutputLine('shell-020', 'Exit code: 1', '2026-06-04T10:00:00.000Z'),
       shellFunctionCallLine('shell-020', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const toolEntry = state.tail.find((e) => e.callId === 'shell-020');
     expect(toolEntry).toBeDefined();
     expect(toolEntry!.severity).toBe('error');
@@ -680,7 +680,7 @@ describe('buildCodexCompactState — error detection', () => {
       patchApplyEndLine('patch-020', false, '2026-06-04T10:00:00.000Z'),
       functionCallLine('apply_patch', 'patch-020', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const toolEntry = state.tail.find((e) => e.callId === 'patch-020');
     expect(toolEntry).toBeDefined();
     expect(toolEntry!.severity).toBe('error');
@@ -695,19 +695,19 @@ describe('buildCodexCompactState — error detection', () => {
       customToolCallLine('shell', 'custom-shell-001', '2026-06-04T10:00:00.000Z'),
       customToolCallOutputLine('custom-shell-001', 'Exit code: 1', '2026-06-04T10:01:00.000Z')
     ];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
   });
 
   it('sets hasErrors on a session-level event_msg type:error, with no tool call involved', () => {
     const lines = [sessionMetaLine(), envelope('event_msg', { type: 'error', message: 'context window exceeded' })];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
   });
 
   it('pushes the session-level error message into the tail with error severity', () => {
     const lines = [sessionMetaLine(), envelope('event_msg', { type: 'error', message: 'context window exceeded' })];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     const errorEntry = state.tail.find((e) => e.kind === 'event' && e.severity === 'error');
     expect(errorEntry).toBeDefined();
     expect(errorEntry!.text).toBe('context window exceeded');
@@ -715,7 +715,7 @@ describe('buildCodexCompactState — error detection', () => {
 
   it('does not push a tail entry for an event_msg type:error with an empty message, but still flags hasErrors', () => {
     const lines = [sessionMetaLine(), envelope('event_msg', { type: 'error', message: '' })];
-    const state = buildCodexCompactState(lines, false);
+    const state = buildFoldedState(lines, false).state;
     expect(state.hasErrors).toBe(true);
     expect(state.tail.some((e) => e.kind === 'event')).toBe(false);
   });
