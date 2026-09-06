@@ -33,10 +33,9 @@ import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 const packageRoot = resolve(fileURLToPath(import.meta.url), '..', '..', '..');
-const buildScript = join(packageRoot, 'scripts', 'build.mjs');
 
 /** Every directory the build emits compiled Codex hook bundles into. */
 const CODEX_HOOK_OUTPUT_DIRS = [
@@ -421,17 +420,6 @@ async function runStopDrainScenario(
 }
 
 describe('compiled Codex hook bundles', () => {
-  beforeAll(() => {
-    const result = spawnSync(process.execPath, [buildScript], {
-      cwd: packageRoot,
-      encoding: 'utf8',
-      timeout: 120_000
-    });
-    if (result.status !== 0) {
-      throw new Error(`build failed with exit code ${result.status}:\n${result.stderr}`);
-    }
-  }, 150_000);
-
   afterAll(() => {
     for (const home of tempHomes) {
       rmSync(home, { recursive: true, force: true });

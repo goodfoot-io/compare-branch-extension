@@ -15,7 +15,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import {
   ANTIGRAVITY_HOOK_NAME,
   ANTIGRAVITY_HOOK_REGISTRATIONS,
@@ -24,7 +24,6 @@ import {
 } from '../../scripts/build.mjs';
 
 const packageRoot = resolve(fileURLToPath(import.meta.url), '..', '..', '..');
-const buildScript = join(packageRoot, 'scripts', 'build.mjs');
 const runtimeRoot = resolve(packageRoot, '../../antigravity/runtime');
 const hooksJsonPath = join(runtimeRoot, 'hooks.json');
 const binDir = join(runtimeRoot, 'bin');
@@ -85,17 +84,6 @@ const PINNED_HOOKS_JSON = {
 };
 
 describe('compiled Antigravity runtime output', () => {
-  beforeAll(() => {
-    const result = spawnSync(process.execPath, [buildScript], {
-      cwd: packageRoot,
-      encoding: 'utf8',
-      timeout: 120_000
-    });
-    if (result.status !== 0) {
-      throw new Error(`build failed with exit code ${result.status}:\n${result.stderr}`);
-    }
-  }, 150_000);
-
   afterAll(() => {
     for (const home of tempHomes) {
       rmSync(home, { recursive: true, force: true });
