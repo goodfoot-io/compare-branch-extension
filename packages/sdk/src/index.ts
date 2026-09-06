@@ -46,7 +46,7 @@ export type {
   SettingsConfig,
   StreamConfigDefinition
 } from './config/config.js';
-export { defineConfig, serializeSettings } from './config/define-config.js';
+export { defineConfig } from './config/define-config.js';
 // --- Environment Variables ---
 export {
   CARDS_ENV_VARS,

@@ -48,7 +48,7 @@ export type {
   SettingsConfig,
   StreamConfigDefinition
 } from './config.js';
-export { defineConfig, serializeSettings } from './define-config.js';
+export { defineConfig } from './define-config.js';
 
 // ============================================================================
 // Schema Types
