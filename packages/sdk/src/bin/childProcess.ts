@@ -27,14 +27,11 @@
  */
 
 import {
-  type ChildProcess,
   type ExecFileOptions,
   type ExecFileSyncOptions,
   type ExecFileSyncOptionsWithStringEncoding,
   execFile,
-  execFileSync,
-  type SpawnOptions,
-  spawn
+  execFileSync
 } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -94,20 +91,4 @@ export function execFileSyncNoWindow(
   options?: ExecFileSyncOptions
 ): string | Buffer {
   return execFileSync(file, args as string[], { ...options, windowsHide: true });
-}
-
-/**
- * `child_process.spawn` with `windowsHide: true` forced on.
- *
- * Use for detached-root spawns and any non-inherited-stdio spawn reachable from
- * a console-less tree. Do NOT use for inherited-stdio (interactive) spawns — see
- * the module-level scope note.
- *
- * @param command - The command to run.
- * @param args - Arguments passed to the command.
- * @param options - spawn options; `windowsHide` is overridden to `true`.
- * @returns The spawned child process.
- */
-export function spawnNoWindow(command: string, args: readonly string[], options: SpawnOptions): ChildProcess {
-  return spawn(command, args as string[], { ...options, windowsHide: true });
 }
