@@ -23,6 +23,10 @@ import {
 /**
  * Rejected resource references for an HTML fixture, matching the retired
  * `findExternalResources` convenience wrapper's filter+map contract.
+ *
+ * @param htmlSource - HTML source to scan.
+ * @param scriptSpans - Whole-element `<script>` spans whose bodies are redacted.
+ * @returns Array of rejected resource references.
  */
 function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
   return collectResourceReferences(htmlSource, '', scriptSpans)
