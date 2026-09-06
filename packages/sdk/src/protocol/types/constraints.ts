@@ -28,22 +28,9 @@ export const MAX_SUMMARY_LENGTH = 200;
 export const MAX_TAG_LENGTH = 50;
 
 /**
- * Upper bound for markdown description bodies stored in card files.
- */
-export const MAX_DESCRIPTION_LENGTH = 50000;
-
-/**
  * Upper bound for UUID-style identifiers stored as strings.
  */
 export const MAX_ID_LENGTH = 36;
-
-/**
- * Upper bound for card IDs that follow the branch-based format.
- *
- * Format: `{prefix}-{counter}` where the prefix is up to 11 characters and the
- * counter is up to 4 digits.
- */
-export const MAX_CARD_ID_LENGTH = 16;
 
 // --- Pattern Constraints ---
 
@@ -54,13 +41,3 @@ export const MAX_CARD_ID_LENGTH = 16;
  * remain URL- and filesystem-friendly.
  */
 export const TAG_PATTERN = /^[a-z0-9-]+$/;
-
-/**
- * Regex pattern for attachment identifiers embedded in text.
- *
- * Pattern: `att-{uuid}_{filename}` where uuid is a 36-character hex string
- * with hyphens and the filename is a simple slug (word characters, dots,
- * or hyphens). The pattern is intentionally unanchored so callers can scan
- * larger strings; anchor it for full-string validation.
- */
-export const ATTACHMENT_ID_PATTERN = /att-[a-f0-9-]{36}_[\w.-]+/;

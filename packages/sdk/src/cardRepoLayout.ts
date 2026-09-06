@@ -57,4 +57,3 @@ export const PLANS_PREFIX = `${PLANS_DIR}/`;
 export const COMMENTS_PREFIX = `${COMMENTS_DIR}/`;
 export const ATTACHMENTS_PREFIX = `${ATTACHMENTS_DIR}/`;
 export const ASSETS_PREFIX = `${ASSETS_DIR}/`;
-export const STREAMS_PREFIX = `${STREAMS_DIR}/`;

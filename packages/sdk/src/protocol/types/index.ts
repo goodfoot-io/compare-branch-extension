@@ -71,9 +71,6 @@ export type {
 } from './compare.js';
 // --- Input Constraints ---
 export {
-  ATTACHMENT_ID_PATTERN,
-  MAX_CARD_ID_LENGTH,
-  MAX_DESCRIPTION_LENGTH,
   MAX_ID_LENGTH,
   MAX_SUMMARY_LENGTH,
   MAX_TAG_LENGTH,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionExecutorRegisterMessage, DomainEvent, ValidationErrorCode } from '../../src/protocol/index.js';
-import { ATTACHMENT_ID_PATTERN, CODING_AGENT_IDS, isCodingAgentId, TAG_PATTERN } from '../../src/protocol/index.js';
+import { CODING_AGENT_IDS, isCodingAgentId, TAG_PATTERN } from '../../src/protocol/index.js';
 
 /**
  * Exercises protocol behavior in the protocol area through focused scenarios.
@@ -40,36 +40,6 @@ describe('Input Constraints', () => {
     expect(TAG_PATTERN.test('has_underscore')).toBe(false);
     expect(TAG_PATTERN.test('has space')).toBe(false);
     expect(TAG_PATTERN.test('')).toBe(false);
-  });
-
-  it('ATTACHMENT_ID_PATTERN matches valid attachment IDs', () => {
-    const validAttachments = [
-      'att-550e8400-e29b-41d4-a716-446655440000_document.pdf',
-      'att-123e4567-e89b-12d3-a456-426614174000_image.png',
-      'att-00000000-0000-0000-0000-000000000000_file.txt',
-      'att-ffffffff-ffff-ffff-ffff-ffffffffffff_archive.zip'
-    ];
-    validAttachments.forEach((id) => {
-      expect(ATTACHMENT_ID_PATTERN.test(id)).toBe(true);
-    });
-  });
-
-  it('ATTACHMENT_ID_PATTERN matches attachment IDs within text', () => {
-    const text = 'Check the att-550e8400-e29b-41d4-a716-446655440000_document.pdf file for details';
-    expect(ATTACHMENT_ID_PATTERN.test(text)).toBe(true);
-  });
-
-  it('ATTACHMENT_ID_PATTERN rejects invalid attachment IDs', () => {
-    const invalidAttachments = [
-      'att-550e8400-e29b-41d4-a716_document.pdf', // UUID too short
-      'att-550e8400-e29b-41d4-a716-446655440000', // no filename
-      '550e8400-e29b-41d4-a716-446655440000_document.pdf', // missing att- prefix
-      'att-ZZZZZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZZZZZZZZZ_file.txt', // invalid hex characters
-      'att-550e8400e29b41d4a716446655440000_file.txt' // UUID without hyphens
-    ];
-    invalidAttachments.forEach((id) => {
-      expect(ATTACHMENT_ID_PATTERN.test(id)).toBe(false);
-    });
   });
 });
 

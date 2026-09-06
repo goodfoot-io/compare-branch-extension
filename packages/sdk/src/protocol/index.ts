@@ -190,7 +190,6 @@ export type {
 // --- Input Constraints ---
 // --- Card Gates ---
 export {
-  ATTACHMENT_ID_PATTERN,
   BASE_ELEMENT_TAG_NAMES,
   BRANCHES_DIR,
   buildHtmlFileCspPolicy,
@@ -211,8 +210,6 @@ export {
   isCodingAgentId,
   isHtmlCardDocPath,
   isHtmlCardDocSidecarPath,
-  MAX_CARD_ID_LENGTH,
-  MAX_DESCRIPTION_LENGTH,
   MAX_ID_LENGTH,
   MAX_SUMMARY_LENGTH,
   MAX_TAG_LENGTH,

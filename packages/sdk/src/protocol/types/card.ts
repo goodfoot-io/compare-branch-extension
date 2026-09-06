@@ -167,7 +167,6 @@ export interface CardMetadata {
   /**
    * Stable identifier used in URLs, filenames, and API routes.
    * Format: `{branch-prefix}-{counter}` (e.g., `main-0001`).
-   * Subject to {@link MAX_CARD_ID_LENGTH} validation.
    */
   id: string;
 
