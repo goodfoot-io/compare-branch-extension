@@ -183,25 +183,6 @@ function snapshot(fold: AntigravityFoldState, isActive: boolean): AntigravityCom
 }
 
 /**
- * Rebuilds {@link AntigravityCompactState} from the full line array.
- *
- * Pure with respect to `lines`: counts, headline, and the bounded tail are
- * all recomputed from scratch, so passing a shorter replacement array after
- * a reset yields fresh state with no stale carryover.
- *
- * @param lines - The authoritative accumulated destination-stream lines.
- * @param isActive - Whether the underlying stream is still live.
- * @returns The bounded compact-view state.
- */
-export function buildAntigravityCompactState(lines: string[], isActive: boolean): AntigravityCompactState {
-  const fold = makeFold();
-  for (const raw of lines) {
-    processLine(fold, raw);
-  }
-  return snapshot(fold, isActive);
-}
-
-/**
  * Folds `lines` from scratch into a {@link FoldedState} ready for
  * {@link reconcileFolded}. This is the view's boot value.
  *
