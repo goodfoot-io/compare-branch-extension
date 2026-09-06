@@ -26,7 +26,6 @@ import type {
   CardCreateData,
   CardsClientOptions,
   CardUpdateData,
-  CommitInfo,
   GateApprovalResponse,
   ListCardsOptions,
   TimelineOptions,
@@ -775,55 +774,6 @@ export class CardsClient {
   async approveGate(cardId: string, gateName: 'plan' | 'mergeRequest'): Promise<GateApprovalResponse> {
     const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/gates/${encodeURIComponent(gateName)}/approve`);
     return this.request(() => this.getHttpClient().post<GateApprovalResponse>(url, undefined));
-  }
-
-  // --- Commit Operations ---
-
-  /**
-   * Gets all commits associated with a card.
-   *
-   * @param cardId - Identifier of the card whose commits should be returned.
-   * @returns Promise resolving to commit metadata.
-   * @throws ApiError when the server responds with an error.
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async getCommits(cardId: string): Promise<CommitInfo[]> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/commits`);
-    return this.request(() => this.getHttpClient().get<CommitInfo[]>(url));
-  }
-
-  /**
-   * Adds a commit to a card.
-   *
-   * @param cardId - Identifier of the card to associate with the commit SHA.
-   * @param sha - Git commit sha.
-   * @returns Promise resolving to commit metadata.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async addCommit(cardId: string, sha: string): Promise<CommitInfo> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/commits`);
-    return this.request(() => this.getHttpClient().post<CommitInfo>(url, { sha }), false);
-  }
-
-  /**
-   * Removes a commit from a card.
-   *
-   * @param cardId - Identifier of the card to detach from the commit SHA.
-   * @param sha - Git commit sha.
-   * @param options - Optional parameters.
-   * @param options.sessionId - Claude Code session ID forwarded as `X-Cards-Session-Id` header so the card repo post-commit hook can attribute the commit.
-   * @returns Promise resolving when removal is complete.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async removeCommit(cardId: string, sha: string, options?: { sessionId?: string }): Promise<void> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/commits/${sha}`);
-    const headers: Record<string, string> = {};
-    if (options?.sessionId) {
-      headers['X-Cards-Session-Id'] = options.sessionId;
-    }
-    return this.request(() => this.getHttpClient().delete(url, { headers }));
   }
 
   // --- Branch Operations ---

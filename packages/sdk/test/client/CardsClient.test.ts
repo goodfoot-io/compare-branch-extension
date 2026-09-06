@@ -287,9 +287,6 @@ describe('CardsClient', () => {
       ['getTimeline', (client, cardId) => client.getTimeline(cardId)],
       ['putFile', (client, cardId) => client.putFile(cardId, 'PLAN.md', 'content')],
       ['approveGate', (client, cardId) => client.approveGate(cardId, 'plan')],
-      ['getCommits', (client, cardId) => client.getCommits(cardId)],
-      ['addCommit', (client, cardId) => client.addCommit(cardId, 'abc123')],
-      ['removeCommit', (client, cardId) => client.removeCommit(cardId, 'abc123')],
       ['getBranches', (client, cardId) => client.getBranches(cardId)],
       ['addBranch', (client, cardId) => client.addBranch(cardId, { name: 'feature/test', parentBranch: 'main' })],
       ['removeBranch', (client, cardId) => client.removeBranch(cardId, 'feature/test')],
@@ -317,38 +314,6 @@ describe('CardsClient', () => {
       expect(httpClient.requests[0]).toMatchObject({
         method: 'POST',
         url: expect.stringContaining('/cards/card-123/gates/mergeRequest/approve')
-      });
-    });
-  });
-
-  describe('Commit Operations', () => {
-    it('should GET /cards/:id/commits when fetching commits', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.getCommits('card-123');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'GET',
-        url: expect.stringContaining('/cards/card-123/commits')
-      });
-    });
-
-    it('should POST /cards/:id/commits when adding commit', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.addCommit('card-123', 'abc123def456');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'POST',
-        url: expect.stringContaining('/cards/card-123/commits')
-      });
-    });
-
-    it('should DELETE /cards/:id/commits/:sha when removing commit', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.removeCommit('card-123', 'abc123def456');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'DELETE',
-        url: expect.stringContaining('/cards/card-123/commits/abc123def456')
       });
     });
   });

@@ -38,7 +38,7 @@ All are `async` and throw on HTTP failure.
 | Cards | `listCards`, `listCardSummaries`, `getCard`, `createCard`, `updateCard`, `deleteCard` |
 | Attachments | `uploadAttachment`, `getAttachment`, `listAttachments` |
 | Files & gates | `putFile`, `approveGate` (`'plan' \| 'mergeRequest'`) |
-| Commits & branches | `getCommits`, `addCommit`, `removeCommit`, `getBranches`, `addBranch`, `removeBranch` |
+| Branches | `getBranches`, `addBranch`, `removeBranch` |
 | Streams | `listStreams`, `getStream` |
 | Workspace | `getTags`, `getEnvironments`, `getTypeSchemas`, `getTimeline`, `executeAction` |
 | Compare | `setCompare`, `getCompare`, `clearCompare` |
