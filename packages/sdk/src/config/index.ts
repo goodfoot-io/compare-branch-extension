@@ -169,7 +169,6 @@ export type {
   WatcherToServerMessage
 } from './watcher/index.js';
 export {
-  createWatcher,
   socketEndpoint,
   type WatcherHandle,
   type WatcherHandler,

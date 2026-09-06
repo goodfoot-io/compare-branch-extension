@@ -7,7 +7,6 @@
 
 export type { WatcherContext } from './context.js';
 export {
-  createWatcher,
   type DialedWatcherSocket,
   dialWatcherSocket,
   type WatcherHandle,
