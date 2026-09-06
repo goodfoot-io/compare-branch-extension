@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { Logger } from '@goodfoot/agent-hooks';
 import { describe, expect, it } from 'vitest';
 import { HandlerFailure, handlePreInvocation } from '../../../src/antigravity/internal/handlers.js';
-import { markerExists, markerPath, readMarker } from '../../../src/antigravity/internal/markers.js';
+import { markerPath } from '../../../src/antigravity/internal/markers.js';
 import { dispatchAntigravityHook } from '../../../src/antigravity/internal/transport.js';
 import { CONVERSATION_ID, makeDeps, makeTempDir, removeTempDir, SESSION_ID, withoutEnv } from '../helpers.js';
 
@@ -57,8 +57,8 @@ describe('dispatchAntigravityHook', () => {
       ).rejects.toBeInstanceOf(HandlerFailure);
 
       const failurePath = markerPath(joinCardsHome(root), SESSION_ID, CONVERSATION_ID, 'failure');
-      expect(markerExists(deps.io, failurePath)).toBe(true);
-      const payload = JSON.parse(readMarker(deps.io, failurePath)) as { stage: string; reason: string };
+      expect(deps.io.existsSync(failurePath)).toBe(true);
+      const payload = JSON.parse(deps.io.readTextFileSync(failurePath)) as { stage: string; reason: string };
       expect(payload.stage).toBe('watcher-setup');
       expect(payload.reason).toContain('spawn returned false');
     } finally {
@@ -81,7 +81,7 @@ describe('dispatchAntigravityHook', () => {
       ).rejects.toBeInstanceOf(HandlerFailure);
 
       const failurePath = markerPath(joinCardsHome(root), SESSION_ID, CONVERSATION_ID, 'failure');
-      const payload = JSON.parse(readMarker(deps.io, failurePath)) as { stage: string };
+      const payload = JSON.parse(deps.io.readTextFileSync(failurePath)) as { stage: string };
       expect(payload.stage).toBe('unexpected');
     } finally {
       removeTempDir(root);
@@ -102,7 +102,7 @@ describe('dispatchAntigravityHook', () => {
         )
       ).rejects.toBeInstanceOf(HandlerFailure);
 
-      expect(markerExists(deps.io, markerPath(joinCardsHome(root), null, CONVERSATION_ID, 'failure'))).toBe(true);
+      expect(deps.io.existsSync(markerPath(joinCardsHome(root), null, CONVERSATION_ID, 'failure'))).toBe(true);
     } finally {
       removeTempDir(root);
     }
@@ -117,7 +117,7 @@ describe('inert gating inside handlers', () => {
       const { deps } = makeDeps(root, { loadActionInput: () => null });
       const result = await handlePreInvocation({ conversationId: CONVERSATION_ID }, { deps, logger: new Logger() });
       expect(result.output).toEqual({});
-      expect(markerExists(deps.io, markerPath(joinCardsHome(root), SESSION_ID, CONVERSATION_ID, 'ready'))).toBe(false);
+      expect(deps.io.existsSync(markerPath(joinCardsHome(root), SESSION_ID, CONVERSATION_ID, 'ready'))).toBe(false);
     } finally {
       restore();
       removeTempDir(root);

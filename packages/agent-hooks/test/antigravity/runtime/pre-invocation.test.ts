@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AntigravityHandlerDeps } from '../../../src/antigravity/internal/deps.js';
 import { type HandlerFailure, handlePreInvocation } from '../../../src/antigravity/internal/handlers.js';
 import { defaultAntigravityIo } from '../../../src/antigravity/internal/io.js';
-import { markerExists, markerPath, readMarker } from '../../../src/antigravity/internal/markers.js';
+import { markerPath } from '../../../src/antigravity/internal/markers.js';
 import { dispatchAntigravityHook } from '../../../src/antigravity/internal/transport.js';
 import {
   CONVERSATION_ID,
@@ -80,13 +80,13 @@ describe('PreInvocation success contract', () => {
   it('returns no message and writes the ready marker on the host 0-indexed first invocation', async () => {
     const { result } = await run();
     expect(result?.output).toEqual({});
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(true);
   });
 
   it('records the durable session ↔ conversation mapping in the ready marker', async () => {
     const { failure } = await run();
     expect(failure).toBeNull();
-    expect(JSON.parse(readMarker(defaultAntigravityIo, readyMarker()))).toEqual({
+    expect(JSON.parse(defaultAntigravityIo.readTextFileSync(readyMarker()))).toEqual({
       conversationId: CONVERSATION_ID,
       sessionId: SESSION_ID,
       transcriptPath: join(root, 'gemini-home', '.gemini', 'antigravity-cli', 'conversations', `${CONVERSATION_ID}.db`),
@@ -168,7 +168,7 @@ describe('PreInvocation success contract', () => {
   it('writes no failure marker on the success path', async () => {
     const { failure } = await run();
     expect(failure).toBeNull();
-    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(failureMarker())).toBe(false);
   });
 });
 
@@ -196,7 +196,7 @@ describe('Cards Assistant PreInvocation contract', () => {
       }
     ]);
     expect(recorders.watcherSpawns).toEqual([]);
-    expect(JSON.parse(readMarker(defaultAntigravityIo, readyMarker()))).toMatchObject({
+    expect(JSON.parse(defaultAntigravityIo.readTextFileSync(readyMarker()))).toMatchObject({
       sessionId: SESSION_ID,
       windowId: 'window-453',
       workspacePath: join(root, 'workspace'),
@@ -213,7 +213,7 @@ describe('Cards Assistant PreInvocation contract', () => {
     expect(result?.output).toEqual({});
     expect(recorders.registrations).toEqual([]);
     expect(recorders.watcherSpawns).toEqual([]);
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails an Assistant launch when its window identity is missing', async () => {
@@ -224,8 +224,8 @@ describe('Cards Assistant PreInvocation contract', () => {
     const { failure } = await run({ loadActionInput: () => null });
 
     expect(failure?.stage).toBe('session-identity');
-    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(failureMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 });
 
@@ -234,7 +234,7 @@ describe('PreInvocation failure contract', () => {
     delete process.env['CARD_ID'];
     const { result } = await run();
     expect(result?.output).toEqual({});
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed on invalid input and scopes the failure marker to the conversation', async () => {
@@ -242,10 +242,13 @@ describe('PreInvocation failure contract', () => {
     delete input['transcriptPath'];
     const { failure } = await run({}, input);
     expect(failure?.stage).toBe('input');
-    const payload = JSON.parse(readMarker(defaultAntigravityIo, failureMarker())) as { stage: string; reason: string };
+    const payload = JSON.parse(defaultAntigravityIo.readTextFileSync(failureMarker())) as {
+      stage: string;
+      reason: string;
+    };
     expect(payload.stage).toBe('input');
     expect(payload.reason).toContain('transcriptPath');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('scopes the failure marker to the unknown-conversation placeholder when no conversation id arrived', async () => {
@@ -253,45 +256,45 @@ describe('PreInvocation failure contract', () => {
     delete input['conversationId'];
     const { failure } = await run({}, input);
     expect(failure?.stage).toBe('input');
-    expect(markerExists(defaultAntigravityIo, markerPath(cardsHome(), SESSION_ID, null, 'failure'))).toBe(true);
+    expect(defaultAntigravityIo.existsSync(markerPath(cardsHome(), SESSION_ID, null, 'failure'))).toBe(true);
   });
 
   it('fails closed when the launcher session identity is missing', async () => {
     const { failure } = await run({ resolveSessionId: () => null });
     expect(failure?.stage).toBe('session-identity');
-    expect(markerExists(defaultAntigravityIo, markerPath(cardsHome(), null, CONVERSATION_ID, 'failure'))).toBe(true);
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(markerPath(cardsHome(), null, CONVERSATION_ID, 'failure'))).toBe(true);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed when the action environment is broken', async () => {
     const { failure } = await run({ loadActionInput: () => null });
     expect(failure?.stage).toBe('action-env');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed when the card repository is inaccessible', async () => {
     rmSync(join(root, 'cards', 'main-453', 'CARD.meta.json'));
     const { failure } = await run();
     expect(failure?.stage).toBe('card-context');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed when the agent PID cannot be identified', async () => {
     const { failure } = await run({ findMonitorPid: async () => null });
     expect(failure?.stage).toBe('watcher-setup');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed when the manifest builder rejects the canonical conversation DB path', async () => {
     const { failure } = await run({ conversationDbPath: () => join(root, 'conversations', 'wrong.jsonl') });
     expect(failure?.stage).toBe('watcher-setup');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed when the watcher spawn does not happen', async () => {
     const { failure } = await run({ spawnWatcher: () => false });
     expect(failure?.stage).toBe('watcher-setup');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed when session registration fails', async () => {
@@ -301,7 +304,7 @@ describe('PreInvocation failure contract', () => {
       }
     });
     expect(failure?.stage).toBe('session-registration');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
   });
 
   it('fails closed when the ready marker cannot be written', async () => {
@@ -316,7 +319,7 @@ describe('PreInvocation failure contract', () => {
     };
     const { failure } = await run({ io: failingIo });
     expect(failure?.stage).toBe('ready-marker');
-    expect(markerExists(defaultAntigravityIo, readyMarker())).toBe(false);
-    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(readyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(failureMarker())).toBe(true);
   });
 });

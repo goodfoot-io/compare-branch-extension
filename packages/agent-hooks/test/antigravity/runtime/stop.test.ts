@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AntigravityHandlerDeps } from '../../../src/antigravity/internal/deps.js';
 import { type HandlerFailure, handleStop } from '../../../src/antigravity/internal/handlers.js';
 import { defaultAntigravityIo } from '../../../src/antigravity/internal/io.js';
-import { markerExists, markerPath } from '../../../src/antigravity/internal/markers.js';
+import { markerPath } from '../../../src/antigravity/internal/markers.js';
 import { dispatchAntigravityHook } from '../../../src/antigravity/internal/transport.js';
 import {
   CONVERSATION_ID,
@@ -82,7 +82,7 @@ describe('Stop drain and cleanup contract', () => {
     expect(result?.output).toEqual({});
     expect(JSON.stringify(result?.output)).not.toContain('continue');
     expect(JSON.stringify(result?.output)).not.toContain('decision');
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(true);
   });
 
   it('writes the transcript-watcher flush sentinel for the canonical antigravity session stream', async () => {
@@ -108,14 +108,14 @@ describe('Stop drain and cleanup contract', () => {
     const second = await handleStop(makeCommonInput(root), { deps, logger: new Logger() });
     expect(first.output).toEqual({});
     expect(second.output).toEqual({});
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(true);
   });
 
   it('stays inert without a Cards action environment', async () => {
     delete process.env['CARD_ID'];
     const { result } = await run();
     expect(result?.output).toEqual({});
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(false);
   });
 
   it('fails closed on invalid input', async () => {
@@ -123,8 +123,8 @@ describe('Stop drain and cleanup contract', () => {
     delete input['workspacePaths'];
     const { failure } = await run({}, input);
     expect(failure?.stage).toBe('input');
-    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(failureMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(false);
   });
 });
 
@@ -143,7 +143,7 @@ describe('Cards Assistant Stop contract', () => {
     expect(failure).toBeNull();
     expect(cleaned).toEqual([SESSION_ID]);
     expect(recorders.shutdownAcks).toEqual([]);
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(true);
     expect(defaultAntigravityIo.existsSync(join(root, 'cards', 'main-453', 'streams'))).toBe(false);
   });
 
@@ -160,8 +160,8 @@ describe('Cards Assistant Stop contract', () => {
     });
 
     expect(failure?.stage).toBe('session-cleanup');
-    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(failureMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(false);
   });
 });
 
@@ -174,7 +174,7 @@ describe('Stop pending-shutdown handshake', () => {
     expect(recorders.shutdownAcks).toEqual([
       { socketPath: pendingRequest.socketPath, requestId: pendingRequest.requestId }
     ]);
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(true);
   });
 
   it('clears the acknowledged request so a later Stop finds none', async () => {
@@ -199,7 +199,7 @@ describe('Stop pending-shutdown handshake', () => {
     const result = await handleStop(makeCommonInput(root), { deps, logger: new Logger() });
     expect(result.output).toEqual({});
     expect(recorders.shutdownAcks).toEqual([]);
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(true);
   });
 
   it('fails closed without drain readiness when the acknowledgement fails', async () => {
@@ -210,8 +210,8 @@ describe('Stop pending-shutdown handshake', () => {
       }
     });
     expect(failure?.stage).toBe('drain-ack');
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
-    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(failureMarker())).toBe(true);
   });
 
   it('fails closed without drain readiness when drain cannot be proven', async () => {
@@ -220,7 +220,7 @@ describe('Stop pending-shutdown handshake', () => {
       isAgentProcessTreeDrained: async () => null
     });
     expect(failure?.stage).toBe('drain-ack');
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(false);
   });
 });
 
@@ -237,8 +237,8 @@ describe('Stop marker invariants', () => {
     };
     const { failure } = await run({ io: failingIo });
     expect(failure?.stage).toBe('drain-marker');
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(false);
-    expect(markerExists(defaultAntigravityIo, failureMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(false);
+    expect(defaultAntigravityIo.existsSync(failureMarker())).toBe(true);
   });
 
   it('treats artifact cleanup failure as best-effort and still records drain readiness', async () => {
@@ -248,6 +248,6 @@ describe('Stop marker invariants', () => {
       }
     });
     expect(failure).toBeNull();
-    expect(markerExists(defaultAntigravityIo, drainReadyMarker())).toBe(true);
+    expect(defaultAntigravityIo.existsSync(drainReadyMarker())).toBe(true);
   });
 });

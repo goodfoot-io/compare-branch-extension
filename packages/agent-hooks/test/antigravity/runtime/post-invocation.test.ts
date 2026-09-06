@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AntigravityHandlerDeps } from '../../../src/antigravity/internal/deps.js';
 import { type HandlerFailure, handlePostInvocation } from '../../../src/antigravity/internal/handlers.js';
 import { defaultAntigravityIo } from '../../../src/antigravity/internal/io.js';
-import { markerExists, markerPath, readMarker } from '../../../src/antigravity/internal/markers.js';
+import { markerPath } from '../../../src/antigravity/internal/markers.js';
 import { dispatchAntigravityHook } from '../../../src/antigravity/internal/transport.js';
 import {
   CONVERSATION_ID,
@@ -113,7 +113,7 @@ describe('PostInvocation merge route', () => {
     const { failure, recorders } = await run({ unmergedCommitCount: () => 3 });
     expect(failure).toBeNull();
     expect(recorders.markers.routeNudged.has(SESSION_ID)).toBe(true);
-    expect(JSON.parse(readMarker(defaultAntigravityIo, marker('route')))).toEqual({ kind: 'merge' });
+    expect(JSON.parse(defaultAntigravityIo.readTextFileSync(marker('route')))).toEqual({ kind: 'merge' });
   });
 
   it('injects at most once while the route marker is consumed', async () => {
@@ -169,7 +169,7 @@ describe('PostInvocation shutdown route', () => {
     expect(message).toContain(join(root, 'skills', 'card', 'references', 'shutdown.md'));
     expect(message).toContain('cards "$CARD_ID" shutdown');
     expect(recorders.markers.exitNudged.has(SESSION_ID)).toBe(true);
-    expect(JSON.parse(readMarker(defaultAntigravityIo, marker('route')))).toEqual({ kind: 'shutdown' });
+    expect(JSON.parse(defaultAntigravityIo.readTextFileSync(marker('route')))).toEqual({ kind: 'shutdown' });
   });
 
   it('prefers the merge route when both routes condition on the same invocation', async () => {
@@ -212,7 +212,7 @@ describe('PostInvocation pending-shutdown acknowledgement', () => {
       { socketPath: pendingRequest.socketPath, requestId: pendingRequest.requestId }
     ]);
     expect(result?.output).toEqual({});
-    expect(markerExists(defaultAntigravityIo, marker('idle'))).toBe(true);
+    expect(defaultAntigravityIo.existsSync(marker('idle'))).toBe(true);
   });
 
   it('waits without acknowledging while the process tree is not drained', async () => {
@@ -231,7 +231,7 @@ describe('PostInvocation pending-shutdown acknowledgement', () => {
     });
     expect(failure?.stage).toBe('decision');
     expect(recorders.shutdownAcks).toEqual([]);
-    expect(markerExists(defaultAntigravityIo, marker('failure'))).toBe(true);
+    expect(defaultAntigravityIo.existsSync(marker('failure'))).toBe(true);
   });
 });
 
@@ -239,8 +239,8 @@ describe('PostInvocation idle and failure invariants', () => {
   it('records the durable idle marker when no step is required', async () => {
     const { result } = await run({});
     expect(result?.output).toEqual({});
-    expect(markerExists(defaultAntigravityIo, marker('idle'))).toBe(true);
-    expect(markerExists(defaultAntigravityIo, marker('route'))).toBe(false);
+    expect(defaultAntigravityIo.existsSync(marker('idle'))).toBe(true);
+    expect(defaultAntigravityIo.existsSync(marker('route'))).toBe(false);
   });
 
   it('fails closed on decision errors without injecting a guessed route', async () => {
@@ -250,20 +250,20 @@ describe('PostInvocation idle and failure invariants', () => {
       }
     });
     expect(failure?.stage).toBe('decision');
-    expect(markerExists(defaultAntigravityIo, marker('failure'))).toBe(true);
-    expect(markerExists(defaultAntigravityIo, marker('idle'))).toBe(false);
+    expect(defaultAntigravityIo.existsSync(marker('failure'))).toBe(true);
+    expect(defaultAntigravityIo.existsSync(marker('idle'))).toBe(false);
   });
 
   it('fails closed on invalid invocation input', async () => {
     const { failure } = await run({}, makeInvocationInput(root, { invocationNum: -1 }));
     expect(failure?.stage).toBe('input');
-    expect(markerExists(defaultAntigravityIo, marker('failure'))).toBe(true);
+    expect(defaultAntigravityIo.existsSync(marker('failure'))).toBe(true);
   });
 
   it('stays inert without a Cards action environment', async () => {
     delete process.env['CARD_ID'];
     const { result } = await run({ unmergedCommitCount: () => 3 });
     expect(result?.output).toEqual({});
-    expect(markerExists(defaultAntigravityIo, marker('route'))).toBe(false);
+    expect(defaultAntigravityIo.existsSync(marker('route'))).toBe(false);
   });
 });

@@ -7,11 +7,8 @@
 import { describe, expect, it } from 'vitest';
 import { defaultAntigravityIo } from '../../../src/antigravity/internal/io.js';
 import {
-  markerExists,
   markerPath,
   type ReadyMarkerPayload,
-  readMarker,
-  removeMarker,
   UNATTRIBUTED_SESSION,
   UNKNOWN_CONVERSATION,
   writeMarker
@@ -59,8 +56,8 @@ describe('marker store operations on the real filesystem', () => {
         modelName: 'gemini-3-pro'
       };
       writeMarker(defaultAntigravityIo, path, payload);
-      expect(markerExists(defaultAntigravityIo, path)).toBe(true);
-      expect(JSON.parse(readMarker(defaultAntigravityIo, path))).toEqual(payload);
+      expect(defaultAntigravityIo.existsSync(path)).toBe(true);
+      expect(JSON.parse(defaultAntigravityIo.readTextFileSync(path))).toEqual(payload);
     } finally {
       removeTempDir(root);
     }
@@ -71,7 +68,7 @@ describe('marker store operations on the real filesystem', () => {
     try {
       const path = markerPath(root, 'session-453', 'conv-453', 'drain-ready');
       writeMarker(defaultAntigravityIo, path);
-      expect(readMarker(defaultAntigravityIo, path)).toBe('');
+      expect(defaultAntigravityIo.readTextFileSync(path)).toBe('');
     } finally {
       removeTempDir(root);
     }
@@ -82,20 +79,7 @@ describe('marker store operations on the real filesystem', () => {
     try {
       const path = markerPath(root, 'session-453', 'conv-453', 'idle');
       writeMarker(defaultAntigravityIo, path);
-      expect(markerExists(defaultAntigravityIo, path)).toBe(true);
-    } finally {
-      removeTempDir(root);
-    }
-  });
-
-  it('removes markers idempotently', () => {
-    const root = makeTempDir('markers-remove');
-    try {
-      const path = markerPath(root, 'session-453', 'conv-453', 'route');
-      writeMarker(defaultAntigravityIo, path, { kind: 'merge' });
-      removeMarker(defaultAntigravityIo, path);
-      expect(markerExists(defaultAntigravityIo, path)).toBe(false);
-      expect(() => removeMarker(defaultAntigravityIo, path)).not.toThrow();
+      expect(defaultAntigravityIo.existsSync(path)).toBe(true);
     } finally {
       removeTempDir(root);
     }

@@ -104,38 +104,3 @@ export function writeMarker(io: AntigravityIo, path: string, payload?: object): 
   io.ensureDirSync(join(path, '..'));
   io.writeTextFileSync(path, payload === undefined ? '' : `${JSON.stringify(payload, null, 2)}\n`);
 }
-
-/**
- * Reads one marker file's text content.
- *
- * @param io - Filesystem seam.
- * @param path - Absolute marker path from {@link markerPath}.
- * @returns The marker's text content.
- * @throws When the marker does not exist or cannot be read.
- */
-export function readMarker(io: AntigravityIo, path: string): string {
-  return io.readTextFileSync(path);
-}
-
-/**
- * Reports whether a marker file exists.
- *
- * @param io - Filesystem seam.
- * @param path - Absolute marker path from {@link markerPath}.
- * @returns `true` when the marker exists.
- */
-export function markerExists(io: AntigravityIo, path: string): boolean {
-  return io.existsSync(path);
-}
-
-/**
- * Removes one marker file; absent markers are a successful no-op (cleanup is
- * idempotent by contract).
- *
- * @param io - Filesystem seam.
- * @param path - Absolute marker path from {@link markerPath}.
- * @throws When removal fails for reasons other than a missing file.
- */
-export function removeMarker(io: AntigravityIo, path: string): void {
-  io.removeSync(path);
-}
