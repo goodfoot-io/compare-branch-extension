@@ -15,7 +15,17 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ScriptSpan } from '../../../src/protocol/index.js';
-import { findExternalResources } from '../../../src/protocol/index.js';
+import { collectResourceReferences } from '../../../src/protocol/index.js';
+
+/**
+ * Rejected resource references for an HTML fixture, matching the retired
+ * `findExternalResources` convenience wrapper's filter+map contract.
+ */
+function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
+  return collectResourceReferences(htmlSource, '', scriptSpans)
+    .filter((entry) => entry.classification.kind === 'rejected')
+    .map((entry) => entry.reference);
+}
 
 /**
  * Locates every `<script>` element's whole-element span in an HTML fixture,

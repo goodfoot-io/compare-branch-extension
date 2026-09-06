@@ -205,7 +205,6 @@ export {
   EMPTY_TREE_SHA,
   FRAME_ELEMENT_TAG_NAMES,
   filterStructuralParseErrors,
-  findExternalResources,
   htmlCardDocPathForSidecar,
   htmlCardDocSidecarPath,
   INFORMATIONAL_PARSE5_CODES,

@@ -7,18 +7,28 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { HtmlDocumentFacts } from '../../../src/protocol/index.js';
+import type { HtmlDocumentFacts, ScriptSpan } from '../../../src/protocol/index.js';
 import {
   checkHtmlContent,
   checkIntrinsicHtmlLayout,
+  collectResourceReferences,
   filterStructuralParseErrors,
-  findExternalResources,
   htmlCardDocPathForSidecar,
   htmlCardDocSidecarPath,
   isHtmlCardDocPath,
   isHtmlCardDocSidecarPath,
   validateHtmlInfo
 } from '../../../src/protocol/index.js';
+
+/**
+ * Rejected resource references for an HTML fixture, matching the retired
+ * `findExternalResources` convenience wrapper's filter+map contract.
+ */
+function findExternalResources(htmlSource: string, scriptSpans: readonly ScriptSpan[] = []): string[] {
+  return collectResourceReferences(htmlSource, '', scriptSpans)
+    .filter((entry) => entry.classification.kind === 'rejected')
+    .map((entry) => entry.reference);
+}
 
 describe('validateHtmlInfo — closed scripts policy', () => {
   it.each([

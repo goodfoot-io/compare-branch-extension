@@ -65,7 +65,7 @@ const ALLOWED_HTML_INFO_KEYS = new Set<string>(['title', 'summary', 'scripts']);
 const ATTR_BOUNDARY = String.raw`(?<![\w.-])`;
 
 // srcset candidate URLs (quoted attribute value, one or more comma-separated candidates).
-// Named separately so `findExternalResources` can special-case its comma-splitting —
+// Named separately so `collectResourceReferences` can special-case its comma-splitting —
 // a data: URI's own comma (the base64 separator) must not be split like a srcset list.
 const SRCSET_RE = new RegExp(`${ATTR_BOUNDARY}srcset\\s*=\\s*["']([^"']+)["']`, 'gi');
 
@@ -937,42 +937,6 @@ function classificationIdentity(classification: ResourceReferenceClass): string 
     case 'rejected':
       return `rejected:${classification.reason}`;
   }
-}
-
-/**
- * Scans HTML source for resource references the gate rejects.
- *
- * Defense-in-depth only — the served-document CSP header is the enforcement
- * layer; this exists so an author gets an early, clear commit-time error
- * naming the offending reference. Under the served-document model the
- * "external" references are exactly the rejected classifications: relative
- * references resolving under the repository-root `assets/` are served, not
- * external, so this reworks onto {@link collectResourceReferences}.
- *
- * The reference list carries no page path, so classification is judged as it
- * would be from the repository root — fine for the scheme/host refs this
- * function's contract is about, and the reason callers that already know the
- * page path use {@link checkHtmlContent} instead.
- *
- * @param htmlSource - HTML source to scan.
- * @param scriptSpans - Whole-element `<script>` spans (see {@link ScriptSpan}),
- *   whose bodies are redacted so inline JavaScript is excluded from every
- *   pattern; `<script>` start tags stay visible so their `src` attributes are
- *   still checked. Defaults to none, which is safe (just less precise) when the
- *   caller hasn't already parsed the document.
- * @param frameElementSpans - Whole-element spans of the frame-like elements
- *   whose start-tag references are refused (see
- *   {@link collectResourceReferences}).
- * @returns Array of rejected resource references, deduplicated (empty when none).
- */
-export function findExternalResources(
-  htmlSource: string,
-  scriptSpans: readonly ScriptSpan[] = [],
-  frameElementSpans: readonly ElementSpan[] = []
-): string[] {
-  return collectResourceReferences(htmlSource, '', scriptSpans, frameElementSpans)
-    .filter((entry) => entry.classification.kind === 'rejected')
-    .map((entry) => entry.reference);
 }
 
 // ─── Well-formedness ────────────────────────────────────────────────────────────

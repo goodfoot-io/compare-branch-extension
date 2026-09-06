@@ -150,7 +150,6 @@ export {
   collectResourceReferences,
   FRAME_ELEMENT_TAG_NAMES,
   filterStructuralParseErrors,
-  findExternalResources,
   htmlCardDocPathForSidecar,
   htmlCardDocSidecarPath,
   INFORMATIONAL_PARSE5_CODES,
