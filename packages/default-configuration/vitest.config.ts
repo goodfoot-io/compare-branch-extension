@@ -72,6 +72,32 @@ const jsToTsSiblingResolve = {
   }
 };
 
+// vitest's experimental fs module cache (`--experimental.fsModuleCache`, set by
+// the vitest-unchanged runner) skips the resolveId stage that would otherwise
+// let `publicDir: false` (below) prevent Vite's public-directory URL rewrite.
+// A relative import that walks outside this package into the sibling `public/`
+// workspace root (e.g. `../../../codex/cards-assistant/hooks/hooks.json`,
+// which resolves to `<publicRoot>/codex/cards-assistant/hooks/hooks.json`)
+// still gets its `<publicRoot>` prefix stripped into a root-absolute
+// public-URL id (`/codex/cards-assistant/hooks/hooks.json`) before this
+// config's `publicDir: false` is consulted, and that stripped id is then
+// handed to node's native loader, which cannot resolve it
+// ("Cannot find module '/codex/.../hooks.json'"). Re-map any root-absolute id
+// whose stripped-prefix form exists under the `public/` workspace root back
+// to the real file.
+const publicRoot = resolve(__dirname, '../..');
+const publicRootRewrite = {
+  name: 'public-root-rewrite',
+  enforce: 'pre' as const,
+  resolveId(id: string) {
+    if (!id.startsWith('/') || id.startsWith('/@fs')) {
+      return null;
+    }
+    const candidate = resolve(publicRoot, `.${id}`);
+    return existsSync(candidate) ? candidate : null;
+  }
+};
+
 export default defineConfig({
   // This monorepo's workspace-root directory is literally named `public/`
   // (`<repoRoot>/public/packages/...`). Vite's default `publicDir` detection
@@ -82,7 +108,7 @@ export default defineConfig({
   // module id, breaking the import ("Cannot find module"). There is no dev
   // server here — disable the feature entirely.
   publicDir: false,
-  plugins: [textAssetPlugin, jsToTsSiblingResolve],
+  plugins: [textAssetPlugin, jsToTsSiblingResolve, publicRootRewrite],
   test: {
     include: ['test/**/*.test.ts'],
     globals: false,
