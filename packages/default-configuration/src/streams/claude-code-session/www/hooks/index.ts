@@ -6,4 +6,3 @@
  */
 
 export { useStreamStore } from './useStreamStore';
-export { useThemeAttribute } from './useThemeAttribute';
