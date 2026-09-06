@@ -10,7 +10,9 @@
  * @module
  * @example
  * ```typescript
- * import { logger } from '@cards.management/sdk/config';
+ * import { Logger } from '@cards.management/sdk/config';
+ *
+ * const logger = new Logger();
  *
  * // Subscribe to log events
  * const unsubscribe = logger.on('error', (event) => {
@@ -264,8 +266,7 @@ export function resolveLogFilePath(config: LoggerConfig): string | null {
  * primarily for type compatibility and testing purposes, allowing tests
  * to mock the logger without needing to implement all internal methods.
  *
- * For production use, use the {@link Logger} class or the {@link logger}
- * singleton export.
+ * For production use, use the {@link Logger} class directly.
  */
 export interface ILogger {
   /**
@@ -320,7 +321,9 @@ export interface ILogger {
  * The logger never writes to stdout or stderr.
  * @example
  * ```typescript
- * import { logger } from '@cards.management/sdk/config';
+ * import { Logger } from '@cards.management/sdk/config';
+ *
+ * const logger = new Logger();
  *
  * // Subscribe to events at specific level
  * logger.on('warn', (event) => {
@@ -366,15 +369,9 @@ export class Logger {
   /**
    * Creates a new Logger instance.
    *
-   * Typically you should use the exported `logger` singleton rather than
-   * creating new instances.
    * @param config - Optional configuration
    * @example
    * ```typescript
-   * // Use singleton (recommended)
-   * import { logger } from '@cards.management/sdk/config';
-   *
-   * // Or create custom instance
    * const customLogger = new Logger({ logFilePath: '/var/log/hooks.log' });
    * ```
    */
@@ -744,63 +741,3 @@ export class Logger {
     };
   }
 }
-
-// ============================================================================
-// Singleton Export
-// ============================================================================
-
-/**
- * Global logger instance for Cards Extension hooks.
- *
- * Use this singleton for all logging within hooks. The logger is configured
- * via environment variables and supports event subscription for custom
- * destinations.
- *
- * ## Configuration
- *
- * | Environment Variable | Description |
- * |---------------------|-------------|
- * | `CARDS_HOOKS_LOG_FILE` | Path to log file (JSON Lines format) |
- *
- * ## Usage in Hooks
- *
- * The logger can be used directly within hook handlers:
- *
- * ```typescript
- * import { logger } from '@cards.management/sdk/config';
- *
- * // In a hook handler
- * logger.warn('Task starting in interactive mode');
- * ```
- *
- * ## External Integration
- *
- * Subscribe to events to forward logs to external systems:
- *
- * ```typescript
- * import { logger } from '@cards.management/sdk/config';
- * import pino from 'pino';
- *
- * const pinoLogger = pino({ level: 'debug' });
- *
- * logger.on('debug', (event) => pinoLogger.debug(event, event.message));
- * logger.on('info', (event) => pinoLogger.info(event, event.message));
- * logger.on('warn', (event) => pinoLogger.warn(event, event.message));
- * logger.on('error', (event) => pinoLogger.error(event, event.message));
- * ```
- * @example
- * ```typescript
- * // Direct usage
- * import { logger } from '@cards.management/sdk/config';
- *
- * logger.info('Starting operation');
- * logger.warn('Resource limit approaching', { usage: 0.9 });
- *
- * try {
- *   await riskyOperation();
- * } catch (err) {
- *   logger.logError(err, 'Risky operation failed');
- * }
- * ```
- */
-export const logger = new Logger();

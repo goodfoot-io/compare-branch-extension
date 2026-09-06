@@ -82,7 +82,6 @@ export {
   Logger,
   type LoggerConfig,
   type LogLevel,
-  logger,
   type Unsubscribe
 } from './config/logger.js';
 // --- Runtime ---

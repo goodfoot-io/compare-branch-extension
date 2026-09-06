@@ -135,7 +135,6 @@ export {
   Logger,
   type LoggerConfig,
   type LogLevel,
-  logger,
   resolveLogFilePath,
   type Unsubscribe
 } from './logger.js';

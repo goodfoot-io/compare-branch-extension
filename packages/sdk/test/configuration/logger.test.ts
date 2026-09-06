@@ -630,12 +630,3 @@ describe('Logger', () => {
     });
   });
 });
-
-describe('logger singleton', () => {
-  it('exports a singleton logger instance', async () => {
-    // Import the singleton
-    const { logger } = await import('../../src/config/logger.js');
-
-    expect(logger).toBeInstanceOf(Logger);
-  });
-});

@@ -87,7 +87,9 @@ Tiers 4 and 5 apply only when `new Logger({ subsystem: 'my-action' })` sets a su
 `on(level, handler)` subscribes to one level and returns an unsubscribe function. Use it to forward events to an external logger (pino, etc.) — subscribe per level, one call each.
 
 ```typescript
-import { logger } from '@cards.management/sdk/config';
+import { Logger } from '@cards.management/sdk/config';
+
+const logger = new Logger();
 
 const unsubscribe = logger.on('error', (event) => {
   console.error(`[${event.hookType}] ${event.message}`);
