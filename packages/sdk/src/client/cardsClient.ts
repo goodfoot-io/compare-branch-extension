@@ -26,7 +26,6 @@ import type {
   CardCreateData,
   CardsClientOptions,
   CardUpdateData,
-  Comment,
   CommitInfo,
   GateApprovalResponse,
   ListCardsOptions,
@@ -630,21 +629,6 @@ export class CardsClient {
   async deleteCard(cardId: string): Promise<void> {
     const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}`);
     return this.request(() => this.getHttpClient().delete(url));
-  }
-
-  // --- Comment Operations ---
-
-  /**
-   * Gets all comments for a card.
-   *
-   * @param cardId - Identifier of the target card for this request.
-   * @returns Promise resolving to the comment list.
-   * @throws ApiError when the server responds with an error.
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async getComments(cardId: string): Promise<Comment[]> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments`);
-    return this.request(() => this.getHttpClient().get<Comment[]>(url));
   }
 
   // --- Attachment Operations ---

@@ -36,7 +36,6 @@ All are `async` and throw on HTTP failure.
 | Group | Methods |
 |-------|---------|
 | Cards | `listCards`, `listCardSummaries`, `getCard`, `createCard`, `updateCard`, `deleteCard` |
-| Comments | `getComments` |
 | Attachments | `uploadAttachment`, `getAttachment`, `listAttachments` |
 | Files & gates | `putFile`, `approveGate` (`'plan' \| 'mergeRequest'`) |
 | Commits & branches | `getCommits`, `addCommit`, `removeCommit`, `getBranches`, `addBranch`, `removeBranch` |

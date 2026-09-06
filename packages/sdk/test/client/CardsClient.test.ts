@@ -236,18 +236,6 @@ describe('CardsClient', () => {
     });
   });
 
-  describe('Comment Operations', () => {
-    it('should GET /cards/:id/comments when fetching comments', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.getComments('card-123');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'GET',
-        url: expect.stringContaining('/cards/card-123/comments')
-      });
-    });
-  });
-
   describe('path segment encoding', () => {
     const hostileCardId = 'a b/../c';
     const encodedHostileCardId = 'a%20b%2F..%2Fc';
@@ -295,7 +283,6 @@ describe('CardsClient', () => {
     const cardIdCallers: Array<[string, (client: CardsClient, cardId: string) => Promise<unknown>]> = [
       ['updateCard', (client, cardId) => client.updateCard(cardId, { title: 'x' })],
       ['deleteCard', (client, cardId) => client.deleteCard(cardId)],
-      ['getComments', (client, cardId) => client.getComments(cardId)],
       ['listAttachments', (client, cardId) => client.listAttachments(cardId)],
       ['getTimeline', (client, cardId) => client.getTimeline(cardId)],
       ['putFile', (client, cardId) => client.putFile(cardId, 'PLAN.md', 'content')],
