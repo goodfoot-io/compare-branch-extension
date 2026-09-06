@@ -50,24 +50,6 @@ export function writeError(message: string): void {
   process.stderr.write(`${message}\n`);
 }
 
-/**
- * Writes an error message to stderr and exits with ERROR code.
- *
- * This terminates the process immediately, so any pending async work will
- * not finish unless it was already awaited.
- * @param message - Error message to write before exiting
- * @example
- * ```typescript
- * if (!isValid) {
- *   exitWithError('Invalid configuration');
- * }
- * ```
- */
-export function exitWithError(message: string): never {
-  writeError(message);
-  process.exit(EXIT_CODES.ERROR);
-}
-
 // ============================================================================
 // Internal Result Tracking
 // ============================================================================

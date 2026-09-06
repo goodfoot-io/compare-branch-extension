@@ -5,13 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  EXIT_CODES,
-  type ExitCode,
-  exitWithError,
-  type HookExecutionResult,
-  writeError
-} from '../../src/config/exit-codes.js';
+import { EXIT_CODES, type ExitCode, type HookExecutionResult, writeError } from '../../src/config/exit-codes.js';
 
 describe('EXIT_CODES', () => {
   it('has SUCCESS as 0', () => {
@@ -59,29 +53,6 @@ describe('writeError', () => {
   it('handles messages with newlines', () => {
     writeError('Line 1\nLine 2');
     expect(stderrSpy).toHaveBeenCalledWith('Line 1\nLine 2\n');
-  });
-});
-
-describe('exitWithError', () => {
-  let stderrSpy: ReturnType<typeof vi.spyOn>;
-  let exitSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-  });
-
-  afterEach(() => {
-    stderrSpy.mockRestore();
-    exitSpy.mockRestore();
-  });
-
-  it('writes error message and exits with ERROR code', () => {
-    expect(() => exitWithError('Fatal error')).toThrow('process.exit called');
-    expect(stderrSpy).toHaveBeenCalledWith('Fatal error\n');
-    expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
   });
 });
 

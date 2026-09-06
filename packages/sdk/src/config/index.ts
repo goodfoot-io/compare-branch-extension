@@ -119,7 +119,6 @@ export {
 export {
   EXIT_CODES,
   type ExitCode,
-  exitWithError,
   writeError
 } from './exit-codes.js';
 

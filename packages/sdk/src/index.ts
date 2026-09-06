@@ -59,7 +59,6 @@ export {
 export {
   EXIT_CODES,
   type ExitCode,
-  exitWithError,
   writeError
 } from './config/exit-codes.js';
 // --- Action Factories ---
