@@ -37,7 +37,7 @@ import type { Card, CardRelation } from './card.js';
 import type { CodingAgentId } from './coding-agent.js';
 import type { ExecutionMode } from './settings.js';
 import type { CardStatus } from './status.js';
-import type { Comment, TimelineItem } from './timeline.js';
+import type { TimelineItem } from './timeline.js';
 
 // ============================================================================
 // Card API Types
@@ -286,52 +286,6 @@ export interface HasUpdatesResponse {
    */
   updatedAt: string;
 }
-
-// ============================================================================
-// Comment API Types
-// ============================================================================
-
-/**
- * Request body for `POST /cards/:id/comments`.
- *
- * Creates a new comment on the specified card. The server generates
- * the comment ID and timestamps automatically.
- */
-export interface CreateCommentRequest {
-  /**
-   * Full git author identity for commit attribution, e.g. `user <user@cards.local>`.
-   * Passed verbatim as the git `--author` flag.
-   */
-  author: string;
-
-  /**
-   * Comment body content.
-   * May contain markdown for rich formatting.
-   */
-  content: string;
-}
-
-/**
- * Request body for `PATCH /cards/:id/comments/:commentId`.
- *
- * Updates an existing comment's content. The `updatedAt` timestamp
- * is refreshed automatically by the server.
- */
-export interface UpdateCommentRequest {
-  /**
-   * Updated comment content.
-   * Replaces the existing content entirely.
-   */
-  content: string;
-}
-
-/**
- * Response from comment endpoints.
- *
- * This is an alias for the {@link Comment} type, used here for clarity in
- * API contexts where the response shape is being documented.
- */
-export type CommentResponse = Comment;
 
 // ============================================================================
 // Attachment API Types

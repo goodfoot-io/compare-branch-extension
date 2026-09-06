@@ -19,12 +19,10 @@ export type {
   CardPostCommitRequest,
   CardPostCommitResponse,
   CardResponse,
-  CommentResponse,
   CommitAttributionResponse,
   ConnectionsResponse,
   CreateAttachmentRequest,
   CreateCardRequest,
-  CreateCommentRequest,
   EnvironmentInfo,
   EnvironmentsResponse,
   ExecuteActionRequest,
@@ -38,7 +36,6 @@ export type {
   TimelineRequest,
   TimelineResponse,
   UpdateCardRequest,
-  UpdateCommentRequest,
   WorkspacePostCommitRequest,
   WorkspacePostCommitResponse
 } from './api-requests.js';

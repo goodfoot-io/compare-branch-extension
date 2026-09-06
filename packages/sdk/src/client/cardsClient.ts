@@ -27,8 +27,6 @@ import type {
   CardsClientOptions,
   CardUpdateData,
   Comment,
-  CommentCreateData,
-  CommentUpdateData,
   CommitInfo,
   GateApprovalResponse,
   ListCardsOptions,
@@ -647,66 +645,6 @@ export class CardsClient {
   async getComments(cardId: string): Promise<Comment[]> {
     const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments`);
     return this.request(() => this.getHttpClient().get<Comment[]>(url));
-  }
-
-  /**
-   * Gets a single comment by id.
-   *
-   * @param cardId - Identifier of the card that owns the requested comment.
-   * @param commentId - Identifier of the comment to retrieve.
-   * @returns Promise resolving to the comment.
-   * @throws ApiError when the server responds with an error.
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async getComment(cardId: string, commentId: string): Promise<Comment> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments/${encodeURIComponent(commentId)}`);
-    return this.request(() => this.getHttpClient().get<Comment>(url));
-  }
-
-  /**
-   * Creates a new comment on a card.
-   *
-   * @param cardId - Identifier of the card that will receive the new comment.
-   * @param data - Comment creation payload.
-   * @returns Promise resolving to the created comment.
-   * @throws ApiError when the server rejects the payload.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async createComment(cardId: string, data: CommentCreateData): Promise<Comment> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments`);
-    return this.request(() => this.getHttpClient().post<Comment>(url, data), false);
-  }
-
-  /**
-   * Updates an existing comment.
-   *
-   * @param cardId - Identifier of the card that owns the comment.
-   * @param commentId - Identifier of the comment to update.
-   * @param data - Comment update payload.
-   * @returns Promise resolving to the updated comment.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async updateComment(cardId: string, commentId: string, data: CommentUpdateData): Promise<Comment> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments/${encodeURIComponent(commentId)}`);
-    return this.request(() => this.getHttpClient().patch<Comment>(url, data));
-  }
-
-  /**
-   * Deletes a comment.
-   *
-   * @param cardId - Identifier of the card that owns the comment.
-   * @param commentId - Identifier of the comment to remove.
-   * @returns Promise resolving when deletion is complete.
-   * @throws ApiError when the server rejects the delete.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async deleteComment(cardId: string, commentId: string): Promise<void> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/comments/${encodeURIComponent(commentId)}`);
-    return this.request(() => this.getHttpClient().delete(url));
   }
 
   // --- Attachment Operations ---

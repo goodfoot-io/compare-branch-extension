@@ -23,7 +23,6 @@ export type {
   CommitAttributionResponse,
   CreateAttachmentRequest,
   CreateCardRequest,
-  CreateCommentRequest,
   EnvironmentInfo,
   EnvironmentsResponse,
   GateName,
@@ -33,8 +32,7 @@ export type {
   TagsResponse,
   TimelineRequest,
   TimelineResponse,
-  UpdateCardRequest,
-  UpdateCommentRequest
+  UpdateCardRequest
 } from '../../protocol/index.js';
 
 // ============================================================================
@@ -178,27 +176,6 @@ export interface CardUpdateData {
   relations?: CardRelation[];
   /** Git commit author for the update (e.g. 'system <system@cards.local>'). */
   author?: string;
-}
-
-/**
- * Data required to create a new comment (SDK input).
- *
- * Note: The server's CreateCommentRequest requires 'author', but the SDK
- * may default this. This type matches the SDK's public interface.
- */
-export interface CommentCreateData {
-  /** Content of the comment in markdown. */
-  content: string;
-  /** Optional author name (SDK may provide default). */
-  author?: string;
-}
-
-/**
- * Data for updating an existing comment (SDK input).
- */
-export interface CommentUpdateData {
-  /** New content for the comment. */
-  content?: string;
 }
 
 // ============================================================================

@@ -246,50 +246,6 @@ describe('CardsClient', () => {
         url: expect.stringContaining('/cards/card-123/comments')
       });
     });
-
-    it('should GET /cards/:id/comments/:commentId when fetching single comment', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.getComment('card-123', 'comment-456');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'GET',
-        url: expect.stringContaining('/cards/card-123/comments/comment-456')
-      });
-    });
-
-    it('should POST /cards/:id/comments when creating comment', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      const data = { content: 'Test comment' };
-      await client.createComment('card-123', data);
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'POST',
-        url: expect.stringContaining('/cards/card-123/comments'),
-        body: data
-      });
-    });
-
-    it('should PATCH /cards/:id/comments/:commentId when updating comment', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      const data = { content: 'Updated comment' };
-      await client.updateComment('card-123', 'comment-456', data);
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'PATCH',
-        url: expect.stringContaining('/cards/card-123/comments/comment-456'),
-        body: data
-      });
-    });
-
-    it('should DELETE /cards/:id/comments/:commentId when deleting comment', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.deleteComment('card-123', 'comment-456');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'DELETE',
-        url: expect.stringContaining('/cards/card-123/comments/comment-456')
-      });
-    });
   });
 
   describe('path segment encoding', () => {
@@ -308,13 +264,6 @@ describe('CardsClient', () => {
       const client = new CardsClient(options, httpClient);
       await client.getCard(hostileCardId);
       expect(new URL(httpClient.requests[0]!.url).pathname).toBe(`/cards/${encodedHostileCardId}`);
-    });
-
-    it('should encode commentId as a single path segment', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.getComment('card-123', 'comment/1 ?#');
-      expect(new URL(httpClient.requests[0]!.url).pathname).toBe('/cards/card-123/comments/comment%2F1%20%3F%23');
     });
 
     it('should encode attachmentId as a single path segment', async () => {
@@ -347,10 +296,6 @@ describe('CardsClient', () => {
       ['updateCard', (client, cardId) => client.updateCard(cardId, { title: 'x' })],
       ['deleteCard', (client, cardId) => client.deleteCard(cardId)],
       ['getComments', (client, cardId) => client.getComments(cardId)],
-      ['getComment', (client, cardId) => client.getComment(cardId, 'comment-456')],
-      ['createComment', (client, cardId) => client.createComment(cardId, { content: 'x' })],
-      ['updateComment', (client, cardId) => client.updateComment(cardId, 'comment-456', { content: 'x' })],
-      ['deleteComment', (client, cardId) => client.deleteComment(cardId, 'comment-456')],
       ['listAttachments', (client, cardId) => client.listAttachments(cardId)],
       ['getTimeline', (client, cardId) => client.getTimeline(cardId)],
       ['putFile', (client, cardId) => client.putFile(cardId, 'PLAN.md', 'content')],
