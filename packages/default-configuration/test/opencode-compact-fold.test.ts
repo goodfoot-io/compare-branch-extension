@@ -13,11 +13,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { opencodeToCompactCardModel } from '../src/streams/opencode-session/www/lib/adapt-compact-model.js';
-import {
-  buildFoldedState,
-  buildOpencodeCompactState,
-  reconcileFolded
-} from '../src/streams/opencode-session/www/lib/compact-state.js';
+import { buildFoldedState, reconcileFolded } from '../src/streams/opencode-session/www/lib/compact-state.js';
 
 // ============================================================================
 // Fixture helpers — exporter envelope shapes (mirrors opencode-parser)
@@ -195,7 +191,7 @@ describe('reconcileFolded — incremental equivalence', () => {
     folded = reconcileFolded(folded, [...batch1, ...batch2], true);
     folded = reconcileFolded(folded, all, true);
 
-    expect(folded.state).toEqual(buildOpencodeCompactState(all, true));
+    expect(folded.state).toEqual(buildFoldedState(all, true).state);
     expect(folded.lineCount).toBe(all.length);
   });
 });
@@ -259,7 +255,7 @@ describe('reconcileFolded — patch and file parts fold without breaking the pin
     folded = reconcileFolded(folded, [...batch1, ...batch2], true);
     folded = reconcileFolded(folded, all, true);
 
-    expect(folded.state).toEqual(buildOpencodeCompactState(all, true));
+    expect(folded.state).toEqual(buildFoldedState(all, true).state);
     expect(folded.lineCount).toBe(all.length);
   });
 
@@ -279,7 +275,7 @@ describe('reconcileFolded — patch and file parts fold without breaking the pin
     const folded = buildFoldedState(base, false);
     const updated = reconcileFolded(folded, all, false);
 
-    expect(updated.state).toEqual(buildOpencodeCompactState(all, false));
+    expect(updated.state).toEqual(buildFoldedState(all, false).state);
   });
 });
 
@@ -294,7 +290,7 @@ describe('reconcileFolded — idle lines fold without breaking the pins', () => 
     folded = reconcileFolded(folded, [...batch1, ...batch2], true);
     folded = reconcileFolded(folded, all, true);
 
-    expect(folded.state).toEqual(buildOpencodeCompactState(all, true));
+    expect(folded.state).toEqual(buildFoldedState(all, true).state);
     expect(folded.lineCount).toBe(all.length);
   });
 
@@ -313,7 +309,7 @@ describe('reconcileFolded — idle lines fold without breaking the pins', () => 
     const folded = buildFoldedState(base, false);
     const updated = reconcileFolded(folded, all, false);
 
-    expect(updated.state).toEqual(buildOpencodeCompactState(all, false));
+    expect(updated.state).toEqual(buildFoldedState(all, false).state);
   });
 });
 

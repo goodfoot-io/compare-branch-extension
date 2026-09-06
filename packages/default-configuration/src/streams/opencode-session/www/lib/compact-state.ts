@@ -309,32 +309,6 @@ function snapshot(fold: OpencodeFoldState, isActive: boolean, role?: string, age
 }
 
 /**
- * Rebuilds {@link OpencodeCompactState} from the full transcript line array.
- *
- * Pure with respect to `lines`: counts, headline, token totals, duration, and
- * the bounded tail are all recomputed from scratch, so passing a shorter
- * replacement array after a reset yields fresh state with no stale carryover.
- *
- * @param lines - The authoritative accumulated transcript NDJSON lines.
- * @param isActive - Whether the underlying stream is still live.
- * @param role - The primary stream's sidecar `role` (`'main'`/`'subagent'`/`'auxiliary'`).
- * @param agentId - The primary stream's sidecar `agentId`, present for subagent/auxiliary streams.
- * @returns The bounded compact-view state.
- */
-export function buildOpencodeCompactState(
-  lines: string[],
-  isActive: boolean,
-  role?: string,
-  agentId?: string
-): OpencodeCompactState {
-  const fold = makeFold();
-  for (const raw of lines) {
-    processLine(fold, raw);
-  }
-  return snapshot(fold, isActive, role, agentId);
-}
-
-/**
  * Folds `lines` from scratch into a {@link FoldedState} ready for
  * {@link reconcileFolded}. This is the view's boot value.
  *
