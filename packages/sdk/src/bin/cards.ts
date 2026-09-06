@@ -78,15 +78,13 @@ async function resolveLinkedWorktreeDir(): Promise<string | null> {
     // git emits forward-slash paths even on Windows (`C:/Users/...`); normalize
     // to a native filesystem path so the resolved worktreeDir compares equal to
     // fs paths downstream (repo-match guard, unbound-candidate record key) and
-    // reads correctly in the bind notices. Mirrors getWorktreeForBranch.
+    // reads correctly in the bind notices.
     return resolvePath(toplevel);
   } catch {
     // Not a git repository, or git unavailable — no linked worktree to bind.
     return null;
   }
 }
-
-const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 const HELP = `Usage: cards [options] <command>
 
@@ -881,70 +879,6 @@ export async function searchCards(args: string[]): Promise<void> {
   const summaries = toCardListSummaries(raw);
   const results = filterCardsByTags(summaries, derivedTags, relatedTo);
   console.log(formatOutput(results, flags['jsonpath']?.[0]));
-}
-
-/**
- * Finds the worktree path where a given branch is checked out.
- *
- * Parses `git worktree list --porcelain` output to locate the worktree
- * that has the specified branch checked out. Each worktree entry in the
- * porcelain output consists of a `worktree <path>` line followed by
- * metadata lines including `branch refs/heads/<name>`.
- *
- * @param branchName - The branch name to search for (without refs/heads/ prefix).
- * @returns The worktree path where the branch is checked out, or null if not found.
- */
-export function getWorktreeForBranch(branchName: string): string | null {
-  const result = spawnSync('git', ['worktree', 'list', '--porcelain'], {
-    encoding: 'utf-8',
-    timeout: 3000
-  });
-  if (result.error || result.status !== 0) return null;
-
-  const branchRef = `branch refs/heads/${branchName}`;
-  let currentWorktree: string | null = null;
-
-  for (const line of result.stdout.split('\n')) {
-    if (line.startsWith('worktree ')) {
-      // git emits forward-slash paths even on Windows; normalize to a native
-      // filesystem path so callers can compare against fs paths directly.
-      currentWorktree = resolvePath(line.slice('worktree '.length));
-    } else if (line === branchRef && currentWorktree !== null) {
-      return currentWorktree;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Detects the current git branch name.
- *
- * @returns The branch name, or null if on detached HEAD or git unavailable.
- */
-export function getCurrentBranch(): string | null {
-  const result = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-    encoding: 'utf-8',
-    timeout: 3000
-  });
-  if (result.error || result.status !== 0) return null;
-  const branch = result.stdout.trim();
-  return branch && branch !== 'HEAD' ? branch : null;
-}
-
-/**
- * Checks whether a commit SHA is an ancestor of HEAD.
- *
- * @param sha - Full 40-character commit hash to check.
- * @returns True if the SHA is reachable from HEAD.
- */
-export function isAncestorOfHead(sha: string): boolean {
-  if (!SHA_PATTERN.test(sha)) return false;
-  const result = spawnSync('git', ['merge-base', '--is-ancestor', sha, 'HEAD'], {
-    stdio: 'ignore',
-    timeout: 3000
-  });
-  return !result.error && result.status === 0;
 }
 
 /**

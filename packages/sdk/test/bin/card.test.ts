@@ -25,7 +25,6 @@ import { forceRemoveSync } from '../helpers/forceRemove.js';
  */
 const tsxCli = createRequire(import.meta.url).resolve('tsx/cli');
 
-import { TestGitWorkspace } from '@cards.management/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:os', async (importOriginal) => {
@@ -71,9 +70,6 @@ import {
   connectClient,
   createCard,
   executeAction,
-  getCurrentBranch,
-  getWorktreeForBranch,
-  isAncestorOfHead,
   listCards,
   parseCardCreateInput,
   searchCards
@@ -576,96 +572,6 @@ describe('card binary', () => {
     it('stringifies numeric and boolean scalars', () => {
       expect(applyJsonPath({ n: 42 }, '$.n')).toBe('42');
       expect(applyJsonPath({ b: true }, '$.b')).toBe('true');
-    });
-  });
-
-  describe('getCurrentBranch', () => {
-    let workspace: TestGitWorkspace;
-
-    beforeEach(async () => {
-      workspace = new TestGitWorkspace();
-      await workspace.create();
-    });
-
-    afterEach(() => {
-      workspace.destroy();
-    });
-
-    it('returns branch name when on a named branch', () => {
-      // Test runs inside the workspace git repo
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        const branch = getCurrentBranch();
-        expect(branch).toBe('main');
-      } finally {
-        process.chdir(origCwd);
-      }
-    });
-  });
-
-  describe('getWorktreeForBranch', () => {
-    let workspace: TestGitWorkspace;
-
-    beforeEach(async () => {
-      workspace = new TestGitWorkspace();
-      await workspace.create();
-    });
-
-    afterEach(() => {
-      workspace.destroy();
-    });
-
-    it('returns worktree path for a branch checked out in the main worktree', () => {
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        const result = getWorktreeForBranch('main');
-        expect(result).toBe(workspace.getPath());
-      } finally {
-        process.chdir(origCwd);
-      }
-    });
-
-    it('returns null for a branch not checked out anywhere', () => {
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        const result = getWorktreeForBranch('nonexistent-branch');
-        expect(result).toBeNull();
-      } finally {
-        process.chdir(origCwd);
-      }
-    });
-  });
-
-  describe('isAncestorOfHead', () => {
-    let workspace: TestGitWorkspace;
-
-    beforeEach(async () => {
-      workspace = new TestGitWorkspace();
-      await workspace.create();
-    });
-
-    afterEach(() => {
-      workspace.destroy();
-    });
-
-    it('returns true for ancestor commit', async () => {
-      const firstSha = await workspace.getFirstCommitSha();
-      await workspace.createAndCommitFile('test.txt', 'content');
-
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        expect(isAncestorOfHead(firstSha)).toBe(true);
-      } finally {
-        process.chdir(origCwd);
-      }
-    });
-
-    it('returns false for invalid SHA format', () => {
-      expect(isAncestorOfHead('not-a-sha')).toBe(false);
     });
   });
 
