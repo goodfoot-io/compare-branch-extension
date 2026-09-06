@@ -14,7 +14,7 @@
 
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import type { Dirent } from 'node:fs';
+import { type Dirent, realpathSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -658,7 +658,18 @@ export async function removeWorktree(worktreePath: string): Promise<void> {
     throw new WorktreeScopeError('removeWorktree: worktreePath must be a non-empty string');
   }
 
-  const worktreesRoot = path.resolve(resolveWorktreesRoot());
+  const rawWorktreesRoot = path.resolve(resolveWorktreesRoot());
+  let canonicalWorktreesRoot: string;
+  try {
+    canonicalWorktreesRoot = await fs.realpath(rawWorktreesRoot);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      canonicalWorktreesRoot = rawWorktreesRoot;
+    } else {
+      throw error;
+    }
+  }
+
   const resolved = path.resolve(worktreePath);
 
   // Canonicalize to follow symlinks before the prefix check.
@@ -675,7 +686,7 @@ export async function removeWorktree(worktreePath: string): Promise<void> {
     }
   }
 
-  if (!canonical.startsWith(worktreesRoot + path.sep)) {
+  if (!canonical.startsWith(canonicalWorktreesRoot + path.sep) && !canonical.startsWith(rawWorktreesRoot + path.sep)) {
     throw new WorktreeScopeError(`removeWorktree: path is outside the Cards worktrees root: ${canonical}`);
   }
 
@@ -1738,6 +1749,21 @@ function getIgnoredWorktreePrefixes(sourceRoot: string): string[] {
     if (normalized.length > 0) {
       prefixes.add(normalized);
     }
+  }
+
+  try {
+    const canonicalSource = realpathSync(sourceRoot);
+    const canonicalWorktrees = realpathSync(worktreesRoot);
+    const canonicalRelative = path.relative(canonicalSource, canonicalWorktrees);
+
+    if (!canonicalRelative.startsWith('..') && !path.isAbsolute(canonicalRelative)) {
+      const normalized = normalizeRelativePath(canonicalRelative);
+      if (normalized.length > 0) {
+        prefixes.add(normalized);
+      }
+    }
+  } catch {
+    // Ignore ENOENT / filesystem errors during realpath check
   }
 
   return [...prefixes];
