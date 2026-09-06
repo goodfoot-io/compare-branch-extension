@@ -28,8 +28,7 @@ import type {
   CardUpdateData,
   GateApprovalResponse,
   ListCardsOptions,
-  TimelineOptions,
-  TypeSchemasResponse
+  TimelineOptions
 } from './types/client.js';
 import { ApiError, NetworkError, RequestCancelledError, RetryExhaustedError } from './types/errors.js';
 
@@ -859,24 +858,6 @@ export class CardsClient {
       workspacePath: this.options.workspacePath
     });
     return this.request(() => this.getHttpClient().get<EnvironmentsResponse>(url));
-  }
-
-  // --- Type Schema Operations ---
-
-  /**
-   * Gets type schemas and descriptions for a card's environment.
-   *
-   * Returns metadata about each registered type in the card's environment,
-   * including version, schema, and description. Command details are excluded.
-   *
-   * @param cardId - Identifier of the card whose type schema metadata should be fetched.
-   * @returns Promise resolving to type schema information.
-   * @throws ApiError when the server responds with an error.
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async getTypeSchemas(cardId: string): Promise<TypeSchemasResponse> {
-    const url = this.buildUrl(`/cards/${encodeURIComponent(cardId)}/schema`);
-    return this.request(() => this.getHttpClient().get<TypeSchemasResponse>(url));
   }
 
   // --- Stream Operations ---

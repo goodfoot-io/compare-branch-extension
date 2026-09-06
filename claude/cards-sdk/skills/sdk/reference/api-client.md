@@ -40,7 +40,7 @@ All are `async` and throw on HTTP failure.
 | Files & gates | `putFile`, `approveGate` (`'plan' \| 'mergeRequest'`) |
 | Branches | `getBranches`, `addBranch`, `removeBranch` |
 | Streams | `listStreams`, `getStream` |
-| Workspace | `getTags`, `getEnvironments`, `getTypeSchemas`, `getTimeline`, `executeAction` |
+| Workspace | `getTags`, `getEnvironments`, `getTimeline`, `executeAction` |
 | Compare | `setCompare`, `getCompare`, `clearCompare` |
 
 Non-async accessors: `updateAccessToken(token)`, `getBaseUrl()`, `hasHttpClient()`.

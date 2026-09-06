@@ -217,27 +217,3 @@ export interface CommitInfo {
   /** ISO 8601 timestamp when the commit was added. */
   createdAt: string;
 }
-
-// ============================================================================
-// Type Schema Types
-// ============================================================================
-
-/**
- * Schema information for a single custom type.
- */
-export interface TypeSchemaInfo {
-  /** Semantic version of the type. */
-  version: string;
-  /** Human-readable schema describing the expected file format, or null if not defined. */
-  schema: string | null;
-  /** Description of the type's purpose, or null if not defined. */
-  description: string | null;
-}
-
-/**
- * Response from the type schemas endpoint.
- */
-export interface TypeSchemasResponse {
-  /** Map of type names to their schema information. */
-  types: Record<string, TypeSchemaInfo>;
-}

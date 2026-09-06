@@ -290,7 +290,6 @@ describe('CardsClient', () => {
       ['getBranches', (client, cardId) => client.getBranches(cardId)],
       ['addBranch', (client, cardId) => client.addBranch(cardId, { name: 'feature/test', parentBranch: 'main' })],
       ['removeBranch', (client, cardId) => client.removeBranch(cardId, 'feature/test')],
-      ['getTypeSchemas', (client, cardId) => client.getTypeSchemas(cardId)],
       ['listStreams', (client, cardId) => client.listStreams(cardId)],
       ['getStream', (client, cardId) => client.getStream(cardId, 'claude-session', 'session.log')],
       ['executeAction', (client, cardId) => client.executeAction(cardId, 'launch')]
@@ -713,35 +712,6 @@ describe('CardsClient', () => {
         method: 'DELETE',
         url: expect.stringContaining('/compare')
       });
-    });
-  });
-
-  describe('Type Schema Operations', () => {
-    it('should GET /cards/:id/schema when fetching type schemas', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.getTypeSchemas('card-123');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'GET',
-        url: expect.stringContaining('/cards/card-123/schema')
-      });
-    });
-
-    it('should return typed response from getTypeSchemas', async () => {
-      const httpClient = new TestHttpClient();
-      const mockResponse = {
-        types: {
-          note: { version: '1.0.0', schema: 'YAML + markdown' },
-          contract: { version: '2.0.0', schema: null, description: null }
-        }
-      };
-      httpClient.responses.set('http://localhost:3000/cards/card-123/schema', mockResponse);
-      const client = new CardsClient(options, httpClient);
-      const result = await client.getTypeSchemas('card-123');
-      expect(result.types).toBeDefined();
-      expect(result.types['note']?.version).toBe('1.0.0');
-      expect(result.types['note']?.schema).toBe('YAML + markdown');
-      expect(result.types['contract']?.schema).toBeNull();
     });
   });
 

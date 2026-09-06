@@ -36,9 +36,7 @@ export type {
   CardsClientOptions,
   CardUpdateData,
   ListCardsOptions,
-  TimelineOptions,
-  TypeSchemaInfo,
-  TypeSchemasResponse
+  TimelineOptions
 } from './types/client.js';
 // Error classes
 export { ApiError, NetworkError, RequestCancelledError, RetryExhaustedError } from './types/errors.js';
