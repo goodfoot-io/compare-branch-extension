@@ -37,9 +37,7 @@ import {
   rerouteAllNodeModules,
   rerouteNodeModules,
   resolveHead,
-  resolveRefType,
   symlinkIgnoredPaths,
-  updateGitExclude,
   validateBranchName
 } from '@cards.management/sdk/worktree';
 
@@ -49,7 +47,6 @@ describe('create-worktree stubs', () => {
     expect(typeof validateBranchName).toBe('function');
     expect(typeof findGitRoots).toBe('function');
     expect(typeof resolveHead).toBe('function');
-    expect(typeof resolveRefType).toBe('function');
     expect(typeof checkWorktreeExists).toBe('function');
     expect(typeof checkBranchExists).toBe('function');
     expect(typeof addWorktree).toBe('function');
@@ -61,7 +58,6 @@ describe('create-worktree stubs', () => {
     expect(typeof isInternalSymlink).toBe('function');
     expect(typeof rerouteNodeModules).toBe('function');
     expect(typeof rerouteAllNodeModules).toBe('function');
-    expect(typeof updateGitExclude).toBe('function');
   });
 
   it('createWorktree rejects for an invalid ref', async () => {
@@ -1248,112 +1244,6 @@ describe('enumerateReroutedNodeModules', () => {
   });
 });
 
-describe('updateGitExclude', () => {
-  let workspace: TestGitWorkspace;
-  let worktreePath: string;
-  let repoPath: string;
-
-  beforeAll(async () => {
-    workspace = new TestGitWorkspace();
-    await workspace.create();
-    repoPath = workspace.getPath();
-    const git = workspace.getGit();
-
-    // Create a real worktree
-    worktreePath = path.join(repoPath, '..', `exclude-test-worktree-${Date.now()}`);
-    await git.raw(['worktree', 'add', worktreePath, '-b', 'exclude-test-branch']);
-
-    // Create some symlinks in the worktree to simulate ignored paths
-    const symlinkTarget = path.join(repoPath, 'node_modules');
-    await fsExtra.ensureDir(symlinkTarget);
-    await fs.symlink(symlinkTarget, path.join(worktreePath, 'node_modules'));
-
-    const distTarget = path.join(repoPath, 'dist');
-    await fsExtra.ensureDir(distTarget);
-    await fs.symlink(distTarget, path.join(worktreePath, 'dist'));
-
-    // Create a real file (not a symlink) to test filtering
-    await fs.writeFile(path.join(worktreePath, 'real-file.txt'), 'not a symlink');
-
-    // Create a symlinked file
-    const envTarget = path.join(repoPath, '.env');
-    await fs.writeFile(envTarget, 'SECRET=value');
-    await fs.symlink(envTarget, path.join(worktreePath, '.env'));
-  });
-
-  afterAll(async () => {
-    if (workspace) {
-      const git = workspace.getGit();
-      if (worktreePath) {
-        try {
-          await git.raw(['worktree', 'remove', worktreePath, '--force']);
-        } catch {
-          // Ignore errors during cleanup
-        }
-      }
-      await workspace.destroy();
-    }
-  });
-
-  it('writes an exclude file at the worktree git dir info/exclude path', async () => {
-    await updateGitExclude({
-      worktreeDir: worktreePath,
-      repoRoot: repoPath,
-      directories: ['node_modules', 'dist'],
-      files: ['.env', 'real-file.txt']
-    });
-
-    const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreePath, 'rev-parse', '--git-dir'], {
-      timeout: 5000
-    });
-    const excludePath = path.join(gitDir.trim(), 'info', 'exclude');
-
-    const stat = await fs.lstat(excludePath);
-    expect(stat.isFile()).toBe(true);
-  });
-
-  it('exclude file contains header comment and only paths that are symlinks', async () => {
-    const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreePath, 'rev-parse', '--git-dir'], {
-      timeout: 5000
-    });
-    const excludePath = path.join(gitDir.trim(), 'info', 'exclude');
-
-    const content = await fs.readFile(excludePath, 'utf-8');
-
-    // Should contain header
-    expect(content).toContain('# Symlinks created by instant-worktree');
-
-    // Should contain symlinked directories
-    expect(content).toContain('node_modules');
-    expect(content).toContain('dist');
-
-    // Should contain symlinked file
-    expect(content).toContain('.env');
-
-    // Should NOT contain non-symlinked file
-    expect(content).not.toContain('real-file.txt');
-  });
-
-  it('sets extensions.worktreeConfig true on the repo', async () => {
-    const { stdout } = await execFileAsync('git', ['-C', repoPath, 'config', 'extensions.worktreeConfig'], {
-      timeout: 5000
-    });
-    expect(stdout.trim()).toBe('true');
-  });
-
-  it('sets core.excludesFile on the worktree with --worktree scope', async () => {
-    const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreePath, 'rev-parse', '--git-dir'], {
-      timeout: 5000
-    });
-    const excludePath = path.join(gitDir.trim(), 'info', 'exclude');
-
-    const { stdout } = await execFileAsync('git', ['-C', worktreePath, 'config', '--worktree', 'core.excludesFile'], {
-      timeout: 5000
-    });
-    expect(stdout.trim()).toBe(excludePath);
-  });
-});
-
 describe('createWorktree end-to-end', () => {
   let workspace: TestGitWorkspace;
   let repoPath: string;
@@ -1539,46 +1429,6 @@ describe('createWorktree end-to-end', () => {
     // Cleanup
     await git2.raw(['worktree', 'remove', settled.worktree, '--force']);
     await workspace2.destroy();
-  });
-});
-
-describe('resolveRefType', () => {
-  let workspace: TestGitWorkspace;
-  let repoPath: string;
-
-  beforeAll(async () => {
-    workspace = new TestGitWorkspace();
-    await workspace.create();
-    repoPath = workspace.getPath();
-    const git = workspace.getGit();
-
-    await git.raw(['tag', 'v1.0.0']);
-  });
-
-  afterAll(async () => {
-    if (workspace) {
-      await workspace.destroy();
-    }
-  });
-
-  it('returns "branch" for an existing branch', async () => {
-    const refType = await resolveRefType(repoPath, 'main');
-    expect(refType).toBe('branch');
-  });
-
-  it('returns "tag" for an existing tag', async () => {
-    const refType = await resolveRefType(repoPath, 'v1.0.0');
-    expect(refType).toBe('tag');
-  });
-
-  it('returns "commit" for a full SHA', async () => {
-    const sha = await resolveHead(repoPath);
-    const refType = await resolveRefType(repoPath, sha);
-    expect(refType).toBe('commit');
-  });
-
-  it('throws for a non-existent ref', async () => {
-    await expect(resolveRefType(repoPath, 'nonexistent-ref-abc123')).rejects.toThrow('does not resolve');
   });
 });
 

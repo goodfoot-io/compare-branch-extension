@@ -79,8 +79,8 @@ export function isRetryableConfigLock(message: string): boolean {
  * Runs `git config <args>` and retries on `.git/config` lock contention.
  *
  * Two writers race on the same repo config by design here:
- * {@link createWorktree}'s `settle` phase (via `updateGitExclude`) and
- * `outfitWorktreeForCard` both set `extensions.worktreeConfig` on the repo
+ * {@link createWorktree}'s `settle` phase (via {@link prepareWorktreeExcludes})
+ * and `outfitWorktreeForCard` both set `extensions.worktreeConfig` on the repo
  * root, and outfit deliberately runs before `settle` resolves (the A2 early
  * path). The write is idempotent, so the loser of the lock race only needs to
  * retry, not fail. See {@link isRetryableConfigLock} for the POSIX and Windows
@@ -388,10 +388,10 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
   // start point, and a (duplicate) branch-existence check ran one after another
   // (~330ms total). They share no state and git permits concurrent reads, so the
   // prelude collapses to the cost of the slowest probe. Classification is also
-  // inlined here so branch existence is checked once, not once here and again
-  // inside resolveRefType. resolveHead(sourceRoot) is always valid (HEAD exists)
-  // and only consumed on the branch path, so computing it eagerly is safe waste
-  // hidden behind the slower probes.
+  // inlined here so branch existence is checked once rather than once here and
+  // again by a separate classification pass. resolveHead(sourceRoot) is always
+  // valid (HEAD exists) and only consumed on the branch path, so computing it
+  // eagerly is safe waste hidden behind the slower probes.
   const [worktreeExists, branchExists, tagExists, commitResolves, startPoint] = await perf.measure(
     'prelude:probes',
     () =>
@@ -408,8 +408,8 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
   }
 
-  // Classify with branch > tag > commit precedence, matching resolveRefType. A
-  // ref that resolves to none of these is treated as a new branch to create.
+  // Classify with branch > tag > commit precedence. A ref that resolves to
+  // none of these is treated as a new branch to create.
   let refType: 'branch' | 'tag' | 'commit';
   if (branchExists) {
     refType = 'branch';
@@ -949,24 +949,6 @@ export async function checkCommitResolves(repoRoot: string, ref: string): Promis
   } catch {
     return false;
   }
-}
-
-/**
- * Determines whether a git ref is a branch, tag, or commit SHA.
- *
- * Checks local branches first, then tags, then falls back to verifying
- * the ref resolves as a commit.
- *
- * @param repoRoot - Primary repository root where git commands run.
- * @param ref - The ref to classify.
- * @throws {Error} When the ref does not resolve to any known git object.
- * @returns The ref type: `'branch'`, `'tag'`, or `'commit'`.
- */
-export async function resolveRefType(repoRoot: string, ref: string): Promise<'branch' | 'tag' | 'commit'> {
-  if (await checkBranchExists(repoRoot, ref)) return 'branch';
-  if (await checkTagExists(repoRoot, ref)) return 'tag';
-  if (await checkCommitResolves(repoRoot, ref)) return 'commit';
-  throw new Error(`Error: '${ref}' does not resolve to a branch, tag, or commit.`);
 }
 
 interface AddWorktreeOptions {
@@ -2411,19 +2393,11 @@ export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions):
   return counts.reduce((sum, c) => sum + c, 0);
 }
 
-interface UpdateGitExcludeOptions {
-  worktreeDir: string;
-  repoRoot: string;
-  directories: string[];
-  files: string[];
-  additionalExcludes?: string[];
-}
-
 /**
  * Resolves the worktree's `info/exclude` path and enables the worktree-local
  * git config needed for injected symlinks to be ignored by `git status`.
  *
- * This is the subprocess-heavy half of {@link updateGitExclude} — a
+ * This is the subprocess-heavy half of the worktree exclude setup — a
  * `rev-parse --git-dir` plus two ordered `git config` writes — and it depends
  * only on the worktree existing, not on any symlink being in place. Splitting it
  * out lets {@link createWorktree} start it at settle entry so the three git
@@ -2466,7 +2440,7 @@ export async function prepareWorktreeExcludes(worktreeDir: string, repoRoot: str
 /**
  * Appends the symlinked ignored paths to the worktree's `info/exclude` file.
  *
- * This is the symlink-dependent half of {@link updateGitExclude}: it `lstat`s
+ * This is the symlink-dependent half of the worktree exclude setup: it `lstat`s
  * each candidate and lists only the entries that are actually symlinks (the ones
  * the settle phase injected), so it must run after the symlink wave. No git
  * subprocess — pure filesystem — so it is cheap to run in the tail.
@@ -2512,22 +2486,4 @@ export async function writeWorktreeExcludeFile(
   }
 
   await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
-}
-
-/**
- * Appends symlinked ignored paths to the worktree-specific git exclude file.
- *
- * Also enables `extensions.worktreeConfig` and sets worktree-local
- * `core.excludesFile` so git status in the worktree ignores injected links.
- * Thin wrapper composing {@link prepareWorktreeExcludes} and
- * {@link writeWorktreeExcludeFile}; {@link createWorktree} calls the two halves
- * separately so the config writes overlap the settle waves.
- *
- * @param opts - Worktree path, repo root, and ignored path candidates.
- * @returns No value.
- */
-export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<void> {
-  const { worktreeDir, repoRoot, directories, files, additionalExcludes } = opts;
-  const excludePath = await prepareWorktreeExcludes(worktreeDir, repoRoot);
-  await writeWorktreeExcludeFile(excludePath, worktreeDir, directories, files, additionalExcludes);
 }
