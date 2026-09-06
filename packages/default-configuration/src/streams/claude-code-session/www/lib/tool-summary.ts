@@ -27,16 +27,6 @@ export const INFRASTRUCTURE_TOOLS = new Set([
   'RemoteTrigger'
 ]);
 
-/** Tool names that actively change state or run code (shown with amber tint). */
-export const WRITE_TOOLS = new Set([
-  'Bash',
-  'Write',
-  'Edit',
-  'MultiEdit',
-  'Agent',
-  'mcp__plugin_vscode_vscode__execute_command'
-]);
-
 /**
  * Returns a short, human-readable preview string for a tool call.
  * Extracts the most meaningful part of the input for each known tool type.

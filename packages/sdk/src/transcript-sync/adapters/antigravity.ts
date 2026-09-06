@@ -37,14 +37,6 @@ export interface AntigravityManifestInput {
 }
 
 /**
- * The `steps.status` value that marks a row terminal (witnessed: all
- * completed rows reach status 3; observed non-terminal values 6/7 and any
- * unseen value are treated as non-terminal — tracked, then flushed as
- * named-partial at termination, never emitted as final content).
- */
-export const ANTIGRAVITY_TERMINAL_STATUS = 3;
-
-/**
  * The normalized DDL of the tables the adapter reads, pinned from the live
  * witness DB (`agy 1.1.23`, notes/agy-live-witnesses.md). The schema
  * fingerprint is computed over exactly these statements in this order;

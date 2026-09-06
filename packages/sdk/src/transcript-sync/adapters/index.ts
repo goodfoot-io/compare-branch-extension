@@ -15,7 +15,6 @@ import { buildOpencodeManifest } from './opencode.js';
 export {
   ANTIGRAVITY_SCHEMA_DDL,
   ANTIGRAVITY_STREAM_TYPE,
-  ANTIGRAVITY_TERMINAL_STATUS,
   type AntigravityManifestInput,
   buildAntigravityManifest,
   computeSchemaFingerprint,

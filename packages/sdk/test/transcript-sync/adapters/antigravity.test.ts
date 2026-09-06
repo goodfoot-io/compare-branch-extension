@@ -9,7 +9,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   ANTIGRAVITY_SCHEMA_DDL,
-  ANTIGRAVITY_TERMINAL_STATUS,
   buildAntigravityManifest,
   computeSchemaFingerprint,
   decodeStepPayload
@@ -146,10 +145,6 @@ describe('antigravity payload decoder', () => {
   it('returns a format-unknown anomaly for a null payload on a witnessed type', () => {
     const result = decodeStepPayload(14, 0, null);
     expect(result.kind).toBe('anomaly');
-  });
-
-  it('exposes terminal status 3 as the pinned terminal value', () => {
-    expect(ANTIGRAVITY_TERMINAL_STATUS).toBe(3);
   });
 });
 
